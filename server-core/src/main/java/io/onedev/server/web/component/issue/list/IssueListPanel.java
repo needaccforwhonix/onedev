@@ -41,7 +41,6 @@ import org.apache.wicket.extensions.markup.html.repeater.data.grid.ICellPopulato
 import org.apache.wicket.extensions.markup.html.repeater.data.table.AbstractColumn;
 import org.apache.wicket.extensions.markup.html.repeater.data.table.DataTable;
 import org.apache.wicket.extensions.markup.html.repeater.data.table.IColumn;
-import org.apache.wicket.extensions.markup.html.repeater.data.table.NavigationToolbar;
 import org.apache.wicket.extensions.markup.html.repeater.data.table.NoRecordsToolbar;
 import org.apache.wicket.extensions.markup.html.repeater.util.SortableDataProvider;
 import org.apache.wicket.feedback.FencedFeedbackPanel;
@@ -56,7 +55,6 @@ import org.apache.wicket.markup.html.link.BookmarkablePageLink;
 import org.apache.wicket.markup.html.link.ResourceLink;
 import org.apache.wicket.markup.html.list.ListItem;
 import org.apache.wicket.markup.html.list.ListView;
-import org.apache.wicket.markup.html.navigation.paging.PagingNavigator;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.markup.repeater.Item;
@@ -118,6 +116,7 @@ import io.onedev.server.web.ajaxlistener.AttachAjaxIndicatorListener.AttachMode;
 import io.onedev.server.web.behavior.ChangeObserver;
 import io.onedev.server.web.behavior.IssueQueryBehavior;
 import io.onedev.server.web.behavior.NoRecordsBehavior;
+import io.onedev.server.web.component.datatable.ListNavigationToolbar;
 import io.onedev.server.web.component.datatable.selectioncolumn.SelectionColumn;
 import io.onedev.server.web.component.floating.FloatingPanel;
 import io.onedev.server.web.component.issue.IssueStateBadge;
@@ -129,15 +128,14 @@ import io.onedev.server.web.component.issue.progress.IssueProgressPanel;
 import io.onedev.server.web.component.issue.progress.QueriedIssuesProgressPanel;
 import io.onedev.server.web.component.issue.title.IssueTitlePanel;
 import io.onedev.server.web.component.link.DropdownLink;
-import io.onedev.server.web.component.link.copytoclipboard.CopyToClipboardLink;
 import io.onedev.server.web.component.menu.MenuItem;
 import io.onedev.server.web.component.menu.MenuLink;
 import io.onedev.server.web.component.modal.ModalLink;
 import io.onedev.server.web.component.modal.ModalPanel;
 import io.onedev.server.web.component.modal.confirm.ConfirmModalPanel;
-import io.onedev.server.web.component.pagenavigator.OnePagingNavigator;
 import io.onedev.server.web.component.project.selector.ProjectSelector;
 import io.onedev.server.web.component.savedquery.SavedQueriesClosed;
+import io.onedev.server.web.component.savedquery.SavedQueriesLink;
 import io.onedev.server.web.component.savedquery.SavedQueriesOpened;
 import io.onedev.server.web.component.sortedit.SortEditPanel;
 import io.onedev.server.web.component.user.ident.Mode;
@@ -167,7 +165,6 @@ public abstract class IssueListPanel extends Panel {
 		
 	};
 	
-	private Component countLabel;
 	
 	private DataTable<Issue, Void> issuesTable;
 	
@@ -182,7 +179,7 @@ public abstract class IssueListPanel extends Panel {
 	private TextField<String> queryInput;
 	
 	private boolean querySubmitted = true;
-	
+		
 	public IssueListPanel(String id, IModel<String> queryModel) {
 		super(id);
 		this.queryStringModel = queryModel;
@@ -202,6 +199,11 @@ public abstract class IssueListPanel extends Panel {
 
 	private AuditService getAuditService() {
 		return OneDev.getInstance(AuditService.class);
+	}
+
+	@Nullable
+	private Issue findIssueWithWorkspaces(Collection<Issue> issues) {
+		return issues.stream().filter(it -> !it.getWorkspaces().isEmpty()).findFirst().orElse(null);
 	}
 	
 	@Override
@@ -255,7 +257,6 @@ public abstract class IssueListPanel extends Panel {
 	
 	private void doQuery(AjaxRequestTarget target) {
 		issuesTable.setCurrentPage(0);
-		target.add(countLabel);
 		target.add(body);
 		if (selectionColumn != null)
 			selectionColumn.getSelections().clear();
@@ -268,7 +269,7 @@ public abstract class IssueListPanel extends Panel {
 	protected void onInitialize() {
 		super.onInitialize();
 
-		add(new AjaxLink<Void>("showSavedQueries") {
+		add(new SavedQueriesLink("showSavedQueries") {
 
 			@Override
 			public void onEvent(IEvent<?> event) {
@@ -281,7 +282,7 @@ public abstract class IssueListPanel extends Panel {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(getQuerySaveSupport() != null && !getQuerySaveSupport().isSavedQueriesVisible());
+				setVisible(getQuerySaveSupport() != null);
 			}
 
 			@Override
@@ -310,7 +311,7 @@ public abstract class IssueListPanel extends Panel {
 				if (!querySubmitted)
 					tag.put("data-tippy-content", _T("Query not submitted"));
 				else if (queryModel.getObject() == null)
-					tag.put("data-tippy-content", _T("Can not save malformed query"));
+					tag.put("data-tippy-content", _T("Cannot save malformed query"));
 			}
 
 			@Override
@@ -467,6 +468,11 @@ public abstract class IssueListPanel extends Panel {
 				target.add(saveQueryLink);
 			}
 			
+			@Override
+			protected boolean isSelectOnFocus() {
+				return true;
+			}
+
 		});
 		
 		queryInput.add(new AjaxFormComponentUpdatingBehavior("clear") {
@@ -923,7 +929,6 @@ public abstract class IssueListPanel extends Panel {
 										protected void onUpdated(AjaxRequestTarget target) {
 											modal.close();
 											selectionColumn.getSelections().clear();
-											target.add(countLabel);
 											target.add(body);
 											onBatchUpdated(target);
 										}
@@ -1156,10 +1161,18 @@ public abstract class IssueListPanel extends Panel {
 
 										@Override
 										protected void onConfirm(AjaxRequestTarget target) {
+											Collection<Issue> issues = new ArrayList<>();
+											for (IModel<Issue> each : selectionColumn.getSelections())
+												issues.add(each.getObject());
+											var issueWithWorkspaces = findIssueWithWorkspaces(issues);
+											if (issueWithWorkspaces != null) {
+												Session.get().error(MessageFormat.format(
+														_T("Unable to delete issue \"{0}\" as it has workspaces"),
+														issueWithWorkspaces.getReference().toString(getProject())));
+												target.add(body);
+												return;
+											}
 											getTransactionService().run(()-> {
-												Collection<Issue> issues = new ArrayList<>();
-												for (IModel<Issue> each : selectionColumn.getSelections())
-													issues.add(each.getObject());
 												getIssueService().delete(issues, getProject());
 												for (var issue: issues) {
 													var oldAuditContent = VersionedXmlDoc.fromBean(issue).toXML();
@@ -1167,7 +1180,6 @@ public abstract class IssueListPanel extends Panel {
 												}													
 											});
 											selectionColumn.getSelections().clear();
-											target.add(countLabel);
 											target.add(body);
 											onBatchDeleted(target);
 										}
@@ -1287,7 +1299,6 @@ public abstract class IssueListPanel extends Panel {
 										protected void onUpdated(AjaxRequestTarget target) {
 											modal.close();
 											selectionColumn.getSelections().clear();
-											target.add(countLabel);
 											target.add(body);
 											onBatchUpdated(target);
 										}
@@ -1523,10 +1534,18 @@ public abstract class IssueListPanel extends Panel {
 
 										@Override
 										protected void onConfirm(AjaxRequestTarget target) {
+											Collection<Issue> issues = new ArrayList<>();
+											for (Iterator<Issue> it = (Iterator<Issue>) dataProvider.iterator(0, issuesTable.getItemCount()); it.hasNext(); )
+												issues.add(it.next());
+											var issueWithWorkspaces = findIssueWithWorkspaces(issues);
+											if (issueWithWorkspaces != null) {
+												Session.get().error(MessageFormat.format(
+														_T("Unable to delete issue \"{0}\" as it has workspaces"),
+														issueWithWorkspaces.getReference().toString(getProject())));
+												target.add(body);
+												return;
+											}
 											getTransactionService().run(()-> {
-												Collection<Issue> issues = new ArrayList<>();
-												for (Iterator<Issue> it = (Iterator<Issue>) dataProvider.iterator(0, issuesTable.getItemCount()); it.hasNext(); )
-													issues.add(it.next());
 												getIssueService().delete(issues, getProject());
 												for (var issue: issues) {
 													var oldAuditContent = VersionedXmlDoc.fromBean(issue).toXML();
@@ -1535,19 +1554,18 @@ public abstract class IssueListPanel extends Panel {
 											});
 											dataProvider.detach();
 											selectionColumn.getSelections().clear();
-											target.add(countLabel);
 											target.add(body);
 											onBatchDeleted(target);
 										}
 
 										@Override
 										protected String getConfirmMessage() {
-											return _T("Type <code>yes</code> below to delete all queried issues");
+											return _T("Type <code>delete ALL issues</code> below to delete all queried issues");
 										}
 
 										@Override
 										protected String getConfirmInput() {
-											return "yes";
+											return "delete ALL issues";
 										}
 
 									};
@@ -1808,22 +1826,6 @@ public abstract class IssueListPanel extends Panel {
 			add(new WebMarkupContainer("showProgress").setVisible(false));			
 		}
 		
-		add(countLabel = new Label("count", new AbstractReadOnlyModel<String>() {
-			@Override
-			public String getObject() {
-				if (dataProvider.size() > 1)
-					return MessageFormat.format(_T("found {0} issues"), dataProvider.size());
-				else
-					return _T("found 1 issue");
-			} 
-
-		}) {
-			@Override
-			protected void onConfigure() {
-				super.onConfigure();
-				setVisible(dataProvider.size() != 0);
-			}
-		}.setOutputMarkupPlaceholderTag(true));
 		
 		dataProvider = new LoadableDetachableDataProvider<>() {
 
@@ -1951,9 +1953,6 @@ public abstract class IssueListPanel extends Panel {
 					
 				});
 				
-				fragment.add(new CopyToClipboardLink("copy",
-						Model.of(issue.getTitle() + " (" + issue.getReference().toString(getProject()) + ")")));
-
 				fragment.add(new AjaxLink<Void>("pin") {
 
 					@Override
@@ -2071,7 +2070,7 @@ public abstract class IssueListPanel extends Panel {
 					fragment.add(new WebMarkupContainer("user").setVisible(false));
 				fragment.add(new Label("activity", lastActivity.getDescription()));
 				fragment.add(new Label("date", DateUtils.formatAge(lastActivity.getDate()))
-						.add(new AttributeAppender("title", DateUtils.formatDateTime(lastActivity.getDate()))));
+						.add(new AttributeAppender("data-tippy-content", DateUtils.formatDateTime(lastActivity.getDate()))));
 
 				fragment.add(new ListView<Issue>("linkedIssues", new LoadableDetachableModel<>() {
 
@@ -2153,14 +2152,7 @@ public abstract class IssueListPanel extends Panel {
 		
 		if (getPagingHistorySupport() != null)
 			issuesTable.setCurrentPage(getPagingHistorySupport().getCurrentPage());
-		issuesTable.addBottomToolbar(new NavigationToolbar(issuesTable) {
-
-			@Override
-			protected PagingNavigator newPagingNavigator(String navigatorId, DataTable<?, ?> table) {
-				return new OnePagingNavigator(navigatorId, table, getPagingHistorySupport());
-			}
-			
-		});
+		issuesTable.addBottomToolbar(new ListNavigationToolbar(issuesTable, getPagingHistorySupport()));
 		issuesTable.addBottomToolbar(new NoRecordsToolbar(issuesTable));
 		issuesTable.add(new NoRecordsBehavior());
 
@@ -2217,7 +2209,7 @@ public abstract class IssueListPanel extends Panel {
 	
 	protected void onBatchDeleted(AjaxRequestTarget target) {
 	}
-		
+			
 	@Override
 	public void renderHead(IHeaderResponse response) {
 		super.renderHead(response);
@@ -2225,4 +2217,3 @@ public abstract class IssueListPanel extends Panel {
 	}
 	
 }
-

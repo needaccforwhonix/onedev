@@ -32,7 +32,6 @@
 					<wicket:svg href="select" class="icon"></wicket:svg> <wicket:t>Display Params</wicket:t>
 				</a>
 				<span wicket:id="extraActions"></span>
-				<span wicket:id="count" class="float-right text-gray"></span>
 			</div>
 			<div wicket:id="body">
 				<div wicket:id="feedback"></div>
@@ -42,10 +41,11 @@
 	</div>
 	<wicket:fragment wicket:id="buildFrag">
 		<div class="d-flex flex-wrap row-gap-2">
-			<a wicket:id="link" class="text-nowrap mr-2">
+			<a wicket:id="link" class="text-nowrap">
 				<svg wicket:id="icon" class="icon mr-1"></svg> 
-				<span wicket:id="summary"></span>
+				<span wicket:id="caption"></span> 
 			</a>
+			<span wicket:id="number" class="number ml-1 mr-2 text-muted"></span>
 			<span wicket:id="labels"></span>
 		</div>
     </wicket:fragment>	
@@ -66,7 +66,7 @@
 					<button wicket:id="close" type="button" class="close"><wicket:svg href="times" class="icon"/></button>
 				</div>
 				<div class="modal-body">
-					<input wicket:id="params" type="hidden" class="form-control">
+					<select wicket:id="params" class="form-control"></select>
 				</div>
 				<div class="modal-footer">
 					<input wicket:id="save" type="submit" class="dirty-aware btn btn-primary" t:value="Save">

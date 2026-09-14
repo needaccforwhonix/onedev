@@ -1,21 +1,23 @@
 package io.onedev.server.search.commit;
 
-import com.google.common.base.Preconditions;
-import io.onedev.commons.utils.ExplicitException;
-import io.onedev.server.OneDev;
-import io.onedev.server.service.UserService;
-import io.onedev.server.model.EmailAddress;
-import io.onedev.server.model.Project;
-import io.onedev.server.model.User;
-import io.onedev.server.security.SecurityUtils;
-import io.onedev.commons.utils.match.WildcardUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.eclipse.jgit.lib.PersonIdent;
-
 import static io.onedev.server.web.translation.Translation._T;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
+import org.eclipse.jgit.lib.PersonIdent;
+
+import com.google.common.base.Preconditions;
+
+import io.onedev.commons.utils.match.WildcardUtils;
+import io.onedev.server.OneDev;
+import io.onedev.server.exception.NotAcceptableException;
+import io.onedev.server.model.Project;
+import io.onedev.server.model.User;
+import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.UserService;
 
 public abstract class PersonCriteria extends CommitCriteria {
 
@@ -46,25 +48,24 @@ public abstract class PersonCriteria extends CommitCriteria {
 			if (value == null) { // authored by me
 				User user = SecurityUtils.getUser();
 				if (user != null) {
-					user.getEmailAddresses().stream().filter(it->it.isVerified()).forEach(it-> {
-						persons.add("<" + it.getValue() + ">");
+					user.getVerifiedEmailAddresses().forEach(it-> {
+						persons.add("<" + it + ">");
 					});
 				} else {
-					throw new ExplicitException(_T("Please login to perform this query"));
+					throw new NotAcceptableException(_T("Please login to perform this query"));
 				}
 			} else if (value.startsWith("@")) {
 				String userName = value.substring(1);
 				User user = getUserService().findByName(userName);
 				if (user != null) {
-					for (EmailAddress emailAddress: user.getEmailAddresses()) {
-						if (emailAddress.isVerified())
-							persons.add("<" + emailAddress.getValue() + ">");
+					for (String emailAddress: user.getVerifiedEmailAddresses()) {
+						persons.add("<" + emailAddress + ">");
 					}
 				} else {
-					persons.add(StringUtils.replace(value, "*", ".*"));
+					persons.add(Strings.CS.replace(value, "*", ".*"));
 				}
 			} else {
-				persons.add(StringUtils.replace(value, "*", ".*"));
+				persons.add(Strings.CS.replace(value, "*", ".*"));
 			}
 		}
 	}
@@ -75,17 +76,17 @@ public abstract class PersonCriteria extends CommitCriteria {
 			if (value == null) { // authored by me
 				User user = User.get();
 				if (user == null) {
-					throw new ExplicitException(_T("Please login to perform this query"));
-				} else if (user.getEmailAddresses().stream()
-						.anyMatch(it-> it.isVerified() && it.getValue().equalsIgnoreCase(personEmail))) { 
+					throw new NotAcceptableException(_T("Please login to perform this query"));
+				} else if (user.getVerifiedEmailAddresses().stream()
+						.anyMatch(it-> it.equalsIgnoreCase(personEmail))) { 
 					return true;
 				}
 			} else if (value.startsWith("@")) {
 				String userName = value.substring(1);
 				User user = getUserService().findByName(userName);
 				if (user != null) {
-					if (user.getEmailAddresses().stream()
-							.anyMatch(it-> it.isVerified() && it.getValue().equalsIgnoreCase(personEmail))) {
+					if (user.getVerifiedEmailAddresses().stream()
+							.anyMatch(it-> it.equalsIgnoreCase(personEmail))) {
 						return true;
 					}
 				} else if (matches("*" + value + "*", person)) {

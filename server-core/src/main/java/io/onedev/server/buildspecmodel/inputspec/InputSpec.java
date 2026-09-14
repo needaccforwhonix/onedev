@@ -122,7 +122,7 @@ public abstract class InputSpec implements Serializable {
 		return escaped;
 	}
 	
-	public abstract String getPropertyDef(Map<String, Integer> indexes);
+	public abstract String getPropertyDef(Map<String, Integer> indexes, boolean withDefaultValue);
 	
 	protected String getLiteral(byte[] bytes) {
 		StringBuffer buffer = new StringBuffer("[");
@@ -169,15 +169,15 @@ public abstract class InputSpec implements Serializable {
 	}
 
 	private void wrapWithChildContext(StringBuffer buffer, int index, String statement) {
-		buffer.append("            ComponentContext context = ComponentContext.get();\n");
+		buffer.append("            HierarchicalContext context = HierarchicalContext.get();\n");
 		buffer.append("            if (context != null) {\n");
-		buffer.append("                ComponentContext childContext = context.getChildContext(\"input" + index + "\");\n");
+		buffer.append("                HierarchicalContext childContext = context.getChildContext(\"input" + index + "\");\n");
 		buffer.append("                if (childContext != null) {\n");
-		buffer.append("                    ComponentContext.push(childContext);\n");
+		buffer.append("                    HierarchicalContext.push(childContext);\n");
 		buffer.append("                    try {\n");
 		buffer.append("                        " + statement + "\n");
 		buffer.append("                    } finally {\n");
-		buffer.append("                        ComponentContext.pop();\n");
+		buffer.append("                        HierarchicalContext.pop();\n");
 		buffer.append("                    }\n");
 		buffer.append("                } else {\n");
 		buffer.append("                    " + statement + "\n");
@@ -229,7 +229,7 @@ public abstract class InputSpec implements Serializable {
 		}
 	}
 	
-	public static Class<?> defineClass(String className, String description, Collection<? extends InputSpec> inputs) {
+	public static Class<?> defineClass(String className, String description, Collection<? extends InputSpec> inputs, boolean withDefaultValue) {
 		StringBuffer buffer = new StringBuffer();
 		buffer.append("import org.apache.commons.lang3.SerializationUtils;\n");
 		buffer.append("import com.google.common.base.Optional;\n");
@@ -251,7 +251,7 @@ public abstract class InputSpec implements Serializable {
 		for (InputSpec input: inputs)
 			indexes.put(input.getName(), index++);
 		for (InputSpec input: inputs)
-			buffer.append(input.getPropertyDef(indexes));
+			buffer.append(input.getPropertyDef(indexes, withDefaultValue));
 
 		buffer.append("}\n");
 		buffer.append("return " + className + ";\n");

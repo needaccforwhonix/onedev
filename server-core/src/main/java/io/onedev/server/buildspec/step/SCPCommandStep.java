@@ -14,13 +14,13 @@ import io.onedev.server.annotation.ChoiceProvider;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Interpolative;
 import io.onedev.server.buildspec.BuildSpec;
-import io.onedev.server.buildspec.step.commandinterpreter.DefaultInterpreter;
+import io.onedev.server.buildspec.step.commandinterpreter.PosixInterpreter;
 import io.onedev.server.buildspec.step.commandinterpreter.Interpreter;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.Project;
 
 @Editable(order=1100, group = UTILITIES, name="Copy Files with SCP", description = "" +
-		"This step can only be executed by a docker aware executor. It runs under <a href='https://docs.onedev.io/concepts#job-workspace' target='_blank'>job workspace</a>")
+		"This step can only be executed by a docker aware executor. It runs under <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>")
 public class SCPCommandStep extends CommandStep {
 
 	private static final long serialVersionUID = 1L;
@@ -103,7 +103,7 @@ public class SCPCommandStep extends CommandStep {
 
 	@Override
 	public String getRunAs() {
-		return null;
+		return "0:0";
 	}
 
 	@Override
@@ -118,7 +118,7 @@ public class SCPCommandStep extends CommandStep {
 	
 	@Override
 	public Interpreter getInterpreter() {
-		return new DefaultInterpreter() {
+		return new PosixInterpreter() {
 			@Override
 			public String getCommands() {
 				var commandsBuilder = new StringBuilder();

@@ -18,6 +18,7 @@ import java.util.concurrent.CompletableFuture;
 import javax.inject.Inject;
 import javax.servlet.http.Cookie;
 
+import org.apache.shiro.subject.Subject;
 import org.apache.wicket.Component;
 import org.apache.wicket.Session;
 import org.apache.wicket.ajax.AjaxChannel;
@@ -75,14 +76,15 @@ import io.onedev.commons.utils.PlanarRange;
 import io.onedev.commons.utils.StringUtils;
 import io.onedev.server.ai.ChatTool;
 import io.onedev.server.ai.ChatToolAware;
-import io.onedev.server.ai.ChatToolUtils;
-import io.onedev.server.ai.tools.GetHighlightedText;
+import io.onedev.server.ai.ToolExecutionResult;
+import io.onedev.server.ai.ToolUtils;
+import io.onedev.server.ai.tools.code.GetHighlightedText;
 import io.onedev.server.attachment.ProjectAttachmentSupport;
 import io.onedev.server.codequality.BlobTarget;
 import io.onedev.server.codequality.CodeProblem;
-import io.onedev.server.codequality.CodeProblemContribution;
+import io.onedev.server.codequality.CoverageStats;
 import io.onedev.server.codequality.CoverageStatus;
-import io.onedev.server.codequality.LineCoverageContribution;
+import io.onedev.server.codequality.ProblemReport;
 import io.onedev.server.git.BlameBlock;
 import io.onedev.server.git.Blob;
 import io.onedev.server.git.BlobIdent;
@@ -102,6 +104,7 @@ import io.onedev.server.service.BuildService;
 import io.onedev.server.service.CodeCommentReplyService;
 import io.onedev.server.service.CodeCommentService;
 import io.onedev.server.service.CodeCommentStatusChangeService;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.util.DateUtils;
 import io.onedev.server.util.Similarities;
 import io.onedev.server.util.diff.DiffUtils;
@@ -138,7 +141,6 @@ import io.onedev.server.web.page.project.commits.CommitDetailPage;
 import io.onedev.server.web.util.AnnotationInfo;
 import io.onedev.server.web.util.CodeCommentInfo;
 import io.onedev.server.web.util.WicketUtils;
-import io.onedev.server.web.websocket.ChatToolExecution;
 
 /**
  * Make sure to add only one source view panel per page
@@ -169,12 +171,6 @@ public class SourceViewPanel extends BlobViewPanel implements Positionable, Sear
 	private CodeSearchService searchService;
 
 	@Inject
-	private Set<CodeProblemContribution> codeProblemContributions;
-
-	@Inject
-	private Set<LineCoverageContribution> lineCoverageContributions;
-
-	@Inject
 	private GitService gitService;
 
 	@Inject
@@ -182,6 +178,9 @@ public class SourceViewPanel extends BlobViewPanel implements Positionable, Sear
 
 	@Inject
 	private CodeCommentStatusChangeService codeCommentStatusChangeService;
+
+	@Inject
+	private SettingService settingService;
 	
 	private final List<Symbol> symbols = new ArrayList<>();
 	
@@ -199,13 +198,10 @@ public class SourceViewPanel extends BlobViewPanel implements Positionable, Sear
 			Map<Integer, CoverageStatus> coverages = new HashMap<>();
 			var lines = context.getProject().getBlob(context.getBlobIdent(), true).getText().getLines();
 			for (var build: buildService.query(project, commitId, null, null, null, null, new HashMap<>())) {
-				for (var contribution: codeProblemContributions) 
-					problems.addAll(contribution.getCodeProblems(build, path, context.getProblemReport()));
-				for (var contribution: lineCoverageContributions) { 
-					contribution.getLineCoverages(build, path, context.getCoverageReport()).forEach((key, value)->{
-						coverages.merge(key, value, CoverageStatus::mergeWith);
-					});
-				}
+				problems.addAll(ProblemReport.getCodeProblems(build, path, context.getProblemReport()));
+				CoverageStats.getLineCoverages(build, path, context.getCoverageReport()).forEach((key, value)->{
+					coverages.merge(key, value, CoverageStatus::mergeWith);
+				});
 			}
 			
 			return new AnnotationInfo(
@@ -247,7 +243,7 @@ public class SourceViewPanel extends BlobViewPanel implements Positionable, Sear
 				try {
 					symbols.addAll(extractor.extract(null, StringUtils.removeBOM(blob.getText().getContent())));
 				} catch (Exception e) {
-					logger.trace("Can not extract symbols from blob: " + context.getBlobIdent(), e);
+					logger.trace("Cannot extract symbols from blob: " + context.getBlobIdent(), e);
 				}
 			}
 		}
@@ -521,9 +517,9 @@ public class SourceViewPanel extends BlobViewPanel implements Positionable, Sear
 					range = getRange(params, "param1", "param2", "param3", "param4");					
 					context.onPosition(target, BlobRenderer.getSourcePosition(range));
 					var page = (LayoutPage) getPage();
-					page.getChatter().show(target, 
-						"Help me understand highlighted text. Display explanation in %s"
-						.formatted(getSession().getLocale().getDisplayLanguage()));
+					var prompt = settingService.getAiSetting().getCodeExplanationPrompt();
+					page.getAssistant().show(target,
+							prompt + " Display in " + getSession().getLocale().getDisplayLanguage());
 					target.appendJavaScript(String.format("onedev.server.sourceView.mark(%s, false);", convertToJson(range)));
 					break;
 				case "addComment":
@@ -1073,7 +1069,7 @@ public class SourceViewPanel extends BlobViewPanel implements Positionable, Sear
 		translations.put("unsaved-changes-prompt", _T("There are unsaved changes, discard and continue?"));
 		translations.put("show-comment", _T("Click to show comment of marked text"));
 		var page = (LayoutPage)getPage();
-		if (WicketUtils.isSubscriptionActive() && !page.getChatter().getEntitledAis().isEmpty())
+		if (!page.getAssistant().getEntitledAis().isEmpty())
 			translations.put("explain-selection", _T("Explain selected text with AI"));
 		
 		translations.put("loading", _T("Loading..."));
@@ -1435,7 +1431,7 @@ public class SourceViewPanel extends BlobViewPanel implements Positionable, Sear
 	}
 
 	@Override
-	public Collection<ChatTool> getChatTools() {
+	public List<ChatTool> getChatTools() {
 		var tools = new ArrayList<ChatTool>();
 		tools.add(new ChatTool() {
 
@@ -1448,23 +1444,23 @@ public class SourceViewPanel extends BlobViewPanel implements Positionable, Sear
 			}
 
 			@Override
-			public CompletableFuture<ChatToolExecution.Result> execute(IPartialPageRequestHandler handler, JsonNode arguments) {
+			public CompletableFuture<ToolExecutionResult> execute(IPartialPageRequestHandler handler, Subject subject, JsonNode arguments) {
 				var lines = context.getProject().getBlob(context.getBlobIdent(), true).getText().getLines();
 				var map = Map.of(
 					"fileName", context.getBlobIdent().getName(),
 					"fileContent", Joiner.on('\n').join(lines)
 				);
-				return completedFuture(new ChatToolExecution.Result(ChatToolUtils.convertToJson(map), false));
+				return completedFuture(new ToolExecutionResult(ToolUtils.convertToJson(map), false));
 			}
 
 		});
 
 		var markRange = getMarkRange();
 		if (markRange != null) {
-			tools.add(new GetHighlightedText(
+			tools.add(ToolUtils.wrapForChat(new GetHighlightedText(
 				context.getBlobIdent().path, 
 				context.getProject().getBlob(context.getBlobIdent(), true).getText().getLines(), 
-				markRange));
+				markRange)));
 		}
 		return tools;
 	}

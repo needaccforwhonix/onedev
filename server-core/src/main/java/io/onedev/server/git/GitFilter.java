@@ -44,15 +44,13 @@ import io.onedev.commons.utils.ExplicitException;
 import io.onedev.k8shelper.KubernetesHelper;
 import io.onedev.server.OneDev;
 import io.onedev.server.cluster.ClusterService;
-import io.onedev.server.service.ProjectService;
 import io.onedev.server.exception.ServerNotReadyException;
-import io.onedev.server.git.command.AdvertiseReceiveRefsCommand;
-import io.onedev.server.git.command.AdvertiseUploadRefsCommand;
 import io.onedev.server.git.hook.HookUtils;
 import io.onedev.server.model.Project;
 import io.onedev.server.persistence.SessionService;
 import io.onedev.server.security.CodePullAuthorizationSource;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.ProjectService;
 import io.onedev.server.util.IOUtils;
 import io.onedev.server.util.OutputStreamWrapper;
 import io.onedev.server.util.concurrent.WorkExecutionService;
@@ -75,7 +73,7 @@ public class GitFilter implements Filter {
 	private final ClusterService clusterService;
 	
 	private final Set<CodePullAuthorizationSource> codePullAuthorizationSources;
-	
+		
 	@Inject
 	public GitFilter(OneDev oneDev, ProjectService projectService, WorkExecutionService workExecutionService,
                      SessionService sessionService, ClusterService clusterService,
@@ -118,26 +116,25 @@ public class GitFilter implements Filter {
 		response.setHeader("Pragma", "no-cache");
 		response.setHeader("Cache-Control", "no-cache, max-age=0, must-revalidate");
 	}
-	
+
 	protected void processPack(final HttpServletRequest request, final HttpServletResponse response) 
 			throws IOException, InterruptedException, ExecutionException {
-		String principal = (String) SecurityUtils.getSubject().getPrincipal();
-		boolean clusterAccess = SecurityUtils.isSystem(principal);
-		
 		boolean upload = GitSmartHttpTools.isUploadPack(request);
 		
-		String pathInfo = getPathInfo(request);
-		
+		String pathInfo = getPathInfo(request);	
 		String service = StringUtils.substringAfterLast(pathInfo, "/");
-
 		String projectInfo = StringUtils.substringBeforeLast(pathInfo, "/");
+
+		String principal = (String) SecurityUtils.getSubject().getPrincipal();
+		boolean clusterAccess = SecurityUtils.isSystem(principal);
+
 		var projectPath = decodeFullRepoNameAsPath(strip(projectInfo, "/"));
 		Long projectId = getProjectId(projectPath, clusterAccess, upload);
 		
 		doNotCache(response);
 		response.setHeader("Content-Type", "application/x-" + service + "-result");			
 
-		var hookEnvs = HookUtils.getHookEnvs(projectId, principal);
+		var hookEnvs = HookUtils.getReceiveHookEnvs(projectId, principal);
 		
 		InputStream stdin = new FilterInputStream(ServletUtils.getInputStream(request)) {
 
@@ -162,12 +159,10 @@ public class GitFilter implements Filter {
 				Project project = projectService.load(projectId);
 				if (!canAccessProject(request, project))
 					reportProjectNotFoundOrInaccessible(projectPath);
-				if (upload) {
+				if (upload) 
 					checkPullPermission(request, project);
-				} else {
-					if (!SecurityUtils.canWriteCode(project))
-						throw new UnauthorizedException("You do not have permission to push to this project.");
-				}			
+				else 
+					checkPushPermission(request, project);
 			} finally {
 				sessionService.closeSession();
 			}
@@ -180,7 +175,7 @@ public class GitFilter implements Filter {
 						
 						@Override
 						public void run() {
-							CommandUtils.uploadPack(gitDir, hookEnvs, protocol, stdin, stdout);
+							GitUtils.uploadPack(gitDir, hookEnvs, protocol, stdin, stdout);
 						}
 						
 					}).get();
@@ -189,7 +184,7 @@ public class GitFilter implements Filter {
 						
 						@Override
 						public void run() {
-							CommandUtils.receivePack(gitDir, hookEnvs, protocol, stdin, stdout);
+							GitUtils.receivePack(gitDir, hookEnvs, protocol, stdin, stdout);
 						}
 						
 					}).get();
@@ -226,11 +221,11 @@ public class GitFilter implements Filter {
 						KubernetesHelper.checkStatus(gitResponse);
 						try (InputStream is = gitResponse.readEntity(InputStream.class)) {
 							byte[] buffer = new byte[BUFFER_SIZE];
-					        int length;
-				            while ((length = is.read(buffer)) > 0) {
-			            		stdout.write(buffer, 0, length);
-			            		stdout.flush();
-				            }
+							int length;
+							while ((length = is.read(buffer)) > 0) {
+								stdout.write(buffer, 0, length);
+								stdout.flush();
+							}
 						} finally {
 							stdout.close();
 						}
@@ -245,12 +240,12 @@ public class GitFilter implements Filter {
 				// Run immediately if accessed with cluster credential to avoid 
 				// possible deadlock as caller itself might also hold some 
 				// resources (db connections, work executors etc) 
-				CommandUtils.uploadPack(gitDir, hookEnvs, protocol, stdin, stdout);
+				GitUtils.uploadPack(gitDir, hookEnvs, protocol, stdin, stdout);
 			} else {
 				// Run immediately. See above for reason
-				CommandUtils.receivePack(gitDir, hookEnvs, protocol, stdin, stdout);
+				GitUtils.receivePack(gitDir, hookEnvs, protocol, stdin, stdout);
 			}			
-		}
+		}	
 	}
 	
 	private void writeInitial(HttpServletResponse response, String service) throws IOException {
@@ -277,6 +272,11 @@ public class GitFilter implements Filter {
 		}
 	}
 
+	private void checkPushPermission(HttpServletRequest request, Project project) {
+		if (!SecurityUtils.canWriteCode(project)) 
+			throw new UnauthorizedException("You do not have permission to push to this project.");
+	}
+
 	private boolean canAccessProject(HttpServletRequest request, Project project) {
 		if (!SecurityUtils.canAccessProject(project)) {
 			for (CodePullAuthorizationSource source: codePullAuthorizationSources) {
@@ -290,8 +290,6 @@ public class GitFilter implements Filter {
 	}
 	
 	protected void processRefs(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		boolean clusterAccess = SecurityUtils.isSystem();
-		
 		String service = request.getParameter("service");
 		boolean upload = service.contains("upload");
 		
@@ -299,6 +297,8 @@ public class GitFilter implements Filter {
 		pathInfo = StringUtils.stripStart(pathInfo, "/");
 
 		String projectInfo = pathInfo.substring(0, pathInfo.length() - INFO_REFS.length());
+
+		boolean clusterAccess = SecurityUtils.isSystem();
 		var projectPath = decodeFullRepoNameAsPath(strip(projectInfo, "/"));
 		Long projectId = getProjectId(projectPath, clusterAccess, upload);
 				
@@ -312,8 +312,7 @@ public class GitFilter implements Filter {
 					checkPullPermission(request, project);
 					writeInitial(response, service);
 				} else {
-					if (!SecurityUtils.canWriteCode(project))
-						throw new UnauthorizedException("You do not have permission to push to this project.");
+					checkPushPermission(request, project);
 					writeInitial(response, service);
 				}
 			} finally {
@@ -336,10 +335,10 @@ public class GitFilter implements Filter {
 		String activeServer = projectService.getActiveServer(projectId, true);
 		if (activeServer.equals(clusterService.getLocalServerAddress())) {
 			File gitDir = projectService.getGitDir(projectId);
-			if (upload) 
-				new AdvertiseUploadRefsCommand(gitDir, output).protocol(protocol).run();
-			else 
-				new AdvertiseReceiveRefsCommand(gitDir, output).protocol(protocol).run();
+			if (upload)
+				GitUtils.advertiseUploadRefs(gitDir, protocol, output);
+			else
+				GitUtils.advertiseReceiveRefs(gitDir, protocol, output);
 		} else {
 			Client client = ClientBuilder.newClient();
 			try {
@@ -363,7 +362,7 @@ public class GitFilter implements Filter {
 			} finally {
 				client.close();
 			}
-		}
+		}	
 	}
 
 	@Override

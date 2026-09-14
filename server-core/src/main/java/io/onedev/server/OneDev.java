@@ -1,13 +1,9 @@
 package io.onedev.server;
 
-import static io.onedev.k8shelper.KubernetesHelper.BEARER;
-import static io.onedev.k8shelper.KubernetesHelper.checkStatus;
 import static io.onedev.server.persistence.PersistenceUtils.callWithTransaction;
-import static javax.ws.rs.core.HttpHeaders.AUTHORIZATION;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
@@ -22,16 +18,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
-import org.jspecify.annotations.Nullable;
 import javax.inject.Inject;
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.Invocation;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.Response;
 
+import org.apache.commons.lang3.SystemUtils;
 import org.apache.wicket.request.Url;
 import org.eclipse.jgit.util.FS.FileStoreAttributes;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,10 +35,8 @@ import io.onedev.commons.loader.AbstractPlugin;
 import io.onedev.commons.loader.AppLoader;
 import io.onedev.commons.loader.ManagedSerializedForm;
 import io.onedev.commons.utils.FileUtils;
-import io.onedev.commons.utils.TarUtils;
 import io.onedev.server.cluster.ClusterService;
 import io.onedev.server.data.DataService;
-import io.onedev.server.service.SettingService;
 import io.onedev.server.event.ListenerRegistry;
 import io.onedev.server.event.system.SystemStarted;
 import io.onedev.server.event.system.SystemStarting;
@@ -54,12 +44,14 @@ import io.onedev.server.event.system.SystemStopped;
 import io.onedev.server.event.system.SystemStopping;
 import io.onedev.server.exception.ServerNotReadyException;
 import io.onedev.server.jetty.JettyService;
+import io.onedev.server.jetty.MaintenanceProbeServer;
 import io.onedev.server.model.support.administration.SystemSetting;
 import io.onedev.server.persistence.IdService;
 import io.onedev.server.persistence.SessionFactoryService;
 import io.onedev.server.persistence.SessionService;
 import io.onedev.server.persistence.annotation.Sessional;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.taskschedule.TaskScheduler;
 import io.onedev.server.util.UrlUtils;
 import io.onedev.server.util.init.InitStage;
@@ -69,27 +61,41 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 
 	private static final Logger logger = LoggerFactory.getLogger(OneDev.class);
 
-	private final Provider<JettyService> jettyLauncherProvider;
+	// Some services are injected via provider as instantiation might encounter problem
+	// during upgrade
 
-	private final SessionService sessionService;
+	@Inject
+	private Provider<JettyService> jettyServiceProvider;
 
-	private final DataService dataService;
+	@Inject
+	private SessionService sessionService;
 
-	private final Provider<ServerConfig> serverConfigProvider;
+	@Inject
+	private DataService dataService;
 
-	private final ListenerRegistry listenerRegistry;
+	@Inject
+	private Provider<ServerConfig> serverConfigProvider;
 
-	private final TaskScheduler taskScheduler;
+	@Inject
+	private ListenerRegistry listenerRegistry;
 
-	private final ExecutorService executorService;
+	@Inject
+	private TaskScheduler taskScheduler;
 
-	private final ClusterService clusterService;
+	@Inject
+	private ExecutorService executorService;
 
-	private final SettingService settingService;
+	@Inject
+	private ClusterService clusterService;
 
-	private final IdService idService;
+	@Inject
+	private SettingService settingService;
 
-	private final SessionFactoryService sessionFactoryService;
+	@Inject
+	private IdService idService;
+
+	@Inject
+	private SessionFactoryService sessionFactoryService;
 
 	private final Date bootDate = new Date();
 
@@ -99,76 +105,58 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 
 	private volatile Thread thread;
 
-	// Some are injected via provider as instantiation might encounter problem
-	// during upgrade
-	@Inject
-	public OneDev(Provider<JettyService> jettyLauncherProvider, TaskScheduler taskScheduler,
-			SessionService sessionService, Provider<ServerConfig> serverConfigProvider,
-			DataService dataService, ExecutorService executorService,
-			ListenerRegistry listenerRegistry, ClusterService clusterService,
-			IdService idService, SessionFactoryService sessionFactoryService,
-			SettingService settingService) {
-		this.jettyLauncherProvider = jettyLauncherProvider;
-		this.taskScheduler = taskScheduler;
-		this.sessionService = sessionService;
-		this.dataService = dataService;
-		this.serverConfigProvider = serverConfigProvider;
-		this.executorService = executorService;
-		this.listenerRegistry = listenerRegistry;
-		this.clusterService = clusterService;
-		this.idService = idService;
-		this.sessionFactoryService = sessionFactoryService;
-		this.settingService = settingService;
-
+	public OneDev() {
 		try {
 			wrapperManagerClass = Class.forName("org.tanukisoftware.wrapper.WrapperManager");
 		} catch (ClassNotFoundException e) {
 		}
 		thread = new Thread(this);
-
 		initStage = new InitStage("Server is Starting...");
 	}
 
 	@Override
 	public void start() {
 		var maintenanceFile = getMaintenanceFile(Bootstrap.installDir);
-		while (maintenanceFile.exists()) {
-			logger.info("Maintenance in progress, waiting...");
-			try {
-				Thread.sleep(5000);
-			} catch (InterruptedException e) {
-				throw new RuntimeException(e);
+		try (var ignored = MaintenanceProbeServer.start(Bootstrap.installDir)) {
+			while (maintenanceFile.exists()) {
+				logger.info("Maintenance in progress, waiting...");
+				try {
+					Thread.sleep(5000);
+				} catch (InterruptedException e) {
+					throw new RuntimeException(e);
+				}
 			}
+
+			SecurityUtils.bindAsSystem();
+
+			System.setProperty("hsqldb.reconfig_logging", "false");
+			System.setProperty("hsqldb.method_class_names", "java.lang.Math");
+
+			clusterService.start();
+			sessionFactoryService.start();
+			taskScheduler.start();
+
+			var databasePopulated = clusterService.getHazelcastInstance().getCPSubsystem()
+					.getAtomicLong("databasePopulated");
+			// Do not use database lock as schema update will commit transaction immediately
+			// in MySQL
+			clusterService.initWithLead(databasePopulated, () -> {
+				try (var conn = dataService.openConnection()) {
+					callWithTransaction(conn, () -> {
+						dataService.populateDatabase(conn);
+						return null;
+					});
+				} catch (SQLException e) {
+					throw new RuntimeException(e);
+				}
+				return 1L;
+			});
+
+			idService.init();
+
+			sessionService.run(() -> listenerRegistry.post(new SystemStarting()));
 		}
-
-		SecurityUtils.bindAsSystem();
-
-		System.setProperty("hsqldb.reconfig_logging", "false");
-		System.setProperty("hsqldb.method_class_names", "java.lang.Math");
-
-		clusterService.start();
-		sessionFactoryService.start();
-
-		var databasePopulated = clusterService.getHazelcastInstance().getCPSubsystem()
-				.getAtomicLong("databasePopulated");
-		// Do not use database lock as schema update will commit transaction immediately
-		// in MySQL
-		clusterService.initWithLead(databasePopulated, () -> {
-			try (var conn = dataService.openConnection()) {
-				callWithTransaction(conn, () -> {
-					dataService.populateDatabase(conn);
-					return null;
-				});
-			} catch (SQLException e) {
-				throw new RuntimeException(e);
-			}
-			return 1L;
-		});
-
-		idService.init();
-
-		sessionService.run(() -> listenerRegistry.post(new SystemStarting()));
-		jettyLauncherProvider.get().start();
+		jettyServiceProvider.get().start();
 
 		var manualConfigs = checkData();
 		if (!manualConfigs.isEmpty()) {
@@ -182,8 +170,12 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 				if (maintenanceFile.exists()) {
 					logger.info("Maintenance requested, trying to stop all servers...");
 					clusterService.submitToAllServers(() -> {
-						if (!localServer.equals(clusterService.getLocalServerAddress()))
-							restart();
+						try {
+							if (!localServer.equals(clusterService.getLocalServerAddress()))
+								restart();
+						} catch (Throwable t) {
+							logger.error("Error restarting server", t);
+						}
 						return null;
 					});
 					while (thread != null && clusterService.getServerAddresses().size() != 1) {
@@ -213,33 +205,8 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 			}
 		}
 
-		var leadServer = clusterService.getLeaderServerAddress();
-		if (!leadServer.equals(clusterService.getLocalServerAddress())) {
-			logger.info("Syncing assets...");
-			Client client = ClientBuilder.newClient();
-			try {
-				String fromServerUrl = clusterService.getServerUrl(leadServer);
-				WebTarget target = client.target(fromServerUrl).path("/~api/cluster/assets");
-				Invocation.Builder builder = target.request();
-				builder.header(AUTHORIZATION,
-						BEARER + " " + clusterService.getCredential());
-
-				try (Response response = builder.get()) {
-					checkStatus(response);
-					try (InputStream is = response.readEntity(InputStream.class)) {
-						TarUtils.untar(is, getAssetsDir(), false);
-					} catch (IOException e) {
-						throw new RuntimeException(e);
-					}
-				}
-			} finally {
-				client.close();
-			}
-		}
-
 		// workaround for issue https://bugs.eclipse.org/bugs/show_bug.cgi?id=566170
 		FileStoreAttributes.setBackground(true);
-		taskScheduler.start();
 	}
 
 	@Sessional
@@ -268,6 +235,10 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 		}
 	}
 
+	public boolean isStopping() {
+		return thread == null;
+	}
+
 	private List<ManualConfig> checkData() {
 		HazelcastInstance hazelcastInstance = clusterService.getHazelcastInstance();
 		var lock = hazelcastInstance.getCPSubsystem().getLock("checkData");
@@ -284,11 +255,10 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 		SecurityUtils.bindAsSystem();
 
 		try {
-			taskScheduler.stop();
-
-			jettyLauncherProvider.get().stop();
+			jettyServiceProvider.get().stop();
 			sessionService.run(() -> listenerRegistry.post(new SystemStopped()));
-
+			
+			taskScheduler.stop();
 			sessionFactoryService.stop();
 			clusterService.stop();
 			executorService.shutdown();
@@ -325,6 +295,8 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 			} else {
 				try {
 					hostName = InetAddress.getLocalHost().getHostName();
+					if (SystemUtils.IS_OS_MAC_OSX && !hostName.equals("localhost") && !hostName.contains("."))
+						hostName += ".local";
 				} catch (UnknownHostException e) {
 					hostName = "localhost";
 				}
@@ -433,8 +405,12 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 			if (maintenanceFile.exists()) {
 				logger.info("Maintenance requested, trying to stop all servers...");
 				clusterService.submitToAllServers(() -> {
-					if (!localServer.equals(clusterService.getLocalServerAddress()))
-						restart();
+					try {
+						if (!localServer.equals(clusterService.getLocalServerAddress()))
+							restart();
+					} catch (Throwable t) {
+						logger.error("Error restarting server", t);
+					}
 					return null;
 				});
 				while (thread != null && clusterService.getServerAddresses().size() != 1) {
@@ -452,4 +428,5 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 			}
 		}
 	}
+
 }

@@ -28,7 +28,7 @@ import io.onedev.server.web.WebSession;
 import io.onedev.server.web.component.link.ViewStateAwarePageLink;
 import io.onedev.server.web.page.project.ProjectPage;
 import io.onedev.server.web.page.project.builds.ProjectBuildsPage;
-import io.onedev.server.web.page.project.dashboard.ProjectDashboardPage;
+import io.onedev.server.web.page.project.overview.ProjectOverviewPage;
 import io.onedev.server.web.util.ConfirmClickModifier;
 
 public class InvalidBuildPage extends ProjectPage {
@@ -47,7 +47,7 @@ public class InvalidBuildPage extends ProjectPage {
 				Long buildNumber = params.get(PARAM_BUILD).toLong();
 				Build build = OneDev.getInstance(BuildService.class).find(getProject(), buildNumber);
 				if (build == null)
-					throw new EntityNotFoundException(MessageFormat.format(_T("Unable to find build #{0} in project {1}"), buildNumber, getProject()));
+					throw new EntityNotFoundException(MessageFormat.format(_T("Unable to find build #{0} in project {1}"), String.valueOf(buildNumber), getProject()));
 				Preconditions.checkState(!build.isValid());
 				return build;
 			}
@@ -69,7 +69,7 @@ public class InvalidBuildPage extends ProjectPage {
 			public void onClick() {
 				OneDev.getInstance(BuildService.class).delete(getBuild());
 				
-				Session.get().success(MessageFormat.format(_T("Build #{0} deleted"), getBuild().getNumber()));
+				Session.get().success(MessageFormat.format(_T("Build {0} deleted"), getBuild().getReference().toString(getBuild().getProject())));
 				
 				String redirectUrlAfterDelete = WebSession.get().getRedirectUrlAfterDelete(Build.class);
 				if (redirectUrlAfterDelete != null)
@@ -84,7 +84,7 @@ public class InvalidBuildPage extends ProjectPage {
 				setVisible(SecurityUtils.canManageBuild(getBuild()));
 			}
 			
-		}.add(new ConfirmClickModifier(MessageFormat.format(_T("Do you really want to delete build #{0}?"), getBuild().getNumber()))));
+		}.add(new ConfirmClickModifier(MessageFormat.format(_T("Do you really want to delete build #{0}?"), String.valueOf(getBuild().getNumber())))));
 	}
 
 	public static PageParameters paramsOf(Build build) {
@@ -105,7 +105,7 @@ public class InvalidBuildPage extends ProjectPage {
 
 	@Override
 	protected boolean isPermitted() {
-		return SecurityUtils.canAccessBuild(getBuild());
+		return SecurityUtils.canAccessProject(getBuild().getProject());
 	}
 	
 	@Override
@@ -113,7 +113,7 @@ public class InvalidBuildPage extends ProjectPage {
 		if (project.isCodeManagement()) 
 			return new ViewStateAwarePageLink<Void>(componentId, ProjectBuildsPage.class, ProjectBuildsPage.paramsOf(project, 0));
 		else
-			return new ViewStateAwarePageLink<Void>(componentId, ProjectDashboardPage.class, ProjectDashboardPage.paramsOf(project.getId()));
+			return new ViewStateAwarePageLink<Void>(componentId, ProjectOverviewPage.class, ProjectOverviewPage.paramsOf(project.getId()));
 	}
 	
 	@Override

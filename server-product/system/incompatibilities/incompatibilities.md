@@ -1,3 +1,82 @@
+# 16.5.0
+
+### GPG Signing
+
+Default system GPG signing email changed from `system@onedev` to `onedev@noreply.localhost`. The system GPG signing key is regenerated as a result; previously signed commits will show as unverified.
+
+# 16.4.0
+
+### Helm Chart
+
+Git access via SSH is now disabled by default. Existing installations exposing SSH through a LoadBalancer, nginx ingress controller, or another TCP proxy should set `ssh.enabled=true` when upgrading; otherwise the SSH port is removed from OneDev's Kubernetes Service.
+
+# 16.2.1
+
+### RESTful API
+
+Pull request review/assignment resources are removed. Use add/remove reviewer/assignee, approve and request for changes operations of [pull request resource](/~help/api/io.onedev.server.rest.resource.PullRequestResource) instead. Also get reviews/assignments no longer return review/assignment id
+
+# 16.1.1
+
+### Git LFS
+
+Existing Git LFS file locks will be removed during upgrade. Previously locks were not scoped per repository and cannot be migrated reliably. Recreate locks after upgrade as needed.
+
+# 16.1.0
+
+### CI/CD
+
+1. Issues defined in parent project are now longer able to link with commits/builds/PRs in child projects. This restriction is added to address the performance problem when a project has many child projects
+
+1. Users authorized to access a projectd will be able to access artifacts of all CI/CD jobs of the project. This is added to address performance issue when massive number of projects are created in OneDev
+
+# 16.0.0
+
+### CI/CD
+
+1. The `Default (Shell on Linux, Batch on Windows)` command interpreter of the CI/CD `Command` step has been removed. Use the explicit `POSIX Compatible Shell` or `Windows Batch` interpreter instead.
+
+    Existing build specs are migrated automatically. Commands running in a container are migrated to `POSIX Shell`. Commands running directly on an agent are inspected for Windows batch syntax; if the interpreter cannot be determined reliably, `POSIX Shell` is used. Review migrated host commands if they rely on Windows batch syntax that cannot be detected automatically.
+
+1. The post-build action `Create issue` now only supports to create issues in the same project as the build. The option to specify a different target project has been removed.
+
+### Workspace
+
+The `Default (sh on Linux, batch on Windows)` workspace shell has been removed. Use the explicit `POSIX Compatible Shell` or `Windows Batch` workspace shell instead.
+
+Existing workspace specs are migrated automatically. Workspaces using a container image are migrated to `POSIX Shell`. Other workspaces are inspected using their setup commands; if the shell cannot be determined reliably, `POSIX Shell` is used. Review migrated host workspace specs if their setup commands rely on Windows batch syntax that cannot be detected automatically.
+
+### Issue
+
+Custom issue fields of type `Build`, `Issue`, and `Pull Request` now only allow referencing entities in the same project as the issue. References to entities outside the project will be removed during upgrade.
+
+# 15.1.0
+
+### CI/CD
+
+The Kubernetes job executor now requires build working directory to be backed by PVC. Using hostPath volumes is no longer supported, as it is not considered a recommended Kubernetes practice.
+
+If your previous configuration did not use a PVC for the build volume, OneDev will automatically provision a PVC using the cluster's default StorageClass. The initial storage size is set to 10 GiB. Adjust this value as needed to meet your workload requirements.
+
+### Workspace
+
+Due to changes in the workspace user data storage format, all existing workspace user data will be removed during the upgrade.
+
+The new storage format is designed to be stable and will be preserved across future upgrades starting from this release.
+
+# 15.0.0
+
+### CI/CD
+
+1. Windows container support is removed due to maintenance overhead and rare usages. 
+1. The path of the job workspace directory has been changed from /onedev-build/workspace to /onedev-build/work, and the corresponding environment variable has been renamed from ONEDEV_WORKSPACE to ONEDEV_WORKDIR. Commands defined in command steps will be migrated automatically. If you reference these in your own scripts, please update them manually.
+
+# 14.1.0
+
+### Enterprise Edition
+
+1. The OSV license check step has been removed from CI/CD job. Use the check licenses option in OSV source scanner step instead
+
 # 13.1.0
 
 1. Java 17 is required for both server and agent
@@ -90,7 +169,7 @@ they need to be updated to use iteration api instead
 The builder should be specified in more settings section of corresponding executors. If you are accessing insecure
 private docker registries, please follow [this tutorial](https://docs.onedev.io/tutorials/cicd/insecure-docker-registry) to configure the builder
 
-2. Builder and platform option can not be specified via _More Options_ property of build image step now. The builder option
+2. Builder and platform option cannot be specified via _More Options_ property of build image step now. The builder option
 should be specified in executor (see above note), and platform option should be specified via property _Platform_
 
 3. Build image step now either push image to registry, or save image as OCI layout. The option to build local image without
@@ -171,7 +250,7 @@ The operation to [get issue fields](/~help/api/io.onedev.server.rest.IssueResour
 
 ### Database 
 
-Oracle support is removed as it is hard to test with latest version. If you happen to use this database, please back up data and restore to a supported database following [this guide]((https://docs.onedev.io/administration-guide/backup-restore)) 
+Oracle support is removed as it is hard to test with latest version. If you happen to use this database, please back up data and restore to a supported database following [this guide](https://docs.onedev.io/administration-guide/backup-restore)
 
 # 8.5.0
 
@@ -234,7 +313,7 @@ some service urls have been changed and this causes some incompatibitlities:
 1. The RESTful api url now starts with `~api` instead of `api`, for instance url to access project information is now `/~api/projects/{projectId}` 
 2. SSO callback url now takes the form `https://<onedev root url>/~sso/callback/<Provider Name>` (use `~sso` instead of `sso`)
 3. If you are using OAuth based Office365 or Gmail mail service, make sure to change redirect url as `https://<onedev root url>/~oauth/callback` (use `~oauth` instead of `oauth`)
-4. Agents can not upgrade itself for this version, as url connecting to server has been changed. You will need to re-download 
+4. Agents cannot upgrade itself for this version, as url connecting to server has been changed. You will need to re-download 
 agent package from server if running in bare-metal mode, or re-pull the agent image if running in docker mode
 5. If you are setting up reverse proxy using Apache or Nginx, make sure to change proxied path `/server` to `/~server`. Check [the docs](https://docs.onedev.io/administration-guide/reverse-proxy-setup) for details
 

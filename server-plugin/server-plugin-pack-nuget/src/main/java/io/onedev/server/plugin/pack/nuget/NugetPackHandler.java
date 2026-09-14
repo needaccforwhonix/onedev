@@ -17,7 +17,6 @@ import static javax.servlet.http.HttpServletResponse.SC_NOT_ACCEPTABLE;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import static javax.servlet.http.HttpServletResponse.SC_NO_CONTENT;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
-import static javax.servlet.http.HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -43,7 +42,6 @@ import javax.inject.Singleton;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import io.onedev.server.pack.PackHandler;
 import org.apache.commons.fileupload.FileUploadException;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.apache.commons.io.IOUtils;
@@ -62,18 +60,18 @@ import io.onedev.commons.utils.ExplicitException;
 import io.onedev.commons.utils.FileUtils;
 import io.onedev.commons.utils.LockUtils;
 import io.onedev.commons.utils.StringUtils;
+import io.onedev.server.model.Pack;
+import io.onedev.server.model.PackBlob;
+import io.onedev.server.model.Project;
+import io.onedev.server.pack.PackHandler;
+import io.onedev.server.persistence.SessionService;
+import io.onedev.server.persistence.TransactionService;
+import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.service.BuildService;
 import io.onedev.server.service.PackBlobService;
 import io.onedev.server.service.PackService;
 import io.onedev.server.service.ProjectService;
 import io.onedev.server.service.UrlService;
-import io.onedev.server.exception.DataTooLargeException;
-import io.onedev.server.model.Pack;
-import io.onedev.server.model.PackBlob;
-import io.onedev.server.model.Project;
-import io.onedev.server.persistence.SessionService;
-import io.onedev.server.persistence.TransactionService;
-import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.util.SemanticVersion;
 import io.onedev.server.util.XmlUtils;
 
@@ -227,14 +225,15 @@ public class NugetPackHandler implements PackHandler {
 								while ((entry = is.getNextEntry()) != null) {
 									if (!entry.getName().contains("/") && entry.getName().endsWith(".nuspec")) {
 										var baos = new ByteArrayOutputStream();
-										copyWithMaxSize(is, baos, MAX_NUSPEC_SIZE);
+										var copied = copyWithMaxSize(is, baos, MAX_NUSPEC_SIZE);
+										if (copied == -1) {
+											logger.warn("Package metadata exceeds maximum size: " + MAX_NUSPEC_SIZE);
+											throw new ClientException(SC_NOT_ACCEPTABLE);
+										}
 										metadataBytes = baos.toByteArray();
 										break;
 									}
 								}
-							} catch (DataTooLargeException e) {
-								logger.warn("Package metadata is too large");
-								throw new ClientException(SC_REQUEST_ENTITY_TOO_LARGE);
 							}
 							if (metadataBytes == null) {
 								logger.warn("Package metadata not found");
@@ -379,7 +378,7 @@ public class NugetPackHandler implements PackHandler {
 				var names = packService.queryNames(project, TYPE, nameQuery, includePrerelease, offset, count);
 				Map<String, List<Pack>> packs;
 				if (!names.isEmpty()) 
-					packs = packService.loadPacks(names, includePrerelease, VERSION_COMPARATOR);
+					packs = packService.loadPacks(project, TYPE, names, includePrerelease, VERSION_COMPARATOR);
 				else 
 					packs = new LinkedHashMap<>();
 

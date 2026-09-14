@@ -42,8 +42,9 @@ import com.google.common.collect.Sets;
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.commons.codeassist.parser.TerminalExpect;
 import io.onedev.server.model.Build;
-import io.onedev.server.plugin.report.unittest.UnitTestReport.Status;
-import io.onedev.server.plugin.report.unittest.UnitTestReport.TestCase;
+import io.onedev.server.codequality.UnitTestReport;
+import io.onedev.server.codequality.UnitTestReport.Status;
+import io.onedev.server.codequality.UnitTestReport.TestCase;
 import io.onedev.server.util.patternset.PatternSet;
 import io.onedev.server.web.WebConstants;
 import io.onedev.server.web.ajaxlistener.ConfirmLeaveListener;
@@ -436,7 +437,7 @@ public class UnitTestCasesPage extends UnitTestReportPage {
 					else
 						item.add(new WebMarkupContainer("duration").setVisible(false));
 
-					Component detailViewer = testCase.renderDetail("detail", getBuild());
+					Component detailViewer = testCase.renderDetail("detail", getBuild(), getReportName());
 					if (detailViewer != null)
 						item.add(detailViewer);
 					else

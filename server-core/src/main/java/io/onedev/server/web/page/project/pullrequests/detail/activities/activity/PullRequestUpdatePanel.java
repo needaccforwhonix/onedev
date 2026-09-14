@@ -8,7 +8,6 @@ import java.util.List;
 
 import org.apache.wicket.behavior.AttributeAppender;
 import org.apache.wicket.markup.html.basic.Label;
-import org.apache.wicket.markup.html.link.Link;
 import org.apache.wicket.markup.html.list.ListItem;
 import org.apache.wicket.markup.html.list.ListView;
 import org.apache.wicket.markup.html.panel.Panel;
@@ -45,7 +44,7 @@ class PullRequestUpdatePanel extends Panel {
 	protected void onInitialize() {
 		super.onInitialize();
 		
-		String tooManyMessage = MessageFormat.format(_T("Too many commits, displaying recent {0}"), WebConstants.MAX_DISPLAY_COMMITS);
+		String tooManyMessage = MessageFormat.format(_T("Too many commits, displaying recent {0}"), String.valueOf(WebConstants.MAX_DISPLAY_COMMITS));
 		add(new Label("tooManyCommits", tooManyMessage) {
 
 			@Override
@@ -78,6 +77,8 @@ class PullRequestUpdatePanel extends Panel {
 				
 				item.add(new PersonIdentPanel("author", commit.getAuthorIdent(), "Author", Mode.AVATAR));
 
+				Project project = getUpdate().getRequest().getTarget().getProject();
+
 				item.add(new CommitMessagePanel("message", item.getModel()) {
 
 					@Override
@@ -89,7 +90,7 @@ class PullRequestUpdatePanel extends Panel {
 
 				var committer = commit.getCommitterIdent();
 				item.add(new Label("date", DateUtils.formatAge(committer.getWhen()))
-						.add(new AttributeAppender("title", DateUtils.formatDateTime(committer.getWhen()))));
+						.add(new AttributeAppender("data-tippy-content", DateUtils.formatDateTime(committer.getWhen()))));
 
 				item.add(new SignatureStatusPanel("signature") {
 					
@@ -105,13 +106,10 @@ class PullRequestUpdatePanel extends Panel {
 					
 				});
 				
-				Project project = getUpdate().getRequest().getTarget().getProject();
-				CommitDetailPage.State commitState = new CommitDetailPage.State();
-				commitState.revision = commit.name();
-				PageParameters params = CommitDetailPage.paramsOf(project, commitState);
-				Link<Void> hashLink = new ViewStateAwarePageLink<Void>("hashLink", CommitDetailPage.class, params);
-				item.add(hashLink);
+				PageParameters commitParams = CommitDetailPage.paramsOf(project, commit.name());
+				var hashLink = new ViewStateAwarePageLink<Void>("hashLink", CommitDetailPage.class, commitParams);
 				hashLink.add(new Label("hash", GitUtils.abbreviateSHA(commit.name())));
+				item.add(hashLink);
 				item.add(new CopyToClipboardLink("copyHash", Model.of(commit.name())));
 			}
 			

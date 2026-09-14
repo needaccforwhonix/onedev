@@ -29,6 +29,7 @@ import io.onedev.server.service.AgentAttributeService;
 import io.onedev.server.service.AgentService;
 import io.onedev.server.service.SettingService;
 import io.onedev.server.util.DateUtils;
+import io.onedev.server.util.QueryUtils;
 import io.onedev.server.web.behavior.inputassist.ANTLRAssistBehavior;
 import io.onedev.server.web.behavior.inputassist.InputAssistBehavior;
 import io.onedev.server.web.behavior.inputassist.NaturalLanguageTranslator;
@@ -81,7 +82,7 @@ public class AgentQueryBehavior extends ANTLRAssistBehavior {
 									return SuggestionUtils.suggestBuilds(null, matchWith, InputAssistBehavior.MAX_SUGGESTIONS);
 								}
 							} else {
-								String fieldName = AgentQuery.getValue(fieldElements.get(0).getMatchedText());
+								String fieldName = QueryUtils.getValue(fieldElements.get(0).getMatchedText());
  								try {
 									AgentQuery.checkField(fieldName, operator);
 									switch (fieldName) {
@@ -156,7 +157,7 @@ public class AgentQueryBehavior extends ANTLRAssistBehavior {
 		if (parseExpect != null) {
 			List<Element> fieldElements = parseExpect.getState().findMatchedElementsByLabel("criteriaField", false);
 			if (!fieldElements.isEmpty()) {
-				String fieldName = AgentQuery.getValue(fieldElements.iterator().next().getMatchedText());
+				String fieldName = QueryUtils.getValue(fieldElements.iterator().next().getMatchedText());
 				try {
 					AgentQuery.checkField(fieldName, AgentQuery.getOperator(suggestedLiteral));
 				} catch (ExplicitException e) {
@@ -171,21 +172,21 @@ public class AgentQueryBehavior extends ANTLRAssistBehavior {
 	protected List<String> getHints(TerminalExpect terminalExpect) {
 		List<String> hints = new ArrayList<>();
 		if (terminalExpect.getElementSpec() instanceof LexerRuleRefElementSpec) {
-			LexerRuleRefElementSpec spec = (LexerRuleRefElementSpec) terminalExpect.getElementSpec();
-			if ("criteriaValue".equals(spec.getLabel()) && AgentQuery.isInsideQuote(terminalExpect.getUnmatchedText())) {
-				List<Element> fieldElements = terminalExpect.getState().findMatchedElementsByLabel("criteriaField", true);
+			ParseExpect criteriaValueExpect = terminalExpect.findExpectByLabel("criteriaValue");
+			if (criteriaValueExpect != null && QueryUtils.isInsideQuote(terminalExpect.getUnmatchedText())) {
+				List<Element> fieldElements = criteriaValueExpect.getState().findMatchedElementsByLabel("criteriaField", true);
 				if (!fieldElements.isEmpty()) {
-					String fieldName = AgentQuery.getValue(fieldElements.get(0).getMatchedText());
+					String fieldName = QueryUtils.getValue(fieldElements.get(0).getMatchedText());
 					if (fieldName.equals(Agent.NAME_NAME) 
-							|| fieldName.equals(Agent.NAME_OS_NAME)
-							|| fieldName.equals(Agent.NAME_OS_ARCH)
+							|| fieldName.equals(Agent.NAME_OS_NAME) 
+							|| fieldName.equals(Agent.NAME_OS_ARCH) 
 							|| fieldName.equals(Agent.NAME_OS_VERSION) 
 							|| fieldName.equals(Agent.NAME_IP_ADDRESS)) {
 						hints.add(_T("Use '*' for wildcard match"));
 					}
 				}
 			}
-		} 
+		}
 		if (getSettingService().getAiSetting().getLiteModelSetting() == null)
 			hints.add(_T("<a href='/~administration/settings/lite-ai-model' target='_blank'>Set up AI</a> to query with natural language</a>"));
 		return hints;

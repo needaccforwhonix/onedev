@@ -37,6 +37,7 @@ import io.onedev.server.security.permission.AccessProject;
 import io.onedev.server.service.ProjectService;
 import io.onedev.server.service.SettingService;
 import io.onedev.server.util.DateUtils;
+import io.onedev.server.util.QueryUtils;
 import io.onedev.server.util.facade.ProjectCache;
 import io.onedev.server.web.behavior.inputassist.ANTLRAssistBehavior;
 import io.onedev.server.web.behavior.inputassist.NaturalLanguageTranslator;
@@ -55,7 +56,9 @@ public class ProjectQueryBehavior extends ANTLRAssistBehavior {
 	protected List<InputSuggestion> suggest(TerminalExpect terminalExpect) {
 		if (terminalExpect.getElementSpec() instanceof LexerRuleRefElementSpec) {
 			LexerRuleRefElementSpec spec = (LexerRuleRefElementSpec) terminalExpect.getElementSpec();
-			if (spec.getRuleName().equals("Quoted")) {
+			if (spec.getRuleName().equals("Id")) {
+				return SuggestionUtils.suggestNumber(terminalExpect.getUnmatchedText(), _T("find by id"), true);
+			} else if (spec.getRuleName().equals("Quoted")) {
 				return new FenceAware(codeAssist.getGrammar(), '"', '"') {
 
 					@Override
@@ -89,7 +92,7 @@ public class ProjectQueryBehavior extends ANTLRAssistBehavior {
 									return SuggestionUtils.suggestUsers(matchWith);
 								}
 							} else {
-								String fieldName = ProjectQuery.getValue(fieldElements.get(0).getMatchedText());
+								String fieldName = QueryUtils.getValue(fieldElements.get(0).getMatchedText());
 								try {
 									ProjectQuery.checkField(fieldName, operator);
 									if (fieldName.equals(Project.NAME_LAST_ACTIVITY_DATE)) {
@@ -105,6 +108,8 @@ public class ProjectQueryBehavior extends ANTLRAssistBehavior {
 											return SuggestionUtils.suggestProjectKeys(matchWith);
 										else
 											return null;
+									} else if (fieldName.equals(Project.NAME_ID)) {
+										return SuggestionUtils.suggestNumber(matchWith, _T("find by id"), false);
 									} else if (fieldName.equals(Project.NAME_PATH)) {
 										if (!matchWith.contains("*"))
 											return SuggestionUtils.suggestProjectPaths(matchWith);
@@ -183,7 +188,7 @@ public class ProjectQueryBehavior extends ANTLRAssistBehavior {
 		if (parseExpect != null) {
 			List<Element> fieldElements = parseExpect.getState().findMatchedElementsByLabel("criteriaField", false);
 			if (!fieldElements.isEmpty()) {
-				String fieldName = ProjectQuery.getValue(fieldElements.iterator().next().getMatchedText());
+				String fieldName = QueryUtils.getValue(fieldElements.iterator().next().getMatchedText());
 				try {
 					ProjectQuery.checkField(fieldName, ProjectQuery.getOperator(suggestedLiteral));
 				} catch (ExplicitException e) {
@@ -199,11 +204,11 @@ public class ProjectQueryBehavior extends ANTLRAssistBehavior {
 	protected List<String> getHints(TerminalExpect terminalExpect) {
 		List<String> hints = new ArrayList<>();
 		if (terminalExpect.getElementSpec() instanceof LexerRuleRefElementSpec) {
-			LexerRuleRefElementSpec spec = (LexerRuleRefElementSpec) terminalExpect.getElementSpec();
-			if ("criteriaValue".equals(spec.getLabel())) {
-				List<Element> fieldElements = terminalExpect.getState().findMatchedElementsByLabel("criteriaField", true);
+			ParseExpect criteriaValueExpect = terminalExpect.findExpectByLabel("criteriaValue");
+			if (criteriaValueExpect != null) {
+				List<Element> fieldElements = criteriaValueExpect.getState().findMatchedElementsByLabel("criteriaField", true);
 				if (!fieldElements.isEmpty()) {
-					String fieldName = ProjectQuery.getValue(fieldElements.get(0).getMatchedText());
+					String fieldName = QueryUtils.getValue(fieldElements.get(0).getMatchedText());
 					if (fieldName.equals(Project.NAME_NAME)
 							|| fieldName.equals(Project.NAME_KEY) 
 							|| fieldName.equals(Project.NAME_SERVICE_DESK_EMAIL_ADDRESS)) {
@@ -215,7 +220,7 @@ public class ProjectQueryBehavior extends ANTLRAssistBehavior {
 						hints.add(_T("Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>"));
 					}
 				} else {
-					Element operatorElement = terminalExpect.getState()
+					Element operatorElement = criteriaValueExpect.getState()
 							.findMatchedElementsByLabel("operator", true).iterator().next();
 					int type = operatorElement.getMatchedTokens().iterator().next().getType();
 					if (type == ProjectQueryLexer.ForksOf || type == ProjectQueryLexer.ChildrenOf) 

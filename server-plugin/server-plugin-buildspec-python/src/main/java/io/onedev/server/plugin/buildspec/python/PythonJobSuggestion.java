@@ -1,15 +1,34 @@
 package io.onedev.server.plugin.buildspec.python;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.eclipse.jgit.lib.FileMode;
+import org.eclipse.jgit.lib.ObjectId;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.LoaderOptions;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
+
 import com.google.common.collect.Lists;
 import com.moandjiezana.toml.Toml;
+
 import io.onedev.commons.utils.StringUtils;
 import io.onedev.k8shelper.ExecuteCondition;
 import io.onedev.server.buildspec.job.Job;
 import io.onedev.server.buildspec.job.JobSuggestion;
 import io.onedev.server.buildspec.job.trigger.BranchUpdateTrigger;
 import io.onedev.server.buildspec.job.trigger.PullRequestUpdateTrigger;
-import io.onedev.server.buildspec.step.*;
-import io.onedev.server.buildspec.step.commandinterpreter.ShellInterpreter;
+import io.onedev.server.buildspec.step.CheckoutStep;
+import io.onedev.server.buildspec.step.CommandStep;
+import io.onedev.server.buildspec.step.SetBuildVersionStep;
+import io.onedev.server.buildspec.step.SetupCacheStep;
+import io.onedev.server.buildspec.step.commandinterpreter.PosixInterpreter;
 import io.onedev.server.git.Blob;
 import io.onedev.server.git.BlobIdent;
 import io.onedev.server.model.Project;
@@ -17,18 +36,6 @@ import io.onedev.server.plugin.report.cobertura.PublishCoberturaReportStep;
 import io.onedev.server.plugin.report.coverage.PublishCoverageReportStep;
 import io.onedev.server.plugin.report.junit.PublishJUnitReportStep;
 import io.onedev.server.plugin.report.ruff.PublishRuffReportStep;
-import org.eclipse.jgit.lib.FileMode;
-import org.eclipse.jgit.lib.ObjectId;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.yaml.snakeyaml.Yaml;
-
-import org.jspecify.annotations.Nullable;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class PythonJobSuggestion implements JobSuggestion {
 	
@@ -68,9 +75,10 @@ public class PythonJobSuggestion implements JobSuggestion {
 	private SetupCacheStep newPipCacheSetupStep() {
 		var setupCache = new SetupCacheStep();
 		setupCache.setName("set up dependency cache");
-		setupCache.setKey("pip_cache_@file:checksum@");
+		setupCache.setKey("pip_cache");
+
+		setupCache.setChecksumFiles("requirements.txt setup.py setup.cfg pyproject.toml");
 		setupCache.setPaths(Lists.newArrayList("/root/.cache/pip"));
-		setupCache.getLoadKeys().add("pip_cache");
 		return setupCache;
 	}
 	
@@ -91,20 +99,13 @@ public class PythonJobSuggestion implements JobSuggestion {
 	
 	private CommandStep newPipBuildAndTestStep(String dependencyInstallCommand, boolean withPytest) {
 		CommandStep buildAndTest = new CommandStep();
-		var interpreter = new ShellInterpreter();
+		var interpreter = new PosixInterpreter();
+		interpreter.setShell("bash");
 		buildAndTest.setInterpreter(interpreter);
 		buildAndTest.setName("build and test");
 		buildAndTest.setImage("python");
 		interpreter.setCommands("set -e\n" + dependencyInstallCommand + "\n" + "pip install " + getCoveragePackage(withPytest) + " ruff\n" + getCoverageAndRuffCommand(withPytest, ""));
 		return buildAndTest;
-	}
-	
-	private GenerateChecksumStep newChecksumGenerateStep(String files) {
-		var generateChecksum = new GenerateChecksumStep();
-		generateChecksum.setName("generate dependency checksum");
-		generateChecksum.setFiles(files);
-		generateChecksum.setTargetFile("checksum");
-		return generateChecksum;
 	}
 	
 	@Nullable
@@ -181,12 +182,12 @@ public class PythonJobSuggestion implements JobSuggestion {
 			Blob blob;
 			if ((blob = project.getBlob(new BlobIdent(commitId.name(), "tox.ini", FileMode.TYPE_FILE), false)) != null) {
 				var job = newJob();
-				job.getSteps().add(newChecksumGenerateStep("tox.ini"));
 				var setupCache = new SetupCacheStep();
 				setupCache.setName("set up dependency cache");
-				setupCache.setKey("tox_cache_@file:checksum@");
+				setupCache.setKey("tox_cache");
+		
+				setupCache.setChecksumFiles("tox.ini");
 				setupCache.setPaths(Lists.newArrayList(".tox"));
-				setupCache.getLoadKeys().add("tox_cache");
 				job.getSteps().add(setupCache);
 
 				CommandStep buildAndTest = new CommandStep();
@@ -200,13 +201,13 @@ public class PythonJobSuggestion implements JobSuggestion {
 				jobs.add(job);
 			} else if ((blob = project.getBlob(new BlobIdent(commitId.name(), "poetry.lock", FileMode.TYPE_FILE), false)) != null) {
 				var job = newJob();
-				job.getSteps().add(newChecksumGenerateStep("poetry.lock"));
 
 				var setupCache = new SetupCacheStep();
 				setupCache.setName("set up dependency cache");
-				setupCache.setKey("poetry_cache_@file:checksum@");
+				setupCache.setKey("poetry_cache");
+		
+				setupCache.setChecksumFiles("poetry.lock");
 				setupCache.setPaths(Lists.newArrayList("/root/.cache/pypoetry"));
-				setupCache.getLoadKeys().add("poetry_cache");
 				job.getSteps().add(setupCache);
 
 				var pyproject = project.getBlob(new BlobIdent(commitId.name(), "pyproject.toml", FileMode.TYPE_FILE), false);
@@ -250,18 +251,10 @@ public class PythonJobSuggestion implements JobSuggestion {
 				jobs.add(job);
 			} else if ((blob = project.getBlob(new BlobIdent(commitId.name(), "pyproject.toml", FileMode.TYPE_FILE), false)) != null) {
 				var job = newJob();
-				var dependencyFiles = "pyproject.toml";
 				var setupPy = project.getBlob(new BlobIdent(commitId.name(), "setup.py", FileMode.TYPE_FILE), false);
-				if (setupPy != null)
-					dependencyFiles += " setup.py";
 				var setupCfg = project.getBlob(new BlobIdent(commitId.name(), "setup.cfg", FileMode.TYPE_FILE), false);
-				if (setupCfg != null)
-					dependencyFiles += " setup.cfg";
 				var requirements = project.getBlob(new BlobIdent(commitId.name(), "requirements.txt", FileMode.TYPE_FILE), false);
-				if (requirements != null)
-					dependencyFiles += " requirements.txt";
 
-				job.getSteps().add(newChecksumGenerateStep(dependencyFiles));
 				job.getSteps().add(newPipCacheSetupStep());
 
 				var blobContent = blob.getText().getContent();
@@ -301,15 +294,9 @@ public class PythonJobSuggestion implements JobSuggestion {
 				jobs.add(job);
 			} else if ((blob = project.getBlob(new BlobIdent(commitId.name(), "setup.py", FileMode.TYPE_FILE), false)) != null) {
 				var job = newJob();
-				var dependencyFiles = "setup.py";
 				var setupCfg = project.getBlob(new BlobIdent(commitId.name(), "setup.cfg", FileMode.TYPE_FILE), false);
-				if (setupCfg != null)
-					dependencyFiles += " setup.cfg";
 				var requirements = project.getBlob(new BlobIdent(commitId.name(), "requirements.txt", FileMode.TYPE_FILE), false);
-				if (requirements != null)
-					dependencyFiles += " requirements.txt";
-				
-				job.getSteps().add(newChecksumGenerateStep(dependencyFiles));
+
 				job.getSteps().add(newPipCacheSetupStep());
 
 				var blobContent = blob.getText().getContent();
@@ -332,7 +319,6 @@ public class PythonJobSuggestion implements JobSuggestion {
 				jobs.add(job);
 			} else if ((blob = project.getBlob(new BlobIdent(commitId.name(), "requirements.txt", FileMode.TYPE_FILE), false)) != null) {
 				var job = newJob();
-				job.getSteps().add(newChecksumGenerateStep("requirements.txt"));
 				job.getSteps().add(newPipCacheSetupStep());
 
 				var withPytest = blob.getText().getContent().contains("pytest");
@@ -343,21 +329,24 @@ public class PythonJobSuggestion implements JobSuggestion {
 				jobs.add(job);
 			} else if ((blob = project.getBlob(new BlobIdent(commitId.name(), "environment.yml", FileMode.TYPE_FILE), false)) != null) {
 				var job = newJob();
-				job.getSteps().add(newChecksumGenerateStep("environment.yml"));
 
 				var setupCache = new SetupCacheStep();
 				setupCache.setName("set up dependency cache");
-				setupCache.setKey("conda_cache_@file:checksum@");
+				setupCache.setKey("conda_cache");
+		
+				setupCache.setChecksumFiles("environment.yml");
 				setupCache.setPaths(Lists.newArrayList("/root/miniconda3/envs"));
-				setupCache.getLoadKeys().add("conda_cache");
 				job.getSteps().add(setupCache);
 
 				var blobContent = blob.getText().getContent();
-				Map<String, Object> environments = new Yaml().load(blobContent);
+				var options = new LoaderOptions();
+				Map<String, Object> environments = new Yaml(new SafeConstructor(options)).load(blobContent);
 				CommandStep buildAndTest = new CommandStep();
 				buildAndTest.setName("build and test");
 				buildAndTest.setImage("1dev/conda:1.0.4");
-				buildAndTest.setInterpreter(new ShellInterpreter());
+				var interpreter = new PosixInterpreter();
+				interpreter.setShell("bash");
+				buildAndTest.setInterpreter(interpreter);
 				String commands = "" +
 						"set -e\n" +
 						"source /root/.bashrc\n" +

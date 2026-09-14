@@ -16,7 +16,10 @@
  */
 package io.onedev.server.web.websocket;
 
+import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+
 import org.apache.shiro.subject.Subject;
+import org.apache.shiro.util.ThreadContext;
 import org.apache.wicket.protocol.http.WebApplication;
 import org.apache.wicket.protocol.ws.api.AbstractWebSocketProcessor;
 import org.eclipse.jetty.websocket.api.Session;
@@ -25,6 +28,10 @@ import org.eclipse.jetty.websocket.servlet.ServletUpgradeRequest;
 import org.eclipse.jetty.websocket.servlet.ServletUpgradeResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import io.onedev.server.OneDev;
+import io.onedev.server.exception.ExceptionUtils;
+import io.onedev.server.persistence.SessionService;
 
 /**
  * An {@link org.apache.wicket.protocol.ws.api.IWebSocketProcessor processor} that integrates with
@@ -57,36 +64,47 @@ public class WebSocketProcessor extends AbstractWebSocketProcessor implements We
 
 	@Override
 	public void onWebSocketConnect(final Session session) {
-		PageKey pageKey = new PageKey(getSessionId(), getRegistryKey());
-		Subject subject = (Subject) request.getHttpServletRequest().getAttribute(WebSocketFilter.SHIRO_SUBJECT);
-		WebSocketConnection connection = new WebSocketConnection(session, WebSocketProcessor.this, pageKey, subject);
-		onConnect(connection);
+		run(() -> {
+			PageKey pageKey = new PageKey(getSessionId(), getRegistryKey());
+			Subject subject = (Subject) request.getHttpServletRequest().getAttribute(WebSocketFilter.SHIRO_SUBJECT);
+			WebSocketConnection connection = new WebSocketConnection(session, WebSocketProcessor.this, pageKey, subject);
+			onConnect(connection);
+		});
 	}
-		
+	
+	private void run(Runnable runnable) {
+		SessionService sessionService = OneDev.getInstance(SessionService.class);
+		Subject subject = (Subject) request.getHttpServletRequest().getAttribute(WebSocketFilter.SHIRO_SUBJECT);
+		ThreadContext.bind(subject);
+		sessionService.run(runnable);
+	}
+	
 	@Override
 	public void onWebSocketText(final String message) {
-		if (!message.equals(WebSocketMessages.KEEP_ALIVE))
-			onMessage(message);
+		if (!message.equals(WebSocketMessages.KEEP_ALIVE)) 
+			run(() -> onMessage(message));
 	}
 
 	@Override
 	public void onWebSocketBinary(final byte[] payload, final int offset, final int len) {
-		onMessage(payload, offset, len);
+		run(() -> onMessage(payload, offset, len));
 	}
 
 	@Override
 	public void onWebSocketClose(final int statusCode, final String reason) {
-		onClose(statusCode, reason);
+		run(() -> onClose(statusCode, reason));
 	}
 
 	@Override
 	public void onWebSocketError(Throwable throwable) {
-		logger.error("An error occurred when using WebSocket", throwable);	
+		var response = ExceptionUtils.buildResponse(throwable);
+		if (response == null || response.getStatus() >= SC_INTERNAL_SERVER_ERROR)
+			logger.error("An error occurred when using WebSocket.", throwable);	
 	}
 
 	@Override
 	public void onOpen(Object connection) {
 		onWebSocketConnect((Session)connection);
 	}
-	
+
 }

@@ -7,7 +7,7 @@
 	<parent>
 		<groupId>io.onedev</groupId>
 		<artifactId>server</artifactId>
-		<version>13.1.7</version>
+		<version>16.6.3</version>
 	</parent>
 	<dependencies>
 		<dependency>
@@ -23,6 +23,11 @@
 		<dependency>
 			<groupId>io.onedev</groupId>
 			<artifactId>server-plugin-report-jest</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.onedev</groupId>
+			<artifactId>server-plugin-report-playwright</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
@@ -123,6 +128,16 @@
 		<dependency>
 			<groupId>io.onedev</groupId>
 			<artifactId>server-plugin-executor-remoteshell</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.onedev</groupId>
+			<artifactId>server-plugin-provisioner-servershell</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.onedev</groupId>
+			<artifactId>server-plugin-provisioner-serverdocker</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
@@ -268,6 +283,11 @@
 		<dependency>
 			<groupId>io.onedev</groupId>
 			<artifactId>server-plugin-pack-container</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.onedev</groupId>
+			<artifactId>server-plugin-pack-cargo</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>

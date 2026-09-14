@@ -11,6 +11,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import javax.inject.Inject;
+
 import org.apache.wicket.Component;
 import org.apache.wicket.Session;
 import org.apache.wicket.ajax.AjaxRequestTarget;
@@ -20,6 +22,7 @@ import org.apache.wicket.behavior.AttributeAppender;
 import org.apache.wicket.event.Broadcast;
 import org.apache.wicket.markup.head.IHeaderResponse;
 import org.apache.wicket.markup.head.OnDomReadyHeaderItem;
+import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.list.ListItem;
 import org.apache.wicket.markup.html.list.ListView;
 import org.apache.wicket.markup.html.panel.Fragment;
@@ -27,20 +30,18 @@ import org.apache.wicket.markup.html.panel.GenericPanel;
 import org.apache.wicket.markup.repeater.RepeatingView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
-import org.apache.wicket.model.Model;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.hibernate.Hibernate;
 
-import io.onedev.server.OneDev;
 import io.onedev.server.buildspecmodel.inputspec.Input;
-import io.onedev.server.service.IssueLinkService;
-import io.onedev.server.service.IssueService;
 import io.onedev.server.model.Issue;
 import io.onedev.server.model.IssueSchedule;
 import io.onedev.server.model.Iteration;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.support.issue.BoardSpec;
 import io.onedev.server.model.support.issue.field.spec.FieldSpec;
+import io.onedev.server.service.IssueLinkService;
+import io.onedev.server.service.IssueService;
 import io.onedev.server.util.LinkDescriptor;
 import io.onedev.server.web.ajaxlistener.AttachAjaxIndicatorListener;
 import io.onedev.server.web.ajaxlistener.AttachAjaxIndicatorListener.AttachMode;
@@ -52,7 +53,6 @@ import io.onedev.server.web.component.issue.link.IssueLinksPanel;
 import io.onedev.server.web.component.issue.operation.TransitionMenuLink;
 import io.onedev.server.web.component.issue.progress.IssueProgressPanel;
 import io.onedev.server.web.component.issue.title.IssueTitlePanel;
-import io.onedev.server.web.component.link.copytoclipboard.CopyToClipboardLink;
 import io.onedev.server.web.component.modal.ModalLink;
 import io.onedev.server.web.component.modal.ModalPanel;
 import io.onedev.server.web.component.user.ident.Mode;
@@ -61,6 +61,12 @@ import io.onedev.server.web.util.CursorSupport;
 
 public abstract class BoardCardPanel extends GenericPanel<Issue> {
 	
+	@Inject
+	private IssueService issueService;
+
+	@Inject
+	private IssueLinkService issueLinkService;
+
 	private final Long issueId;
 	
 	private AbstractPostAjaxBehavior ajaxBehavior;
@@ -71,7 +77,7 @@ public abstract class BoardCardPanel extends GenericPanel<Issue> {
 		setModel(new LoadableDetachableModel<>() {
 			@Override
 			protected Issue load() {
-				return OneDev.getInstance(IssueService.class).load(issueId);
+				return issueService.load(issueId);
 			}
 		});
 	}
@@ -90,6 +96,16 @@ public abstract class BoardCardPanel extends GenericPanel<Issue> {
 		Fragment fragment = new Fragment(componentId, "contentFrag", this);
 		
 		BoardSpec board = ((IssueBoardsPage)getPage()).getBoard();
+
+		fragment.add(new WebMarkupContainer("dragHandle") {
+
+			@Override
+			protected void onConfigure() {
+				super.onConfigure();
+				setVisible(displayedIssueIds.isEmpty() && getAuthUser() != null);
+			}
+
+		});
 
 		RepeatingView fieldsView = new RepeatingView("fields");
 		for (String fieldName: board.getDisplayFields()) {
@@ -215,7 +231,7 @@ public abstract class BoardCardPanel extends GenericPanel<Issue> {
 
 									@Override
 									protected Issue load() {
-										return OneDev.getInstance(IssueService.class).load(issueId);
+										return issueService.load(issueId);
 									}
 
 								}, cursor);
@@ -267,9 +283,6 @@ public abstract class BoardCardPanel extends GenericPanel<Issue> {
 			
 		});
 		
-		fragment.add(new CopyToClipboardLink("copy", 
-				Model.of(issue.getTitle() + " (" + issue.getReference().toString(getProject()) + ")")));
-
 		var linksPanel = new IssueLinksPanel("links") {
 
 			@Override
@@ -298,7 +311,7 @@ public abstract class BoardCardPanel extends GenericPanel<Issue> {
 			@Override
 			protected List<Issue> load() {
 				Issue issue = issueModel.getObject();
-				OneDev.getInstance(IssueLinkService.class).loadDeepLinks(issue);
+				issueLinkService.loadDeepLinks(issue);
 				LinkDescriptor descriptor = new LinkDescriptor(linksPanel.getExpandedLink());
 				return issue.findLinkedIssues(descriptor.getSpec(), descriptor.isOpposite()).stream().filter(it->canAccessIssue(it)).collect(toList());
 			}
@@ -333,9 +346,6 @@ public abstract class BoardCardPanel extends GenericPanel<Issue> {
 		
 		add(AttributeAppender.append("data-issue", getIssue().getId()));
 		
-		if (getAuthUser() != null)
-			add(AttributeAppender.append("style", "cursor:move;"));
-		
 		add(ajaxBehavior = new AbstractPostAjaxBehavior() {
 			
 			@Override
@@ -343,7 +353,7 @@ public abstract class BoardCardPanel extends GenericPanel<Issue> {
 				if (canManageIssues(getProject())) {
 					Long issueId = RequestCycle.get().getRequest().getPostParameters()
 							.getParameterValue("issue").toLong();
-					Issue issue = OneDev.getInstance(IssueService.class).load(issueId);
+					Issue issue = issueService.load(issueId);
 					Hibernate.initialize(issue.getProject());
 					Project parent = issue.getProject().getParent();
 					while (parent != null) {
@@ -354,7 +364,11 @@ public abstract class BoardCardPanel extends GenericPanel<Issue> {
 					Hibernate.initialize(issue.getSubmitter());
 					Hibernate.initialize(issue.getComments());
 					Hibernate.initialize(issue.getTargetLinks());
+					for (var link: issue.getTargetLinks())
+						Hibernate.initialize(link.getTarget());
 					Hibernate.initialize(issue.getSourceLinks());
+					for (var link: issue.getSourceLinks())
+						Hibernate.initialize(link.getSource());
 					Hibernate.initialize(issue.getMentions());
 					for (Iteration iteration : issue.getIterations())
 						Hibernate.initialize(iteration);
@@ -390,5 +404,5 @@ public abstract class BoardCardPanel extends GenericPanel<Issue> {
 	protected abstract Project getProject();
 	
 	protected abstract void onDeleteIssue(AjaxRequestTarget target);
-	
+		
 }

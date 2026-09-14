@@ -5,11 +5,13 @@ import static io.onedev.server.web.page.security.SsoProcessPage.STAGE_INITIATE;
 import static io.onedev.server.web.translation.Translation._T;
 
 import java.text.MessageFormat;
+import java.util.Collection;
 
 import javax.inject.Inject;
 
 import org.apache.shiro.authc.AuthenticationException;
 import org.apache.shiro.authc.AuthenticationToken;
+import org.apache.shiro.authc.DisabledAccountException;
 import org.apache.shiro.authc.IncorrectCredentialsException;
 import org.apache.shiro.authc.UnknownAccountException;
 import org.apache.shiro.authc.UsernamePasswordToken;
@@ -31,6 +33,7 @@ import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.repeater.RepeatingView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
+import org.apache.wicket.request.flow.RedirectToUrlException;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 
 import io.onedev.server.model.SsoProvider;
@@ -75,6 +78,8 @@ public class LoginPage extends SimplePage {
 	private String errorMessage;
 	
 	private String subTitle = _T("Enter your details to login to your account");
+
+	private boolean disableInternalLogin;
 	
 	public LoginPage(PageParameters params) {
 		super(params);
@@ -94,6 +99,16 @@ public class LoginPage extends SimplePage {
 
 		// replace session to avoid session fixation attack
 		getSession().replaceSession();
+
+		String serverUrl = settingService.getSystemSetting().getServerUrl();
+		var ssoProviders = ssoProviderService.query();
+		disableInternalLogin = settingService.getSecuritySetting().isDisableInternalLogin()
+				&& !ssoProviders.isEmpty();
+		if (disableInternalLogin && ssoProviders.size() == 1) {			
+			var provider = ssoProviders.iterator().next();
+			throw new RedirectToUrlException(serverUrl + "/" + MOUNT_PATH + "/" + STAGE_INITIATE
+					+ "/" + provider.getName());
+		}
 				
 		Fragment fragment = new Fragment("content", "passwordCheckFrag", this);
 		
@@ -116,8 +131,8 @@ public class LoginPage extends SimplePage {
 					} else {
 						afterLogin(user);
 					}
-				} catch (IncorrectCredentialsException|UnknownAccountException e) {
-					error(_T("Invalid credentials"));
+				} catch (IncorrectCredentialsException|UnknownAccountException|DisabledAccountException e) {
+					error(_T(SecurityUtils.AUTHENTICATION_FAILED_MESSAGE));
 				} catch (AuthenticationException ae) {
 					error(ae.getMessage());
 				}
@@ -190,10 +205,7 @@ public class LoginPage extends SimplePage {
 		boolean enableSelfRegister = settingService.getSecuritySetting().isEnableSelfRegister();
 		fragment.add(new ViewStateAwarePageLink<Void>("registerUser", SignUpPage.class).setVisible(enableSelfRegister));
 
-		String serverUrl = settingService.getSystemSetting().getServerUrl();
-		
 		RepeatingView ssoButtonsView = new RepeatingView("ssoButtons");
-		var ssoProviders = ssoProviderService.query();
 		for (SsoProvider provider: ssoProviders) {
 			ExternalLink ssoButton = new ExternalLink(ssoButtonsView.newChildId(), 
 					Model.of(serverUrl + "/" + MOUNT_PATH + "/" + STAGE_INITIATE + "/" + provider.getName()));
@@ -336,6 +348,14 @@ public class LoginPage extends SimplePage {
 	@Override
 	protected String getSubTitle() {
 		return subTitle;
+	}
+
+	@Override
+	protected Collection<String> getCssClasses() {
+		var cssClasses = super.getCssClasses();
+		if (disableInternalLogin)
+			cssClasses.add("internal-login-disabled");
+		return cssClasses;
 	}
 	
 }

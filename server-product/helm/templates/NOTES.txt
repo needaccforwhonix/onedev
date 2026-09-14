@@ -3,17 +3,13 @@ CHART VERSION: {{ .Chart.Version }}
 APP VERSION: {{ .Chart.AppVersion }}
 
 {{- if and (not .Values.command) (not .Values.args) (eq .Values.image.name "1dev/server") }}
-###################################################################
-#
-# CAUTION: If you are upgrading from version <= 9.0.0, please make
-# sure to follow https://docs.onedev.io/upgrade-guide/deploy-to-k8s
-# to migrate your data
-#
-###################################################################
+{{- $sshEnabled := default false ((.Values.ssh | default dict).enabled) }}
 
 ** Please be patient while the chart is being deployed **
 
 {{- if .Values.ingress.enabled }}
+{{- $controller := include "ods.ingressController" . }}
+{{- $hosts := concat (list .Values.ingress.host) (.Values.ingress.additionalHosts | default (list)) }}
 
 You can access OneDev at:
 
@@ -21,6 +17,22 @@ You can access OneDev at:
    https://{{ .Values.ingress.host }}
 {{- else }}
    http://{{ .Values.ingress.host }}
+{{- end }}
+Ingress controller: {{ $controller }}
+
+   host names: {{ join ", " $hosts }}
+   ssh: {{ ternary "enabled" "disabled" $sshEnabled }}
+{{- if eq $controller "traefik" }}
+
+Traffic is routed by Traefik:
+
+   http entry point: {{ ternary "websecure" "web" .Values.ingress.tls.enabled }}
+{{- if $sshEnabled }}
+   ssh entry point: gitssh
+
+Make sure entry point gitssh is declared in your Traefik installation, and update
+SSH root url as ssh://{{ .Values.ingress.host }} in menu Administration/System Setting
+{{- end }}
 {{- end }}
 
 {{- else }}

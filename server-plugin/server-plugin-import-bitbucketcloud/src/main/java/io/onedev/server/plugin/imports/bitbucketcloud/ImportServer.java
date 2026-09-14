@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import javax.validation.ConstraintValidatorContext;
+import javax.validation.constraints.Email;
 import javax.validation.constraints.NotEmpty;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -16,6 +17,7 @@ import javax.ws.rs.client.Invocation;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
 
+import org.apache.commons.lang3.Strings;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.shiro.authz.UnauthorizedException;
 import org.glassfish.jersey.client.ClientProperties;
@@ -34,13 +36,13 @@ import io.onedev.server.annotation.ClassValidating;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Password;
 import io.onedev.server.data.migration.VersionedXmlDoc;
-import io.onedev.server.service.AuditService;
-import io.onedev.server.service.BaseAuthorizationService;
-import io.onedev.server.service.ProjectService;
 import io.onedev.server.git.command.LsRemoteCommand;
 import io.onedev.server.model.Project;
 import io.onedev.server.persistence.TransactionService;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.AuditService;
+import io.onedev.server.service.BaseAuthorizationService;
+import io.onedev.server.service.ProjectService;
 import io.onedev.server.util.CollectionUtils;
 import io.onedev.server.util.JerseyUtils;
 import io.onedev.server.util.JerseyUtils.PageDataConsumer;
@@ -58,34 +60,47 @@ public class ImportServer implements Serializable, Validatable {
 	
 	private static final int PER_PAGE = 50;
 	
-	private String userName;
+	private String emailAddress;
 	
-	private String appPassword;
+	private String apiToken;
+	
+	private transient String userName;
 
-	@Editable(order=10, name="Bitbucket Login Name")
+	@Editable(order=10, name="Email")
+	@Email
 	@NotEmpty
-	public String getUserName() {
-		return userName;
+	public String getEmailAddress() {
+		return emailAddress;
 	}
 
-	public void setUserName(String userName) {
-		this.userName = userName;
+	public void setEmailAddress(String emailAddress) {
+		this.emailAddress = emailAddress;
 	}
 
-	@Editable(order=100, name="Bitbucket App Password", description="Bitbucket app password should be generated with "
-			+ "permission <b>account/read</b>, <b>repositories/read</b> and <b>issues:read</b>")
+	@Editable(order=100, name="API Token", description="API token should be generated with "
+			+ "permission to read your account and repositories")
 	@Password
 	@NotEmpty
-	public String getAppPassword() {
-		return appPassword;
+	public String getApiToken() {
+		return apiToken;
 	}
 
-	public void setAppPassword(String appPassword) {
-		this.appPassword = appPassword;
+	public void setApiToken(String apiToken) {
+		this.apiToken = apiToken;
 	}
 	
 	private String getApiEndpoint(String apiPath) {
 		return "https://api.bitbucket.org/2.0/" + StringUtils.stripStart(apiPath, "/");
+	}
+	
+	private String getUserName(Client client, TaskLogger logger) {
+		if (userName == null) {
+			JsonNode userNode = JerseyUtils.get(client, getApiEndpoint("/user"), logger);
+			if (!userNode.hasNonNull("username"))
+				throw new ExplicitException("Bitbucket username not found");
+			userName = userNode.get("username").asText();
+		}
+		return userName;
 	}
 	
 	Map<String, String> listWorkspaces() {
@@ -93,7 +108,7 @@ public class ImportServer implements Serializable, Validatable {
 		
 		Client client = newClient();
 		try {
-			String apiEndpoint = getApiEndpoint("/user/permissions/workspaces");
+			String apiEndpoint = getApiEndpoint("/user/workspaces");
 			for (JsonNode valueElementNode: list(client, apiEndpoint, new TaskLogger() {
 
 				@Override
@@ -103,9 +118,13 @@ public class ImportServer implements Serializable, Validatable {
 				
 			})) {
 				JsonNode workspaceNode = valueElementNode.get("workspace");
-				workspaces.put(workspaceNode.get("slug").asText(), workspaceNode.get("name").asText());
+				if (workspaceNode != null && workspaceNode.hasNonNull("slug")) {
+					String slug = workspaceNode.get("slug").asText();
+					String name = workspaceNode.hasNonNull("name")? workspaceNode.get("name").asText(): slug;
+					workspaces.put(slug, name);
+				}
 			}	
-			CollectionUtils.sortByValue(workspaces);
+			workspaces = CollectionUtils.sortByValue(workspaces);
 		} catch (Exception e) {
 			logger.error("Error listing workspaces", e);
 		} finally {
@@ -116,6 +135,9 @@ public class ImportServer implements Serializable, Validatable {
 	}
 	
 	List<String> listRepositories(String workspaceId, boolean includeForks) {
+		if (StringUtils.isBlank(workspaceId))
+			return new ArrayList<>();
+		
 		Client client = newClient();
 		try {
 			List<String> repositories = new ArrayList<>();
@@ -129,7 +151,7 @@ public class ImportServer implements Serializable, Validatable {
 				}
 				
 			})) {
-				if (includeForks || repoNode.get("parent") == null)
+				if (includeForks || !repoNode.hasNonNull("parent"))
 					repositories.add(repoNode.get("full_name").asText());
 			}					
 			
@@ -181,17 +203,20 @@ public class ImportServer implements Serializable, Validatable {
 		}
 	}
 	
-	TaskResult importProjects(ImportRepositories repositories, ImportOption option, boolean dryRun, TaskLogger logger) {
+	TaskResult importProjects(ImportRepositories repositories, 
+			ImportOption option, boolean dryRun, TaskLogger logger) {
 		Client client = newClient();
 		try {
-			for (var bitbucketRepository : repositories.getImportRepositories()) {
+			var bitbucketRepositories = repositories.getImportRepositories();
+			if (bitbucketRepositories.isEmpty())
+				return new TaskResult(false, new PlainMessage("No repositories found to import"));
+			
+			for (var bitbucketRepository : bitbucketRepositories) {
 				OneDev.getInstance(TransactionService.class).run(() -> {
 					try {
-						String oneDevProjectPath;
+						String oneDevProjectPath = bitbucketRepository;
 						if (repositories.getParentOneDevProject() != null)
-							oneDevProjectPath = repositories.getParentOneDevProject() + "/" + bitbucketRepository;
-						else
-							oneDevProjectPath = bitbucketRepository;
+							oneDevProjectPath = repositories.getParentOneDevProject() + "/" + oneDevProjectPath;
 
 						logger.log("Importing from '" + bitbucketRepository + "' to '" + oneDevProjectPath + "'...");
 
@@ -222,9 +247,9 @@ public class ImportServer implements Serializable, Validatable {
 								throw new ExplicitException("Https clone url not found");
 
 							URIBuilder builder = new URIBuilder(cloneUrl);
-							builder.setUserInfo(getUserName(), getAppPassword());
+							builder.setUserInfo(getUserName(client, logger), getApiToken());
 
-							SecretMasker.push(text -> StringUtils.replace(text, getAppPassword(), "******"));
+							SecretMasker.push(text -> Strings.CS.replace(text, getApiToken(), "******"));
 							try {
 								if (dryRun) {
 									new LsRemoteCommand(builder.build().toString()).refs("HEAD").quiet(true).run();
@@ -259,14 +284,14 @@ public class ImportServer implements Serializable, Validatable {
 	private Client newClient() {
 		Client client = ClientBuilder.newClient();
 		client.property(ClientProperties.FOLLOW_REDIRECTS, true);
-		client.register(HttpAuthenticationFeature.basic(getUserName(), getAppPassword()));
+		client.register(HttpAuthenticationFeature.basic(getEmailAddress(), getApiToken()));
 		return client;
 	}
 	
 	@Override
 	public boolean isValid(ConstraintValidatorContext context) {
 		Client client = ClientBuilder.newClient();
-		client.register(HttpAuthenticationFeature.basic(getUserName(), getAppPassword()));
+		client.register(HttpAuthenticationFeature.basic(getEmailAddress(), getApiToken()));
 		try {
 			String apiEndpoint = getApiEndpoint("/user");
 			WebTarget target = client.target(apiEndpoint);
@@ -283,7 +308,16 @@ public class ImportServer implements Serializable, Validatable {
 						context.disableDefaultConstraintViolation();
 						context.buildConstraintViolationWithTemplate(errorMessage).addConstraintViolation();
 						return false;
-					} 
+					} else {
+						JsonNode userNode = response.readEntity(JsonNode.class);
+						if (!userNode.hasNonNull("username")) {
+							context.disableDefaultConstraintViolation();
+							context.buildConstraintViolationWithTemplate("Bitbucket username not found")
+									.addConstraintViolation();
+							return false;
+						}
+						userName = userNode.get("username").asText();
+					}
 				}
 			}
 		} catch (Exception e) {

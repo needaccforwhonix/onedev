@@ -10,6 +10,7 @@ import java.util.List;
 import org.apache.commons.io.FileUtils;
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
+import org.apache.wicket.behavior.AttributeAppender;
 import org.apache.wicket.core.request.handler.IPartialPageRequestHandler;
 import org.apache.wicket.markup.ComponentTag;
 import org.apache.wicket.markup.head.CssHeaderItem;
@@ -49,7 +50,7 @@ import io.onedev.server.web.component.select2.ResponseFiller;
 import io.onedev.server.web.component.user.ident.Mode;
 import io.onedev.server.web.component.user.ident.UserIdentPanel;
 import io.onedev.server.web.editable.InplacePropertyEditLink;
-import io.onedev.server.web.page.project.builds.detail.dashboard.BuildDashboardPage;
+import io.onedev.server.web.page.project.builds.detail.BuildDefaultPage;
 import io.onedev.server.web.page.project.commits.ProjectCommitsPage;
 import io.onedev.server.web.page.project.issues.list.ProjectIssueListPage;
 import io.onedev.server.web.util.editbean.LabelsBean;
@@ -68,7 +69,7 @@ public abstract class PackSidePanel extends Panel {
 		if (build != null) {
 			var label = BuildReference.TYPE + " " + build.getReference().toString(getPack().getProject());
 			var buildLink = new BookmarkablePageLink<Void>("publisher",
-					BuildDashboardPage.class, BuildDashboardPage.paramsOf(build)) {
+					BuildDefaultPage.class, BuildDefaultPage.paramsOf(build)) {
 				@Override
 				protected void onComponentTag(ComponentTag tag) {
 					super.onComponentTag(tag);
@@ -84,7 +85,7 @@ public abstract class PackSidePanel extends Panel {
 				@Override
 				protected void onConfigure() {
 					super.onConfigure();
-					setEnabled(SecurityUtils.canAccessBuild(build));
+					setEnabled(SecurityUtils.canAccessProject(build.getProject()));
 				}
 			};
 			add(buildLink);
@@ -99,7 +100,7 @@ public abstract class PackSidePanel extends Panel {
 				return DateUtils.formatAge(getPack().getPublishDate());
 			}
 
-		}));
+		}).add(new AttributeAppender("data-tippy-content", DateUtils.formatDateTime(getPack().getPublishDate()))));
 		
 		add(new Label("totalSize", new LoadableDetachableModel<String>() {
 			@Override

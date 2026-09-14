@@ -21,7 +21,7 @@ public class Setting extends AbstractEntity {
 		GROOVY_SCRIPTS, PULL_REQUEST, BUILD, PACK, PROJECT, SSH, GPG, 
 		EMAIL_TEMPLATES, CONTRIBUTED_SETTINGS, SERVICE_DESK_SETTING, 
 		AGENT, PERFORMANCE, BRANDING, CLUSTER_SETTING, SUBSCRIPTION_DATA, ALERT, 
-		SYSTEM_UUID, AUDIT, AI
+		SYSTEM_UUID, AUDIT, AI, WORKSPACE_PROVISIONERS, WORKSPACE
 	};
 	
 	@Column(nullable=false, unique=true)
@@ -31,7 +31,7 @@ public class Setting extends AbstractEntity {
 	 * This field is allowed to be null to indicate particular setting is not 
 	 * available (the record will always be available after interactive setup
 	 * to indicate that the setting has been prompted (although the user may
-	 * skipped the setting), so we can not use existence of record to indicate
+	 * skipped the setting), so we cannot use existence of record to indicate
 	 * a null setting.
 	 */
 	@Lob

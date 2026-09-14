@@ -1,7 +1,6 @@
 package io.onedev.server.web.behavior;
 
 import static io.onedev.server.model.AbstractEntity.NAME_NUMBER;
-import static io.onedev.server.search.entity.EntityQuery.getValue;
 import static io.onedev.server.search.entity.pullrequest.PullRequestQuery.checkField;
 import static io.onedev.server.search.entity.pullrequest.PullRequestQuery.getOperator;
 import static io.onedev.server.search.entity.pullrequest.PullRequestQuery.getRuleName;
@@ -20,6 +19,7 @@ import static io.onedev.server.search.entity.pullrequest.PullRequestQueryLexer.T
 import static io.onedev.server.search.entity.pullrequest.PullRequestQueryLexer.ToBeMergedByMe;
 import static io.onedev.server.search.entity.pullrequest.PullRequestQueryLexer.ToBeReviewedByMe;
 import static io.onedev.server.search.entity.pullrequest.PullRequestQueryLexer.WatchedByMe;
+import static io.onedev.server.util.QueryUtils.getValue;
 import static io.onedev.server.web.translation.Translation._T;
 
 import java.util.ArrayList;
@@ -46,10 +46,10 @@ import io.onedev.server.ai.QueryDescriptions;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.PullRequest;
 import io.onedev.server.model.support.pullrequest.MergeStrategy;
-import io.onedev.server.search.entity.project.ProjectQuery;
 import io.onedev.server.search.entity.pullrequest.PullRequestQueryParser;
 import io.onedev.server.service.SettingService;
 import io.onedev.server.util.DateUtils;
+import io.onedev.server.util.QueryUtils;
 import io.onedev.server.web.behavior.inputassist.ANTLRAssistBehavior;
 import io.onedev.server.web.behavior.inputassist.InputAssistBehavior;
 import io.onedev.server.web.behavior.inputassist.NaturalLanguageTranslator;
@@ -85,9 +85,7 @@ public class PullRequestQueryBehavior extends ANTLRAssistBehavior {
 		if (terminalExpect.getElementSpec() instanceof LexerRuleRefElementSpec) {
 			LexerRuleRefElementSpec spec = (LexerRuleRefElementSpec) terminalExpect.getElementSpec();
 			if (spec.getRuleName().equals("Number")) {
-				return SuggestionUtils.suggestNumber(
-						terminalExpect.getUnmatchedText(),
-						_T("find pull request with this number"));
+				return SuggestionUtils.suggestNumber(terminalExpect.getUnmatchedText(), _T("find by number"), true);
 			} else if (spec.getRuleName().equals("Quoted")) {
 				return new FenceAware(codeAssist.getGrammar(), '"', '"') {
 
@@ -151,7 +149,7 @@ public class PullRequestQueryBehavior extends ANTLRAssistBehavior {
 											else
 												return null;
 										case NAME_NUMBER:
-											return SuggestionUtils.suggestPullRequests(project, matchWith, InputAssistBehavior.MAX_SUGGESTIONS);
+											return SuggestionUtils.suggestNumber(matchWith, _T("find by number"), false);
 										case PullRequest.NAME_MERGE_STRATEGY: {
 											List<String> candidates = new ArrayList<>();
 											for (MergeStrategy strategy : MergeStrategy.values())
@@ -170,8 +168,8 @@ public class PullRequestQueryBehavior extends ANTLRAssistBehavior {
 										case PullRequest.NAME_TADA_COUNT:
 										case PullRequest.NAME_CONFUSED_COUNT:
 										case PullRequest.NAME_HEART_COUNT:
-										case PullRequest.NAME_ROCKET_COUNT:
 										case PullRequest.NAME_EYES_COUNT:
+										case PullRequest.NAME_TICK_COUNT:
 											return null;
 									}
 								} catch (ExplicitException ignored) {
@@ -216,11 +214,6 @@ public class PullRequestQueryBehavior extends ANTLRAssistBehavior {
 				return Optional.of(_T("add another order"));
 			else
 				return Optional.of(_T("or match another value"));
-		} else if (suggestedLiteral.equals("#")) {
-			if (getProject() != null)
-				return Optional.of(_T("find pull request by number"));
-			else
-				return null;
 		}
 		
 		parseExpect = parseExpect.findExpectByLabel("operator");
@@ -242,11 +235,11 @@ public class PullRequestQueryBehavior extends ANTLRAssistBehavior {
 	protected List<String> getHints(TerminalExpect terminalExpect) {
 		List<String> hints = new ArrayList<>();
 		if (terminalExpect.getElementSpec() instanceof LexerRuleRefElementSpec) {
-			LexerRuleRefElementSpec spec = (LexerRuleRefElementSpec) terminalExpect.getElementSpec();
-			if ("criteriaValue".equals(spec.getLabel()) && ProjectQuery.isInsideQuote(terminalExpect.getUnmatchedText())) {
-				List<Element> fieldElements = terminalExpect.getState().findMatchedElementsByLabel("criteriaField", true);
+			ParseExpect criteriaValueExpect = terminalExpect.findExpectByLabel("criteriaValue");
+			if (criteriaValueExpect != null && QueryUtils.isInsideQuote(terminalExpect.getUnmatchedText())) {
+				List<Element> fieldElements = criteriaValueExpect.getState().findMatchedElementsByLabel("criteriaField", true);
 				if (!fieldElements.isEmpty()) {
-					String fieldName = ProjectQuery.getValue(fieldElements.get(0).getMatchedText());
+					String fieldName = getValue(fieldElements.get(0).getMatchedText());
 					if (fieldName.equals(PullRequest.NAME_TARGET_PROJECT)
 							|| fieldName.equals(PullRequest.NAME_TARGET_BRANCH)) {
 						hints.add(_T("Use '**', '*', or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>"));

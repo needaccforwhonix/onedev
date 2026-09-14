@@ -5,7 +5,6 @@ import static io.onedev.server.web.translation.Translation._T;
 import java.lang.reflect.Method;
 import java.util.Set;
 
-import org.jspecify.annotations.Nullable;
 import javax.validation.ConstraintViolation;
 import javax.validation.Validator;
 
@@ -20,10 +19,12 @@ import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.util.visit.IVisitor;
 import org.apache.wicket.validation.INullAcceptingValidator;
+import org.jspecify.annotations.Nullable;
 
 import io.onedev.commons.loader.AppLoader;
 import io.onedev.server.annotation.OmitName;
-import io.onedev.server.util.ComponentContext;
+import io.onedev.server.util.ComponentHierarchical;
+import io.onedev.server.util.HierarchicalContext;
 import io.onedev.server.web.util.WicketUtils;
 
 public abstract class PropertyEditor<T> extends ValueEditor<T> {
@@ -41,7 +42,7 @@ public abstract class PropertyEditor<T> extends ValueEditor<T> {
 		super.onInitialize();
 
 		add((INullAcceptingValidator<T>) validatable -> {
-			ComponentContext.push(new ComponentContext(PropertyEditor.this));
+			HierarchicalContext.push(new HierarchicalContext(new ComponentHierarchical(PropertyEditor.this)));
 			try {
 				Validator validator = AppLoader.getInstance(Validator.class);
 				Set<?> violations = validator.validateValue(
@@ -51,7 +52,7 @@ public abstract class PropertyEditor<T> extends ValueEditor<T> {
 					error(_T(violation.getMessage()));
 				}
 			} finally {
-				ComponentContext.pop();
+				HierarchicalContext.pop();
 			}
 		});
 		
@@ -125,7 +126,7 @@ public abstract class PropertyEditor<T> extends ValueEditor<T> {
 
 			@Override
 			protected String load() {
-				ComponentContext.push(new ComponentContext(PropertyEditor.this));
+				HierarchicalContext.push(new HierarchicalContext(new ComponentHierarchical(PropertyEditor.this)));
 				try {
 					Method getter = descriptor.getPropertyGetter();
 					
@@ -137,10 +138,11 @@ public abstract class PropertyEditor<T> extends ValueEditor<T> {
 					else 
 						return "";
 				} finally {
-					ComponentContext.pop();
+					HierarchicalContext.pop();
 				}
 			}
 			
 		});		
 	}
+
 }

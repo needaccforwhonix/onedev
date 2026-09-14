@@ -68,6 +68,10 @@ onedev.server.markdown = {
 		onedev.server.markdown.translations = translations;
 		var $container = $("#" + containerId);
 		var useFixedWidthFontCookieName = "markdownEditor.useFixedWidthFont";
+		var halfscreenHeightStorageKey = "markdownEditor.halfscreenHeight";
+		var minHalfscreenHeight = 30;
+		var maxHalfscreenHeight = 80;
+		var defaultHalfscreenHeight = 50;
 		var useFixedWidthFont = Cookies.get(useFixedWidthFontCookieName);
 		if (useFixedWidthFont && useFixedWidthFont == "true")	
 			$container.addClass("fixed-width");
@@ -81,11 +85,83 @@ onedev.server.markdown = {
 		var $previewLink = $head.find(".preview");
 		var $splitLink = $head.find(".split");
 		var $edit = $body.children(".edit");
+		var $warning = $head.children(".warning");
 		var $input = $edit.children("textarea");
 		var $preview = $body.children(".preview");
 		var $rendered = $preview.children(".markdown-rendered");
 		var $help = $head.children(".help");
 		var $suggestion = $head.find(".do-suggestion");
+		var $halfscreenResizeHandle = $container.children(".halfscreen-resize-handle");
+
+		function clampHalfscreenHeight(height) {
+			return Math.min(maxHalfscreenHeight, Math.max(minHalfscreenHeight, height));
+		}
+
+		function getHalfscreenHeight() {
+			try {
+				var height = parseFloat(localStorage.getItem(halfscreenHeightStorageKey));
+				if (!isNaN(height))
+					return clampHalfscreenHeight(height);
+			} catch (e) {
+				// Local storage can be unavailable due to browser privacy settings
+			}
+			return defaultHalfscreenHeight;
+		}
+
+		function applyHalfscreenHeight(height) {
+			height = clampHalfscreenHeight(height);
+			document.body.style.setProperty("--markdown-editor-halfscreen-height", height + "vh");
+			$halfscreenResizeHandle.attr("aria-valuenow", Math.round(height));
+			return height;
+		}
+
+		function saveHalfscreenHeight(height) {
+			try {
+				localStorage.setItem(halfscreenHeightStorageKey, height);
+			} catch (e) {
+				// Keep resizing functional even when local storage is unavailable
+			}
+		}
+
+		var halfscreenHeight = getHalfscreenHeight();
+		applyHalfscreenHeight(halfscreenHeight);
+		$halfscreenResizeHandle.on("pointerdown", function(e) {
+			if ($container.hasClass("halfscreen")) {
+				e.preventDefault();
+				this.setPointerCapture(e.originalEvent.pointerId);
+				$halfscreenResizeHandle.data("resizingPointerId", e.originalEvent.pointerId);
+			}
+		});
+		$halfscreenResizeHandle.on("pointermove", function(e) {
+			if ($halfscreenResizeHandle.data("resizingPointerId") == e.originalEvent.pointerId) {
+				halfscreenHeight = applyHalfscreenHeight(
+						(window.innerHeight - e.originalEvent.clientY) * 100 / window.innerHeight);
+				notifyScreenModeLayoutChange();
+			}
+		});
+		$halfscreenResizeHandle.on("pointerup pointercancel", function(e) {
+			if ($halfscreenResizeHandle.data("resizingPointerId") == e.originalEvent.pointerId) {
+				$halfscreenResizeHandle.removeData("resizingPointerId");
+				saveHalfscreenHeight(halfscreenHeight);
+			}
+		});
+		$halfscreenResizeHandle.on("keydown", function(e) {
+			var adjustedHeight;
+			if (e.keyCode == 38)
+				adjustedHeight = halfscreenHeight + 2;
+			else if (e.keyCode == 40)
+				adjustedHeight = halfscreenHeight - 2;
+			else if (e.keyCode == 36)
+				adjustedHeight = maxHalfscreenHeight;
+			else if (e.keyCode == 35)
+				adjustedHeight = minHalfscreenHeight;
+			if (adjustedHeight != undefined && $container.hasClass("halfscreen")) {
+				e.preventDefault();
+				halfscreenHeight = applyHalfscreenHeight(adjustedHeight);
+				saveHalfscreenHeight(halfscreenHeight);
+				notifyScreenModeLayoutChange();
+			}
+		});
 		
 		$head.find(".dropdown>a").dropdown();
 		
@@ -111,6 +187,17 @@ onedev.server.markdown = {
 				document.execCommand("insertText", false, prefix + "```" + langHint + "\n" + content + "\n```" + suffix);		
 				$input.range(selected.start + prefix.length + 4 + langHint.length + from, selected.start + prefix.length + 4 + langHint.length + to);
 				onedev.server.markdown.fireInputEvent($input);
+			});
+		}
+
+		var discardTip = onedev.server.markdown.translations["discard-unsaved-change"];
+		if (discardTip) {
+			$warning.find(".discard-unsaved-change").each(function() {
+				$(this).attr("data-tippy-content", discardTip);
+				tippy(this, {
+					delay: [500, 0],
+					placement: "auto"
+				});
 			});
 		}
 
@@ -177,13 +264,8 @@ onedev.server.markdown = {
 
 		var previewTimeout = 500;
 		$input.doneEvents("input inserted.atwho", function() {
-			if (autosaveKey) {
-				var content = $input.val();
-				if (content.trim().length != 0)
-					localStorage.setItem(autosaveKey, content);
-				else
-					localStorage.removeItem(autosaveKey);
-			}
+			if (autosaveKey && document.body.contains($input[0]))
+				localStorage.setItem(autosaveKey, $input.val());
 			preview();
 		}, previewTimeout);
 
@@ -203,8 +285,12 @@ onedev.server.markdown = {
 			}
 		}, previewTimeout);
 		
+		function getForm() {
+			return $container.data("screenModeForm") || $input.closest("form");
+		}
+
 		function getSubmit() {
-			return $input.closest("form")
+			return getForm()
 					.find(">.btn-primary, :last-child>.btn-primary")
 					.not("[disabled=disabled]");
 		}
@@ -342,7 +428,16 @@ onedev.server.markdown = {
 						$input.range(selection.start, selection.start + tabbedContent.length);
 						return false;
 					} 
-				}	
+				} else if (e.key === "`" && !e.altKey && !e.ctrlKey && !e.metaKey) {
+					var selection = $input.range();
+					if (selection.length != 0) {
+						e.preventDefault();
+						document.execCommand("insertText", false, "`" + selection.text + "`");
+						$input.caret(selection.start + selection.length + 2);
+						onedev.server.markdown.fireInputEvent($input);
+						return false;
+					}
+				}
 			}
 		});
 
@@ -402,25 +497,22 @@ onedev.server.markdown = {
 			$help.toggle();
 		});
 
-		$head.find(".do-fullscreen").click(function() {
-			var $replacement = $container.closest("form");
-			if ($replacement.length == 0)
-				$replacement = $container;
-			
-			if ($container.hasClass("fullscreen")) {
-				$container.removeClass("fullscreen");
-				var $placeholder = $("#" + containerId + "-placeholder");
-				
-				$replacement.insertBefore($placeholder);
-				$placeholder.remove();
-				
-				$(this).removeClass("active");
-				if ($container.data("compactModePreviously")) {
-					$container.removeClass("normal-mode");
-					$container.addClass("compact-mode");
-				} 
-			} else {
-				$container.addClass("fullscreen");
+		function notifyScreenModeLayoutChange() {
+			$(window).trigger("resize");
+		}
+
+		function enterScreenMode(mode) {
+			var $form = getForm();
+
+			if (!$container.hasClass("fullscreen") && !$container.hasClass("halfscreen")) {
+				$container.data("screenModeForm", $form);
+				if ($form.length != 0) {
+					$input.attr("form", $form.attr("id"));
+					$form.on("click.markdownEditorScreenMode", ".btn-primary, .btn-secondary, .submit", function() {
+						if ($container.hasClass("fullscreen") || $container.hasClass("halfscreen"))
+							exitScreenMode();
+					});
+				}
 				if ($container.hasClass("compact-mode")) {
 					$container.removeClass("compact-mode");
 					$container.addClass("normal-mode");
@@ -429,13 +521,90 @@ onedev.server.markdown = {
 					$container.data("compactModePreviously", false);
 				}
 				var $placeholder = $("<div id='" + containerId + "-placeholder'></div>");
-				$placeholder.insertAfter($replacement);
-				$("body").append($replacement);
-				$(this).addClass("active");
+				$placeholder.insertAfter($container);
+				$("body").append($container);
+				var screenModeObserver = new MutationObserver(function() {
+					if (!document.body.contains($placeholder[0])) {
+						screenModeObserver.disconnect();
+						$("body").removeClass("markdown-editor-expanded markdown-editor-halfscreen");
+						$form.off(".markdownEditorScreenMode");
+						$input.removeAttr("form");
+						$container.removeData("screenModeForm screenModeObserver");
+						$container.remove();
+						notifyScreenModeLayoutChange();
+					}
+				});
+				screenModeObserver.observe(document.body, {childList: true, subtree: true});
+				$container.data("screenModeObserver", screenModeObserver);
 			}
-			
+
+			$container.removeClass("fullscreen halfscreen").addClass(mode);
+			if (mode == "halfscreen") {
+				halfscreenHeight = applyHalfscreenHeight(getHalfscreenHeight());
+			}
+			$("body").addClass("markdown-editor-expanded");
+			$("body").toggleClass("markdown-editor-halfscreen", mode == "halfscreen");
+			var hasSubmit = $form.find(".dirty-aware").length != 0 || getSubmit().length != 0;
+			$head.find(".do-submit").toggleClass("d-none", !hasSubmit);
+			$head.find(".do-fullscreen").toggleClass("active", mode == "fullscreen");
+			$head.find(".do-halfscreen").toggleClass("active", mode == "halfscreen");
+			notifyScreenModeLayoutChange();
+		}
+
+		function exitScreenMode() {
+			var $form = getForm();
+			var screenModeObserver = $container.data("screenModeObserver");
+			if (screenModeObserver)
+				screenModeObserver.disconnect();
+			$container.removeClass("fullscreen halfscreen");
+			$("body").removeClass("markdown-editor-expanded markdown-editor-halfscreen");
+			var $placeholder = $("#" + containerId + "-placeholder");
+			$container.insertBefore($placeholder);
+			$placeholder.remove();
+			$input.removeAttr("form");
+			$form.off(".markdownEditorScreenMode");
+			$container.removeData("screenModeForm screenModeObserver");
+
+			$head.find(".do-fullscreen, .do-halfscreen").removeClass("active");
+			$head.find(".do-submit").addClass("d-none");
+			if ($container.data("compactModePreviously")) {
+				$container.removeClass("normal-mode");
+				$container.addClass("compact-mode");
+			}
+			notifyScreenModeLayoutChange();
+		}
+
+		function submitForm() {
+			var $submit = getSubmit();
+			if ($submit.length != 0) {
+				if ($container.hasClass("fullscreen") || $container.hasClass("halfscreen"))
+					exitScreenMode();
+				$submit.click();
+			}
+		}
+
+		$head.find(".do-fullscreen").click(function() {
+			if ($container.hasClass("fullscreen"))
+				exitScreenMode();
+			else
+				enterScreenMode("fullscreen");
+
 			if ($input.is(":visible"))
 				$input.focus();
+		});
+
+		$head.find(".do-halfscreen").click(function() {
+			if ($container.hasClass("halfscreen"))
+				exitScreenMode();
+			else
+				enterScreenMode("halfscreen");
+
+			if ($input.is(":visible"))
+				$input.focus();
+		});
+
+		$head.find(".do-submit").click(function() {
+			submitForm();
 		});
 
 		$input.on("keydown", function(e) {
@@ -466,7 +635,7 @@ onedev.server.markdown = {
 				var $submit = getSubmit();
 				if ((e.metaKey || e.ctrlKey) && e.keyCode == 13 && $submit.length != 0) {
 					e.preventDefault();
-					$submit.click();
+					submitForm();
 				}		
 			}
 			
@@ -509,33 +678,41 @@ onedev.server.markdown = {
 	    } 	    
 
 	    if (canReferenceEntity) {
-	    	function matchReference(atChar) {
-	    		var input = $input.val().substring(0, $input.caret());
-	    		var match;
-				if (atChar === '#')
-					match = new RegExp("(^|\\W+)((?<type>pull\\s*request|pr|issue|build)\\s+)?(?<project>" + projectPathPattern + ")?#(?<query>\\S*)$", 'gi').exec(input);
-				else
-					match = new RegExp("(^|\\W+)((?<type>pull\\s*request|pr|issue|build)\\s+)?(?<project>" + projectKeyPattern + ")-(?<query>\\S*)$", 'gi').exec(input);					
-	    		if (match) {
+			var referenceQueryPattern = "[^\\s!\"#$%&'()*,/:;<=>?@\\[\\\\\\]^`{|}~]*";
+			function matchReferenceQuery(flag, subtext) {
+				var match = matchReference(flag, subtext);
+				return match ? match.query : null;
+			}
+			function matchReference(atChar, input) {
+				if (input === undefined)
+					input = $input.val().substring(0, $input.caret());
+				var match = new RegExp("(^|[^#\\w-]+)((?<type>pull\\s*request|pr|issue|build|workspace)\\s+)?(?:(?<projectPath>" + projectPathPattern + ")?#|(?<projectKey>" + projectKeyPattern + ")-)(?<query>" + referenceQueryPattern + ")$", 'i').exec(input);
+				if (match && atChar === (match.groups.projectKey ? '-' : '#')) {
+					var type = match.groups.type;
+					var query = match.groups.query;
+					if ((!type || type.toLowerCase() !== "build") && /[-.+_]/.test(query))
+						return;
 					var index = match.index + match[1].length;
 					if (match[2])
 						index += match[2].length;
-	    			var type = match.groups.type;
-	    			if (type)
-	    				type = type.replace(/\s+/g, '').toLowerCase();
-	    			return {
-	    				type: type,
-	    				project: match.groups.project,
-	    				query: match.groups.query,
+					return {
+						type: type,
+						project: match.groups.projectKey || match.groups.projectPath,
+						query: query,
 						index: index
-	    			}
-	    		}
-	    	}
+					}
+				}
+			}
 			function remoteFilterReference(atChar, query, renderCallback) {
 				$container.data("atWhoReferenceRenderCallback", renderCallback);
 				var match = matchReference(atChar);
 				if (match)
 					callback("referenceQuery", atChar, match.query, match.type, match.project);
+				else
+					renderCallback([]);
+			}
+			function sortReferences(query, items, searchKey) {
+				return items;
 			}
 			function beforeInsertReference(atChar) {
 				$input.focus();
@@ -557,9 +734,11 @@ onedev.server.markdown = {
 		    	startWithSpace: false,
 		    	searchKey: "searchKey",
 		        callbacks: {
+					matcher: matchReferenceQuery,
 		        	remoteFilter: function(query, renderCallback) {
 						remoteFilterReference('#', query, renderCallback);
 		        	},
+					sorter: sortReferences,
 					beforeInsert: function(value) {
 						beforeInsertReference('#');
 						return value;
@@ -571,16 +750,19 @@ onedev.server.markdown = {
 		        insertTpl: function() {
 					return "${reference} ";
 		        }, 
-		        limit: atWhoLimit
+		        limit: atWhoLimit,
+				maxLen: 100
 		    });		   
 			$input.atwho({
 				at: '-',
 				startWithSpace: false,
 				searchKey: "searchKey",
 				callbacks: {
+					matcher: matchReferenceQuery,
 					remoteFilter: function(query, renderCallback) {
 						remoteFilterReference('-', query, renderCallback);
 					},
+					sorter: sortReferences,
 					beforeInsert: function(value) {
 						beforeInsertReference('-');
 						return value;
@@ -592,7 +774,8 @@ onedev.server.markdown = {
 				insertTpl: function() {
 					return "${reference} ";
 				},
-				limit: atWhoLimit
+				limit: atWhoLimit,
+				maxLen: 100
 			});
 		}
 	    
@@ -955,12 +1138,13 @@ onedev.server.markdown = {
 		var $edit = $body.children(".edit");
 		var $preview = $body.children(".preview");
 		var $input = $edit.children("textarea");
-		$warning.find(".clear-unsaved-change").click(function() {
+		$warning.find(".discard-unsaved-change").click(function() {
 			$warning.hide();
-			$input.val("");
+			$input.val($input.data("initialValue"));
 			$preview.children(".markdown-rendered").html("");
 			localStorage.removeItem(autosaveKey);
-			onedev.server.form.markClean($input.closest("form"));
+			var $form = $container.data("screenModeForm") || $input.closest("form");
+			onedev.server.form.markClean($form);
 		});
 		if ($body.find(".ui-resizable-handle:visible").length != 0) {
 			var defaultHeight = 200;
@@ -988,6 +1172,7 @@ onedev.server.markdown = {
 		if (autosaveKey) {
 			var autosaveValue = localStorage.getItem(autosaveKey);
 			if (autosaveValue && $input.val() != autosaveValue) {
+				$input.data("initialValue", $input.val());
 				$input.val(autosaveValue);
 				$warning.show();
 				onedev.server.markdown.fireInputEvent($input);
@@ -1042,9 +1227,13 @@ onedev.server.markdown = {
 		$rendered.find("span.header-anchor").parent().addClass("header-anchor");
 		$rendered.find("a.header-anchor").each(function() {
 			var $headerAnchor = $(this);
-			$headerAnchor.before("<a href='" + $headerAnchor.attr("href") 
-				+ "' class='header-link'><svg class='icon'><use xlink:href='" 
+			var $headerLink = $("<a class='header-link'><svg class='icon'><use xlink:href='"
 				+ onedev.server.icons + "#link'/></svg></a>");
+			$headerAnchor.before($headerLink);
+			onedev.server.copyToClipboard.init($headerLink, function() {
+				return window.location.href.replace(/#.*$/, "") + $headerAnchor.attr("href");
+			}, onedev.server.markdown.translations["copy-permanent-link"],
+				onedev.server.markdown.translations["copied-to-clipboard"]);
 		});
 		
 		$rendered.find("a").click(function() {
@@ -1118,17 +1307,12 @@ onedev.server.markdown = {
 			
 			if (!$this.parent().hasClass("suggestion")) {
 				var icon = "<svg class='icon'><use xlink:href='" + onedev.server.icons + "#copy'/></svg>";
-				var $copy = $("<a class='pressable' data-tippy-content='" + onedev.server.markdown.translations["copy-to-clipboard"] + "'>" + icon + "</a>");
+				var $copy = $("<a class='link-gray'>" + icon + "</a>");
 				$actions.append($copy);
-				var options = {
-					text: function() {
-						return $this.text();
-					}
-				};
-				var $modal = $copy.closest(".modal-dialog");
-				if ($modal.length != 0) 
-					options.container = $modal[0];		
-				new ClipboardJS($copy[0], options);			
+				onedev.server.copyToClipboard.init($copy, function() {
+					return $this.text();
+				}, onedev.server.markdown.translations["copy-to-clipboard"],
+					onedev.server.markdown.translations["copied-to-clipboard"]);
 			}
 			
 			var suggestionCallback = $container.data("suggestionCallback");
@@ -1163,9 +1347,18 @@ onedev.server.markdown = {
 				}
 			}
 		});
+
+		onedev.server.copyToClipboard.initCodeSpans($rendered,
+			onedev.server.markdown.translations["click-to-copy"],
+			onedev.server.markdown.translations["copied"]);
+
 		var $mermaid = $container.find(".mermaid");
 		if ($mermaid.length != 0) 
 			mermaid.init(undefined, $mermaid);
+
+		var $plantuml = $container.find(".plantuml");
+		if ($plantuml.length != 0 && onedev.server.plantuml)
+			onedev.server.plantuml.render($plantuml);
 			
 		var $katex = $container.find(".katex");
 		if ($katex.legnth != 0) {
@@ -1173,6 +1366,56 @@ onedev.server.markdown = {
 	            katex.render($(this).text(), this, {throwOnError: false, displayMode: this.nodeName !== 'SPAN'});
 			});
 		}
+	},
+	initOutline: function(outlineId, viewerId, sidebar) {
+		var $outline = $("#" + outlineId);
+		var $viewer = $("#" + viewerId);
+		var $content = $outline.children(".content");
+		var $headings = $viewer.find(".markdown-rendered").first()
+				.find("h1, h2, h3, h4, h5, h6").filter(function() {
+					return $(this).children("a.header-anchor").length != 0;
+				});
+
+		$content.children(".item").remove();
+		$content.children(".no-headings").toggle($headings.length == 0);
+		$headings.each(function() {
+			var $heading = $(this);
+			var href = $heading.children("a.header-anchor").first().attr("href");
+			var label = $heading.clone().children("a.header-link, a.header-anchor").remove().end().text().trim();
+			var level = parseInt(this.tagName.substring(1));
+			var $link = $("<a class='item d-block text-truncate'></a>")
+					.attr("href", href)
+					.attr("title", label)
+					.css("padding-left", ((level - 1) * 1.2 + 0.6) + "rem")
+					.text(label);
+			$link.on("click", function() {
+				$content.children("a").removeClass("active");
+				$(this).addClass("active");
+			});
+			$content.append($link);
+		});
+
+		if (sidebar && !$outline.hasClass("ui-resizable")) {
+			var $viewerContainer = $viewer;
+			$outline.resizable({
+				autoHide: false,
+				handles: {"w": $outline.children(".ui-resizable-handle")},
+				minWidth: 160,
+				resize: function(e, ui) {
+					if ($viewerContainer.outerWidth() < 300)
+						$(this).resizable({maxWidth: ui.size.width});
+				},
+				stop: function(e, ui) {
+					$(this).resizable({maxWidth: undefined});
+					Cookies.set("markdownBlob.outline.width", ui.size.width, {expires: Infinity});
+				}
+			});
+		}
+	},
+	toggleOutline: function(outlineId, visible) {
+		$("#" + outlineId).toggle(visible);
+		Cookies.set("markdownBlob.outline", visible ? "yes" : "no", {expires: Infinity});
+		$(window).resize();
 	},
 	onViewerDomReady: function(containerId, taskCallback, taskSourcePositionDataAttribute, referenceCallback, 
 			suggestionCallback, translations) {
@@ -1211,6 +1454,8 @@ onedev.server.markdown = {
 				referenceType = "user";
 			} else if ($reference.hasClass("commit")) {
 				referenceType = "commit";
+			} else if ($reference.hasClass("workspace")) {
+				referenceType = "workspace";
 			}
 			if (referenceType) {
 				var $tooltip = $("<div id='reference-tooltip'>" + onedev.server.markdown.translations["loading"] + "</div>");
@@ -1278,6 +1523,16 @@ onedev.server.markdown = {
 		}
 		$tooltip.align({placement: $tooltip.data("alignment"), target: {element: $tooltip.data("trigger")}});
 	},
+	renderWorkspaceTooltip: function(title) {
+		var $tooltip = $("#reference-tooltip");
+		if (title) {
+			$tooltip.empty().append("<span class='title'></span>");
+			$tooltip.find(".title").text(title);
+		} else {
+			$tooltip.empty().append("<i>" + onedev.server.markdown.translations["workspace-not-exist-or-access-denied"] + "</i>");
+		}
+		$tooltip.align({placement: $tooltip.data("alignment"), target: {element: $tooltip.data("trigger")}});
+	},
 	renderUserTooltip: function(avatarUrl, name) {
 		var $tooltip = $("#reference-tooltip");
 		$tooltip.empty().append("" +
@@ -1288,14 +1543,19 @@ onedev.server.markdown = {
 		$tooltip.find(".name").text(name);
 		$tooltip.align({placement: $tooltip.data("alignment"), target: {element: $tooltip.data("trigger")}});
 	},
-	renderCommitTooltip: function(author, date, commitMessage) {
+	renderCommitTooltip: function(author, date, dateTitle, commitMessage) {
 		var $tooltip = $("#reference-tooltip");
 		if (commitMessage) {
 			$tooltip.empty().append("" +
 					"  <div class='font-weight-bolder mb-2'><span class='author'></span> <span class='date'></span></div>" +
 					"  <pre class='body mb-0'></pre>");
 			$tooltip.find(".author").text(author);
-			$tooltip.find(".date").text(date);
+			var $date = $tooltip.find(".date");
+			$date.text(date).attr("data-tippy-content", dateTitle);
+			tippy($date[0], {
+				delay: [500, 0],
+				placement: "auto"
+			});
 			$tooltip.find(".body").text(commitMessage);
 		} else {
 			$tooltip.empty().append("<i>" + onedev.server.markdown.translations["commit-not-exist-or-access-denied"] + "</i>");			

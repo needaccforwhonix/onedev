@@ -1,5 +1,6 @@
 package io.onedev.server.rest.resource;
 
+import static io.onedev.server.model.User.Type.AI;
 import static io.onedev.server.model.User.Type.ORDINARY;
 import static io.onedev.server.model.User.Type.SERVICE;
 import static io.onedev.server.security.SecurityUtils.getAuthUser;
@@ -39,6 +40,7 @@ import org.apache.shiro.authz.UnauthorizedException;
 
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.SubscriptionService;
+import io.onedev.server.annotation.DependsOn;
 import io.onedev.server.annotation.Password;
 import io.onedev.server.annotation.UserName;
 import io.onedev.server.data.migration.VersionedXmlDoc;
@@ -58,10 +60,14 @@ import io.onedev.server.model.PullRequestWatch;
 import io.onedev.server.model.SshKey;
 import io.onedev.server.model.User;
 import io.onedev.server.model.UserAuthorization;
+import io.onedev.server.model.WorkspaceQueryPersonalization;
+import io.onedev.server.model.support.AiSetting;
 import io.onedev.server.model.support.NamedProjectQuery;
 import io.onedev.server.model.support.build.NamedBuildQuery;
 import io.onedev.server.model.support.issue.NamedIssueQuery;
+import io.onedev.server.model.support.pack.NamedPackQuery;
 import io.onedev.server.model.support.pullrequest.NamedPullRequestQuery;
+import io.onedev.server.model.support.workspace.NamedWorkspaceQuery;
 import io.onedev.server.rest.annotation.Api;
 import io.onedev.server.rest.annotation.EntityCreate;
 import io.onedev.server.security.SecurityUtils;
@@ -102,12 +108,15 @@ public class UserResource {
 
 	private UserData getData(User user) {
 		var data = new UserData();
+		data.setId(user.getId());
 		data.setDisabled(user.isDisabled());
 		data.setType(user.getType());
 		data.setName(user.getName());
 		data.setFullName(user.getFullName());
 		if (user.getType() != SERVICE) 
 			data.setNotifyOwnEvents(user.isNotifyOwnEvents());
+		if (user.getType() == AI)
+			data.setAiSetting(user.getAiSetting());
 		return data;
 	}
 
@@ -248,7 +257,17 @@ public class UserResource {
 			throw new UnauthorizedException();
     	return user.getPullRequestQueryPersonalizations();
     }
-	
+
+	@Api(order=1350)
+	@Path("/{userId}/project-workspace-query-personalizations")
+    @GET
+    public Collection<WorkspaceQueryPersonalization> getProjectWorkspaceQueryPersonalizations(@PathParam("userId") Long userId) {
+    	User user = userService.load(userId);
+    	if (!SecurityUtils.isAdministrator() && !user.equals(getAuthUser())) 
+			throw new UnauthorizedException();
+    	return user.getWorkspaceQueryPersonalizations();
+    }
+
 	@Api(order=1400)
 	@Path("/{userId}/pull-request-assignments")
     @GET
@@ -288,6 +307,10 @@ public class UserResource {
 		queriesAndWatches.issueQueries = user.getIssueQueries();
 		queriesAndWatches.projectQueries = user.getProjectQueries();
 		queriesAndWatches.pullRequestQueries = user.getPullRequestQueries();
+		queriesAndWatches.packQueries = user.getPackQueries();
+		queriesAndWatches.packQuerySubscriptions = user.getPackQuerySubscriptions();
+		queriesAndWatches.workspaceQueries = user.getWorkspaceQueries();
+		queriesAndWatches.workspaceQuerySubscriptions = user.getWorkspaceQuerySubscriptions();
 		return queriesAndWatches;
 	}
 	
@@ -342,6 +365,9 @@ public class UserResource {
 		user.setType(data.getType());
 		user.setName(data.getName());
 		user.setFullName(data.getFullName());
+		if (data.getType() == AI) 
+			user.setAiSetting(data.getAiSetting());
+		
 		if (data.getType() != ORDINARY) {
 			userService.create(user);
 		} else {
@@ -349,7 +375,6 @@ public class UserResource {
 			user.setPassword(passwordService.encryptPassword(data.getPassword()));
 			userService.create(user);
 			EmailAddress emailAddress = new EmailAddress();
-			emailAddress.setGit(true);
 			emailAddress.setPrimary(true);
 			emailAddress.setOwner(user);
 			emailAddress.setValue(data.getEmailAddress());
@@ -379,6 +404,7 @@ public class UserResource {
 		oldData.setName(user.getName());
 		oldData.setFullName(user.getFullName());
 		oldData.setNotifyOwnEvents(user.isNotifyOwnEvents());
+		oldData.setKeepEmailAddressesPrivate(user.isKeepEmailAddressesPrivate());
 
 		var oldAuditContent = VersionedXmlDoc.fromBean(oldData).toXML();			
 
@@ -387,6 +413,8 @@ public class UserResource {
 		user.setFullName(data.getFullName());
 		if (user.getType() != SERVICE)
 			user.setNotifyOwnEvents(data.isNotifyOwnEvents());
+		if (data.isKeepEmailAddressesPrivate() != null)
+			user.setKeepEmailAddressesPrivate(data.isKeepEmailAddressesPrivate());
 		userService.update(user, oldName);
 
 		if (!getAuthUser().equals(user)) {
@@ -457,16 +485,16 @@ public class UserResource {
     @POST
     public Response setPassword(@PathParam("userId") Long userId, @Password(checkPolicy=true) @NotEmpty String password) {
     	User user = userService.load(userId);
-		if (SecurityUtils.isAdministrator()) {
+		if (user.isDisabled()) {
+			throw new ExplicitException("Cannot set password for disabled account");
+		} else if (user.getType() != ORDINARY) {
+			throw new ExplicitException("Cannot set password for service or AI account");
+		} if (SecurityUtils.isAdministrator()) {
 			user.setPassword(passwordService.encryptPassword(password));
 			userService.update(user, null);
 			if (!getAuthUser().equals(user)) 
 				auditService.audit(null, "changed password of account \"" + user.getName() + "\" via RESTful API", null, null);
 			return Response.ok().build();
-		} else if (user.isDisabled()) {
-			throw new ExplicitException("Can not set password for disabled account");
-		} else if (user.getType() != ORDINARY) {
-			throw new ExplicitException("Can not set password for service or AI account");
 		} else if (user.equals(getAuthUser())) {
 			if (user.getPassword() == null) {
 				throw new ExplicitException("The user is currently authenticated via external system, "
@@ -481,6 +509,30 @@ public class UserResource {
 		}
     }
 
+	@Api(order=2000)
+	@Path("/{userId}/ai-setting")
+    @POST
+    public Response setAiSetting(@PathParam("userId") Long userId, @NotNull AiSetting aiSetting) {
+    	User user = userService.load(userId);
+		if (user.isDisabled()) {
+			throw new ExplicitException("Cannot set password for disabled account");
+		} else if (user.getType() != AI) {
+			throw new ExplicitException("Cannot set AI setting for non AI account");
+		} else if (SecurityUtils.isAdministrator()) {
+			user.setAiSetting(aiSetting);
+			userService.update(user, null);
+			if (!getAuthUser().equals(user)) 
+				auditService.audit(null, "changed AI setting of account \"" + user.getName() + "\" via RESTful API", null, null);
+			return Response.ok().build();	
+		} else if (user.equals(getAuthUser())) {
+			user.setAiSetting(aiSetting);
+			userService.update(user, null);
+			return Response.ok().build();
+    	} else {
+			throw new UnauthorizedException();
+		}
+    }
+
 	@Api(order=2025)
 	@Path("/{userId}/two-factor-authentication")
 	@DELETE
@@ -490,9 +542,9 @@ public class UserResource {
 
 		User user = userService.load(userId);		
 		if (user.isDisabled()) {
-			throw new ExplicitException("Can not reset two factor authentication for disabled account");
+			throw new ExplicitException("Cannot reset two factor authentication for disabled account");
 		} else if (user.getType() != ORDINARY) {
-			throw new ExplicitException("Can not reset two factor authentication for service or AI account");
+			throw new ExplicitException("Cannot reset two factor authentication for service or AI account");
 		} else {
 			user.setTwoFactorAuthentication(null);
 			userService.update(user, null);
@@ -510,9 +562,9 @@ public class UserResource {
 			throw new UnauthorizedException();
 
 		if (user.isDisabled()) 
-			throw new ExplicitException("Can not set queries and watches for disabled user");
+			throw new ExplicitException("Cannot set queries and watches for disabled user");
 		else if (user.getType() != ORDINARY) 
-			throw new ExplicitException("Can not set queries and watches for service or ai account");
+			throw new ExplicitException("Cannot set queries and watches for service or ai account");
 
 		var oldAuditContent = VersionedXmlDoc.fromBean(getQueriesAndWatches(user)).toXML();
 
@@ -521,9 +573,12 @@ public class UserResource {
 		user.setPullRequestQueryWatches(queriesAndWatches.pullRequestQueryWatches);
 		user.setBuildQueries(queriesAndWatches.buildQueries);
 		user.setIssueQueries(queriesAndWatches.issueQueries);
-		user.setIssueQueryWatches(queriesAndWatches.issueQueryWatches);
 		user.setProjectQueries(queriesAndWatches.projectQueries);
 		user.setPullRequestQueries(queriesAndWatches.pullRequestQueries);
+		user.setPackQueries(queriesAndWatches.packQueries);
+		user.setPackQuerySubscriptions(queriesAndWatches.packQuerySubscriptions);
+		user.setWorkspaceQueries(queriesAndWatches.workspaceQueries);
+		user.setWorkspaceQuerySubscriptions(queriesAndWatches.workspaceQuerySubscriptions);
 		userService.update(user, null);
 
 		if (!getAuthUser().equals(user)) {
@@ -543,7 +598,7 @@ public class UserResource {
 			throw new UnauthorizedException();
 		
 		if (user.isDisabled())
-			throw new ExplicitException("Can not add ssh key for disabled user");
+			throw new ExplicitException("Cannot add ssh key for disabled user");
 
 		SshKey sshKey = new SshKey();
 		sshKey.setContent(content);
@@ -570,9 +625,9 @@ public class UserResource {
 
     	User user = userService.load(userId);
     	if (user.isRoot())
-			throw new ExplicitException("Root user can not be deleted");
+			throw new ExplicitException("Root user cannot be deleted");
     	else if (user.equals(getAuthUser()))
-    		throw new ExplicitException("Can not delete yourself");
+    		throw new ExplicitException("Cannot delete yourself");
     	else
     		userService.delete(user);
 
@@ -586,6 +641,9 @@ public class UserResource {
 
 		private static final long serialVersionUID = 1L;
 		
+		@Api(order=5, description="ID of the user")
+		private Long id;
+
 		@Api(order=10, description="Whether or not the user is disabled")
 		private boolean disabled;
 
@@ -598,8 +656,19 @@ public class UserResource {
 		@Api(order=200)
 		private String fullName;
 
-		@Api(order=300, description = "Whether or not to notify user on own events. Only meaningful for non service account")
+		@Api(order=300, description = "Whether or not to notify user on own events. Only meaningful for ordinary user")
 		private boolean notifyOwnEvents;
+
+		@Api(order=400, description = "AI settings for AI user")
+		private AiSetting aiSetting;
+
+		public Long getId() {
+			return id;
+		}
+
+		public void setId(Long id) {
+			this.id = id;
+		}
 
 		public boolean isDisabled() {
 			return disabled;
@@ -640,6 +709,15 @@ public class UserResource {
 		public void setNotifyOwnEvents(boolean notifyOwnEvents) {
 			this.notifyOwnEvents = notifyOwnEvents;
 		}
+
+		public AiSetting getAiSetting() {
+			return aiSetting;
+		}
+
+		public void setAiSetting(AiSetting aiSetting) {
+			this.aiSetting = aiSetting;
+		}
+
 	}
 
 	@EntityCreate(User.class)
@@ -653,16 +731,19 @@ public class UserResource {
 		@Api(order=100, description="Login name of the user")
 		private String name;
 		
-		@Api(order=150, description = "Password of the user. Only required if not created as service account")
+		@Api(order=150, description = "Password of the user. Required if created as ordinary user")
 		private String password;
 		
 		private String fullName;
 		
-		@Api(order=300, description = "Email address of the user. Only required if not created as service account")
+		@Api(order=300, description = "Email address of the user. Required if created as ordinary user")
 		private String emailAddress;
 
-		@Api(order=400, description = "Whether or not to notify user on own events. Only required if not created as service account")
+		@Api(order=400, description = "Whether or not to notify user on own events. Required if created as ordinary user")
 		private boolean notifyOwnEvents;
+
+		@Api(order=500, description = "AI model settings. Required if created as AI user")
+		private AiSetting aiSetting;
 
 		public User.Type getType() {
 			return type;
@@ -688,6 +769,7 @@ public class UserResource {
 		}
 
 		@Password(checkPolicy=true)
+		@DependsOn(property="type", value="ORDINARY")
 		@NotEmpty		
 		public String getPassword() {
 			return password;
@@ -707,6 +789,7 @@ public class UserResource {
 		}
 
 		@Email
+		@DependsOn(property="type", value="ORDINARY")
 		@NotEmpty
 		public String getEmailAddress() {
 			return emailAddress;
@@ -716,6 +799,7 @@ public class UserResource {
 			this.emailAddress = emailAddress;
 		}
 
+		@DependsOn(property="type", value="ORDINARY")
 		public boolean isNotifyOwnEvents() {
 			return notifyOwnEvents;
 		}
@@ -723,6 +807,17 @@ public class UserResource {
 		public void setNotifyOwnEvents(boolean notifyOwnEvents) {
 			this.notifyOwnEvents = notifyOwnEvents;
 		}
+
+		@DependsOn(property="type", value="AI")
+		@NotNull
+		public AiSetting getAiSetting() {
+			return aiSetting;
+		}
+
+		public void setAiSetting(AiSetting aiSetting) {
+			this.aiSetting = aiSetting;
+		}
+
 	}
 
 	public static class UserUpdateData implements Serializable {
@@ -735,8 +830,11 @@ public class UserResource {
 		@Api(order=200)
 		private String fullName;
 
-		@Api(order=300, description = "Whether or not to notify user on own events. Only required for non service account")
+		@Api(order=300, description = "Whether or not to notify user on own events. Required for ordinary user")
 		private boolean notifyOwnEvents;
+
+		@Api(order=400, description = "Whether or not to keep email addresses private")
+		private Boolean keepEmailAddressesPrivate;
 		
 		@UserName
 		@NotEmpty
@@ -763,6 +861,14 @@ public class UserResource {
 		public void setNotifyOwnEvents(boolean notifyOwnEvents) {
 			this.notifyOwnEvents = notifyOwnEvents;
 		}
+
+		public Boolean isKeepEmailAddressesPrivate() {
+			return keepEmailAddressesPrivate;
+		}
+
+		public void setKeepEmailAddressesPrivate(Boolean keepEmailAddressesPrivate) {
+			this.keepEmailAddressesPrivate = keepEmailAddressesPrivate;
+		}
 	}
 	
 	public static class QueriesAndWatches implements Serializable {
@@ -782,6 +888,14 @@ public class UserResource {
 		ArrayList<NamedBuildQuery> buildQueries;
 
 		LinkedHashSet<String> buildQuerySubscriptions;
+
+		ArrayList<NamedPackQuery> packQueries;
+
+		LinkedHashSet<String> packQuerySubscriptions;
+
+		ArrayList<NamedWorkspaceQuery> workspaceQueries;
+
+		LinkedHashSet<String> workspaceQuerySubscriptions;
 	}
 	
 }

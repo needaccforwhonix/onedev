@@ -19,17 +19,21 @@ import org.eclipse.jetty.http.HttpCookie.SameSite;
 import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.gzip.GzipHandler;
+import org.eclipse.jetty.server.handler.HandlerList;
 import org.eclipse.jetty.server.session.DefaultSessionIdManager;
 import org.eclipse.jetty.server.session.HouseKeeper;
 import org.eclipse.jetty.server.session.SessionDataStoreFactory;
 import org.eclipse.jetty.servlet.ErrorPageErrorHandler;
 import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.inject.servlet.GuiceFilter;
 
 import io.onedev.commons.bootstrap.Bootstrap;
 import io.onedev.commons.loader.ManagedSerializedForm;
 import io.onedev.commons.utils.ExceptionUtils;
+import io.onedev.server.OneDev;
 import io.onedev.server.cluster.ClusterRunnable;
 import io.onedev.server.cluster.ClusterService;
 import io.onedev.server.cluster.ClusterTask;
@@ -42,7 +46,11 @@ import io.onedev.server.persistence.annotation.Transactional;
 import io.onedev.server.service.SettingService;
 
 @Singleton
-public class DefaultJettyService implements JettyService, Provider<ServletContextHandler>, Serializable {
+public class DefaultJettyService implements JettyService, Serializable {
+
+	private static final Logger logger = LoggerFactory.getLogger(DefaultJettyService.class);
+	
+	private static final int DEFAULT_SESSION_TIMEOUT = 1800;
 
 	private static final int MAX_CONTENT_SIZE = 5000000;
 
@@ -51,9 +59,9 @@ public class DefaultJettyService implements JettyService, Provider<ServletContex
 	@Inject
 	private SessionDataStoreFactory sessionDataStoreFactory;
 	
-	private Server server;
+	private volatile Server server;
 	
-	private ServletContextHandler servletContextHandler;
+	private volatile ServletContextHandler servletContextHandler;
 
 	@Inject
 	private Provider<Set<ServerConfigurator>> serverConfiguratorsProvider;
@@ -70,11 +78,6 @@ public class DefaultJettyService implements JettyService, Provider<ServletContex
 	@Inject
 	private ClusterService clusterService;
 	
-	@Override
-	public ServletContextHandler get() {
-		return servletContextHandler;
-	}
-
 	@Override
 	public void start() {
 		server = new Server();
@@ -95,7 +98,7 @@ public class DefaultJettyService implements JettyService, Provider<ServletContex
         servletContextHandler = new ServletContextHandler(ServletContextHandler.SESSIONS);
         servletContextHandler.setMaxFormContentSize(MAX_CONTENT_SIZE);
 
-        servletContextHandler.setClassLoader(DefaultJettyService.class.getClassLoader());
+        servletContextHandler.setClassLoader(OneDev.class.getClassLoader());
         
         servletContextHandler.setErrorHandler(new ErrorPageErrorHandler());
         servletContextHandler.addFilter(DisableTraceFilter.class, "/*", EnumSet.of(DispatcherType.REQUEST));
@@ -103,8 +106,8 @@ public class DefaultJettyService implements JettyService, Provider<ServletContex
         servletContextHandler.getSessionHandler().setSessionIdPathParameterName(null);
         servletContextHandler.getSessionHandler().setSameSite(SameSite.LAX);  
         servletContextHandler.getSessionHandler().setHttpOnly(true);
-		var sessionTimeout = 1800;
-		if (settingService.getSystemSetting() != null) 
+		var sessionTimeout = DEFAULT_SESSION_TIMEOUT;
+		if (settingService.getSystemSetting() != null && settingService.getSystemSetting().getSessionTimeout() != null) 
 			sessionTimeout = settingService.getSystemSetting().getSessionTimeout() * 60;
 		servletContextHandler.getSessionHandler().setMaxInactiveInterval(sessionTimeout);		
 
@@ -134,7 +137,12 @@ public class DefaultJettyService implements JettyService, Provider<ServletContex
 		gzipHandler.setIncludedMethods(HttpMethod.GET.name(), HttpMethod.POST.name(), HttpMethod.PUT.name());
 		gzipHandler.setExcludedMimeTypes(MimeTypes.OCTET_STREAM);
 
-        server.setHandler(gzipHandler);
+		var handlers = new HandlerList();
+		handlers.addHandler(new ProbeHandler(() -> OneDev.getInstance().isReady()
+				&& !OneDev.getInstance().isStopping()
+				&& !OneDev.getMaintenanceFile(Bootstrap.installDir).exists()));
+		handlers.addHandler(gzipHandler);
+        server.setHandler(handlers);
         
         for (ServerConfigurator configurator: serverConfiguratorsProvider.get()) 
         	configurator.configure(server);
@@ -158,6 +166,11 @@ public class DefaultJettyService implements JettyService, Provider<ServletContex
 			}
 		}
 	}
+
+	@Override
+	public ServletContextHandler getServletContextHandler() {
+		return servletContextHandler;
+	}
 	
 	@Listen
 	@Transactional
@@ -178,7 +191,14 @@ public class DefaultJettyService implements JettyService, Provider<ServletContex
 
 							@Override
 							public Void call() throws Exception {
-								servletContextHandler.getSessionHandler().setMaxInactiveInterval(systemSetting.getSessionTimeout() * 60);
+								try {
+									if (systemSetting.getSessionTimeout() != null) 
+										servletContextHandler.getSessionHandler().setMaxInactiveInterval(systemSetting.getSessionTimeout() * 60);
+									else 
+										servletContextHandler.getSessionHandler().setMaxInactiveInterval(DEFAULT_SESSION_TIMEOUT);
+								} catch (Throwable t) {
+									logger.error("Error setting session timeout", t);
+								}
 								return null;
 							}
 							

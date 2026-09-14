@@ -3,17 +3,23 @@ package io.onedev.server.model;
 import static io.onedev.server.model.User.PROP_FULL_NAME;
 import static io.onedev.server.model.User.PROP_NAME;
 import static io.onedev.server.model.User.Type.AI;
-import static io.onedev.server.model.User.Type.SERVICE;
 import static io.onedev.server.security.SecurityUtils.asPrincipals;
 import static io.onedev.server.security.SecurityUtils.asUserPrincipal;
+import static io.onedev.server.security.SecurityUtils.isAdministrator;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.Stack;
 import java.util.stream.Collectors;
 
@@ -52,6 +58,7 @@ import io.onedev.server.model.support.build.NamedBuildQuery;
 import io.onedev.server.model.support.issue.NamedIssueQuery;
 import io.onedev.server.model.support.pack.NamedPackQuery;
 import io.onedev.server.model.support.pullrequest.NamedPullRequestQuery;
+import io.onedev.server.model.support.workspace.NamedWorkspaceQuery;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.service.EmailAddressService;
 import io.onedev.server.service.SettingService;
@@ -59,6 +66,7 @@ import io.onedev.server.service.UserService;
 import io.onedev.server.util.facade.UserFacade;
 import io.onedev.server.util.watch.QuerySubscriptionSupport;
 import io.onedev.server.util.watch.QueryWatchSupport;
+import io.onedev.server.exception.NotAcceptableException;
 
 @Entity
 @Table(indexes={@Index(columnList=PROP_NAME), @Index(columnList=PROP_FULL_NAME)})
@@ -77,10 +85,6 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 	public static final Long ROOT_ID = 1L;
 	
 	public static final String SYSTEM_NAME = "OneDev";
-	
-	public static final String SYSTEM_EMAIL_ADDRESS = "system@onedev";
-
-	public static final String AI_EMAIL_ADDRESS = "ai@onedev";
 	
 	public static final String UNKNOWN_NAME = "unknown";
 	
@@ -115,6 +119,9 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 	private String fullName;
 			
 	private boolean notifyOwnEvents;
+
+	@Column(name="PRIVATE_EMAILS")
+	private boolean keepEmailAddressesPrivate;
 
 	@Lob
 	@Column(length=65535)
@@ -187,7 +194,10 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 
 	@OneToMany(mappedBy="user", cascade=CascadeType.REMOVE)
 	private Collection<PackQueryPersonalization> packQueryPersonalizations = new ArrayList<>();
-	
+
+	@OneToMany(mappedBy="user", cascade=CascadeType.REMOVE)
+	private Collection<WorkspaceQueryPersonalization> workspaceQueryPersonalizations = new ArrayList<>();
+
     @OneToMany(mappedBy="user", cascade=CascadeType.REMOVE)
     private Collection<PullRequestQueryPersonalization> pullRequestQueryPersonalizations = new ArrayList<>();
     
@@ -263,6 +273,10 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 	@Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
 	private Collection<Chat> userChats = new ArrayList<>();
 
+	@OneToMany(mappedBy="user", cascade=CascadeType.REMOVE)
+	@Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
+	private Collection<Workspace> workspaces = new ArrayList<>();
+
     @JsonIgnore
 	@Lob
 	@Column(nullable=false, length=65535)
@@ -287,7 +301,12 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 	@Lob
 	@Column(nullable=false, length=65535)
 	private ArrayList<NamedPackQuery> packQueries = new ArrayList<>();
-	
+
+	@JsonIgnore
+	@Lob
+	@Column(nullable=false, length=65535)
+	private ArrayList<NamedWorkspaceQuery> workspaceQueries = new ArrayList<>();
+
     @JsonIgnore
 	@Lob
 	@Column(nullable=false, length=65535)
@@ -307,17 +326,16 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 	@Lob
 	@Column(nullable=false, length=65535)
 	private LinkedHashSet<String> packQuerySubscriptions = new LinkedHashSet<>();
-	
+
+	@JsonIgnore
+	@Lob
+	@Column(nullable=false, length=65535)
+	private LinkedHashSet<String> workspaceQuerySubscriptions = new LinkedHashSet<>();
+
     private transient Collection<Group> groups;
-    
-    private transient List<EmailAddress> sortedEmailAddresses;
     
     private transient Optional<EmailAddress> primaryEmailAddress;
     
-    private transient Optional<EmailAddress> gitEmailAddress;
-
-    private transient Optional<EmailAddress> publicEmailAddress;
-
 	private transient List<User> entitledAis;
 	
 	public QueryPersonalization<NamedProjectQuery> getProjectQueryPersonalization() {
@@ -552,7 +570,55 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 
 		};
 	}
-	
+
+	public QueryPersonalization<NamedWorkspaceQuery> getWorkspaceQueryPersonalization() {
+		return new QueryPersonalization<>() {
+
+			@Override
+			public Project getProject() {
+				return null;
+			}
+
+			@Override
+			public User getUser() {
+				return User.this;
+			}
+
+			@Override
+			public ArrayList<NamedWorkspaceQuery> getQueries() {
+				return workspaceQueries;
+			}
+
+			@Override
+			public void setQueries(ArrayList<NamedWorkspaceQuery> userQueries) {
+				workspaceQueries = userQueries;
+			}
+
+			@Override
+			public QueryWatchSupport<NamedWorkspaceQuery> getQueryWatchSupport() {
+				return null;
+			}
+
+			@Override
+			public QuerySubscriptionSupport<NamedWorkspaceQuery> getQuerySubscriptionSupport() {
+				return new QuerySubscriptionSupport<>() {
+
+					@Override
+					public LinkedHashSet<String> getQuerySubscriptions() {
+						return workspaceQuerySubscriptions;
+					}
+
+				};
+			}
+
+			@Override
+			public void onUpdated() {
+				OneDev.getInstance(UserService.class).update(User.this, null);
+			}
+
+		};
+	}
+
 	@Override
     public PrincipalCollection getPrincipals() {
 		return asPrincipals(asUserPrincipal(getId()));		
@@ -570,7 +636,7 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 	@Editable(order=50, description = "" +
 		"Ordinary: Normal account<br>" +
 		"Service: Service account does not have password and email addresses, and will not generate notifications for its activities<br>" +
-		"AI: AI account (working in progress)")
+		"AI: AI account to answer questions about the code base, edit CI/CD spec, investigate job failure, or review pull request")
 	public Type getType() {
 		return type;
 	}
@@ -587,7 +653,7 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 		this.disabled = disabled;
 	}			
 
-	@Editable(name="Login Name", order=100)
+	@Editable(name="Login Name", order=100, autocomplete="off")
 	@UserName
 	@NotEmpty
 	public String getName() {
@@ -605,7 +671,7 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 	 */
 	@Editable(order=150)
 	@DependsOn(property="type", value="ORDINARY")
-	@Password(checkPolicy=true, autoComplete="new-password")
+	@Password(checkPolicy=true, autocomplete="new-password")
 	@NotEmpty
 	@Nullable
 	public String getPassword() {
@@ -647,6 +713,14 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 
 	public void setNotifyOwnEvents(boolean sendOwnEvents) {
 		this.notifyOwnEvents = sendOwnEvents;
+	}
+
+	public boolean isKeepEmailAddressesPrivate() {
+		return keepEmailAddressesPrivate;
+	}
+
+	public void setKeepEmailAddressesPrivate(boolean keepEmailAddressesPrivate) {
+		this.keepEmailAddressesPrivate = keepEmailAddressesPrivate;
 	}
 
 	public AiSetting getAiSetting() {
@@ -698,21 +772,12 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 	}
 	
 	public PersonIdent asPerson() {
-		if (getType() == SERVICE) {
-			throw new ExplicitException("Service account does not have git identity");
-		} else if (getType() == AI) {
-			return new PersonIdent(getName(), User.AI_EMAIL_ADDRESS);
-		} else if (isUnknown()) {
+		if (isUnknown()) 
 			throw new ExplicitException("Unknown user does not have git identity");
-		} else if (isSystem()) {
-			return new PersonIdent(User.SYSTEM_NAME, User.SYSTEM_EMAIL_ADDRESS);
-		} else {
-			EmailAddress emailAddress = getGitEmailAddress();
-			if (emailAddress != null && emailAddress.isVerified())
-				return new PersonIdent(getDisplayName(), emailAddress.getValue());
-			else
-		        throw new ExplicitException("No verified email for git operations");
-		}
+		else if (isSystem())
+			return new PersonIdent(User.SYSTEM_NAME, getSystemNoreplyEmailAddress());
+		else 
+			return new PersonIdent(getDisplayName(), getGitEmailAddress().getValue());		
 	}
 	
 	public String getDisplayName() {
@@ -733,11 +798,7 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 	public boolean isUnknown() {
 		return UNKNOWN_ID.equals(getId());
 	}
-	
-	public boolean isOrdinary() {
-		return getId() > 0;
-	}
-	
+		
 	public Collection<UserAuthorization> getProjectAuthorizations() {
 		return projectAuthorizations;
 	}
@@ -776,6 +837,10 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 
 	public void setAiEntitlements(Collection<UserEntitlement> aiEntitlements) {
 		this.aiEntitlements = aiEntitlements;
+	}
+
+	public Collection<Workspace> getWorkspaces() {
+		return workspaces;
 	}
 
 	public Collection<IssueAuthorization> getIssueAuthorizations() {
@@ -836,6 +901,18 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 
 	public void setEmailAddresses(Collection<EmailAddress> emailAddresses) {
 		this.emailAddresses = emailAddresses;
+	}
+
+	/**
+	 * Returns verified email address values of this user, including the noreply addresses
+	 */
+	public Set<String> getVerifiedEmailAddresses() {
+		var emails = getEmailAddresses().stream()
+				.filter(EmailAddress::isVerified)
+				.map(EmailAddress::getValue)
+				.collect(Collectors.toCollection(HashSet::new));
+		emails.add(newNoreplyEmailAddress().getValue());
+		return emails;
 	}
 
 	public Collection<GpgKey> getGpgKeys() {
@@ -964,6 +1041,14 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 
 	public void setPackQueryPersonalizations(Collection<PackQueryPersonalization> packQueryPersonalizations) {
 		this.packQueryPersonalizations = packQueryPersonalizations;
+	}
+
+	public Collection<WorkspaceQueryPersonalization> getWorkspaceQueryPersonalizations() {
+		return workspaceQueryPersonalizations;
+	}
+
+	public void setWorkspaceQueryPersonalizations(Collection<WorkspaceQueryPersonalization> workspaceQueryPersonalizations) {
+		this.workspaceQueryPersonalizations = workspaceQueryPersonalizations;
 	}
 
 	public Collection<PullRequestQueryPersonalization> getPullRequestQueryPersonalizations() {
@@ -1114,7 +1199,24 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 		}
 		return null;
 	}
-	
+
+	public ArrayList<NamedWorkspaceQuery> getWorkspaceQueries() {
+		return workspaceQueries;
+	}
+
+	public void setWorkspaceQueries(ArrayList<NamedWorkspaceQuery> workspaceQueries) {
+		this.workspaceQueries = workspaceQueries;
+	}
+
+	@Nullable
+	public NamedWorkspaceQuery getWorkspaceQuery(String name) {
+		for (var query: getWorkspaceQueries()) {
+			if (query.getName().equals(name))
+				return query;
+		}
+		return null;
+	}
+
 	public LinkedHashSet<String> getBuildQuerySubscriptions() {
 		return buildQuerySubscriptions;
 	}
@@ -1131,48 +1233,71 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 		this.packQuerySubscriptions = packQuerySubscriptions;
 	}
 
+	public LinkedHashSet<String> getWorkspaceQuerySubscriptions() {
+		return workspaceQuerySubscriptions;
+	}
+
+	public void setWorkspaceQuerySubscriptions(LinkedHashSet<String> workspaceQuerySubscriptions) {
+		this.workspaceQuerySubscriptions = workspaceQuerySubscriptions;
+	}
+
 	public boolean isEnforce2FA() {
 		return OneDev.getInstance(SettingService.class).getSecuritySetting().isEnforce2FA()
 				|| getGroups().stream().anyMatch(it->it.isEnforce2FA());
 	}
 
 	public List<EmailAddress> getSortedEmailAddresses() {
-		if (sortedEmailAddresses == null) {
-			sortedEmailAddresses = new ArrayList<>(getEmailAddresses());
-			Collections.sort(sortedEmailAddresses);
-		}
+		var sortedEmailAddresses = new ArrayList<>(getEmailAddresses());
+		Collections.sort(sortedEmailAddresses);
 		return sortedEmailAddresses;
 	}
 	
 	private EmailAddressService getEmailAddressService() {
 		return OneDev.getInstance(EmailAddressService.class);
 	}
-	
+
 	@Nullable
-	public EmailAddress getPrimaryEmailAddress() {
+	public EmailAddress getPrimaryEmailAddress() {		
 		if (primaryEmailAddress == null)
 			primaryEmailAddress = Optional.ofNullable(getEmailAddressService().findPrimary(this));
 		return primaryEmailAddress.orElse(null);
 	}
 
-	@Nullable
-	public EmailAddress getGitEmailAddress() {
-		if (gitEmailAddress == null)
-			gitEmailAddress = Optional.ofNullable(getEmailAddressService().findGit(this));
-		return gitEmailAddress.orElse(null);
+	public void cachePrimaryEmailAddress(EmailAddress primaryEmailAddress) {
+		this.primaryEmailAddress = Optional.ofNullable(primaryEmailAddress);
 	}
 
-	@Nullable
-	public EmailAddress getPublicEmailAddress() {
-		if (publicEmailAddress == null)
-			publicEmailAddress = Optional.ofNullable(getEmailAddressService().findPublic(this));
-		return publicEmailAddress.orElse(null);
+	public EmailAddress getGitEmailAddress() {
+		if (isKeepEmailAddressesPrivate() || getType() == Type.SERVICE || getType() == Type.AI) {
+			return newNoreplyEmailAddress();
+		} else {
+			var primaryEmailAddress = getPrimaryEmailAddress();
+			if (primaryEmailAddress != null && primaryEmailAddress.isVerified())
+				return primaryEmailAddress;
+			else
+				throw new NotAcceptableException("Primary email address not set or not verified for user: " + getName());
+		}
+	}
+
+	public EmailAddress newNoreplyEmailAddress() {
+		var emailAddress = new EmailAddress();
+		emailAddress.setValue(getName() + "@" + getNoreplyEmailDomain());
+		emailAddress.setOwner(this);
+		emailAddress.setVerificationCode(null);
+		return emailAddress;
+	}
+
+	public static String getNoreplyEmailDomain() {
+		return OneDev.getInstance(SettingService.class).getSystemSetting().getNoreplyEmailDomain();
+	}
+
+	public static String getSystemNoreplyEmailAddress() {
+		return User.SYSTEM_NAME.toLowerCase() + "@" + getNoreplyEmailDomain();
 	}
 
 	public void addEmailAddress(EmailAddress emailAddress) {
 		emailAddress.setOwner(this);
 		emailAddress.setPrimary(getEmailAddresses().stream().noneMatch(it->it.isPrimary()));		
-		emailAddress.setGit(getEmailAddresses().stream().noneMatch(it->it.isGit()));
 		getEmailAddresses().add(emailAddress);
 	}
 	
@@ -1183,30 +1308,74 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 			var aiUserFacades = userCache.values().stream()
 					.filter(it -> it.getType() == AI && !it.isDisabled() && !it.getId().equals(getId()))
 					.collect(Collectors.toList());
-			if (aiUserFacades.stream().allMatch(it->it.isEntitleToAll())) {
+			if (isAdministrator(asSubject())) {
 				entitledAis = aiUserFacades.stream()
 						.sorted(Comparator.comparing(UserFacade::getDisplayName))
 						.map(it -> userService.load(it.getId()))
 						.collect(Collectors.toList());
 			} else {
-				var entitledAiSet = aiUserFacades.stream()
-						.filter(it->it.isEntitleToAll())
-						.map(it -> userService.load(it.getId()))
-						.collect(Collectors.toSet());
-				getAiEntitlements().stream().forEach(it -> entitledAiSet.add(it.getAI()));
-
-				for (var group: getGroups()) {
-					group.getEntitlements().stream().forEach(it -> entitledAiSet.add(it.getAi()));
-				}
-				entitledAis = new ArrayList<User>(entitledAiSet);
-				entitledAis.sort(Comparator.comparing(User::getDisplayName));				
+				if (aiUserFacades.stream().allMatch(it->it.isEntitleToAll())) {
+					entitledAis = aiUserFacades.stream()
+							.sorted(Comparator.comparing(UserFacade::getDisplayName))
+							.map(it -> userService.load(it.getId()))
+							.collect(Collectors.toList());
+				} else {
+					var entitledAiSet = aiUserFacades.stream()
+							.filter(it->it.isEntitleToAll())
+							.map(it -> userService.load(it.getId()))
+							.collect(Collectors.toSet());
+					getAiEntitlements().stream().forEach(it -> entitledAiSet.add(it.getAI()));
+	
+					for (var group: getGroups()) {
+						group.getEntitlements().stream().forEach(it -> entitledAiSet.add(it.getAi()));
+					}
+					entitledAis = new ArrayList<User>(entitledAiSet);
+					entitledAis.sort(Comparator.comparing(User::getDisplayName));				
+				}	
 			}
 		}
 		return entitledAis;
 	}
 
+	@Nullable
+	public static String getLoginName(String noReplyEmailAddress) {
+		var noreplyEmailSuffix = "@" + getNoreplyEmailDomain();
+		if (noReplyEmailAddress.toLowerCase().endsWith(noreplyEmailSuffix.toLowerCase())) 
+			return noReplyEmailAddress.substring(0, noReplyEmailAddress.length() - noreplyEmailSuffix.length());
+		else
+			return null;
+	}
+
+	public static String encodeWorkspaceDataKey(String dataKey) {
+		try {
+			return URLEncoder.encode(dataKey, StandardCharsets.UTF_8.name());
+		} catch (UnsupportedEncodingException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	public static String decodeWorkspaceDataKey(String encodedDataKey) {
+		try {
+			return URLDecoder.decode(encodedDataKey, StandardCharsets.UTF_8.name());
+		} catch (UnsupportedEncodingException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	public static String getWorkspaceDataLockName(Long userId, String dataKey) {
+		return "workspace-data:" + userId + ":" + dataKey;
+	}
+
+	public boolean isEntitledToAi(User ai) {
+		return isAdministrator(asSubject()) 
+				|| ai.getAiSetting().isEntitleToAll() 
+				|| getAiEntitlements().stream().anyMatch(it -> it.getAI().equals(ai)) 
+				|| getGroups().stream().anyMatch(it -> it.getEntitlements().stream().anyMatch(it2 -> it2.getAi().equals(ai)));
+	}
+
 	public UserFacade getFacade() {
-		return new UserFacade(getId(), getName(), getFullName(), getType(), isDisabled(), getAiSetting().isEntitleToAll());
+		return new UserFacade(getId(), getName(), getFullName(), getType(), isDisabled(),
+				getAiSetting().isEntitleToAll(), isKeepEmailAddressesPrivate());
 	}
 	
 }

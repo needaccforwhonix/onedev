@@ -5,24 +5,22 @@ import static io.onedev.server.web.translation.Translation._T;
 import java.util.Collection;
 import java.util.List;
 
+import javax.inject.Inject;
+
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.behavior.AttributeAppender;
-import org.apache.wicket.markup.ComponentTag;
-import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.model.AbstractReadOnlyModel;
+import org.apache.wicket.model.Model;
 import org.jetbrains.annotations.Nullable;
 
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.OneDev;
 import io.onedev.server.attachment.AttachmentSupport;
 import io.onedev.server.attachment.ProjectAttachmentSupport;
-import io.onedev.server.service.PullRequestCommentService;
-import io.onedev.server.service.PullRequestCommentReactionService;
-import io.onedev.server.service.PullRequestCommentRevisionService;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.PullRequest;
 import io.onedev.server.model.PullRequestComment;
@@ -31,11 +29,16 @@ import io.onedev.server.model.User;
 import io.onedev.server.model.support.CommentRevision;
 import io.onedev.server.model.support.EntityReaction;
 import io.onedev.server.persistence.TransactionService;
+import io.onedev.server.persistence.dao.Dao;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.PullRequestCommentReactionService;
+import io.onedev.server.service.PullRequestCommentService;
+import io.onedev.server.service.UrlService;
 import io.onedev.server.util.DateUtils;
 import io.onedev.server.web.component.comment.CommentHistoryLink;
 import io.onedev.server.web.component.comment.CommentPanel;
 import io.onedev.server.web.component.comment.ReactionSupport;
+import io.onedev.server.web.component.link.copytoclipboard.CopyToClipboardLink;
 import io.onedev.server.web.component.markdown.ContentVersionSupport;
 import io.onedev.server.web.component.user.ident.Mode;
 import io.onedev.server.web.component.user.ident.UserIdentPanel;
@@ -45,6 +48,18 @@ import io.onedev.server.web.util.DeleteCallback;
 
 class PullRequestCommentPanel extends Panel {
 	
+	@Inject
+	private Dao dao;
+
+	@Inject
+	private TransactionService transactionService;
+
+	@Inject
+	private PullRequestCommentService pullRequestCommentService;
+
+	@Inject
+	private PullRequestCommentReactionService pullRequestCommentReactionService;
+
 	public PullRequestCommentPanel(String id) {
 		super(id);
 	}
@@ -56,7 +71,7 @@ class PullRequestCommentPanel extends Panel {
 		add(new UserIdentPanel("avatar", getComment().getUser(), Mode.AVATAR));
 		add(new UserIdentPanel("name", getComment().getUser(), Mode.NAME));
 		add(new Label("age", DateUtils.formatAge(getComment().getDate()))
-			.add(new AttributeAppender("title", DateUtils.formatDateTime(getComment().getDate()))));
+			.add(new AttributeAppender("data-tippy-content", DateUtils.formatDateTime(getComment().getDate()))));
 		
 		add(new SinceChangesLink("changes", new AbstractReadOnlyModel<PullRequest>() {
 
@@ -67,15 +82,9 @@ class PullRequestCommentPanel extends Panel {
 
 		}, getComment().getDate()));
 		
-		add(new WebMarkupContainer("anchor") {
-
-			@Override
-			protected void onComponentTag(ComponentTag tag) {
-				super.onComponentTag(tag);
-				tag.put("href", "#" + getComment().getAnchor());
-			}
-			
-		});
+		add(new CopyToClipboardLink("anchor",
+				Model.of(OneDev.getInstance(UrlService.class).urlFor(getComment(), true)),
+				_T("Copy permanent link")));
 		
 		add(new CommentPanel("body") {
 
@@ -92,17 +101,17 @@ class PullRequestCommentPanel extends Panel {
 
 				var oldComment = entity.getContent();
 				if (!oldComment.equals(comment)) {
-					getTransactionService().run(() -> {
+					transactionService.run(() -> {
 						entity.setContent(comment);
 						entity.setRevisionCount(entity.getRevisionCount() + 1);
-						getPullRequestCommentService().update(entity);
+						pullRequestCommentService.update(entity);
 
 						var revision = new PullRequestCommentRevision();
 						revision.setComment(entity);
 						revision.setUser(SecurityUtils.getUser());
 						revision.setOldContent(oldComment);
 						revision.setNewContent(comment);
-						getPullRequestCommentRevisionService().create(revision);
+						dao.persist(revision);
 					});
 					var page = (BasePage) getPage();
 					page.notifyObservableChange(target, PullRequest.getChangeObservable(entity.getRequest().getId()));				
@@ -154,7 +163,7 @@ class PullRequestCommentPanel extends Panel {
 					var pullRequest = PullRequestCommentPanel.this.getComment().getRequest();
 					target.appendJavaScript(String.format("$('#%s').remove();", PullRequestCommentPanel.this.getMarkupId()));
 					PullRequestCommentPanel.this.remove();
-					getPullRequestCommentService().delete(PullRequestCommentPanel.this.getComment());
+					pullRequestCommentService.delete(SecurityUtils.getUser(), PullRequestCommentPanel.this.getComment());
 					page.notifyObservableChange(target, PullRequest.getChangeObservable(pullRequest.getId()));
 				};
 			}
@@ -170,7 +179,7 @@ class PullRequestCommentPanel extends Panel {
 		
 					@Override
 					public void onToggleEmoji(AjaxRequestTarget target, String emoji) {
-						getPullRequestCommentReactionService().toggleEmoji(
+						pullRequestCommentReactionService.toggleEmoji(
 								SecurityUtils.getUser(), 
 								PullRequestCommentPanel.this.getComment(), 
 								emoji);
@@ -203,22 +212,6 @@ class PullRequestCommentPanel extends Panel {
 
 		setMarkupId(getComment().getAnchor());
 		setOutputMarkupId(true);
-	}
-
-	private TransactionService getTransactionService() {
-		return OneDev.getInstance(TransactionService.class);
-	}
-
-	private PullRequestCommentRevisionService getPullRequestCommentRevisionService() {
-		return OneDev.getInstance(PullRequestCommentRevisionService.class);
-	}
-
-	private PullRequestCommentService getPullRequestCommentService() {
-		return OneDev.getInstance(PullRequestCommentService.class);
-	}
-
-	private PullRequestCommentReactionService getPullRequestCommentReactionService() {
-		return OneDev.getInstance(PullRequestCommentReactionService.class);
 	}
 
 	private PullRequestComment getComment() {

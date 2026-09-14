@@ -7,14 +7,15 @@ import static io.onedev.server.model.Issue.PROP_COMMENT_COUNT;
 import static io.onedev.server.model.Issue.PROP_CONFUSED_COUNT;
 import static io.onedev.server.model.Issue.PROP_EYES_COUNT;
 import static io.onedev.server.model.Issue.PROP_HEART_COUNT;
-import static io.onedev.server.model.Issue.PROP_ROCKET_COUNT;
 import static io.onedev.server.model.Issue.PROP_SMILE_COUNT;
 import static io.onedev.server.model.Issue.PROP_STATE;
 import static io.onedev.server.model.Issue.PROP_SUBMIT_DATE;
 import static io.onedev.server.model.Issue.PROP_TADA_COUNT;
 import static io.onedev.server.model.Issue.PROP_THUMBS_DOWN_COUNT;
 import static io.onedev.server.model.Issue.PROP_THUMBS_UP_COUNT;
+import static io.onedev.server.model.Issue.PROP_TICK_COUNT;
 import static io.onedev.server.model.Issue.PROP_TITLE;
+import static io.onedev.server.model.Issue.PROP_MESSAGE_ID;
 import static io.onedev.server.model.Issue.PROP_UUID;
 import static io.onedev.server.model.Issue.PROP_VOTE_COUNT;
 import static io.onedev.server.model.IssueSchedule.NAME_ITERATION;
@@ -24,7 +25,6 @@ import static java.util.Comparator.comparingInt;
 import static java.util.stream.Collectors.toList;
 
 import java.io.Serializable;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -36,6 +36,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.Stack;
 import java.util.UUID;
@@ -65,6 +66,7 @@ import org.hibernate.annotations.DynamicUpdate;
 import org.jspecify.annotations.Nullable;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
@@ -77,6 +79,7 @@ import io.onedev.server.buildspecmodel.inputspec.Input;
 import io.onedev.server.buildspecmodel.inputspec.InputSpec;
 import io.onedev.server.entityreference.EntityReference;
 import io.onedev.server.entityreference.IssueReference;
+import io.onedev.server.git.GitUtils;
 import io.onedev.server.model.support.EntityWatch;
 import io.onedev.server.model.support.LastActivity;
 import io.onedev.server.model.support.ProjectBelonging;
@@ -87,12 +90,13 @@ import io.onedev.server.model.support.issue.field.spec.choicefield.ChoiceField;
 import io.onedev.server.rest.annotation.Api;
 import io.onedev.server.search.entity.IssueSortField;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.BuildService;
 import io.onedev.server.service.GroupService;
 import io.onedev.server.service.PullRequestService;
 import io.onedev.server.service.SettingService;
 import io.onedev.server.service.UrlService;
 import io.onedev.server.service.UserService;
-import io.onedev.server.util.ComponentContext;
+import io.onedev.server.util.HierarchicalContext;
 import io.onedev.server.util.ProjectScopedCommit;
 import io.onedev.server.util.facade.IssueFacade;
 import io.onedev.server.web.asset.emoji.Emojis;
@@ -100,7 +104,6 @@ import io.onedev.server.web.component.iteration.burndown.BurndownIndicators;
 import io.onedev.server.web.editable.BeanDescriptor;
 import io.onedev.server.web.editable.PropertyDescriptor;
 import io.onedev.server.web.util.IssueAware;
-import io.onedev.server.web.util.WicketUtils;
 import io.onedev.server.xodus.CommitInfoService;
 import io.onedev.server.xodus.PullRequestInfoService;
 import io.onedev.server.xodus.VisitInfoService;
@@ -116,8 +119,10 @@ import io.onedev.server.xodus.VisitInfoService;
 				@Index(columnList=PROP_THUMBS_UP_COUNT), @Index(columnList=PROP_THUMBS_DOWN_COUNT),
 				@Index(columnList=PROP_SMILE_COUNT), @Index(columnList=PROP_TADA_COUNT),
 				@Index(columnList=PROP_CONFUSED_COUNT), @Index(columnList=PROP_HEART_COUNT),
-				@Index(columnList=PROP_ROCKET_COUNT), @Index(columnList=PROP_EYES_COUNT),
-				@Index(columnList= LastActivity.COLUMN_DATE), @Index(columnList="o_numberScope_id")}, 
+				@Index(columnList=PROP_EYES_COUNT), @Index(columnList=PROP_TICK_COUNT),
+				@Index(columnList=PROP_MESSAGE_ID),
+				@Index(columnList= LastActivity.COLUMN_DATE), @Index(columnList="o_numberScope_id"),
+				@Index(columnList="o_movedTo_id")}, 
 		uniqueConstraints={@UniqueConstraint(columnNames={"o_numberScope_id", PROP_NUMBER})})
 //use dynamic update in order not to overwrite other edits while background threads change update date
 @DynamicUpdate
@@ -143,6 +148,8 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 	public static final String NAME_TITLE = "Title";
 	
 	public static final String PROP_TITLE = "title";
+	
+	public static final String PROP_MOVED_TO = "movedTo";
 	
 	public static final String NAME_DESCRIPTION = "Description";
 	
@@ -190,13 +197,13 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 	
 	public static final String PROP_HEART_COUNT = "heartCount";
 	
-	public static final String NAME_ROCKET_COUNT = "Reaction: Rocket Count";
-	
-	public static final String PROP_ROCKET_COUNT = "rocketCount";
-	
 	public static final String NAME_EYES_COUNT = "Reaction: Eyes Count";
 	
 	public static final String PROP_EYES_COUNT = "eyesCount";
+
+	public static final String NAME_TICK_COUNT = "Reaction: Tick Count";
+	
+	public static final String PROP_TICK_COUNT = "tickCount";
 
 	public static final String NAME_LAST_ACTIVITY_DATE = "Last Activity Date";
 	
@@ -207,6 +214,8 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 	public static final String PROP_SCHEDULES = "schedules";
 	
 	public static final String PROP_UUID = "uuid";
+
+	public static final String PROP_MESSAGE_ID = "messageId";
 		
 	public static final String PROP_CONFIDENTIAL = "confidential";
 	
@@ -237,7 +246,8 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 			NAME_DESCRIPTION, NAME_COMMENT, NAME_SUBMIT_DATE, NAME_LAST_ACTIVITY_DATE, 
 			NAME_VOTE_COUNT, NAME_COMMENT_COUNT, NAME_ITERATION,
 			NAME_THUMBS_UP_COUNT, NAME_THUMBS_DOWN_COUNT, NAME_SMILE_COUNT, NAME_TADA_COUNT, 
-			NAME_CONFUSED_COUNT, NAME_HEART_COUNT, NAME_ROCKET_COUNT, NAME_EYES_COUNT,
+			NAME_CONFUSED_COUNT, NAME_HEART_COUNT, NAME_EYES_COUNT,
+			NAME_TICK_COUNT,
 			NAME_ESTIMATED_TIME, NAME_SPENT_TIME, NAME_PROGRESS,
 			BurndownIndicators.ISSUE_COUNT, BurndownIndicators.REMAINING_TIME);
 	
@@ -247,7 +257,8 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 			NAME_COMMENT, NAME_SUBMIT_DATE, NAME_LAST_ACTIVITY_DATE, NAME_VOTE_COUNT, 
 			NAME_COMMENT_COUNT, NAME_ITERATION,
 			NAME_THUMBS_UP_COUNT, NAME_THUMBS_DOWN_COUNT, NAME_SMILE_COUNT, NAME_TADA_COUNT, 
-			NAME_CONFUSED_COUNT, NAME_HEART_COUNT, NAME_ROCKET_COUNT, NAME_EYES_COUNT);
+			NAME_CONFUSED_COUNT, NAME_HEART_COUNT, NAME_EYES_COUNT,
+			NAME_TICK_COUNT);
 
 	public static final Map<String, IssueSortField> SORT_FIELDS = new LinkedHashMap<>();
 	static {
@@ -268,8 +279,8 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 		SORT_FIELDS.put(NAME_TADA_COUNT, new IssueSortField(PROP_TADA_COUNT, DESCENDING, comparingInt(Issue::getTadaCount)));
 		SORT_FIELDS.put(NAME_CONFUSED_COUNT, new IssueSortField(PROP_CONFUSED_COUNT, DESCENDING, comparingInt(Issue::getConfusedCount)));
 		SORT_FIELDS.put(NAME_HEART_COUNT, new IssueSortField(PROP_HEART_COUNT, DESCENDING, comparingInt(Issue::getHeartCount)));
-		SORT_FIELDS.put(NAME_ROCKET_COUNT, new IssueSortField(PROP_ROCKET_COUNT, DESCENDING, comparingInt(Issue::getRocketCount)));
 		SORT_FIELDS.put(NAME_EYES_COUNT, new IssueSortField(PROP_EYES_COUNT, DESCENDING, comparingInt(Issue::getEyesCount)));
+		SORT_FIELDS.put(NAME_TICK_COUNT, new IssueSortField(PROP_TICK_COUNT, DESCENDING, comparingInt(Issue::getTickCount)));
 	}
 	
 	private static ThreadLocal<Stack<Issue>> stack = ThreadLocal.withInitial(() -> new Stack<>());
@@ -294,6 +305,20 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 	@ManyToOne(fetch=FetchType.LAZY)
 	@JoinColumn(nullable=false)
 	private Project project;
+
+	/**
+	 * If not null, this issue is a stub left after the issue was moved, and
+	 * {@code movedTo} points to the issue it was moved to.
+	 */
+	@ManyToOne(fetch=FetchType.LAZY)
+	private Issue movedTo;
+
+	/**
+	 * Issues that were moved to this issue (stubs). Deleting this issue also
+	 * deletes those stubs via cascade.
+	 */
+	@OneToMany(mappedBy="movedTo", cascade=CascadeType.REMOVE)
+	private Collection<Issue> movedFrom = new ArrayList<>();
 	
 	@OneToMany(mappedBy="issue", cascade=CascadeType.REMOVE)
 	private Collection<IssueSchedule> schedules = new ArrayList<>();
@@ -329,10 +354,10 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 	private int confusedCount;
 	
 	private int heartCount;
-	
-	private int rocketCount;
 
 	private int eyesCount;
+
+	private int tickCount;
 	
 	private int totalEstimatedTime;
 	
@@ -361,7 +386,7 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 	
 	private Date pinDate;
 	
-	private int boardPosition;
+	private int boardPosition;	
 	
 	@Lob
 	@Column(nullable=false, length=65535)
@@ -393,6 +418,9 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 
 	@OneToMany(mappedBy="issue", cascade=CascadeType.REMOVE)
 	private Collection<IssueMention> mentions = new ArrayList<>();
+
+	@OneToMany(mappedBy="issue")
+	private Collection<Workspace> workspaces = new ArrayList<>();
 	
 	@OneToMany(mappedBy="issue", cascade=CascadeType.REMOVE)
 	@Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
@@ -418,6 +446,12 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 	private transient Collection<User> participants;
 	
 	private transient Collection<User> authorizedUsers;
+
+	private transient Optional<String> branchOptional;
+
+	private transient Optional<Build> fieldBuildOptional;
+
+	private transient Optional<ObjectId> fieldCommitIdOptional;
 	
 	public String getState() {
 		return state;
@@ -485,6 +519,23 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 
 	public void setProject(Project project) {
 		this.project = project;
+	}
+
+	@Nullable
+	public Issue getMovedTo() {
+		return movedTo;
+	}
+
+	public void setMovedTo(@Nullable Issue movedTo) {
+		this.movedTo = movedTo;
+	}
+
+	public Collection<Issue> getMovedFrom() {
+		return movedFrom;
+	}
+
+	public void setMovedFrom(Collection<Issue> movedFrom) {
+		this.movedFrom = movedFrom;
 	}
 
 	public String getUUID() {
@@ -668,6 +719,14 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 		this.mentions = mentions;
 	}
 
+	public Collection<Workspace> getWorkspaces() {
+		return workspaces;
+	}
+
+	public void setWorkspaces(Collection<Workspace> workspaces) {
+		this.workspaces = workspaces;
+	}
+
 	public Collection<IssueAuthorization> getAuthorizations() {
 		return authorizations;
 	}
@@ -746,20 +805,20 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 		this.heartCount = heartCount;
 	}
 
-	public int getRocketCount() {
-		return rocketCount;
-	}
-
-	public void setRocketCount(int rocketCount) {
-		this.rocketCount = rocketCount;
-	}
-
 	public int getEyesCount() {
 		return eyesCount;
 	}
 
 	public void setEyesCount(int eyesCount) {
 		this.eyesCount = eyesCount;
+	}
+
+	public int getTickCount() {
+		return tickCount;
+	}
+
+	public void setTickCount(int tickCount) {
+		this.tickCount = tickCount;
 	}
 
 	public int getTotalEstimatedTime() {
@@ -929,6 +988,36 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 		return fieldInputs;
 	}
 	
+	/**
+	 * Parse issue number from given branch name. The branch is expected to
+	 * follow the convention used by {@code IssueService#suggestBranch}, i.e.
+	 * an optional path prefix, followed by {@code issue-<number>}, optionally
+	 * followed by a {@code -<title>} suffix.
+	 *
+	 * @return the parsed issue number, or {@code null} if the branch name
+	 *         does not match the issue branch pattern
+	 */
+	@Nullable
+	public static Long parseNumberFromBranch(String branchName) {
+		String prefix = "issue-";
+		int segmentStart = branchName.lastIndexOf('/') + 1;
+		if (!branchName.regionMatches(true, segmentStart, prefix, 0, prefix.length()))
+			return null;
+		int numberStart = segmentStart + prefix.length();
+		int numberEnd = numberStart;
+		while (numberEnd < branchName.length()) {
+			char c = branchName.charAt(numberEnd);
+			if (c < '0' || c > '9')
+				break;
+			numberEnd++;
+		}
+		if (numberEnd == numberStart)
+			return null;
+		if (numberEnd < branchName.length() && branchName.charAt(numberEnd) != '-')
+			return null;
+		return Long.parseLong(branchName.substring(numberStart, numberEnd));
+	}
+
 	public static String getDetailChangeObservable(Long issueId) {
 		return Issue.class.getName() + ":" + issueId;
 	}
@@ -974,7 +1063,7 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 			return -1;
 	}
 	
-	public Serializable getFieldBean(Class<?> fieldBeanClass, boolean withDefaultValue) {
+	public Serializable getFieldBean(Class<?> fieldBeanClass) {
 		BeanDescriptor beanDescriptor = new BeanDescriptor(fieldBeanClass);
 		Serializable fieldBean = (Serializable) beanDescriptor.newBeanInstance();
 
@@ -984,8 +1073,6 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 				if (input != null) {
 					FieldSpec fieldSpec = getIssueSetting().getFieldSpec(input.getName());
 					property.setPropertyValue(fieldBean, input.getTypedValue(fieldSpec));
-				} else if (!withDefaultValue) {
-					property.setPropertyValue(fieldBean, null);
 				}
 			}
 		}
@@ -1041,20 +1128,17 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 	}
 
 	public void addMissingFields(Collection<String> fieldNames) {
-		Project.push(getProject());
-		try {
-			var fieldBean = FieldUtils.getFieldBeanClass().getConstructor().newInstance();
-			var existingFieldNames = getFieldNames();
-			var fieldValues = FieldUtils.getFieldValues(null, fieldBean, fieldNames);
-			for (var entry: fieldValues.entrySet()) {
-				if (!existingFieldNames.contains(entry.getKey())) 
-					setFieldValue(entry.getKey(), entry.getValue());
-			}			
-		} catch (InstantiationException | IllegalAccessException | IllegalArgumentException 
-				| InvocationTargetException | NoSuchMethodException | SecurityException e) {
-			throw new RuntimeException(e);
-		} finally {
-			Project.pop();
+		var existingFieldNames = getFieldNames();
+		if (existingFieldNames.containsAll(fieldNames))
+			return;
+		
+		Class<?> fieldBeanClass = FieldUtils.getFieldBeanClass(true);
+		var fieldBean = getFieldBean(fieldBeanClass); 
+
+		var fieldValues = FieldUtils.getFieldValues(getProject(), fieldBean, fieldNames);
+		for (var entry: fieldValues.entrySet()) {
+			if (!existingFieldNames.contains(entry.getKey())) 
+				setFieldValue(entry.getKey(), entry.getValue());
 		}
 	}
 
@@ -1170,13 +1254,18 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 		if (pullRequests == null) {
 			pullRequests = new ArrayList<>();
 
-			PullRequestInfoService infoManager = OneDev.getInstance(PullRequestInfoService.class);
+			PullRequestInfoService infoService = OneDev.getInstance(PullRequestInfoService.class);
 			Collection<Long> pullRequestIds = new HashSet<>();
 			for (ProjectScopedCommit commit: getFixCommits(false)) 
-				pullRequestIds.addAll(infoManager.getPullRequestIds(commit.getProject(), commit.getCommitId()));		
+				pullRequestIds.addAll(infoService.getPullRequestIds(commit.getProject(), commit.getCommitId()));
+			pullRequestIds.addAll(infoService.getPullRequestIds(getProject(), getId()));
+
+			//getProject().getTree().stream().filter(Project::isCodeManagement).forEach(it ->
+			//		pullRequestIds.addAll(infoService.getPullRequestIds(it, getId())));
 			
+			var pullRequestService = OneDev.getInstance(PullRequestService.class);
 			for (Long requestId: pullRequestIds) {
-				PullRequest request = OneDev.getInstance(PullRequestService.class).get(requestId);
+				PullRequest request = pullRequestService.get(requestId);
 				if (request != null && !pullRequests.contains(request))
 					pullRequests.add(request);
 			}
@@ -1189,6 +1278,7 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 		var fixCommits = new ArrayList<ProjectScopedCommit>();
 		CommitInfoService commitInfoService = OneDev.getInstance(CommitInfoService.class);
 
+		/* 
 		getProject().getTree().stream().filter(Project::isCodeManagement).forEach(it-> {
 			for (ObjectId commitId: commitInfoService.getFixCommits(it.getId(), getId(), headOnly)) {
 				RevCommit commit = it.getRevCommit(commitId, false);
@@ -1196,6 +1286,13 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 					fixCommits.add(new ProjectScopedCommit(it, commit.copy()));
 			}
 		});
+		*/
+
+		for (ObjectId commitId: commitInfoService.getFixCommits(project.getId(), getId(), headOnly)) {
+			RevCommit commit = project.getRevCommit(commitId, false);
+			if (commit != null)
+				fixCommits.add(new ProjectScopedCommit(project.getId(), commit.copy()));
+		}
 
 		Collections.sort(fixCommits, (Comparator<ProjectScopedCommit>) (o1, o2) -> o2.getRevCommit().getCommitTime() - o1.getRevCommit().getCommitTime());
 		return fixCommits;
@@ -1318,9 +1415,9 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 		if (!stack.get().isEmpty()) { 
 			return stack.get().peek();
 		} else {
-			ComponentContext componentContext = ComponentContext.get();
-			if (componentContext != null) {
-				IssueAware issueAware = WicketUtils.findInnermost(componentContext.getComponent(), IssueAware.class);
+			var hierarchicalContext = HierarchicalContext.get();
+			if (hierarchicalContext != null) {
+				IssueAware issueAware = hierarchicalContext.findData(IssueAware.class);
 				if (issueAware != null) 
 					return issueAware.getIssue();
 			}
@@ -1352,6 +1449,69 @@ public class Issue extends ProjectBelonging implements AttachmentStorageSupport 
 	
 	public String getSummary(@Nullable Project currentProject) {
 		return Emojis.getInstance().apply(getTitle()) + " (" + getReference().toString(currentProject)+ ")";		
+	}
+	
+	@Nullable
+	public String getBranch() {
+		if (branchOptional == null) {
+			for (var ref : getProject().getBranchRefs()) {
+				String branch = Preconditions.checkNotNull(GitUtils.ref2branch(ref.getName()));
+				Long parsedNumber = parseNumberFromBranch(branch);
+				if (parsedNumber != null && parsedNumber == getNumber()) {
+					branchOptional = Optional.of(branch);
+					break;
+				}
+			}
+			if (branchOptional == null)
+				branchOptional = Optional.empty();
+		}
+		return branchOptional.orElse(null);
+	}
+
+	@Nullable
+	public ObjectId getFieldCommitId() {
+		if (fieldCommitIdOptional == null) {
+			ObjectId commitId = null;
+			for (var field: getFields()) {
+				if (field.getType().equals(InputSpec.COMMIT) && isFieldVisible(field.getName())) {
+					commitId = getProject().getObjectId(field.getValue(), false);
+					if (commitId != null)
+						break;
+				}
+			}
+			if (commitId == null && getFieldBuild() != null) 
+				commitId = getProject().getObjectId(getFieldBuild().getCommitHash(), false);
+			fieldCommitIdOptional = Optional.ofNullable(commitId);
+		}
+		return fieldCommitIdOptional.orElse(null);
+	}
+
+	@Nullable
+	public Build getFieldBuild() {
+		if (fieldBuildOptional == null) {
+			Build build = null;
+			for (var field: getFields()) {
+				if (field.getType().equals(InputSpec.BUILD) && isFieldVisible(field.getName())) {
+					try {
+						build = OneDev.getInstance(BuildService.class).find(getProject(), Long.valueOf(field.getValue()));
+						if (build != null)
+							break;
+					} catch (NumberFormatException e) {
+						continue;
+					}
+				}
+			}
+			fieldBuildOptional = Optional.ofNullable(build);
+		}
+		return fieldBuildOptional.orElse(null);
+	}
+	
+	public Issue resolveMovedTo() {
+		Issue current = this;
+		while (current.getMovedTo() != null) {
+			current = current.getMovedTo();
+		}
+		return current;
 	}
 	
 }

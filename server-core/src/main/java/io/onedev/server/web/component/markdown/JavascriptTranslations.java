@@ -24,6 +24,10 @@ public class JavascriptTranslations {
               map.put("unable-to-connect-to-server", _T("Unable to connect to server"));
               map.put("programming-language", _T("Programming language"));
               map.put("copy-to-clipboard", _T("Copy to clipboard"));
+              map.put("copy-permanent-link", _T("Copy permanent link"));
+              map.put("copied-to-clipboard", _T("Copied to clipboard"));
+              map.put("copied", _T("Copied"));
+              map.put("click-to-copy", _T("Click to copy"));
               map.put("suggestion-outdated", _T("Suggestion is outdated either due to code change or pull request close"));
               map.put("remove-from-batch", _T("Remove from batch"));
               map.put("add-to-batch", _T("Add to batch to commit with other suggestions later"));
@@ -32,7 +36,9 @@ public class JavascriptTranslations {
               map.put("pull-request-not-exist-or-access-denied", _T("Pull request not exist or access denied"));
               map.put("build-not-exist-or-access-denied", _T("Build not exist or access denied"));
               map.put("commit-not-exist-or-access-denied", _T("Commit not exist or access denied"));
+              map.put("workspace-not-exist-or-access-denied", _T("Workspace not exist or access denied"));
               map.put("enter-description-here", _T("Enter description here"));
+              map.put("discard-unsaved-change", _T("Discard unsaved change and revert to original content"));
 
               return OneDev.getInstance(ObjectMapper.class).writeValueAsString(map);
       } catch (JsonProcessingException e) {

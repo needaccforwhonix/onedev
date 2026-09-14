@@ -20,8 +20,8 @@ import io.onedev.server.buildspec.BuildSpec;
 import io.onedev.server.buildspec.param.instance.ParamInstances;
 import io.onedev.server.buildspec.param.instance.ParamMap;
 import io.onedev.server.buildspec.param.spec.ParamSpec;
-import io.onedev.server.util.ComponentContext;
 import io.onedev.server.util.EditContext;
+import io.onedev.server.util.HierarchicalContext;
 import io.onedev.server.web.editable.BeanEditor;
 
 @Editable
@@ -87,8 +87,8 @@ public class JobDependency implements Serializable {
 
 	@SuppressWarnings({ "unused", "unchecked" })
 	private static boolean isExcludeParamMapsVisible() {
-		var componentContext = ComponentContext.get();
-		if (componentContext != null && componentContext.getComponent().findParent(BeanEditor.class) != null) {
+		var hierarchicalContext = HierarchicalContext.get();
+		if (hierarchicalContext != null && hierarchicalContext.findData(BeanEditor.class) != null) {
 			return !getParamSpecs().isEmpty();
 		} else {
 			var excludeParamMaps = (List<ParamMap>) EditContext.get().getInputValue("excludeParamMaps");
@@ -111,7 +111,7 @@ public class JobDependency implements Serializable {
 	
 	@Editable(order=300, name="Artifacts to Retrieve", placeholder="Do not retrieve", description=""
 			+ "Optionally specify artifacts to retrieve from the dependency into "
-			+ "<a href='https://docs.onedev.io/concepts#job-workspace'>job workspace</a>. "
+			+ "<a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. "
 			+ "Only published artifacts (via artifact publish step) can be retrieved. Leave empty to not "
 			+ "retrieve any artifacts")
 	@Interpolative(variableSuggester="suggestVariables")
@@ -124,9 +124,9 @@ public class JobDependency implements Serializable {
 		this.artifacts = artifacts;
 	}
 
-	@Editable(order=400, placeholder="Job workspace", description=""
-			+ "Optionally specify a path relative to <a href='https://docs.onedev.io/concepts#job-workspace'>job workspace</a> "
-			+ "to put retrieved artifacts. Leave empty to use job workspace itself")
+	@Editable(order=400, placeholder="Job workdir", description=""
+			+ "Optionally specify a path relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> "
+			+ "to put retrieved artifacts. Leave empty to use job working directory itself")
 	@Interpolative(variableSuggester="suggestVariables")
 	public String getDestinationPath() {
 		return destinationPath;

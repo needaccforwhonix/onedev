@@ -14,7 +14,6 @@ import java.util.Stack;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import org.jspecify.annotations.Nullable;
 import javax.validation.ConstraintValidatorContext;
 import javax.validation.ConstraintViolation;
 import javax.validation.Valid;
@@ -22,7 +21,7 @@ import javax.validation.ValidationException;
 import javax.validation.Validator;
 
 import org.apache.commons.lang3.SerializationUtils;
-import org.apache.wicket.Component;
+import org.jspecify.annotations.Nullable;
 import org.yaml.snakeyaml.DumperOptions.FlowStyle;
 import org.yaml.snakeyaml.nodes.MappingNode;
 import org.yaml.snakeyaml.nodes.Node;
@@ -37,11 +36,8 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Lists;
 
-import io.onedev.commons.codeassist.InputCompletion;
-import io.onedev.commons.codeassist.InputStatus;
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.commons.utils.ExceptionUtils;
-import io.onedev.commons.utils.LinearRange;
 import io.onedev.commons.utils.StringUtils;
 import io.onedev.commons.utils.WordUtils;
 import io.onedev.server.OneDev;
@@ -54,12 +50,13 @@ import io.onedev.server.buildspec.param.spec.ParamSpec;
 import io.onedev.server.buildspec.step.Step;
 import io.onedev.server.buildspec.step.StepTemplate;
 import io.onedev.server.buildspec.step.UseTemplateStep;
+import io.onedev.server.data.migration.ShellCommandDetector;
 import io.onedev.server.data.migration.VersionedYamlDoc;
 import io.onedev.server.data.migration.XmlBuildSpecMigrator;
 import io.onedev.server.job.JobAuthorizationContext;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.support.build.JobProperty;
-import io.onedev.server.util.ComponentContext;
+import io.onedev.server.util.HierarchicalContext;
 import io.onedev.server.validation.Validatable;
 import io.onedev.server.web.page.project.blob.ProjectBlobPage;
 import io.onedev.server.web.util.SuggestionUtils;
@@ -204,13 +201,21 @@ public class BuildSpec implements Serializable, Validatable {
 	
 	public Map<String, Job> getJobMap() {
 		if (jobMap == null) { 
-			jobMap = new LinkedHashMap<>();
+			var unorderedJobMap = new LinkedHashMap<String, Job>();
 			for (BuildSpec buildSpec: getImportedBuildSpecs(new HashSet<>())) {  
-				for (Job job: buildSpec.getJobs())
-					jobMap.put(job.getName(), job);
+				for (Job job: buildSpec.getJobs()) {
+					if (job.getName() != null)
+						unorderedJobMap.put(job.getName(), job);
+				}
 			}
-			for (Job job: getJobs())
-				jobMap.put(job.getName(), job);
+			for (Job job: getJobs()) {
+				if (job.getName() != null)
+					unorderedJobMap.put(job.getName(), job);
+			}
+			jobMap = new LinkedHashMap<>();
+			unorderedJobMap.keySet().stream()
+				.sorted()
+				.forEachOrdered(it -> jobMap.put(it, unorderedJobMap.get(it)));
 		}
 		return jobMap;
 	}
@@ -542,25 +547,10 @@ public class BuildSpec implements Serializable, Validatable {
 			}
 		}
 	}
-	
-	public static List<InputCompletion> suggestOverrides(List<String> imported, InputStatus status) {
-		List<InputCompletion> completions = new ArrayList<>();
-		String matchWith = status.getContentBeforeCaret().toLowerCase();
-		for (String each: imported) {
-			LinearRange match = LinearRange.match(each, matchWith);
-			if (match != null) { 
-				completions.add(new InputCompletion(each, each + status.getContentAfterCaret(), 
-						each.length(), "override", match));
-			}
-		}
 		
-		return completions;
-	}
-	
 	@Nullable
 	public static BuildSpec get() {
-		Component component = ComponentContext.get().getComponent();
-		BuildSpecAware buildSpecAware = WicketUtils.findInnermost(component, BuildSpecAware.class);
+		BuildSpecAware buildSpecAware = HierarchicalContext.get().findData(BuildSpecAware.class);
 		if (buildSpecAware != null) 
 			return buildSpecAware.getBuildSpec();
 		else
@@ -573,7 +563,7 @@ public class BuildSpec implements Serializable, Validatable {
 		BuildSpec buildSpec = get();
 		if (buildSpec != null) {
 			ProjectBlobPage page = (ProjectBlobPage) WicketUtils.getPage();
-			suggestions.addAll(SuggestionUtils.suggestVariables(
+			suggestions.addAll(SuggestionUtils.suggestJobVariables(
 					page.getProject(), buildSpec, ParamSpec.list(), 
 					matchWith, withBuildVersion, withDynamicVariables, withPauseCommand));
 		}
@@ -2389,6 +2379,449 @@ public class BuildSpec implements Serializable, Validatable {
 								new ScalarNode(Tag.STR, "retryCondition"),
 								new ScalarNode(Tag.STR, "never")));
 					}
+				}
+			}
+		}
+	}
+
+	@SuppressWarnings("unused")
+	private void migrate44(VersionedYamlDoc doc, Stack<Integer> versions) {
+		migrateSteps(doc, versions, stepsNode -> {
+			for (var itStepNode = stepsNode.getValue().iterator(); itStepNode.hasNext();) {
+				MappingNode stepNode = (MappingNode) itStepNode.next();
+				for (var stepTuple: stepNode.getValue()) {
+					var keyNode = (ScalarNode) stepTuple.getKeyNode();
+					if (keyNode.getValue().equals("type")) {
+						var valueNode = (ScalarNode) stepTuple.getValueNode();
+						if (valueNode.getValue().equals("OsvVulnerScannerStep")) {
+							valueNode.setValue("OsvSourceScannerStep");
+						} else if (valueNode.getValue().equals("OsvLicenseScannerStep")) {					
+							itStepNode.remove();
+						} else if (valueNode.getValue().equals("FSScannerStep")
+								|| valueNode.getValue().equals("ImageScannerStep")
+								|| valueNode.getValue().equals("RootFSScannerStep")) {
+							for (var itStepTuple2 = stepNode.getValue().iterator(); itStepTuple2.hasNext();) {
+								var stepTuple2 = itStepTuple2.next();
+								var keyNode2 = (ScalarNode) stepTuple2.getKeyNode();
+								if (keyNode2.getValue().equals("detectVulnerabilities")) {
+									keyNode2.setValue("checkVulnerabilities");
+								} else if (keyNode2.getValue().equals("licenseSetting")) {
+									MappingNode licenseSettingNode = (MappingNode) stepTuple2.getValueNode();
+									var foundIngoredLicenses = false;
+									for (var licenseSettingTuple: licenseSettingNode.getValue()) {
+										var licenseSettingKeyNode = (ScalarNode) licenseSettingTuple.getKeyNode();
+										if (licenseSettingKeyNode.getValue().equals("ignoredLicenses")) {
+											licenseSettingKeyNode.setValue("allowedLicenses");
+											foundIngoredLicenses = true;
+										}
+									}
+									if (!foundIngoredLicenses) 
+										itStepTuple2.remove();			
+								}
+							}
+
+						}
+						break;
+					}
+				}
+			}
+		});
+	}
+
+	@SuppressWarnings("unused")
+	private void migrate45(VersionedYamlDoc doc, Stack<Integer> versions) {
+		migrateSteps(doc, versions, stepsNode -> {
+			for (Node stepsNodeItem : stepsNode.getValue()) {
+				MappingNode stepNode = (MappingNode) stepsNodeItem;
+				var tagValue = stepNode.getTag().getValue();
+				if (tagValue.equals("!FSScannerStep") || tagValue.equals("!ImageScannerStep")
+						|| tagValue.equals("!RootFSScannerStep")) {
+					stepNode.getValue().add(new NodeTuple(
+							new ScalarNode(Tag.STR, "publishJSONReportAsArtifact"),
+							new ScalarNode(Tag.BOOL, "false")));
+				} else if (tagValue.equals("!OsvSourceScannerStep")) {
+					stepNode.getValue().add(new NodeTuple(
+							new ScalarNode(Tag.STR, "publishJSONReportAsArtifact"),
+							new ScalarNode(Tag.BOOL, "false")));
+				}
+			}
+		});
+	}
+
+	@SuppressWarnings("unused")
+	private void migrate46(VersionedYamlDoc doc, Stack<Integer> versions) {
+		migrateSteps(doc, versions, stepsNode -> {
+			for (Node stepsNodeItem : stepsNode.getValue()) {
+				MappingNode stepNode = (MappingNode) stepsNodeItem;
+				var tagValue = stepNode.getTag().getValue();
+				if (tagValue.equals("!FSScannerStep") || tagValue.equals("!ImageScannerStep")
+						|| tagValue.equals("!RootFSScannerStep")) {
+					stepNode.getValue().add(new NodeTuple(
+							new ScalarNode(Tag.STR, "publishJSONReportAsArtifact"),
+							new ScalarNode(Tag.BOOL, "false")));
+				}
+			}
+		});
+	}
+
+	private static String getStepType(MappingNode stepNode) {
+		for (var tuple : stepNode.getValue()) {
+			if (((ScalarNode) tuple.getKeyNode()).getValue().equals("type"))
+				return ((ScalarNode) tuple.getValueNode()).getValue();
+		}
+		return null;
+	}
+
+	private static void migrate47_setDefaultRunAs(MappingNode node) {
+		for (var tuple : node.getValue()) {
+			if (((ScalarNode) tuple.getKeyNode()).getValue().equals("runAs"))
+				return;
+		}
+		node.getValue().add(new NodeTuple(
+				new ScalarNode(Tag.STR, "runAs"),
+				new ScalarNode(Tag.STR, "0:0")));
+	}
+
+	@SuppressWarnings("unused")
+	private void migrate47(VersionedYamlDoc doc, Stack<Integer> versions) {
+		for (NodeTuple specTuple: doc.getValue()) {
+			String specObjectKey = ((ScalarNode) specTuple.getKeyNode()).getValue();
+			if (specObjectKey.equals("services")) {
+				SequenceNode servicesNode = (SequenceNode) specTuple.getValueNode();
+				for (Node servicesNodeItem: servicesNode.getValue())
+					migrate47_setDefaultRunAs((MappingNode) servicesNodeItem);
+			}
+		}
+
+		migrateSteps(doc, versions, stepsNode -> {
+			Map<String, String> checksumMap = new LinkedHashMap<>();
+			for (Node stepsNodeItem : stepsNode.getValue()) {
+				MappingNode stepNode = (MappingNode) stepsNodeItem;
+				if ("GenerateChecksumStep".equals(getStepType(stepNode))) {
+					String targetFile = null;
+					String files = null;
+					for (var stepTuple : stepNode.getValue()) {
+						var propName = ((ScalarNode) stepTuple.getKeyNode()).getValue();
+						if (propName.equals("targetFile"))
+							targetFile = ((ScalarNode) stepTuple.getValueNode()).getValue();
+						else if (propName.equals("files"))
+							files = ((ScalarNode) stepTuple.getValueNode()).getValue();
+					}
+					if (targetFile != null && files != null)
+						checksumMap.put(targetFile, files);
+				}
+			}
+
+			for (var itStepNode = stepsNode.getValue().iterator(); itStepNode.hasNext();) {
+				MappingNode stepNode = (MappingNode) itStepNode.next();
+				var stepType = getStepType(stepNode);
+				if ("GenerateChecksumStep".equals(stepType)) {
+					itStepNode.remove();
+				} else if ("SetupCacheStep".equals(stepType)) {
+					String checksumFiles = null;
+					for (var itStepTuple = stepNode.getValue().iterator(); itStepTuple.hasNext();) {
+						var stepTuple = itStepTuple.next();
+						var propName = ((ScalarNode) stepTuple.getKeyNode()).getValue();
+						if (propName.equals("key")) {
+							var keyNode = (ScalarNode) stepTuple.getValueNode();
+							var key = keyNode.getValue();
+							var sb = new StringBuilder();
+							int pos = 0;
+							while (pos < key.length()) {
+								int start = key.indexOf("@file:", pos);
+								if (start == -1) {
+									sb.append(key, pos, key.length());
+									break;
+								}
+								sb.append(key, pos, start);
+								int end = key.indexOf("@", start + 6);
+								if (end == -1) {
+									sb.append(key, start, key.length());
+									break;
+								}
+								String filePath = key.substring(start + 6, end);
+								String files = checksumMap.get(filePath);
+								if (files != null) {
+									if (checksumFiles == null)
+										checksumFiles = files;
+									else
+										checksumFiles += " " + files;
+								} else {
+									sb.append(key, start, end + 1);
+								}
+								pos = end + 1;
+							}
+							keyNode.setValue(StringUtils.stripEnd(sb.toString(), ":-_."));
+						} else if (propName.equals("loadKeys")) {
+							itStepTuple.remove();
+						} else if (propName.equals("uploadStrategy")) {
+							var valueNode = (ScalarNode) stepTuple.getValueNode();
+							if ("UPLOAD_IF_NOT_HIT".equals(valueNode.getValue()))
+								valueNode.setValue("UPLOAD_IF_NOT_EXACT_MATCH");
+						}
+					}
+					if (checksumFiles != null) {
+						stepNode.getValue().add(new NodeTuple(
+								new ScalarNode(Tag.STR, "checksumFiles"),
+								new ScalarNode(Tag.STR, checksumFiles)));
+					}
+				} else if ("CommandStep".equals(stepType)) {
+					for (var stepTuple : stepNode.getValue()) {
+						var propName = ((ScalarNode) stepTuple.getKeyNode()).getValue();
+						if (propName.equals("interpreter")) {
+							MappingNode interpreterNode = (MappingNode) stepTuple.getValueNode();
+							for (var interpreterTuple : interpreterNode.getValue()) {
+								var interpreterPropName = ((ScalarNode) interpreterTuple.getKeyNode()).getValue();
+								if (interpreterPropName.equals("commands")) {
+									var commandsNode = (ScalarNode) interpreterTuple.getValueNode();
+									var commands = commandsNode.getValue();
+									commands = commands.replace("ONEDEV_WORKSPACE", "ONEDEV_WORKDIR");
+									commands = commands.replace("/onedev-build/workspace", "/onedev-build/work");
+									commandsNode.setValue(commands);
+								}
+							}
+						}
+					}
+					migrate47_setDefaultRunAs(stepNode);
+				} else if ("BuildImageWithKanikoStep".equals(stepType)
+						|| "SSHCommandStep".equals(stepType)
+						|| "SCPCommandStep".equals(stepType)
+						|| "PushImageStep".equals(stepType)
+						|| "PullImageStep".equals(stepType)
+						|| "RenovateStep".equals(stepType)) {
+					migrate47_setDefaultRunAs(stepNode);
+				} else if ("CreateBranchStep".equals(stepType)) {
+					String branchName = null;
+					for (var itStepTuple = stepNode.getValue().iterator(); itStepTuple.hasNext();) {
+						var stepTuple = itStepTuple.next();
+						var propName = ((ScalarNode) stepTuple.getKeyNode()).getValue();
+						if (propName.equals("branchName")) {
+							branchName = ((ScalarNode) stepTuple.getValueNode()).getValue();
+							itStepTuple.remove();
+							break;
+						}
+					}
+					Preconditions.checkNotNull(branchName);
+					List<NodeTuple> providerTuples = new ArrayList<>();
+					var suggestedIssueBranchIndex = branchName.indexOf("@suggested_issue_branch@");
+					if (suggestedIssueBranchIndex != -1) {
+						providerTuples.add(new NodeTuple(
+								new ScalarNode(Tag.STR, "type"),
+								new ScalarNode(Tag.STR, "GeneratedBranchName")));
+						if (suggestedIssueBranchIndex > 0) {
+							var prefix = branchName.substring(0, suggestedIssueBranchIndex);
+							providerTuples.add(new NodeTuple(
+									new ScalarNode(Tag.STR, "prefix"),
+									new ScalarNode(Tag.STR, prefix)));
+						}
+					} else {
+						providerTuples.add(new NodeTuple(
+								new ScalarNode(Tag.STR, "type"),
+								new ScalarNode(Tag.STR, "SpecifiedBranchName")));
+						providerTuples.add(new NodeTuple(
+								new ScalarNode(Tag.STR, "name"),
+								new ScalarNode(Tag.STR, branchName)));
+					}
+					stepNode.getValue().add(new NodeTuple(
+							new ScalarNode(Tag.STR, "branchNameProvider"),
+							new MappingNode(Tag.MAP, providerTuples, FlowStyle.BLOCK)));
+				}
+			}
+		});
+	}
+
+	@SuppressWarnings("unused")
+	private void migrate48(VersionedYamlDoc doc, Stack<Integer> versions) {
+		migrateSteps(doc, versions, stepsNode -> {
+			for (Node stepsNodeItem : stepsNode.getValue()) {
+				MappingNode stepNode = (MappingNode) stepsNodeItem;
+				if (!"CreateBranchStep".equals(getStepType(stepNode)))
+					continue;
+				for (var stepTuple : stepNode.getValue()) {
+					var propName = ((ScalarNode) stepTuple.getKeyNode()).getValue();
+					if (!propName.equals("branchNameProvider"))
+						continue;
+					MappingNode providerNode = (MappingNode) stepTuple.getValueNode();
+					String providerType = null;
+					for (var providerTuple : providerNode.getValue()) {
+						var providerPropName = ((ScalarNode) providerTuple.getKeyNode()).getValue();
+						if (providerPropName.equals("type")) {
+							providerType = ((ScalarNode) providerTuple.getValueNode()).getValue();
+							break;
+						}
+					}
+					if ("GeneratedBranchName".equals(providerType)) {
+						for (var itProviderTuple = providerNode.getValue().iterator(); itProviderTuple.hasNext();) {
+							var providerTuple = itProviderTuple.next();
+							var providerPropName = ((ScalarNode) providerTuple.getKeyNode()).getValue();
+							if (providerPropName.equals("prefix")) {
+								itProviderTuple.remove();
+								break;
+							}
+						}
+					}
+				}
+			}
+		});
+	}
+
+	@SuppressWarnings("unused")
+	private void migrate49(VersionedYamlDoc doc, Stack<Integer> versions) {
+		migrateSteps(doc, versions, stepsNode -> {
+			for (Node stepsNodeItem : stepsNode.getValue()) {
+				MappingNode stepNode = (MappingNode) stepsNodeItem;
+				if ("RunContainerStep".equals(getStepType(stepNode)))
+					migrate47_setDefaultRunAs(stepNode);
+			}
+		});
+	}
+
+	private static ScalarNode getScalarProperty(MappingNode node, String propertyName) {
+		for (var tuple : node.getValue()) {
+			if (((ScalarNode) tuple.getKeyNode()).getValue().equals(propertyName)
+					&& tuple.getValueNode() instanceof ScalarNode) {
+				return (ScalarNode) tuple.getValueNode();
+			}
+		}
+		return null;
+	}
+
+	@SuppressWarnings("unused")
+	private void migrate50(VersionedYamlDoc doc, Stack<Integer> versions) {
+		migrateSteps(doc, versions, stepsNode -> {
+			for (var stepNodeItem : stepsNode.getValue()) {
+				var stepNode = (MappingNode) stepNodeItem;
+				if (!"CommandStep".equals(getStepType(stepNode)))
+					continue;
+				MappingNode interpreterNode = null;
+				for (var tuple : stepNode.getValue()) {
+					if (((ScalarNode) tuple.getKeyNode()).getValue().equals("interpreter")) {
+						interpreterNode = (MappingNode) tuple.getValueNode();
+						break;
+					}
+				}
+				if (interpreterNode == null)
+					continue;
+				var typeNode = getScalarProperty(interpreterNode, "type");
+				if (typeNode == null)
+					continue;
+				if (typeNode.getValue().equals("ShellInterpreter")) {
+					typeNode.setValue("PosixInterpreter");
+				} else if (typeNode.getValue().equals("DefaultInterpreter")) {
+					boolean runInContainer = true;
+					var runInContainerNode = getScalarProperty(stepNode, "runInContainer");
+					if (runInContainerNode != null)
+						runInContainer = Boolean.parseBoolean(runInContainerNode.getValue());
+					var imageNode = getScalarProperty(stepNode, "image");
+					boolean containerImageUsed = runInContainer
+							&& imageNode != null
+							&& StringUtils.isNotBlank(imageNode.getValue());
+					var commandsNode = getScalarProperty(interpreterNode, "commands");
+					boolean windowsBatch = !containerImageUsed
+							&& commandsNode != null
+							&& ShellCommandDetector.isWindowsBatch(commandsNode.getValue());
+					typeNode.setValue(windowsBatch ? "WindowsBatchInterpreter" : "PosixInterpreter");
+					if (!windowsBatch) {
+						interpreterNode.getValue().add(new NodeTuple(
+								new ScalarNode(Tag.STR, "shell"),
+								new ScalarNode(Tag.STR, "sh")));
+					}
+				}
+			}
+		});
+	}
+
+	private void migratePostBuildActions(VersionedYamlDoc doc, Stack<Integer> versions,
+										 Consumer<SequenceNode> actionMigrator) {
+		for (NodeTuple specTuple: doc.getValue()) {
+			String specObjectKey = ((ScalarNode)specTuple.getKeyNode()).getValue();
+			if (specObjectKey.equals("jobs")) {
+				SequenceNode jobsNode = (SequenceNode) specTuple.getValueNode();
+				for (Node jobsNodeItem: jobsNode.getValue()) {
+					MappingNode jobNode = (MappingNode) jobsNodeItem;
+					for (NodeTuple jobTuple: jobNode.getValue()) {
+						String jobTupleKey = ((ScalarNode)jobTuple.getKeyNode()).getValue();
+						if (jobTupleKey.equals("postBuildActions"))
+							actionMigrator.accept((SequenceNode) jobTuple.getValueNode());
+					}
+				}
+			}
+		}
+	}
+
+	@SuppressWarnings("unused")
+	private void migrate51(VersionedYamlDoc doc, Stack<Integer> versions) {
+		migratePostBuildActions(doc, versions, actionsNode -> {
+			for (var actionNodeItem : actionsNode.getValue()) {
+				var actionNode = (MappingNode) actionNodeItem;
+				if (!"CreateIssueAction".equals(getStepType(actionNode)))
+					continue;
+				for (var itActionTuple = actionNode.getValue().iterator(); itActionTuple.hasNext();) {
+					var actionTuple = itActionTuple.next();
+					var propName = ((ScalarNode) actionTuple.getKeyNode()).getValue();
+					if (propName.equals("projectPath") || propName.equals("accessTokenSecret"))
+						itActionTuple.remove();
+				}
+			}
+		});
+	}
+
+	private static boolean isSetupCacheStep(MappingNode stepNode) {
+		var stepType = getStepType(stepNode);
+		return "SetupCacheStep".equals(stepType)
+				|| "RenovateCacheStep".equals(stepType)
+				|| stepNode.getTag().getValue().equals("!SetupCacheStep")
+				|| stepNode.getTag().getValue().equals("!RenovateCacheStep");
+	}
+
+	@SuppressWarnings("unused")
+	private void migrate52(VersionedYamlDoc doc, Stack<Integer> versions) {
+		migrateSteps(doc, versions, stepsNode -> {
+			for (var stepNodeItem : stepsNode.getValue()) {
+				var stepNode = (MappingNode) stepNodeItem;
+				if (!isSetupCacheStep(stepNode))
+					continue;
+				SequenceNode pathsNode = null;
+				for (var itStepTuple = stepNode.getValue().iterator(); itStepTuple.hasNext();) {
+					var stepTuple = itStepTuple.next();
+					var propName = ((ScalarNode) stepTuple.getKeyNode()).getValue();
+					if (propName.equals("paths")) {
+						pathsNode = (SequenceNode) stepTuple.getValueNode();
+						itStepTuple.remove();
+					} else if (propName.equals("changeDetectionExcludes")) {
+						itStepTuple.remove();
+					}
+				}
+				if (pathsNode != null) {
+					List<Node> entryNodes = new ArrayList<>();
+					for (var pathNode : pathsNode.getValue()) {
+						List<NodeTuple> entryTuples = new ArrayList<>();
+						entryTuples.add(new NodeTuple(
+								new ScalarNode(Tag.STR, "path"),
+								new ScalarNode(Tag.STR, ((ScalarNode) pathNode).getValue())));
+						entryNodes.add(new MappingNode(Tag.MAP, entryTuples, FlowStyle.BLOCK));
+					}
+					stepNode.getValue().add(new NodeTuple(
+							new ScalarNode(Tag.STR, "entries"),
+							new SequenceNode(Tag.SEQ, entryNodes, FlowStyle.BLOCK)));
+				}
+			}
+		});
+	}
+
+	@SuppressWarnings("unused")
+	private void migrate53(VersionedYamlDoc doc, Stack<Integer> versions) {
+		for (NodeTuple specTuple : doc.getValue()) {
+			if (((ScalarNode) specTuple.getKeyNode()).getValue().equals("jobs")) {
+				SequenceNode jobsNode = (SequenceNode) specTuple.getValueNode();
+				for (Node jobNodeItem : jobsNode.getValue()) {
+					MappingNode jobNode = (MappingNode) jobNodeItem;
+					jobNode.getValue().add(new NodeTuple(
+							new ScalarNode(Tag.STR, "includeUpstreamWhenRebuild"),
+							new ScalarNode(Tag.BOOL, "false")));
+					jobNode.getValue().add(new NodeTuple(
+							new ScalarNode(Tag.STR, "includeDownstreamWhenRebuild"),
+							new ScalarNode(Tag.BOOL, "false")));
 				}
 			}
 		}

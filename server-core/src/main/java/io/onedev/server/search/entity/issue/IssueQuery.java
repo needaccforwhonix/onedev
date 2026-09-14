@@ -7,11 +7,11 @@ import static io.onedev.server.model.Issue.NAME_CONFUSED_COUNT;
 import static io.onedev.server.model.Issue.NAME_DESCRIPTION;
 import static io.onedev.server.model.Issue.NAME_ESTIMATED_TIME;
 import static io.onedev.server.model.Issue.NAME_EYES_COUNT;
+import static io.onedev.server.model.Issue.NAME_TICK_COUNT;
 import static io.onedev.server.model.Issue.NAME_HEART_COUNT;
 import static io.onedev.server.model.Issue.NAME_LAST_ACTIVITY_DATE;
 import static io.onedev.server.model.Issue.NAME_PROGRESS;
 import static io.onedev.server.model.Issue.NAME_PROJECT;
-import static io.onedev.server.model.Issue.NAME_ROCKET_COUNT;
 import static io.onedev.server.model.Issue.NAME_SMILE_COUNT;
 import static io.onedev.server.model.Issue.NAME_SPENT_TIME;
 import static io.onedev.server.model.Issue.NAME_STATE;
@@ -46,8 +46,16 @@ import static io.onedev.server.search.entity.issue.IssueQueryParser.IsPrevious;
 import static io.onedev.server.search.entity.issue.IssueQueryParser.IsSince;
 import static io.onedev.server.search.entity.issue.IssueQueryParser.IsUntil;
 import static io.onedev.server.search.entity.issue.IssueQueryParser.MentionedMe;
+import static io.onedev.server.search.entity.issue.IssueQueryParser.ReferencedInCurrentBranch;
 import static io.onedev.server.search.entity.issue.IssueQueryParser.SubmittedByMe;
 import static io.onedev.server.search.entity.issue.IssueQueryParser.WatchedByMe;
+import static io.onedev.server.util.QueryUtils.getBooleanValue;
+import static io.onedev.server.util.QueryUtils.getFloatValue;
+import static io.onedev.server.util.QueryUtils.getGroup;
+import static io.onedev.server.util.QueryUtils.getIntValue;
+import static io.onedev.server.util.QueryUtils.getNumber;
+import static io.onedev.server.util.QueryUtils.getUser;
+import static io.onedev.server.util.QueryUtils.getValue;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -98,6 +106,7 @@ import io.onedev.server.search.entity.issue.IssueQueryParser.FixedBetweenCriteri
 import io.onedev.server.search.entity.issue.IssueQueryParser.FuzzyCriteriaContext;
 import io.onedev.server.search.entity.issue.IssueQueryParser.LinkMatchCriteriaContext;
 import io.onedev.server.search.entity.issue.IssueQueryParser.NotCriteriaContext;
+import io.onedev.server.search.entity.issue.IssueQueryParser.NumberCriteriaContext;
 import io.onedev.server.search.entity.issue.IssueQueryParser.OperatorCriteriaContext;
 import io.onedev.server.search.entity.issue.IssueQueryParser.OperatorValueCriteriaContext;
 import io.onedev.server.search.entity.issue.IssueQueryParser.OrCriteriaContext;
@@ -172,7 +181,12 @@ public class IssueQuery extends EntityQuery<Issue> {
 
 					@Override
 					public Criteria<Issue> visitReferenceCriteria(ReferenceCriteriaContext ctx) {
-						return new ReferenceCriteria(project, ctx.getText(), Is);
+						return new ReferenceCriteria(null, ctx.getText(), Is);
+					}
+
+					@Override
+					public Criteria<Issue> visitNumberCriteria(NumberCriteriaContext ctx) {
+						return new NumberCriteria(getNumber(ctx.getText()), Is);
 					}
 
 					@Override
@@ -217,6 +231,10 @@ public class IssueQuery extends EntityQuery<Issue> {
 								if (!option.withCurrentCommitCriteria())
 									throw new ExplicitException("Criteria '" + ctx.operator.getText() + "' is not supported here");
 								return new FixedInCurrentCommitCriteria();
+							case ReferencedInCurrentBranch:
+								if (!option.withCurrentBranchCriteria())
+									throw new ExplicitException("Criteria '" + ctx.operator.getText() + "' is not supported here");
+								return new ReferencedInCurrentBranchCriteria();
 							case CurrentIssue:
 								if (!option.withCurrentIssueCriteria())
 									throw new ExplicitException("Criteria '" + ctx.operator.getText() + "' is not supported here");
@@ -360,12 +378,12 @@ public class IssueQuery extends EntityQuery<Issue> {
 										criterias.add(new ConfusedCountCriteria(getIntValue(value), operator));
 									} else if (fieldName.equals(NAME_HEART_COUNT)) {
 										criterias.add(new HeartCountCriteria(getIntValue(value), operator));
-									} else if (fieldName.equals(NAME_ROCKET_COUNT)) {
-										criterias.add(new RocketCountCriteria(getIntValue(value), operator));
 									} else if (fieldName.equals(NAME_EYES_COUNT)) {
 										criterias.add(new EyesCountCriteria(getIntValue(value), operator));
+									} else if (fieldName.equals(NAME_TICK_COUNT)) {
+										criterias.add(new TickCountCriteria(getIntValue(value), operator));
 									} else if (fieldName.equals(NAME_NUMBER)) {
-										criterias.add(new ReferenceCriteria(project, value, operator));
+										criterias.add(new NumberCriteria(getNumber(value), operator));
 									} else if (fieldName.equals(NAME_ESTIMATED_TIME)) {
 										int intValue = timeTrackingSetting.parseWorkingPeriod(value);
 										criterias.add(new EstimatedTimeCriteria(intValue, operator));
@@ -375,11 +393,11 @@ public class IssueQuery extends EntityQuery<Issue> {
 									} else {
 										FieldSpec field = getGlobalIssueSetting().getFieldSpec(fieldName);
 										if (field instanceof IssueChoiceField) {
-											criterias.add(new IssueFieldCriteria(fieldName, project, value, operator));
+											criterias.add(new IssueFieldCriteria(fieldName, getNumber(value), operator));
 										} else if (field instanceof BuildChoiceField) {
-											criterias.add(new BuildFieldCriteria(fieldName, project, value, field.isAllowMultiple(), operator));
+											criterias.add(new BuildFieldCriteria(fieldName, getNumber(value), field.isAllowMultiple(), operator));
 										} else if (field instanceof PullRequestChoiceField) {
-											criterias.add(new PullRequestFieldCriteria(fieldName, project, value, operator));
+											criterias.add(new PullRequestFieldCriteria(fieldName, getNumber(value), operator));
 										} else if (field instanceof CommitField) {
 											criterias.add(new CommitFieldCriteria(fieldName, project, value, operator));
 										} else if (field instanceof BooleanField) {
@@ -429,11 +447,11 @@ public class IssueQuery extends EntityQuery<Issue> {
 										case NAME_HEART_COUNT:
 											criterias.add(new HeartCountCriteria(getIntValue(value), operator));
 											break;
-										case NAME_ROCKET_COUNT:
-											criterias.add(new RocketCountCriteria(getIntValue(value), operator));
-											break;
 										case NAME_EYES_COUNT:
 											criterias.add(new EyesCountCriteria(getIntValue(value), operator));
+											break;
+										case NAME_TICK_COUNT:
+											criterias.add(new TickCountCriteria(getIntValue(value), operator));
 											break;
 										case NAME_ESTIMATED_TIME: 
 											int intValue = value.equals(NAME_SPENT_TIME) ? -1 : timeTrackingSetting.parseWorkingPeriod(value);
@@ -448,7 +466,7 @@ public class IssueQuery extends EntityQuery<Issue> {
 											criterias.add(new ProgressCriteria(floatValue, operator));
 											break;
 										case NAME_NUMBER:
-											criterias.add(new ReferenceCriteria(project, value, operator));
+											criterias.add(new NumberCriteria(getNumber(value), operator));
 											break;
 										default:
 											FieldSpec field = getGlobalIssueSetting().getFieldSpec(fieldName);
@@ -512,7 +530,7 @@ public class IssueQuery extends EntityQuery<Issue> {
 					if (validate && !(fieldSpec instanceof ChoiceField) && !(fieldSpec instanceof DateField)
 							&& !(fieldSpec instanceof DateTimeField) && !(fieldSpec instanceof IntegerField)
 							&& !(fieldSpec instanceof IterationChoiceField)) {
-						throw new ExplicitException("Can not order by field: " + fieldName);
+						throw new ExplicitException("Cannot order by field: " + fieldName);
 					}
 				}
 
@@ -607,8 +625,8 @@ public class IssueQuery extends EntityQuery<Issue> {
 						&& !fieldName.equals(Issue.NAME_TADA_COUNT)
 						&& !fieldName.equals(Issue.NAME_CONFUSED_COUNT)
 						&& !fieldName.equals(Issue.NAME_HEART_COUNT)
-						&& !fieldName.equals(Issue.NAME_ROCKET_COUNT)
 						&& !fieldName.equals(Issue.NAME_EYES_COUNT)
+						&& !fieldName.equals(Issue.NAME_TICK_COUNT)
 						&& !fieldName.equals(NAME_NUMBER)
 						&& !fieldName.equals(IssueSchedule.NAME_ITERATION)
 						&& !(fieldSpec instanceof IssueChoiceField)
@@ -643,8 +661,8 @@ public class IssueQuery extends EntityQuery<Issue> {
 						&& !fieldName.equals(Issue.NAME_TADA_COUNT)
 						&& !fieldName.equals(Issue.NAME_CONFUSED_COUNT)
 						&& !fieldName.equals(Issue.NAME_HEART_COUNT)
-						&& !fieldName.equals(Issue.NAME_ROCKET_COUNT)
 						&& !fieldName.equals(Issue.NAME_EYES_COUNT)
+						&& !fieldName.equals(Issue.NAME_TICK_COUNT)
 						&& !fieldName.equals(NAME_NUMBER)
 						&& !(fieldSpec instanceof IntegerField)
 						&& !(fieldSpec instanceof FloatField)

@@ -1,5 +1,6 @@
 package io.onedev.server.web.page.project.blob;
 
+import static io.onedev.server.ai.ToolUtils.wrapForChat;
 import static io.onedev.server.web.translation.Translation._T;
 import static org.apache.wicket.ajax.attributes.CallbackParameter.explicit;
 
@@ -65,13 +66,12 @@ import io.onedev.commons.utils.ExplicitException;
 import io.onedev.commons.utils.FileUtils;
 import io.onedev.commons.utils.PlanarRange;
 import io.onedev.server.ai.ChatTool;
-import io.onedev.server.ai.ChatToolAware;
-import io.onedev.server.ai.tools.GetFileContent;
-import io.onedev.server.ai.tools.GetFilesAndSubfolders;
-import io.onedev.server.ai.tools.GetRootFilesAndFolders;
-import io.onedev.server.ai.tools.QueryCodeSnippets;
-import io.onedev.server.ai.tools.QueryFilePaths;
-import io.onedev.server.ai.tools.QuerySymbolDefinitions;
+import io.onedev.server.ai.tools.code.GetFileContent;
+import io.onedev.server.ai.tools.code.GetFilesAndSubfolders;
+import io.onedev.server.ai.tools.code.GetRootFilesAndFolders;
+import io.onedev.server.ai.tools.code.QueryCodeSnippets;
+import io.onedev.server.ai.tools.code.QueryFilePaths;
+import io.onedev.server.ai.tools.code.QuerySymbolDefinitions;
 import io.onedev.server.buildspec.BuildSpec;
 import io.onedev.server.event.project.CommitIndexed;
 import io.onedev.server.git.Blob;
@@ -103,6 +103,8 @@ import io.onedev.server.service.PullRequestService;
 import io.onedev.server.service.SettingService;
 import io.onedev.server.util.FileExtension;
 import io.onedev.server.util.FilenameUtils;
+import io.onedev.server.util.ProjectScopedCommit;
+import io.onedev.server.util.ProjectScopedCommitAware;
 import io.onedev.server.web.ajaxlistener.ConfirmLeaveListener;
 import io.onedev.server.web.behavior.AbstractPostAjaxBehavior;
 import io.onedev.server.web.behavior.ChangeObserver;
@@ -116,6 +118,7 @@ import io.onedev.server.web.component.menu.MenuLink;
 import io.onedev.server.web.component.modal.ModalLink;
 import io.onedev.server.web.component.modal.ModalPanel;
 import io.onedev.server.web.component.revision.RevisionPicker;
+import io.onedev.server.web.component.workspace.speclist.WorkspaceSpecListPanel;
 import io.onedev.server.web.page.project.ProjectPage;
 import io.onedev.server.web.page.project.blob.navigator.BlobNavigator;
 import io.onedev.server.web.page.project.blob.render.BlobRenderContext;
@@ -132,14 +135,14 @@ import io.onedev.server.web.page.project.blob.search.advanced.AdvancedSearchPane
 import io.onedev.server.web.page.project.blob.search.quick.QuickSearchPanel;
 import io.onedev.server.web.page.project.blob.search.result.SearchResultPanel;
 import io.onedev.server.web.page.project.commits.ProjectCommitsPage;
-import io.onedev.server.web.page.project.dashboard.ProjectDashboardPage;
+import io.onedev.server.web.page.project.overview.ProjectOverviewPage;
 import io.onedev.server.web.resource.RawBlobResource;
 import io.onedev.server.web.resource.RawBlobResourceReference;
 import io.onedev.server.web.upload.FileUpload;
 import io.onedev.server.web.util.EditParamsAware;
 
 public class ProjectBlobPage extends ProjectPage implements BlobRenderContext, 
-		EditParamsAware, JobAuthorizationContextAware, ChatToolAware {
+		EditParamsAware, JobAuthorizationContextAware, ProjectScopedCommitAware {
 
 	private static final String PARAM_INITIAL_NEW_PATH = "initial-new-path";
 	
@@ -189,7 +192,7 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 
 	@Inject
 	private SettingService settingService;
-	
+
 	@Inject
 	private PullRequestService pullRequestService;
 
@@ -259,7 +262,8 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 		
 		if (params.get(PARAM_RAW).toBoolean(false)) {
 			RequestCycle.get().scheduleRequestHandlerAfterCurrent(
-					new ResourceReferenceRequestHandler(new RawBlobResourceReference(), getPageParameters()));
+					new ResourceReferenceRequestHandler(new RawBlobResourceReference(),
+							RawBlobResource.paramsOf(getProject(), getBlobIdent())));
 		}
 	}
 	
@@ -268,8 +272,9 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 		super.onInitialize();
 
 		newRevisionPicker(null);
-		newCommitStatus(null);
-		newBlobNavigator(null);
+		newCommitStatusLink(null);
+		newWorkspacesLink(null);
+		newBlobNavigator(null);		
 		newBlobOperations(null);
 		
 		add(revisionIndexing = new WebMarkupContainer("revisionIndexing") {
@@ -483,7 +488,17 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 
 							@Override
 							protected Component newContent(String id, ModalPanel modal) {
-								return new BlobUploadPanel(id, ProjectBlobPage.this) {
+								return new BlobUploadPanel(id, getDirectory()) {
+
+									@Override
+									protected Project getProject() {
+										return ProjectBlobPage.this.getProject();
+									}
+
+									@Override
+									protected ObjectId uploadFiles(FileUpload upload, String directory, String commitMessage) {
+										return ProjectBlobPage.this.uploadFiles(upload, directory, commitMessage);
+									}
 
 									@Override
 									public void onCancel(AjaxRequestTarget target) {
@@ -898,10 +913,10 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 		replaceState(target, url.toString(), state);
 	}
 	
-	private void newCommitStatus(@Nullable AjaxRequestTarget target) {
-		Component commitStatus;
+	private void newCommitStatusLink(@Nullable AjaxRequestTarget target) {
+		Component commitStatusLink;
 		if (resolvedRevision != null) {
-			commitStatus = new CommitStatusLink("buildStatus", resolvedRevision, getRefName()) {
+			commitStatusLink = new CommitStatusLink("buildStatus", resolvedRevision, getRefName()) {
 
 				@Override
 				protected Project getProject() {
@@ -912,22 +927,78 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 				protected PullRequest getPullRequest() {
 					return null;
 				}
+
+				@Override
+				protected ObjectId getSeenBranchTip(String branch) {
+					var refName = getRefName();
+					if (refName != null && GitUtils.ref2branch(refName) != null)
+						return resolvedRevision;
+					else
+						return null;
+				}
 				
 			};
 		} else {
-			commitStatus = new WebMarkupContainer("buildStatus").add(AttributeAppender.append("class", "d-none"));
+			commitStatusLink = new WebMarkupContainer("buildStatus").add(AttributeAppender.append("class", "d-none"));
 		}
 		
-		commitStatus.setOutputMarkupPlaceholderTag(true);
+		commitStatusLink.setOutputMarkupPlaceholderTag(true);
 		
 		if (target != null) {
-			replace(commitStatus);
-			target.add(commitStatus);
+			replace(commitStatusLink);
+			target.add(commitStatusLink);
 		} else {
-			add(commitStatus);
+			add(commitStatusLink);
 		}
 	}
 	
+	private void newWorkspacesLink(@Nullable AjaxRequestTarget target) {
+		var workspacesLink = new DropdownLink("workspaces") {
+
+			@Override
+			protected Component newContent(String id, FloatingPanel dropdown) {
+				var refName = getRefName();
+				var branch = refName != null ? GitUtils.ref2branch(refName) : null;
+				return new WorkspaceSpecListPanel(id) {
+
+					@Override
+					protected Project getProject() {
+						return ProjectBlobPage.this.getProject();
+					}
+
+					@Override
+					protected String getBranch() {
+						return branch;
+					}
+
+					@Override
+					protected ObjectId getCommitId() {
+						return Preconditions.checkNotNull(ProjectBlobPage.this.getCommit()).copy();
+					}
+
+				};
+			}
+
+			@Override
+			protected void onConfigure() {
+				super.onConfigure();
+				setVisible(state.blobIdent.revision != null 
+						&& SecurityUtils.canCreateWorkspaces(getProject())
+						&& !getProject().getHierarchyWorkspaceSpecs().isEmpty());
+			}
+
+		};
+
+		workspacesLink.setOutputMarkupPlaceholderTag(true);
+
+		if (target != null) {
+			replace(workspacesLink);
+			target.add(workspacesLink);
+		} else {
+			add(workspacesLink);
+		}
+	}
+
 	private void newBuildSupportNote(@Nullable AjaxRequestTarget target) {
 		Component buildSupportNote = new WebMarkupContainer("buildSupportNote") {
 
@@ -1062,7 +1133,8 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 		resolvedRevision = getProject().getRevCommit(state.blobIdent.revision, true).copy();
 		
 		newRevisionPicker(target);
-		newCommitStatus(target);
+		newCommitStatusLink(target);
+		newWorkspacesLink(target);
 		target.add(revisionIndexing);
 		newBlobNavigator(target);
 		newBlobOperations(target);
@@ -1257,6 +1329,7 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 			state.requestId = null;
 			newSearchResult(target, null);
 			onResolvedRevisionChange(target);
+			newWorkspacesLink(target);
 			resizeWindow(target);
 		} else if (!Objects.equal(state.blobIdent.path, blobIdent.path)) {
 			state.blobIdent.path = blobIdent.path;
@@ -1467,9 +1540,6 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 					state.mode = Mode.VIEW;
 					onResolvedRevisionChange(target);
 				}
-		
-				// fix the issue that sometimes indexing indicator of new commit does not disappear 
-				target.appendJavaScript("Wicket.WebSocket.send('RenderCallback');");	    			
 			}
 		}
 	}
@@ -1546,15 +1616,8 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 	public ObjectId uploadFiles(FileUpload upload, String directory, String commitMessage) {
 		Map<String, BlobContent> newBlobs = new HashMap<>();
 		
-		String parentPath = getDirectory();
-		
-		if (directory != null) { 
-			if (parentPath != null)
-				parentPath += "/" + directory;
-			else
-				parentPath = directory;
-		}
-		
+		String parentPath = directory;
+
 		User user = Preconditions.checkNotNull(SecurityUtils.getAuthUser());
 		BlobIdent blobIdent = getBlobIdent();
 		
@@ -1563,6 +1626,9 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 			String blobPath = FilenameUtils.sanitizeFileName(FileUpload.getFileName(item));
 			if (parentPath != null)
 				blobPath = parentPath + "/" + blobPath;
+			blobPath = GitUtils.normalizePath(blobPath);
+			if (blobPath == null)
+				throw new BlobEditException("Invalid upload path");
 			var blobType = FileExtension.getExtension(blobPath);
 
 			var disallowedFileTypes = getProject().getBranchProtection(blobIdent.revision, user).getDisallowedFileTypes();
@@ -1672,94 +1738,103 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 		if (project.isCodeManagement() && SecurityUtils.canReadCode(project)) {
 			return new ViewStateAwarePageLink<Void>(componentId, ProjectBlobPage.class, ProjectBlobPage.paramsOf(project));
 		} else {
-			return new ViewStateAwarePageLink<Void>(componentId, ProjectDashboardPage.class, 
-					ProjectDashboardPage.paramsOf(project.getId()));
+			return new ViewStateAwarePageLink<Void>(componentId, ProjectOverviewPage.class, 
+					ProjectOverviewPage.paramsOf(project.getId()));
 		}
 	}
 	
 	@Override
-	public Collection<ChatTool> getChatTools() {
-		var commitId = getCommit().copy();
-		return List.of(
-			new GetRootFilesAndFolders() {
-				
+	public List<ChatTool> getChatTools() {
+		var tools = super.getChatTools();
+		if (getCommit() != null) {
+			var projectId = getProject().getId();
+			var commitId = getCommit().copy();
+
+			tools.add(wrapForChat(new GetRootFilesAndFolders() {
+
 				@Override
-				protected Project getProject() {
-					return ProjectBlobPage.this.getProject();
+				protected Long getProjectId() {
+					return projectId;
 				}
-				
+
+				@Override
+				protected ObjectId getCommitId() {
+					return commitId;
+				}
+
+			}));
+			tools.add(wrapForChat(new GetFilesAndSubfolders() {
+
+				@Override
+				protected Long getProjectId() {
+					return projectId;
+				}
+
+				@Override
+				protected ObjectId getCommitId() {
+					return commitId;
+				}
+
+			}));
+			tools.add(wrapForChat(new GetFileContent(false) {
+
+				@Override
+				protected Long getProjectId() {
+					return projectId;
+				}
+
 				@Override
 				protected ObjectId getCommitId(boolean oldRevision) {
 					return commitId;
 				}
 
-			}, 
-			new GetFilesAndSubfolders() {
-				
+			}));
+			tools.add(wrapForChat(new QuerySymbolDefinitions(false) {
+
 				@Override
-				protected Project getProject() {
-					return ProjectBlobPage.this.getProject();
+				protected Long getProjectId() {
+					return projectId;
 				}
-				
+
 				@Override
 				protected ObjectId getCommitId(boolean oldRevision) {
 					return commitId;
 				}
 
-			}, 
-			new GetFileContent() {
+			}));
+			tools.add(wrapForChat(new QueryCodeSnippets(false) {
 
 				@Override
-				protected Project getProject() {
-					return ProjectBlobPage.this.getProject();
+				protected Long getProjectId() {
+					return projectId;
 				}
-				
+
 				@Override
 				protected ObjectId getCommitId(boolean oldRevision) {
 					return commitId;
 				}
 
-			}, 
-			new QuerySymbolDefinitions() {
+			}));
+			tools.add(wrapForChat(new QueryFilePaths() {
 
 				@Override
-				protected Project getProject() {
-					return ProjectBlobPage.this.getProject();
+				protected Long getProjectId() {
+					return projectId;
 				}
-				
+
 				@Override
-				protected ObjectId getCommitId(boolean oldRevision) {
+				protected ObjectId getCommitId() {
 					return commitId;
 				}
 
-			},
-			new QueryCodeSnippets() {
+			}));
+		}
+		return tools;
+	}
 
-				@Override
-				protected Project getProject() {
-					return ProjectBlobPage.this.getProject();
-				}
-				
-				@Override
-				protected ObjectId getCommitId(boolean oldRevision) {
-					return commitId;
-				}
-
-			},
-			new QueryFilePaths() {
-				
-				@Override
-				protected Project getProject() {
-					return ProjectBlobPage.this.getProject();
-				}
-				
-				@Override
-				protected ObjectId getCommitId(boolean oldRevision) {
-					return commitId;
-				}
-
-			}
-		);
+	@Override
+	public ProjectScopedCommit getProjectScopedCommit() {
+		return new ProjectScopedCommit(getProject(), getCommit().copy());
 	}
 
 }

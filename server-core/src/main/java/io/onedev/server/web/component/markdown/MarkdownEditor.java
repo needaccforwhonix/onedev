@@ -12,16 +12,15 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
-import org.jspecify.annotations.Nullable;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import io.onedev.server.validation.validator.ProjectKeyValidator;
-import io.onedev.server.web.page.base.BasePage;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.commons.text.StringEscapeUtils;
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxChannel;
@@ -45,8 +44,10 @@ import org.apache.wicket.model.Model;
 import org.apache.wicket.request.IRequestParameters;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.http.WebRequest;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.unbescape.javascript.JavaScriptEscape;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -56,15 +57,17 @@ import com.google.common.base.Preconditions;
 import io.onedev.commons.loader.AppLoader;
 import io.onedev.server.OneDev;
 import io.onedev.server.attachment.AttachmentSupport;
-import io.onedev.server.service.ProjectService;
 import io.onedev.server.markdown.MarkdownService;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.Issue;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.PullRequest;
 import io.onedev.server.model.User;
+import io.onedev.server.model.Workspace;
+import io.onedev.server.service.ProjectService;
 import io.onedev.server.util.CollectionUtils;
 import io.onedev.server.util.FilenameUtils;
+import io.onedev.server.validation.validator.ProjectKeyValidator;
 import io.onedev.server.validation.validator.ProjectPathValidator;
 import io.onedev.server.web.asset.emoji.Emojis;
 import io.onedev.server.web.avatar.AvatarService;
@@ -73,9 +76,9 @@ import io.onedev.server.web.component.floating.FloatingPanel;
 import io.onedev.server.web.component.link.DropdownLink;
 import io.onedev.server.web.component.markdown.SuggestionSupport.Selection;
 import io.onedev.server.web.component.modal.ModalPanel;
+import io.onedev.server.web.page.base.BasePage;
 import io.onedev.server.web.page.project.ProjectPage;
 import io.onedev.server.web.page.project.blob.render.BlobRenderContext;
-import org.unbescape.javascript.JavaScriptEscape;
 
 public class MarkdownEditor extends FormComponentPanel<String> {
 	
@@ -128,7 +131,7 @@ public class MarkdownEditor extends FormComponentPanel<String> {
 	protected void onModelChanged() {
 		super.onModelChanged();
 		input.setModelObject(getModelObject());
-		if (getAutosaveKey() != null)
+		if (getAutosaveKey() != null && !getAutosaveKey().contains(":markdown-file:"))
 			((BasePage) getPage()).removeAutosaveKey(getAutosaveKey());			
 	}
 	
@@ -141,7 +144,7 @@ public class MarkdownEditor extends FormComponentPanel<String> {
 		if (StringUtils.isNotBlank(input)) {
 			// Normalize line breaks to make source position tracking information comparable 
 			// to textarea caret position when sync edit/preview scroll bar
-			input = StringUtils.replace(input, "\r\n", "\n");
+			input = Strings.CS.replace(input, "\r\n", "\n");
 			return renderMarkdown(input);
 		} else {
 			return "<div class='message'>" + _T("Nothing to preview") + "</div>";
@@ -224,7 +227,7 @@ public class MarkdownEditor extends FormComponentPanel<String> {
 				return fragment;
 			}
 			
-		}.add(AttributeAppender.append("data-tippy-content", "Reference issue, build, or pull request")).setVisible(referenceSupport != null));
+		}.add(AttributeAppender.append("data-tippy-content", "Reference issue, build, pull request, or workspace")).setVisible(referenceSupport != null));
 		
 		container.add(new DropdownLink("actionMenuTrigger") {
 
@@ -435,7 +438,9 @@ public class MarkdownEditor extends FormComponentPanel<String> {
 					var currentProject = referenceSupport.getCurrentProject();
 					String atChar = params.getParameterValue("param1").toOptionalString();
 					String query = params.getParameterValue("param2").toOptionalString();
-					String type = params.getParameterValue("param3").toOptionalString();
+					String type = StringUtils.deleteWhitespace(StringUtils.defaultString(
+							params.getParameterValue("param3").toOptionalString()))
+							.toLowerCase(Locale.ENGLISH);
 					String projectKeyOrPath = params.getParameterValue("param4").toOptionalString();
 					List<Map<String, String>> referenceList = new ArrayList<>();
 					Project project;
@@ -478,6 +483,16 @@ public class MarkdownEditor extends FormComponentPanel<String> {
 									title += ": " + build.getVersion();
 								referenceMap.put("title", title);
 								referenceMap.put("searchKey", build.getNumber() + " " + StringUtils.deleteWhitespace(title));
+								referenceList.add(referenceMap);
+							}
+						} else if ("workspace".equals(type)) {
+							for (Workspace workspace: referenceSupport.queryWorkspaces(project, query, ATWHO_LIMIT)) {
+								Map<String, String> referenceMap = new HashMap<>();
+								referenceMap.put("type", "workspace");
+								referenceMap.put("reference", workspace.getReference().toString(currentProject));
+								String title = workspace.getUser().getDisplayName() + " on " + workspace.getOnDescription() + " for " + workspace.getSpecName();
+								referenceMap.put("title", title);
+								referenceMap.put("searchKey", workspace.getNumber() + " " + StringUtils.deleteWhitespace(title));
 								referenceList.add(referenceMap);
 							}
 						}
@@ -571,16 +586,19 @@ public class MarkdownEditor extends FormComponentPanel<String> {
 		var issueItem = new WebMarkupContainer("issue");
 		var pullRequestItem = new WebMarkupContainer("pullRequest");
 		var buildItem = new WebMarkupContainer("build");
+		var workspaceItem = new WebMarkupContainer("workspace");
 		var projectKey = referenceSupport.getCurrentProject().getKey();
 		if (projectKey != null) {
 			var keyAppender = AttributeAppender.append("data-key", projectKey);
 			issueItem.add(keyAppender);
 			pullRequestItem.add(keyAppender);
 			buildItem.add(keyAppender);
+			workspaceItem.add(keyAppender);
 		}
 		fragment.add(issueItem);
 		fragment.add(pullRequestItem);
 		fragment.add(buildItem);
+		fragment.add(workspaceItem);
 	}
 
 	@Override
@@ -685,6 +703,16 @@ public class MarkdownEditor extends FormComponentPanel<String> {
 		return new ArrayList<>();
 	}
 	
+	@Nullable
+	public BlobSelectionSupport getBlobSelectionSupport() {
+		return null;
+	}
+
+	@Nullable
+	public BlobUploadSupport getBlobUploadSupport() {
+		return null;
+	}
+
 	@Nullable
 	public BlobRenderContext getBlobRenderContext() {
 		return blobRenderContext;

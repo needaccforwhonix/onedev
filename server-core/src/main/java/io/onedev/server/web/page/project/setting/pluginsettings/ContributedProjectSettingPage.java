@@ -2,9 +2,10 @@ package io.onedev.server.web.page.project.setting.pluginsettings;
 
 import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
+import java.text.MessageFormat;
 
-import org.jspecify.annotations.Nullable;
 import javax.validation.Validator;
+import static io.onedev.server.web.translation.Translation._T;
 
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
@@ -17,18 +18,20 @@ import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.markup.html.link.BookmarkablePageLink;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
+import org.jspecify.annotations.Nullable;
 
 import io.onedev.server.OneDev;
 import io.onedev.server.data.migration.VersionedXmlDoc;
-import io.onedev.server.service.ProjectService;
+import io.onedev.server.exception.NotAcceptableException;
 import io.onedev.server.model.Project;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.ProjectService;
 import io.onedev.server.web.component.link.ViewStateAwarePageLink;
 import io.onedev.server.web.editable.BeanContext;
 import io.onedev.server.web.editable.BeanEditor;
 import io.onedev.server.web.editable.EditableUtils;
 import io.onedev.server.web.page.project.ProjectPage;
-import io.onedev.server.web.page.project.dashboard.ProjectDashboardPage;
+import io.onedev.server.web.page.project.overview.ProjectOverviewPage;
 import io.onedev.server.web.page.project.setting.ContributedProjectSetting;
 import io.onedev.server.web.page.project.setting.ProjectSettingContribution;
 import io.onedev.server.web.page.project.setting.ProjectSettingPage;
@@ -59,7 +62,7 @@ public class ContributedProjectSettingPage extends ProjectSettingPage {
 		}
 
 		if (settingClass == null)
-			throw new RuntimeException("Unexpected setting: " + settingName);
+			throw new NotAcceptableException(MessageFormat.format(_T("Unexpected setting: {0}"), settingName));
 	}
 	
 	@Override
@@ -189,7 +192,7 @@ public class ContributedProjectSettingPage extends ProjectSettingPage {
 		if (SecurityUtils.canManageProject(project)) 
 			return new ViewStateAwarePageLink<Void>(componentId, ContributedProjectSettingPage.class, paramsOf(project, settingClass));
 		else 
-			return new ViewStateAwarePageLink<Void>(componentId, ProjectDashboardPage.class, ProjectPage.paramsOf(project.getId()));
+			return new ViewStateAwarePageLink<Void>(componentId, ProjectOverviewPage.class, ProjectPage.paramsOf(project.getId()));
 	}
 	
 }

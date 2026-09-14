@@ -19,6 +19,7 @@ import org.apache.wicket.extensions.markup.html.repeater.data.table.AbstractColu
 import org.apache.wicket.extensions.markup.html.repeater.data.table.DataTable;
 import org.apache.wicket.extensions.markup.html.repeater.data.table.IColumn;
 import org.apache.wicket.extensions.markup.html.repeater.util.SortableDataProvider;
+import org.apache.wicket.markup.ComponentTag;
 import org.apache.wicket.markup.head.IHeaderResponse;
 import org.apache.wicket.markup.head.JavaScriptHeaderItem;
 import org.apache.wicket.markup.html.basic.Label;
@@ -38,13 +39,13 @@ import org.hibernate.criterion.Restrictions;
 import com.google.common.collect.Sets;
 
 import io.onedev.server.OneDev;
-import io.onedev.server.service.IssueAuthorizationService;
-import io.onedev.server.service.UserService;
 import io.onedev.server.model.Issue;
 import io.onedev.server.model.IssueAuthorization;
 import io.onedev.server.model.User;
 import io.onedev.server.persistence.dao.EntityCriteria;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.IssueAuthorizationService;
+import io.onedev.server.service.UserService;
 import io.onedev.server.util.Similarities;
 import io.onedev.server.util.facade.UserCache;
 import io.onedev.server.web.WebConstants;
@@ -57,7 +58,7 @@ import io.onedev.server.web.component.select2.SelectToActChoice;
 import io.onedev.server.web.component.user.UserAvatar;
 import io.onedev.server.web.component.user.choice.AbstractUserChoiceProvider;
 import io.onedev.server.web.component.user.choice.UserChoiceResourceReference;
-import io.onedev.server.web.page.user.basicsetting.UserBasicSettingPage;
+import io.onedev.server.web.page.user.profile.UserProfilePage;
 
 public abstract class IssueAuthorizationsPanel extends Panel {
 
@@ -133,8 +134,8 @@ public abstract class IssueAuthorizationsPanel extends Panel {
 				super.onInitialize();
 				
 				getSettings().setPlaceholder(_T("Authorize user..."));
-				getSettings().setFormatResult("onedev.server.userChoiceFormatter.formatResult");
-				getSettings().setFormatSelection("onedev.server.userChoiceFormatter.formatSelection");
+				getSettings().setTemplateResult("onedev.server.userChoiceFormatter.formatResult");
+				getSettings().setTemplateSelection("onedev.server.userChoiceFormatter.formatSelection");
 				getSettings().setEscapeMarkup("onedev.server.userChoiceFormatter.escapeMarkup");
 			}
 			
@@ -148,12 +149,6 @@ public abstract class IssueAuthorizationsPanel extends Panel {
 				Session.get().success(_T("User authorized"));
 			}
 			
-			@Override
-			protected void onConfigure() {
-				super.onConfigure();
-				setVisible(SecurityUtils.isAdministrator());
-			}
-
 			@Override
 			public void renderHead(IHeaderResponse response) {
 				super.renderHead(response);
@@ -172,8 +167,8 @@ public abstract class IssueAuthorizationsPanel extends Panel {
 					IModel<IssueAuthorization> rowModel) {
 				User user = rowModel.getObject().getUser();
 				Fragment fragment = new Fragment(componentId, "nameFrag", IssueAuthorizationsPanel.this);
-				Link<Void> link = new BookmarkablePageLink<Void>("link", UserBasicSettingPage.class, 
-						UserBasicSettingPage.paramsOf(user));
+				Link<Void> link = new BookmarkablePageLink<Void>("link", UserProfilePage.class, 
+						UserProfilePage.paramsOf(user));
 				link.add(new UserAvatar("avatar", user));
 				link.add(new Label("name", user.getDisplayName()));
 				fragment.add(link);
@@ -205,6 +200,19 @@ public abstract class IssueAuthorizationsPanel extends Panel {
 						IssueAuthorization authorization = rowModel.getObject();
 						String message = MessageFormat.format(_T("Do you really want to unauthorize user \"{0}\"?"), authorization.getUser().getDisplayName());
 						attributes.getAjaxCallListeners().add(new ConfirmClickListener(message));
+					}
+
+					@Override
+					protected void disableLink(ComponentTag tag) {
+						super.disableLink(tag);
+						tag.append("class", "disabled", " ");
+						tag.put("data-tippy-content", _T("Cannot unauthorize yourself"));
+					}
+
+					@Override
+					protected void onConfigure() {
+						super.onConfigure();
+						setEnabled(!rowModel.getObject().getUser().equals(SecurityUtils.getUser()));
 					}
 
 				});

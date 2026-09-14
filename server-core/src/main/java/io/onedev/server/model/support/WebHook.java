@@ -6,6 +6,7 @@ import io.onedev.server.event.project.codecomment.CodeCommentEvent;
 import io.onedev.server.event.project.issue.IssueEvent;
 import io.onedev.server.event.project.pack.PackEvent;
 import io.onedev.server.event.project.pullrequest.PullRequestEvent;
+import io.onedev.server.event.project.workspace.WorkspaceEvent;
 import io.onedev.server.util.CryptoUtils;
 import io.onedev.server.annotation.Editable;
 
@@ -68,6 +69,14 @@ public class WebHook implements Serializable {
 				return event instanceof PackEvent;
 			}
 
+		},
+		WORKSPACE {
+
+			@Override
+			public boolean includes(Object event) {
+				return event instanceof WorkspaceEvent;
+			}
+
 		};
 
 		public abstract boolean includes(Object event);
@@ -78,6 +87,8 @@ public class WebHook implements Serializable {
 	private List<EventType> eventTypes = new ArrayList<>();
 	
 	private String secret = CryptoUtils.generateSecret();
+
+	private List<WebHookHeader> headers = new ArrayList<>();
 
 	@Editable(order=100, description="The URL of the server endpoint that will receive the webhook POST requests")
 	@NotEmpty
@@ -108,6 +119,16 @@ public class WebHook implements Serializable {
 
 	public void setSecret(String secret) {
 		this.secret = secret;
+	}
+
+	@Editable(order=400, name="Custom Headers", description="Optionally specify additional HTTP headers to include in "
+			+ "the webhook POST request, for example an Authorization header required by the receiving endpoint")
+	public List<WebHookHeader> getHeaders() {
+		return headers;
+	}
+
+	public void setHeaders(List<WebHookHeader> headers) {
+		this.headers = headers;
 	}
 	
 }

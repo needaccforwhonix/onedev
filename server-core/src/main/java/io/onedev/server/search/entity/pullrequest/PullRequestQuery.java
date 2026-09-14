@@ -45,6 +45,11 @@ import static io.onedev.server.search.entity.pullrequest.PullRequestQueryParser.
 import static io.onedev.server.search.entity.pullrequest.PullRequestQueryParser.ToBeReviewedByMe;
 import static io.onedev.server.search.entity.pullrequest.PullRequestQueryParser.WatchedBy;
 import static io.onedev.server.search.entity.pullrequest.PullRequestQueryParser.WatchedByMe;
+import static io.onedev.server.util.QueryUtils.getIntValue;
+import static io.onedev.server.util.QueryUtils.getLabelSpec;
+import static io.onedev.server.util.QueryUtils.getNumber;
+import static io.onedev.server.util.QueryUtils.getUser;
+import static io.onedev.server.util.QueryUtils.getValue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -71,6 +76,7 @@ import io.onedev.server.search.entity.pullrequest.PullRequestQueryParser.Criteri
 import io.onedev.server.search.entity.pullrequest.PullRequestQueryParser.FieldOperatorValueCriteriaContext;
 import io.onedev.server.search.entity.pullrequest.PullRequestQueryParser.FuzzyCriteriaContext;
 import io.onedev.server.search.entity.pullrequest.PullRequestQueryParser.NotCriteriaContext;
+import io.onedev.server.search.entity.pullrequest.PullRequestQueryParser.NumberCriteriaContext;
 import io.onedev.server.search.entity.pullrequest.PullRequestQueryParser.OperatorCriteriaContext;
 import io.onedev.server.search.entity.pullrequest.PullRequestQueryParser.OperatorValueCriteriaContext;
 import io.onedev.server.search.entity.pullrequest.PullRequestQueryParser.OrCriteriaContext;
@@ -129,7 +135,12 @@ public class PullRequestQuery extends EntityQuery<PullRequest> {
 
 					@Override
 					public Criteria<PullRequest> visitReferenceCriteria(ReferenceCriteriaContext ctx) {
-						return new ReferenceCriteria(project, ctx.getText(), Is);
+						return new ReferenceCriteria(null, ctx.getText(), Is);
+					}
+
+					@Override
+					public Criteria<PullRequest> visitNumberCriteria(NumberCriteriaContext ctx) {
+						return new NumberCriteria(getNumber(ctx.getText()), Is);
 					}
 
 					@Override
@@ -316,7 +327,7 @@ public class PullRequestQuery extends EntityQuery<PullRequest> {
 								case IsNot:
 									switch (fieldName) {
 										case PullRequest.NAME_NUMBER:
-											criterias.add(new ReferenceCriteria(project, value, operator));
+											criterias.add(new NumberCriteria(getNumber(value), operator));
 											break;
 										case PullRequest.NAME_MERGE_STRATEGY:
 											criterias.add(new MergeStrategyCriteria(MergeStrategy.fromString(value), operator));
@@ -357,11 +368,11 @@ public class PullRequestQuery extends EntityQuery<PullRequest> {
 										case PullRequest.NAME_HEART_COUNT:
 											criterias.add(new HeartCountCriteria(getIntValue(value), operator));
 											break;
-										case PullRequest.NAME_ROCKET_COUNT:
-											criterias.add(new RocketCountCriteria(getIntValue(value), operator));
-											break;
 										case PullRequest.NAME_EYES_COUNT:
 											criterias.add(new EyesCountCriteria(getIntValue(value), operator));
+											break;
+										case PullRequest.NAME_TICK_COUNT:
+											criterias.add(new TickCountCriteria(getIntValue(value), operator));
 											break;
 										default:
 											throw new IllegalStateException();
@@ -371,7 +382,7 @@ public class PullRequestQuery extends EntityQuery<PullRequest> {
 								case IsGreaterThan:
 									switch (fieldName) {
 										case PullRequest.NAME_NUMBER:
-											criterias.add(new ReferenceCriteria(project, value, operator));
+											criterias.add(new NumberCriteria(getNumber(value), operator));
 											break;
 										case PullRequest.NAME_COMMENT_COUNT:
 											criterias.add(new CommentCountCriteria(getIntValue(value), operator));
@@ -394,11 +405,11 @@ public class PullRequestQuery extends EntityQuery<PullRequest> {
 										case PullRequest.NAME_HEART_COUNT:
 											criterias.add(new HeartCountCriteria(getIntValue(value), operator));
 											break;
-										case PullRequest.NAME_ROCKET_COUNT:
-											criterias.add(new RocketCountCriteria(getIntValue(value), operator));
-											break;
 										case PullRequest.NAME_EYES_COUNT:
 											criterias.add(new EyesCountCriteria(getIntValue(value), operator));
+											break;
+										case PullRequest.NAME_TICK_COUNT:
+											criterias.add(new TickCountCriteria(getIntValue(value), operator));
 											break;
 									}
 									break;
@@ -440,7 +451,7 @@ public class PullRequestQuery extends EntityQuery<PullRequest> {
 				String fieldName = getValue(order.Quoted().getText());
 				var sortField = SORT_FIELDS.get(fieldName);
 				if (sortField == null)
-					throw new ExplicitException("Can not order by field: " + fieldName);
+					throw new ExplicitException("Cannot order by field: " + fieldName);
 
 				EntitySort requestSort = new EntitySort();
 				requestSort.setField(fieldName);
@@ -497,8 +508,8 @@ public class PullRequestQuery extends EntityQuery<PullRequest> {
 						&& !fieldName.equals(PullRequest.NAME_TADA_COUNT)
 						&& !fieldName.equals(PullRequest.NAME_CONFUSED_COUNT)
 						&& !fieldName.equals(PullRequest.NAME_HEART_COUNT)
-						&& !fieldName.equals(PullRequest.NAME_ROCKET_COUNT)
-						&& !fieldName.equals(PullRequest.NAME_EYES_COUNT)) {
+						&& !fieldName.equals(PullRequest.NAME_EYES_COUNT)
+						&& !fieldName.equals(PullRequest.NAME_TICK_COUNT)) {
 					throw newOperatorException(fieldName, operator);
 				}
 				break;
@@ -512,8 +523,8 @@ public class PullRequestQuery extends EntityQuery<PullRequest> {
 						&& !fieldName.equals(PullRequest.NAME_TADA_COUNT)
 						&& !fieldName.equals(PullRequest.NAME_CONFUSED_COUNT)
 						&& !fieldName.equals(PullRequest.NAME_HEART_COUNT)
-						&& !fieldName.equals(PullRequest.NAME_ROCKET_COUNT)
-						&& !fieldName.equals(PullRequest.NAME_EYES_COUNT)) {
+						&& !fieldName.equals(PullRequest.NAME_EYES_COUNT)
+						&& !fieldName.equals(PullRequest.NAME_TICK_COUNT)) {
 					throw newOperatorException(fieldName, operator);
 				}
 				break;

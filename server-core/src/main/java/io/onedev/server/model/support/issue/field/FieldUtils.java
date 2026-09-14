@@ -8,25 +8,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.jspecify.annotations.Nullable;
 import javax.validation.ValidationException;
-import javax.ws.rs.BadRequestException;
 
 import org.apache.shiro.authz.UnauthorizedException;
-import org.apache.wicket.Component;
-import org.apache.wicket.MarkupContainer;
+import org.apache.shiro.subject.Subject;
 import org.apache.wicket.MetaDataKey;
 import org.apache.wicket.request.cycle.RequestCycle;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 
+import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.OneDev;
 import io.onedev.server.buildspecmodel.inputspec.InputContext;
 import io.onedev.server.buildspecmodel.inputspec.InputSpec;
 import io.onedev.server.buildspecmodel.inputspec.SecretInput;
-import io.onedev.server.service.SettingService;
+import io.onedev.server.exception.NotAcceptableException;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.support.administration.GlobalIssueSetting;
 import io.onedev.server.model.support.issue.field.instance.FieldInstance;
@@ -34,10 +33,13 @@ import io.onedev.server.model.support.issue.field.instance.SpecifiedValue;
 import io.onedev.server.model.support.issue.field.spec.FieldSpec;
 import io.onedev.server.model.support.issue.field.spec.SecretField;
 import io.onedev.server.security.SecurityUtils;
-import io.onedev.server.util.ComponentContext;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.util.EditContext;
+import io.onedev.server.util.Hierarchical;
+import io.onedev.server.util.HierarchicalContext;
 import io.onedev.server.web.editable.BeanDescriptor;
 import io.onedev.server.web.editable.PropertyDescriptor;
+import io.onedev.server.web.util.ProjectAware;
 
 public class FieldUtils {
 	
@@ -49,8 +51,17 @@ public class FieldUtils {
 				private static final long serialVersionUID = 1L;
 
 			};
-	
+
+	private static final MetaDataKey<Class<? extends Serializable>> FIELD_BEAN_CLASS_WITH_DEFAULT_VALUE_KEY =
+			new MetaDataKey<>() {
+
+				private static final long serialVersionUID = 1L;
+
+			};
+			
 	public static final String FIELD_BEAN_CLASS_NAME = "IssueFieldBean";
+
+	public static final String FIELD_BEAN_CLASS_NAME_WITH_DEFAULT_VALUE = "IssueFieldBeanWithDefaultValue";
 	
 	public static void clearFields(Serializable fieldBean) {
 		for (List<PropertyDescriptor> groupProperties: new BeanDescriptor(fieldBean.getClass()).getProperties().values()) {
@@ -59,25 +70,26 @@ public class FieldUtils {
 		}
 	}
 	
-	public static Class<? extends Serializable> getFieldBeanClass() {
+	public static Class<? extends Serializable> getFieldBeanClass(boolean withDefaultValue) {
 		RequestCycle requestCycle = RequestCycle.get();
 		if (requestCycle != null) {
-			Class<? extends Serializable> fieldBeanClass = requestCycle.getMetaData(FIELD_BEAN_CLASS_KEY);
+			var key = withDefaultValue ? FIELD_BEAN_CLASS_WITH_DEFAULT_VALUE_KEY : FIELD_BEAN_CLASS_KEY;
+			Class<? extends Serializable> fieldBeanClass = requestCycle.getMetaData(key);
 			if (fieldBeanClass == null) {
-				fieldBeanClass = defineFieldBeanClass();
-				requestCycle.setMetaData(FIELD_BEAN_CLASS_KEY, fieldBeanClass);
+				fieldBeanClass = defineFieldBeanClass(withDefaultValue);
+				requestCycle.setMetaData(key, fieldBeanClass);
 			}
 			return fieldBeanClass;
 		} else {
-			return defineFieldBeanClass();
+			return defineFieldBeanClass(withDefaultValue);
 		}
 	}
 	
 	@SuppressWarnings("unchecked")
-	private static Class<? extends Serializable> defineFieldBeanClass() {
+	private static Class<? extends Serializable> defineFieldBeanClass(boolean withDefaultValue) {
 		GlobalIssueSetting issueSetting = OneDev.getInstance(SettingService.class).getIssueSetting();
-		return (Class<? extends Serializable>) FieldSpec.defineClass(FIELD_BEAN_CLASS_NAME, 
-				"Issue Fields", issueSetting.getFieldSpecs());
+		var className = withDefaultValue ? FIELD_BEAN_CLASS_NAME_WITH_DEFAULT_VALUE : FIELD_BEAN_CLASS_NAME;
+		return (Class<? extends Serializable>) FieldSpec.defineClass(className, "Issue Fields", issueSetting.getFieldSpecs(), withDefaultValue);
 	}
 	
 	public static Collection<String> getEditablePropertyNames(Project project, Class<?> fieldBeanClass, Collection<String> fieldNames) {
@@ -106,9 +118,8 @@ public class FieldUtils {
 		return null;
 	}
 	
-	public static Map<String, Object> getFieldValues(@Nullable ComponentContext context, Serializable fieldBean, Collection<String> fieldNames) {
-		if (context != null)
-			ComponentContext.push(context);
+	public static Map<String, Object> getFieldValues(Project project, Serializable fieldBean, Collection<String> fieldNames) {
+		HierarchicalContext.push(newHierarchicalContext(project, new BeanDescriptor(fieldBean.getClass()), fieldBean));
 		try {
 			Map<String, Object> fieldValues = new HashMap<>();
 			BeanDescriptor beanDescriptor = new BeanDescriptor(fieldBean.getClass());
@@ -121,9 +132,38 @@ public class FieldUtils {
 			
 			return fieldValues;
 		} finally {
-			if (context != null)
-				ComponentContext.pop();
+			HierarchicalContext.pop();
 		}
+	}
+
+	public static Map<String, Object> getFieldValues(Project project, List<FieldInstance> fieldInstances) {
+		Map<String, Object> fieldValues = new HashMap<>();
+		Serializable fieldBean;
+		try {
+			fieldBean = getFieldBeanClass(false).getDeclaredConstructor().newInstance();
+		} catch (InstantiationException | IllegalAccessException | IllegalArgumentException
+				| java.lang.reflect.InvocationTargetException | NoSuchMethodException | SecurityException e) {
+			throw new RuntimeException(e);
+		}
+		BeanDescriptor beanDescriptor = new BeanDescriptor(fieldBean.getClass());
+		GlobalIssueSetting issueSetting = OneDev.getInstance(SettingService.class).getIssueSetting();
+		for (FieldInstance fieldInstance : fieldInstances) {
+			FieldSpec fieldSpec = issueSetting.getFieldSpec(fieldInstance.getName());
+			if (fieldSpec == null)
+				throw new ExplicitException("Undefined field: " + fieldInstance.getName());
+			// EditContext for scripting values that read sibling fields via getInputValue(...)
+			HierarchicalContext.push(newHierarchicalContext(project, beanDescriptor, fieldBean));
+			try {
+				Object fieldValue = fieldSpec.convertToObject(fieldInstance.getValueProvider().getValue());
+				fieldValues.put(fieldInstance.getName(), fieldValue);
+				String propertyName = getPropertyName(beanDescriptor, fieldInstance.getName());
+				if (propertyName != null)
+					beanDescriptor.getProperty(propertyName).setPropertyValue(fieldBean, fieldValue);
+			} finally {
+				HierarchicalContext.pop();
+			}
+		}
+		return fieldValues;
 	}
 	
 	private static void validateFieldValue(FieldSpec fieldSpec, String fieldName, List<String> fieldValue) {
@@ -178,7 +218,7 @@ public class FieldUtils {
 	}
 
 	@SuppressWarnings("unchecked")
-	public static Map<String, Object> getFieldValues(Project project, Map<String, Serializable> fieldEdits) {
+	public static Map<String, Object> getFieldValues(Subject subject, Project project, Map<String, Serializable> fieldEdits) {
 		var settingService = OneDev.getInstance(SettingService.class);
 		var issueSetting = settingService.getIssueSetting();
 		Map<String, Object> fieldValues = new HashMap<>();
@@ -186,8 +226,8 @@ public class FieldUtils {
 			var fieldName = entry.getKey();
 			var fieldSpec = issueSetting.getFieldSpec(fieldName);
 			if (fieldSpec == null)
-				throw new BadRequestException("Undefined field: " + fieldName);
-			if (!SecurityUtils.canEditIssueField(project, fieldName))
+				throw new NotAcceptableException("Undefined field: " + fieldName);
+			if (!SecurityUtils.canEditIssueField(subject, project, fieldName))
 				throw new UnauthorizedException("No permission to edit field: " + fieldName);
 
 			List<String> values = new ArrayList<>();
@@ -201,64 +241,80 @@ public class FieldUtils {
 		return fieldValues;
 	}
 
-	public static boolean isFieldVisible(BeanDescriptor beanDescriptor, Serializable fieldBean, String fieldName) {
+	public static boolean isFieldVisible(Project project, BeanDescriptor beanDescriptor, Serializable fieldBean, String fieldName) {
 		String propertyName = getPropertyName(beanDescriptor, fieldName);
 		PropertyDescriptor propertyDescriptor = new PropertyDescriptor(fieldBean.getClass(), propertyName);
-		return propertyDescriptor.isPropertyVisible(newPropertyComponentContexts(beanDescriptor, fieldBean), beanDescriptor);
+		return propertyDescriptor.isPropertyVisible(newPropertyHierarchicalContexts(project, beanDescriptor, fieldBean), beanDescriptor);
 	}
 	
-	public static Map<String, ComponentContext> newPropertyComponentContexts(BeanDescriptor beanDescriptor, Serializable fieldBean) {
-		Map<String, ComponentContext> componentContexts = new HashMap<>();
+	private static Map<String, HierarchicalContext> newPropertyHierarchicalContexts(Project project, BeanDescriptor beanDescriptor, Serializable fieldBean) {
+		Map<String, HierarchicalContext> hierarchicalContexts = new HashMap<>();
 
-		ComponentContext componentContext = new ComponentContext(newContextComponent(beanDescriptor, fieldBean));
+		HierarchicalContext hierarchicalContext = new HierarchicalContext(newContextHierarchical(project, beanDescriptor, fieldBean));
 		for (List<PropertyDescriptor> group: beanDescriptor.getProperties().values()) {
 			for (PropertyDescriptor property: group) 
-				componentContexts.put(property.getPropertyName(), componentContext);
+				hierarchicalContexts.put(property.getPropertyName(), hierarchicalContext);
 		}
 		
-		return componentContexts;
+		return hierarchicalContexts;
 	}
 	
-	private static Component newContextComponent(BeanDescriptor beanDescriptor, Serializable fieldBean) {
-		class FakeComponent extends MarkupContainer implements InputContext, EditContext {
-
-			private static final long serialVersionUID = 1L;
-
-			public FakeComponent() {
-				super("component");
-			}
-
-			@Override
-			public Object getInputValue(String name) {
-				return beanDescriptor.getProperty(name).getPropertyValue(fieldBean);
-			}
-
-			@Override
-			public List<String> getInputNames() {
-				return getIssueSetting().getFieldNames();
-			}
-
-			private GlobalIssueSetting getIssueSetting() {
-				return OneDev.getInstance(SettingService.class).getIssueSetting();
-			}
+	private static Hierarchical newContextHierarchical(Project project, BeanDescriptor beanDescriptor, Serializable fieldBean) {
+		class BeanHierarchical implements Hierarchical {
 			
 			@Override
-			public InputSpec getInputSpec(String inputName) {
-				return getIssueSetting().getFieldSpec(inputName);
+			public Hierarchical getParent() {
+				return null;
+			}
+
+			@Override
+			public <T> T getData(Class<T> clazz) {
+				if (clazz == InputContext.class) {
+					return clazz.cast(new InputContext() {
+
+						private GlobalIssueSetting getIssueSetting() {
+							return OneDev.getInstance(SettingService.class).getIssueSetting();
+						}
+												
+						@Override
+						public List<String> getInputNames() {
+							return getIssueSetting().getFieldNames();
+						}
+						
+						@Override
+						public InputSpec getInputSpec(String inputName) {
+							return getIssueSetting().getFieldSpec(inputName);
+						}
+			
+					});
+				} else if (clazz == EditContext.class) {
+					return clazz.cast(new EditContext() {
+
+						@Override
+						public Object getInputValue(String name) {
+							return beanDescriptor.getProperty(name).getPropertyValue(fieldBean);
+						}
+						
+					});
+				} else if (clazz == ProjectAware.class) {
+					return clazz.cast((ProjectAware) () -> project);
+				} else {
+					return null;
+				}
 			}
 
 		}
-		return new FakeComponent();
+		return new BeanHierarchical();
 	}
 	
-	public static ComponentContext newBeanComponentContext(BeanDescriptor beanDescriptor, Serializable fieldBean) {
-		return new ComponentContext(newContextComponent(beanDescriptor, fieldBean)) {
+	public static HierarchicalContext newHierarchicalContext(Project project, BeanDescriptor beanDescriptor, Serializable fieldBean) {
+		return new HierarchicalContext(newContextHierarchical(project, beanDescriptor, fieldBean)) {
 
 			private static final long serialVersionUID = 1L;
 
 			@Override
-			public ComponentContext getChildContext(String childName) {
-				return new ComponentContext(newContextComponent(beanDescriptor, fieldBean));
+			public HierarchicalContext getChildContext(String childName) {
+				return new HierarchicalContext(newContextHierarchical(project, beanDescriptor, fieldBean));
 			}
 			
 		};

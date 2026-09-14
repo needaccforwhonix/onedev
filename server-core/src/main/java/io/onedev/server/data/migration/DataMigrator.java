@@ -5,6 +5,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
 import static java.util.Comparator.naturalOrder;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,15 +36,19 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.jspecify.annotations.Nullable;
 import javax.inject.Singleton;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.sshd.common.config.keys.KeyUtils;
 import org.apache.sshd.common.digest.BuiltinDigests;
+import org.eclipse.jgit.internal.storage.file.FileRepository;
+import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.Repository;
 import org.dom4j.Element;
 import org.dom4j.Node;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,7 +61,10 @@ import io.onedev.commons.utils.FileUtils;
 import io.onedev.commons.utils.StringUtils;
 import io.onedev.server.OneDev;
 import io.onedev.server.buildspecmodel.inputspec.InputSpec;
-import io.onedev.server.service.SettingService;
+import io.onedev.server.buildspecmodel.inputspec.choiceinput.choiceprovider.Choice;
+import io.onedev.server.buildspecmodel.inputspec.showcondition.ShowCondition;
+import io.onedev.server.buildspecmodel.inputspec.showcondition.ValueIsOneOf;
+import io.onedev.server.git.GitUtils;
 import io.onedev.server.markdown.MarkdownService;
 import io.onedev.server.markdown.MentionParser;
 import io.onedev.server.model.Issue;
@@ -66,12 +74,18 @@ import io.onedev.server.model.PullRequest;
 import io.onedev.server.model.PullRequestComment;
 import io.onedev.server.model.User;
 import io.onedev.server.model.support.TimeGroups;
+import io.onedev.server.model.support.administration.AiSetting;
+import io.onedev.server.model.support.administration.SystemSetting;
+import io.onedev.server.model.support.issue.CommitMessageFixSetting;
+import io.onedev.server.model.support.issue.field.spec.BuildChoiceField;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.ssh.SshKeyUtils;
 import io.onedev.server.util.CryptoUtils;
 import io.onedev.server.util.DateUtils;
-import io.onedev.server.util.DirectoryVersionUtils;
+import io.onedev.server.util.GpgUtils;
 import io.onedev.server.util.Pair;
 import io.onedev.server.util.ParsedEmailAddress;
+import io.onedev.server.util.SiteSyncUtils;
 import io.onedev.server.util.patternset.PatternSet;
 import oshi.SystemInfo;
 import oshi.hardware.HardwareAbstractionLayer;
@@ -108,24 +122,24 @@ public class DataMigrator {
 		for (File file : dataDir.listFiles()) {
 			try {
 				String content = FileUtils.readFileToString(file, UTF_8);
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"com.gitplex.commons.hibernate.migration.VersionTable",
 						"com.gitplex.server.model.ModelVersion");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"com.gitplex.server.core.entity.support.IntegrationPolicy",
 						"com.gitplex.server.model.support.IntegrationPolicy");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"com.gitplex.server.core.entity.PullRequest_-IntegrationStrategy",
 						"com.gitplex.server.model.PullRequest_-IntegrationStrategy");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"com.gitplex.server.core.entity.", "com.gitplex.server.model.");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"com.gitplex.server.core.setting.SpecifiedGit", "com.gitplex.server.git.config.SpecifiedGit");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"com.gitplex.server.core.setting.SystemGit", "com.gitplex.server.git.config.SystemGit");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"com.gitplex.server.core.setting.", "com.gitplex.server.model.support.setting.");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"com.gitplex.server.core.gatekeeper.", "com.gitplex.server.gatekeeper.");
 				FileUtils.writeStringToFile(file, content, UTF_8);
 
@@ -238,7 +252,7 @@ public class DataMigrator {
 					File renamedFile = new File(dataDir, file.getName().replace("Accounts.xml", "Users.xml"));
 					FileUtils.moveFile(file, renamedFile);
 					String content = FileUtils.readFileToString(renamedFile, UTF_8);
-					content = StringUtils.replace(content, "com.gitplex.server.model.Account",
+					content = Strings.CS.replace(content, "com.gitplex.server.model.Account",
 							"com.gitplex.server.model.User");
 					VersionedXmlDoc dom = VersionedXmlDoc.fromXML(content);
 					for (Element element : dom.getRootElement().elements()) {
@@ -267,7 +281,7 @@ public class DataMigrator {
 					File renamedFile = new File(dataDir, file.getName().replace("Depots.xml", "Projects.xml"));
 					FileUtils.moveFile(file, renamedFile);
 					String content = FileUtils.readFileToString(renamedFile, UTF_8);
-					content = StringUtils.replace(content, "com.gitplex.server.model.Depot",
+					content = Strings.CS.replace(content, "com.gitplex.server.model.Depot",
 							"com.gitplex.server.model.Project");
 					VersionedXmlDoc dom = VersionedXmlDoc.fromXML(content);
 					for (Element element : dom.getRootElement().elements()) {
@@ -422,8 +436,8 @@ public class DataMigrator {
 		for (File file : dataDir.listFiles()) {
 			try {
 				String content = FileUtils.readFileToString(file, UTF_8);
-				content = StringUtils.replace(content, "gitplex", "turbodev");
-				content = StringUtils.replace(content, "GitPlex", "TurboDev");
+				content = Strings.CS.replace(content, "gitplex", "turbodev");
+				content = Strings.CS.replace(content, "GitPlex", "TurboDev");
 				FileUtils.writeFile(file, content, UTF_8);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
@@ -454,11 +468,11 @@ public class DataMigrator {
 		for (File file : dataDir.listFiles()) {
 			try {
 				String content = FileUtils.readFileToString(file, UTF_8);
-				content = StringUtils.replace(content, "com.turbodev", "io.onedev");
-				content = StringUtils.replace(content, "com/turbodev", "io/onedev");
-				content = StringUtils.replace(content, "turbodev.com", "onedev.io");
-				content = StringUtils.replace(content, "turbodev", "onedev");
-				content = StringUtils.replace(content, "TurboDev", "OneDev");
+				content = Strings.CS.replace(content, "com.turbodev", "io.onedev");
+				content = Strings.CS.replace(content, "com/turbodev", "io/onedev");
+				content = Strings.CS.replace(content, "turbodev.com", "onedev.io");
+				content = Strings.CS.replace(content, "turbodev", "onedev");
+				content = Strings.CS.replace(content, "TurboDev", "OneDev");
 				FileUtils.writeFile(file, content, UTF_8);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
@@ -604,9 +618,9 @@ public class DataMigrator {
 			} else if (file.getName().startsWith("UserAuthorizations.xml") || file.getName().startsWith("GroupAuthorizations.xml")) {
 				try {
 					String content = FileUtils.readFileToString(file, UTF_8);
-					content = StringUtils.replace(content, "ADMIN", "ADMINISTRATION");
-					content = StringUtils.replace(content, "WRITE", "CODE_WRITE");
-					content = StringUtils.replace(content, "READ", "CODE_READ");
+					content = Strings.CS.replace(content, "ADMIN", "ADMINISTRATION");
+					content = Strings.CS.replace(content, "WRITE", "CODE_WRITE");
+					content = Strings.CS.replace(content, "READ", "CODE_READ");
 					FileUtils.writeFile(file, content, UTF_8);
 				} catch (IOException e) {
 					throw new RuntimeException(e);
@@ -680,7 +694,7 @@ public class DataMigrator {
 				} catch (IOException e) {
 					throw new RuntimeException(e);
 				}
-				content = StringUtils.replace(content, "io.onedev.server.security.authenticator.",
+				content = Strings.CS.replace(content, "io.onedev.server.security.authenticator.",
 						"io.onedev.server.model.support.authenticator.");
 				VersionedXmlDoc dom = VersionedXmlDoc.fromXML(content);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1784,9 +1798,9 @@ public class DataMigrator {
 			if (file.getName().contains(".xml")) {
 				try {
 					String content = FileUtils.readFileToString(file, UTF_8);
-					content = StringUtils.replace(content, "io.onedev.server.issue.",
+					content = Strings.CS.replace(content, "io.onedev.server.issue.",
 							"io.onedev.server.model.support.issue.");
-					content = StringUtils.replace(content, "io.onedev.server.util.inputspec.",
+					content = Strings.CS.replace(content, "io.onedev.server.util.inputspec.",
 							"io.onedev.server.model.support.inputspec.");
 					FileUtils.writeFile(file, content, UTF_8);
 				} catch (IOException e) {
@@ -2038,16 +2052,16 @@ public class DataMigrator {
 			if (file.getName().startsWith("Settings.xml")) {
 				try {
 					String content = FileUtils.readFileToString(file, UTF_8.name());
-					content = StringUtils.replace(content,
+					content = Strings.CS.replace(content,
 							"io.onedev.server.model.support.administration.authenticator.ldap.",
 							"io.onedev.server.plugin.authenticator.ldap.");
-					content = StringUtils.replace(content,
+					content = Strings.CS.replace(content,
 							"io.onedev.server.model.support.issue.transitiontrigger.DiscardPullRequest",
 							"io.onedev.server.model.support.issue.transitiontrigger.DiscardPullRequestTrigger");
-					content = StringUtils.replace(content,
+					content = Strings.CS.replace(content,
 							"io.onedev.server.model.support.issue.transitiontrigger.MergePullRequest",
 							"io.onedev.server.model.support.issue.transitiontrigger.MergePullRequestTrigger");
-					content = StringUtils.replace(content,
+					content = Strings.CS.replace(content,
 							"io.onedev.server.model.support.issue.transitiontrigger.OpenPullRequest",
 							"io.onedev.server.model.support.issue.transitiontrigger.OpenPullRequestTrigger");
 					FileUtils.writeFile(file, content, UTF_8);
@@ -2102,9 +2116,9 @@ public class DataMigrator {
 			} else if (file.getName().startsWith("PullRequestBuilds.xml")) {
 				try {
 					String content = FileUtils.readFileToString(file, UTF_8.name());
-					content = StringUtils.replace(content, "PullRequestBuild", "PullRequestVerification");
+					content = Strings.CS.replace(content, "PullRequestBuild", "PullRequestVerification");
 					FileUtils.deleteFile(file);
-					String newFileName = StringUtils.replace(file.getName(), "PullRequestBuild", "PullRequestVerification");
+					String newFileName = Strings.CS.replace(file.getName(), "PullRequestBuild", "PullRequestVerification");
 					FileUtils.writeFile(new File(dataDir, newFileName), content, UTF_8);
 				} catch (IOException e) {
 					throw new RuntimeException(e);
@@ -2291,9 +2305,9 @@ public class DataMigrator {
 		for (File file : dataDir.listFiles()) {
 			try {
 				String content = FileUtils.readFileToString(file, UTF_8);
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"\" is before \"", "\" is until \"");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"\" is after \"", "\" is since \"");
 				FileUtils.writeStringToFile(file, content, UTF_8);
 			} catch (IOException e) {
@@ -2356,16 +2370,16 @@ public class DataMigrator {
 		for (File file : dataDir.listFiles()) {
 			try {
 				String content = FileUtils.readFileToString(file, UTF_8);
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"io.onedev.server.model.support.issue.fieldspec.",
 						"io.onedev.server.model.support.issue.field.spec.");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"io.onedev.server.model.support.issue.fieldsupply.",
 						"io.onedev.server.model.support.issue.field.supply.");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"org.server.plugin.report.checkstyle.",
 						"io.onedev.server.plugin.report.checkstyle.");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"org.server.plugin.report.clover.",
 						"io.onedev.server.plugin.report.clover.");
 
@@ -2470,7 +2484,7 @@ public class DataMigrator {
 		for (File file : dataDir.listFiles()) {
 			try {
 				String content = FileUtils.readFileToString(file, UTF_8);
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"io.onedev.server.model.support.inputspec.numberinput.",
 						"io.onedev.server.model.support.inputspec.integerinput.");
 				FileUtils.writeStringToFile(file, content, UTF_8);
@@ -4365,9 +4379,6 @@ public class DataMigrator {
 		}
 	}
 
-	private void migrate102(File dataDir, Stack<Integer> versions) {
-	}
-
 	private void migrate103(File dataDir, Stack<Integer> versions) {
 		VersionedXmlDoc projectUpdatesDom;
 		File projectUpdatesFile = new File(dataDir, "ProjectUpdates.xml");
@@ -4964,7 +4975,7 @@ public class DataMigrator {
 		for (File file : dataDir.listFiles()) {
 			try {
 				String content = FileUtils.readFileToString(file, UTF_8);
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"io.onedev.server.model.support.inputspec.",
 						"io.onedev.server.buildspecmodel.inputspec.");
 				FileUtils.writeStringToFile(file, content, UTF_8);
@@ -5783,7 +5794,7 @@ public class DataMigrator {
 				String content;
 				try {
 					content = FileUtils.readFileToString(file, UTF_8);
-					content = StringUtils.replace(content,
+					content = Strings.CS.replace(content,
 							"io.onedev.server.util.channelnotification.",
 							"io.onedev.server.model.support.channelnotification.");
 				} catch (IOException e) {
@@ -5817,16 +5828,16 @@ public class DataMigrator {
 				String content;
 				try {
 					content = FileUtils.readFileToString(file, UTF_8);
-					content = StringUtils.replace(content,
+					content = Strings.CS.replace(content,
 							"io.onedev.server.model.support.administration.mailsetting.Office365Setting",
 							"io.onedev.server.plugin.mailservice.office365.Office365MailService");
-					content = StringUtils.replace(content,
+					content = Strings.CS.replace(content,
 							"io.onedev.server.model.support.administration.mailsetting.GmailSetting",
 							"io.onedev.server.plugin.mailservice.gmail.GmailMailService");
-					content = StringUtils.replace(content,
+					content = Strings.CS.replace(content,
 							"io.onedev.server.model.support.administration.mailsetting.OtherMailSetting",
 							"io.onedev.server.plugin.mailservice.smtpimap.SmtpImapMailService");
-					content = StringUtils.replace(content,
+					content = Strings.CS.replace(content,
 							"io.onedev.server.model.support.administration.mailsetting.",
 							"io.onedev.server.model.support.administration.mailservice.");
 				} catch (IOException e) {
@@ -6045,16 +6056,16 @@ public class DataMigrator {
 		for (File file : dataDir.listFiles()) {
 			try {
 				var content = FileUtils.readFileToString(file, UTF_8);
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"io.onedev.server.model.support.issue.field.supply.FieldSupply",
 						"io.onedev.server.model.support.issue.field.instance.FieldInstance");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"io.onedev.server.model.support.issue.field.supply.Ignore",
 						"io.onedev.server.model.support.issue.field.instance.IgnoreValue");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"io.onedev.server.model.support.issue.field.supply.ScriptingValue",
 						"io.onedev.server.model.support.issue.field.instance.ScriptingValue");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"io.onedev.server.model.support.issue.field.supply.SpecifiedValue",
 						"io.onedev.server.model.support.issue.field.instance.SpecifiedValue");
 				FileUtils.writeStringToFile(file, content, UTF_8.name());
@@ -6112,7 +6123,7 @@ public class DataMigrator {
 			if (file.getName().startsWith("Packs.xml")) {
 				try {
 					var content = FileUtils.readFileToString(file, UTF_8);
-					content = StringUtils.replace(content,
+					content = Strings.CS.replace(content,
 							"io.onedev.server.ee.pack.",
 							"io.onedev.server.plugin.pack.");
 					FileUtils.writeStringToFile(file, content, UTF_8.name());
@@ -6578,15 +6589,15 @@ public class DataMigrator {
 		for (File file : dataDir.listFiles()) {
 			try {
 				String content = FileUtils.readFileToString(file, UTF_8);
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"\"Milestone\" is", "\"Iteration\" is");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"\"Milestone\"  is", "\"Iteration\" is");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"\"Milestone\"   is", "\"Iteration\" is");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"\"Milestone\"    is", "\"Iteration\" is");
-				content = StringUtils.replace(content,
+				content = Strings.CS.replace(content,
 						"non-pull-request commits", "on branch(\"**\")");
 				FileUtils.writeStringToFile(file, content, UTF_8);
 			} catch (IOException e) {
@@ -6598,7 +6609,7 @@ public class DataMigrator {
 	private void migrate168(File dataDir, Stack<Integer> versions) {
 		for (File file : dataDir.listFiles()) {
 			try {
-				var content = StringUtils.replace(
+				var content = Strings.CS.replace(
 						FileUtils.readFileToString(file, UTF_8),
 						"on branch(\"**\")",
 						"on branch \"**\"");
@@ -6682,39 +6693,39 @@ public class DataMigrator {
 	private void migrate171(File dataDir, Stack<Integer> versions) {
 		for (File file : dataDir.listFiles()) {
 			try {
-				var content = StringUtils.replace(
+				var content = Strings.CS.replace(
 						FileUtils.readFileToString(file, UTF_8),
 						"io.onedev.server.ee.dashboard.widgets.BuildListWidget",
 						"io.onedev.server.ee.dashboard.widgets.build.BuildListWidget");
-				content = StringUtils.replace(
+				content = Strings.CS.replace(
 						content,
 						"io.onedev.server.ee.dashboard.widgets.BurnDownChartWidget",
 						"io.onedev.server.ee.dashboard.widgets.iteration.BurnDownChartWidget");
-				content = StringUtils.replace(
+				content = Strings.CS.replace(
 						content,
 						"io.onedev.server.ee.dashboard.widgets.IssueListWidget",
 						"io.onedev.server.ee.dashboard.widgets.issue.IssueListWidget");
-				content = StringUtils.replace(
+				content = Strings.CS.replace(
 						content,
 						"io.onedev.server.ee.dashboard.widgets.IterationListWidget",
 						"io.onedev.server.ee.dashboard.widgets.iteration.IterationListWidget");
-				content = StringUtils.replace(
+				content = Strings.CS.replace(
 						content,
 						"io.onedev.server.ee.dashboard.widgets.MarkdownBlobWidget",
 						"io.onedev.server.ee.dashboard.widgets.markdown.MarkdownBlobWidget");
-				content = StringUtils.replace(
+				content = Strings.CS.replace(
 						content,
 						"io.onedev.server.ee.dashboard.widgets.MarkdownWidget",
 						"io.onedev.server.ee.dashboard.widgets.markdown.MarkdownWidget");
-				content = StringUtils.replace(
+				content = Strings.CS.replace(
 						content,
 						"io.onedev.server.ee.dashboard.widgets.ProjectListWidget",
 						"io.onedev.server.ee.dashboard.widgets.project.ProjectListWidget");
-				content = StringUtils.replace(
+				content = Strings.CS.replace(
 						content,
 						"io.onedev.server.ee.dashboard.widgets.PullRequestListWidget",
 						"io.onedev.server.ee.dashboard.widgets.pullrequest.PullRequestListWidget");
-				content = StringUtils.replace(
+				content = Strings.CS.replace(
 						content,
 						"io.onedev.server.ee.dashboard.widgets.projectoverview.ProjectOverviewWidget",
 						"io.onedev.server.ee.dashboard.widgets.project.ProjectOverviewWidget");
@@ -7615,7 +7626,7 @@ public class DataMigrator {
 							var currentPath = targetPackBlobFile.getParentFile().toPath();
 							while (currentPath.startsWith(targetProjectPath)) {
 								var currentDir = currentPath.toFile();
-								DirectoryVersionUtils.increaseVersion(currentDir);
+								SiteSyncUtils.increaseVersion(currentDir);
 								currentPath = currentPath.getParent();
 							}
 					
@@ -7780,10 +7791,10 @@ public class DataMigrator {
 			} else if (file.getName().startsWith("Settings.xml")) {
 				try {
 					String content = FileUtils.readFileToString(file, UTF_8);
-					content = StringUtils.replace(content,
+					content = Strings.CS.replace(content,
 							"io.onedev.server.model.support.issue.field.spec.WorkingPeriodField",
 							"io.onedev.server.model.support.issue.field.spec.IntegerField");
-					content = StringUtils.replace(content,
+					content = Strings.CS.replace(content,
 							"io.onedev.server.buildspecmodel.inputspec.workingperiodinput",
 							"io.onedev.server.buildspecmodel.inputspec.integerinput");
 					FileUtils.writeFile(file, content, UTF_8);
@@ -8202,7 +8213,7 @@ public class DataMigrator {
 			} else if (file.getName().startsWith("IssueChanges.xml")) {
 				try {
 					var content = FileUtils.readFileToString(file, UTF_8);
-					content = StringUtils.replace(content,
+					content = Strings.CS.replace(content,
 							"io.onedev.server.util.Input",
 							"io.onedev.server.buildspecmodel.inputspec.Input");
 					FileUtils.writeStringToFile(file, content, UTF_8.name());
@@ -8391,7 +8402,7 @@ public class DataMigrator {
 					boolean isServiceAccount = Boolean.parseBoolean(serviceAccountElement.getTextTrim());
 					serviceAccountElement.detach();
 					element.addElement("type").setText(isServiceAccount ? "SERVICE" : "ORDINARY");
-					element.addElement("aiSetting").addElement("entitleToAll").setText("true");
+					element.addElement("aiSetting").addElement("entitleToAll").setText("false");
 				}
 				dom.writeToFile(file, false);
 			} else if (file.getName().startsWith("Settings.xml")) {
@@ -8422,6 +8433,976 @@ public class DataMigrator {
 				dom.writeToFile(file, false);
 			}
 		}		
+	}
+
+	private void migrate217(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Settings.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					var keyElement = element.element("key");
+					if (keyElement.getTextTrim().equals("AI")) {
+						Element valueElement = element.element("value");
+						if (valueElement != null) {
+							valueElement.addElement("chatPreserveDays").setText("30");
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate218(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Chats.xml") || file.getName().startsWith("ChatMessages.xml")) {
+				FileUtils.deleteFile(file);
+			}
+		}
+	}
+
+	private void migrate219(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Settings.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					var keyElement = element.element("key");
+					if (keyElement.getTextTrim().equals("AI")) {
+						Element valueElement = element.element("value");
+						if (valueElement != null) {
+							Element liteModelSettingElement = valueElement.element("liteModelSetting");
+							if (liteModelSettingElement != null) 
+								liteModelSettingElement.addElement("timeoutSeconds").setText("30");
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Users.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					var aiSettingElement = element.element("aiSetting");
+					Element modelSettingElement = aiSettingElement.element("modelSetting");
+					if (modelSettingElement != null) 
+						modelSettingElement.addElement("timeoutSeconds").setText("60");
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate220(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Projects.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					for (Element branchProtectionElement : element.element("branchProtections").elements()) {
+						Element enforceConventionalCommitsElement = branchProtectionElement.element("enforceConventionalCommits");
+						Element commitTypesElement = branchProtectionElement.element("commitTypes");
+						Element commitScopesElement = branchProtectionElement.element("commitScopes");
+						Element checkCommitMessageFooterElement = branchProtectionElement.element("checkCommitMessageFooter");
+						Element commitMessageFooterPatternElement = branchProtectionElement.element("commitMessageFooterPattern");
+						Element commitTypesForFooterCheckElement = branchProtectionElement.element("commitTypesForFooterCheck");
+
+						commitTypesElement.detach();
+						commitScopesElement.detach();
+						checkCommitMessageFooterElement.detach();
+						if (commitMessageFooterPatternElement != null)
+							commitMessageFooterPatternElement.detach();
+						commitTypesForFooterCheckElement.detach();	
+					
+						if ("true".equals(enforceConventionalCommitsElement.getTextTrim())) {
+							Element commitMessageCheckerElement = branchProtectionElement.addElement("commitMessageChecker");
+							commitMessageCheckerElement.addAttribute("class", "io.onedev.server.model.support.code.ConventionalCommitChecker");
+
+							commitMessageCheckerElement.add(commitTypesElement);
+							commitMessageCheckerElement.add(commitScopesElement);							
+							commitMessageCheckerElement.add(checkCommitMessageFooterElement);
+							
+							if (commitMessageFooterPatternElement != null) 
+								commitMessageCheckerElement.add(commitMessageFooterPatternElement);
+							
+							commitMessageCheckerElement.add(commitTypesForFooterCheckElement);
+						}						
+						enforceConventionalCommitsElement.detach();
+					}
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate221(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Projects.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element projectElement : dom.getRootElement().elements()) {
+					projectElement.addElement("aiSetting");
+					Element webHooksElement = projectElement.element("webHooks");
+					for (Element webHookElement : webHooksElement.elements()) {
+						webHookElement.addElement("headers");
+					}
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate222(File dataDir, Stack<Integer> versions) {
+		String template;
+		try (InputStream is = getClass().getResourceAsStream("migrate173_default_notification.tpl")) {
+			Preconditions.checkNotNull(is);
+			template = IOUtils.toString(is, UTF_8);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Projects.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element projectElement : dom.getRootElement().elements()) {
+					projectElement.addElement("workspaceSetting");
+					projectElement.addElement("workspaceSpecs");
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Users.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element userElement : dom.getRootElement().elements()) {
+					userElement.addElement("workspaceQueries");
+					userElement.addElement("workspaceQuerySubscriptions");
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Roles.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element roleElement : dom.getRootElement().elements()) {
+					roleElement.addElement("manageWorkspaces").setText("false");
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Settings.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					Element keyElement = element.element("key");
+					if (keyElement == null)
+						continue;
+					String settingKey = keyElement.getTextTrim();
+					if (settingKey.equals("EMAIL_TEMPLATES")) {
+						Element valueElement = element.element("value");
+						if (valueElement != null) {
+							valueElement.addElement("workspaceNotification").setText(template);
+						}
+					} else if (settingKey.equals("GROOVY_SCRIPTS")) {
+						Element valueElement = element.element("value");
+						if (valueElement != null) {
+							for (Element groovyScriptElement : valueElement.elements()) {
+								Element authorizationElement = groovyScriptElement.element("authorization");
+								if (authorizationElement != null)
+									authorizationElement.setName("jobAuthorization");
+								groovyScriptElement.addElement("canBeUsedByWorkspaceSpecs").setText("true");
+							}
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Builds.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element buildElement : dom.getRootElement().elements()) {
+					Element workspacePathElement = buildElement.element("workspacePath");
+					if (workspacePathElement != null)
+						workspacePathElement.setName("workDirPath");
+					Element tokenElement = buildElement.element("jobToken");
+					if (tokenElement != null)
+						tokenElement.setName("token");
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("RunCaches.xml")) {
+				FileUtils.deleteFile(file);
+			}
+		}
+	}
+
+	private void migrate223(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Settings.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					String key = element.elementTextTrim("key");
+					if (key.equals("JOB_EXECUTORS")) {
+						Element valueElement = element.element("value");
+						if (valueElement != null) {
+							for (Element executorElement : valueElement.elements()) {
+								if (executorElement.getName().contains("ServerShellExecutor")
+										|| executorElement.getName().contains("RemoteShellExecutor")) {
+									Element jobMatchElement = executorElement.element("jobMatch");
+									if (jobMatchElement == null)
+										executorElement.addElement("jobMatch").setText("\"Project\" is \"**\"");
+								}
+							}
+						}
+					} else if (key.equals("WORKSPACE_PROVISIONERS")) {
+						Element valueElement = element.element("value");
+						if (valueElement != null) {
+							for (Element provisionerElement : valueElement.elements()) {
+								if (provisionerElement.getName().contains("ShellProvisioner")) {
+									Element applicableProjectsElement = provisionerElement.element("applicableProjects");
+									if (applicableProjectsElement == null)
+										provisionerElement.addElement("applicableProjects").setText("**");
+								}
+							}
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate224(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Workspaces.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element workspaceElement : dom.getRootElement().elements()) {
+					Element statusElement = workspaceElement.element("status");
+					if (statusElement.getTextTrim().equals("ERROR"))
+						statusElement.setText("INACTIVE");
+					Element errorDateElement = workspaceElement.element("errorDate");
+					if (errorDateElement != null)
+						errorDateElement.setName("inactiveDate");
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+	
+	private void migrate225(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Projects.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element projectElement : dom.getRootElement().elements()) {
+					Element issueSettingElement = projectElement.element("issueSetting");
+					if (issueSettingElement != null)
+						issueSettingElement.addElement("transitionSpecs");
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate226TransitionSpecsElement(Element transitionSpecsElement) {
+		for (Element transitionSpecElement : transitionSpecsElement.elements()) {
+			if (transitionSpecElement.getName().equals("io.onedev.server.model.support.issue.transitionspec.PullRequestOpenedSpec"))
+				transitionSpecElement.setName("io.onedev.server.model.support.issue.transitionspec.PullRequestOpenedOrUpdatedSpec");
+		}
+	}
+
+	private void migrate226(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Settings.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					String key = element.elementTextTrim("key");
+					if (key.equals("JOB_EXECUTORS")) {
+						Element valueElement = element.element("value");
+						if (valueElement != null) {
+							for (Element executorElement : valueElement.elements()) {
+								if (executorElement.getName().contains("KubernetesExecutor")) {
+									Element kubeCtlPathElement = executorElement.element("kubeCtlPath");
+									if (kubeCtlPathElement != null)
+										kubeCtlPathElement.setName("kubectlPath");
+									Element buildWithPVElement = executorElement.element("buildWithPV");
+									boolean buildWithPV = Boolean.parseBoolean(buildWithPVElement.getTextTrim());
+									buildWithPVElement.detach();
+									if (!buildWithPV) {
+										var storageClassElement = executorElement.element("storageClass");
+										if (storageClassElement != null)
+											storageClassElement.detach();
+										var storageSizeElement = executorElement.element("storageSize");
+										if (storageSizeElement != null)
+											storageSizeElement.detach();
+										executorElement.addElement("storageSize").setText("10Gi");
+									}
+								}
+							}
+						}
+					} else if (key.equals("WORKSPACE_PROVISIONERS")) {
+						Element valueElement = element.element("value");
+						if (valueElement != null) {
+							for (Element provisionerElement : valueElement.elements()) {
+								if (provisionerElement.getName().equals("io.onedev.server.plugin.provisioner.docker.DockerProvisioner"))
+									provisionerElement.setName("io.onedev.server.plugin.provisioner.serverdocker.ServerDockerProvisioner");
+								else if (provisionerElement.getName().equals("io.onedev.server.plugin.provisioner.shell.ShellProvisioner"))
+									provisionerElement.setName("io.onedev.server.plugin.provisioner.servershell.ServerShellProvisioner");
+							}
+						}
+					} else if (key.equals("ISSUE")) {
+						Element valueElement = element.element("value");
+						if (valueElement != null) {
+							Element transitionSpecsElement = valueElement.element("transitionSpecs");
+							if (transitionSpecsElement != null)
+								migrate226TransitionSpecsElement(transitionSpecsElement);
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Projects.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element projectElement : dom.getRootElement().elements()) {
+					Element issueSettingElement = projectElement.element("issueSetting");
+					if (issueSettingElement != null) {
+						Element transitionSpecsElement = issueSettingElement.element("transitionSpecs");
+						if (transitionSpecsElement != null)
+							migrate226TransitionSpecsElement(transitionSpecsElement);
+					}
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Issues.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					element.element("rocketCount").detach();
+					element.addElement("tickCount").setText("0");
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("PullRequests.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					element.element("rocketCount").detach();
+					element.addElement("tickCount").setText("0");
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate227(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Settings.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					if (element.elementTextTrim("key").equals("ISSUE")) {
+						Element valueElement = element.element("value");
+						if (valueElement != null) {
+							var commitMessageFixPatternsElement = valueElement.element("commitMessageFixPatterns");
+							commitMessageFixPatternsElement.setName("commitMessageFixSetting");
+							commitMessageFixPatternsElement.addElement("fixSuggestion")
+									.setText(CommitMessageFixSetting.DEFAULT_FIX_SUGGESTION);
+							var entriesElement = commitMessageFixPatternsElement.element("entries");
+							entriesElement.setName("fixPatterns");
+							for (Element entryElement : entriesElement.elements()) {
+								entryElement.setName("io.onedev.server.model.support.issue.CommitMessageFixSetting_-FixPattern");
+							}
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate228(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Roles.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element roleElement : dom.getRootElement().elements()) {
+					roleElement.addElement("createWorkspaces").setText("false");
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Workspaces.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element workspaceElement : dom.getRootElement().elements()) {
+					workspaceElement.addElement("commitHash").setText(ObjectId.zeroId().name());
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private static boolean isClass(Element element, String className) {
+		return element.getName().equals(className)
+				|| className.equals(element.attributeValue("class"));
+	}
+
+	private static void setClass(Element element, String className) {
+		if (element.attribute("class") != null)
+			element.addAttribute("class", className);
+		else
+			element.setName(className);
+	}
+
+	@Nullable
+	private static String getReferenceChoiceNumber(
+			String type, 
+			String value, 
+			@Nullable String projectId,
+			Map<String, String> buildNumbers, 
+			Map<String, String> issueNumbers,
+			Map<String, String> pullRequestNumbers,
+			Map<String, String> buildProjects,
+			Map<String, String> issueProjects,
+			Map<String, String> pullRequestProjects) {
+		Map<String, String> numbers;
+		Map<String, String> projects;
+		if (InputSpec.BUILD.equals(type)) {
+			numbers = buildNumbers;
+			projects = buildProjects;
+		} else if (InputSpec.ISSUE.equals(type)) {
+			numbers = issueNumbers;
+			projects = issueProjects;
+		} else if (InputSpec.PULL_REQUEST.equals(type)) {
+			numbers = pullRequestNumbers;
+			projects = pullRequestProjects;
+		} else {
+			return null;
+		}
+
+		if (projectId != null && projectId.equals(projects.get(value)))
+			return numbers.get(value);
+		else
+			return null;
+	}
+
+	private static boolean isReferenceChoiceType(String type) {
+		return InputSpec.BUILD.equals(type) || InputSpec.ISSUE.equals(type) || InputSpec.PULL_REQUEST.equals(type);
+	}
+
+	private static Element beanToElement(Object bean) {
+		var element = VersionedXmlDoc.fromBean(bean).getRootElement();
+		element.detach();
+		return element;
+	}
+
+	private static void setDefaultAiModelBaseUrlIfBlank(Element modelSettingElement) {
+		Element baseUrlElement = modelSettingElement.element("baseUrl");
+		if (baseUrlElement == null) {
+			baseUrlElement = modelSettingElement.addElement("baseUrl");
+			baseUrlElement.setText("https://api.openai.com/v1");
+		}
+	}
+
+	private void migrate229(File dataDir, Stack<Integer> versions) {
+		Map<String, String> buildNumbers = new HashMap<>();
+		Map<String, String> issueNumbers = new HashMap<>();
+		Map<String, String> pullRequestNumbers = new HashMap<>();
+		Map<String, String> buildProjects = new HashMap<>();
+		Map<String, String> issueProjects = new HashMap<>();
+		Map<String, String> pullRequestProjects = new HashMap<>();
+
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Builds.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element buildElement : dom.getRootElement().elements()) {
+					var id = buildElement.elementTextTrim("id");
+					buildNumbers.put(id, buildElement.elementTextTrim("number"));
+					buildProjects.put(id, buildElement.elementTextTrim("project"));
+				}
+			} else if (file.getName().startsWith("Issues.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element issueElement : dom.getRootElement().elements()) {
+					var id = issueElement.elementTextTrim("id");
+					issueNumbers.put(id, issueElement.elementTextTrim("number"));
+					issueProjects.put(id, issueElement.elementTextTrim("project"));
+				}
+			} else if (file.getName().startsWith("PullRequests.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element pullRequestElement : dom.getRootElement().elements()) {
+					var id = pullRequestElement.elementTextTrim("id");
+					pullRequestNumbers.put(id, pullRequestElement.elementTextTrim("number"));
+					pullRequestProjects.put(id, pullRequestElement.elementTextTrim("targetProject"));
+				}
+			}
+		}
+
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Projects.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element projectElement : dom.getRootElement().elements()) {
+					var workspaceSpecsElement = projectElement.element("workspaceSpecs");
+					if (workspaceSpecsElement != null) {
+						for (Element workspaceSpecElement : workspaceSpecsElement.elements()) {
+							var shellElement = workspaceSpecElement.element("shell");
+							var defaultShellClass = "io.onedev.server.model.support.workspace.spec.shell.DefaultShell";
+							var customLinuxShellClass = "io.onedev.server.model.support.workspace.spec.shell.CustomLinuxShell";
+							var posixShellClass = "io.onedev.server.model.support.workspace.spec.shell.PosixShell";
+							var windowsBatchShellClass = "io.onedev.server.model.support.workspace.spec.shell.WindowsBatchShell";
+							if (isClass(shellElement, customLinuxShellClass)) {
+								setClass(shellElement, posixShellClass);
+							} else if (isClass(shellElement, defaultShellClass)) {
+								boolean runInContainer = Boolean.parseBoolean(
+										workspaceSpecElement.elementTextTrim("runInContainer"));
+								boolean windowsBatch = !runInContainer
+										&& ShellCommandDetector.isWindowsBatch(shellElement.elementText("setupCommands"));
+								setClass(shellElement, windowsBatch ? windowsBatchShellClass : posixShellClass);
+								if (!windowsBatch)
+									shellElement.addElement("shell").setText("sh");
+							}
+							var userDatasElement = workspaceSpecElement.element("userDatas");
+							for (Element userDataElement : userDatasElement.elements()) {
+								var pathsElement = userDataElement.element("paths");
+								var changeDetectionExcludesElement = userDataElement.element("changeDetectionExcludes");
+								if (changeDetectionExcludesElement != null)
+									changeDetectionExcludesElement.detach();
+								pathsElement.setName("entries");
+								for (Element pathElement : pathsElement.elements()) {
+									var path = pathElement.getText();
+									pathElement.setName("io.onedev.server.model.support.workspace.spec.UserDataEntry");
+									pathElement.setText("");
+									pathElement.addElement("path").setText(path);
+								}
+							}
+							var cacheConfigsElement = workspaceSpecElement.element("cacheConfigs");
+							if (cacheConfigsElement != null) {
+								for (Element cacheConfigElement : cacheConfigsElement.elements()) {
+									var pathsElement = cacheConfigElement.element("paths");
+									var changeDetectionExcludesElement = cacheConfigElement.element("changeDetectionExcludes");
+									if (changeDetectionExcludesElement != null)
+										changeDetectionExcludesElement.detach();
+									if (pathsElement != null) {
+										pathsElement.setName("entries");
+										for (Element pathElement : pathsElement.elements()) {
+											var path = pathElement.getText();
+											pathElement.setName("io.onedev.server.model.support.workspace.spec.CacheEntry");
+											pathElement.setText("");
+											pathElement.addElement("path").setText(path);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("IssueFields.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element issueFieldElement : dom.getRootElement().elements()) {
+					var type = issueFieldElement.elementTextTrim("type");
+					var valueElement = issueFieldElement.element("value");
+					var ordinalElement = issueFieldElement.element("ordinal");
+					if (valueElement != null) {
+						var projectId = issueProjects.get(issueFieldElement.elementTextTrim("issue"));
+						var number = getReferenceChoiceNumber(
+								type, valueElement.getTextTrim(), projectId, buildNumbers, issueNumbers,
+								pullRequestNumbers, buildProjects, issueProjects, pullRequestProjects);
+
+						if (number != null) {
+							valueElement.setText(number);
+							ordinalElement.setText(number);
+						} else if (isReferenceChoiceType(type)) {
+							issueFieldElement.detach();
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("BuildParams.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element buildParamElement : dom.getRootElement().elements()) {
+					var type = buildParamElement.elementTextTrim("type");
+					var valueElement = buildParamElement.element("value");
+					if (valueElement != null) {
+						var projectId = buildProjects.get(buildParamElement.elementTextTrim("build"));
+						var number = getReferenceChoiceNumber(
+								type, valueElement.getTextTrim(), projectId, buildNumbers, issueNumbers,
+								pullRequestNumbers, buildProjects, issueProjects, pullRequestProjects);
+						if (number != null)
+							valueElement.setText(number);
+						else if (isReferenceChoiceType(type))
+							buildParamElement.detach();
+					}
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Users.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					var aiSettingElement = element.element("aiSetting");
+					var modelSettingElement = aiSettingElement.element("modelSetting");
+					if (modelSettingElement != null) 
+						setDefaultAiModelBaseUrlIfBlank(modelSettingElement);
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Workspaces.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element workspaceElement : dom.getRootElement().elements()) {
+					workspaceElement.addElement("forTaskAutomation").setText("false");
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Settings.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					if (element.elementTextTrim("key").equals("AI")) {
+						var valueElement = element.element("value");
+						if (valueElement != null) {
+							var liteModelSettingElement = valueElement.element("liteModelSetting");
+							if (liteModelSettingElement != null)
+								setDefaultAiModelBaseUrlIfBlank(liteModelSettingElement);
+						}
+					} else if (element.elementTextTrim("key").equals("ISSUE")) {
+						var valueElement = element.element("value");
+						if (valueElement != null) {
+							var commitMessageFixSettingElement = valueElement.element("commitMessageFixSetting");
+							if (commitMessageFixSettingElement != null) {
+								var fixSuggestionElement = commitMessageFixSettingElement.element("fixSuggestion");
+								if (fixSuggestionElement == null)
+									fixSuggestionElement = commitMessageFixSettingElement.addElement("fixSuggestion");
+								fixSuggestionElement.setText(CommitMessageFixSetting.DEFAULT_FIX_SUGGESTION);
+							}
+							var fieldSpecsElement = valueElement.element("fieldSpecs");
+							if (fieldSpecsElement != null) {
+								for (Element fieldSpecElement : fieldSpecsElement.elements()) {
+									if ("Type".equals(fieldSpecElement.elementTextTrim("name"))) {
+										var choiceProviderElement = fieldSpecElement.element("choiceProvider");
+										if (choiceProviderElement != null) {
+											var choicesElement = choiceProviderElement.element("choices");
+											if (choicesElement != null) {
+												boolean hasBuildFailed = false;
+												for (Element choiceElement : choicesElement.elements()) {
+													if ("Build Failed".equals(choiceElement.elementTextTrim("value"))) {
+														hasBuildFailed = true;
+														break;
+													}
+												}
+												if (!hasBuildFailed) {
+													var buildFailed = new Choice();
+													buildFailed.setValue("Build Failed");
+													buildFailed.setColor("#F64E60");
+													choicesElement.add(beanToElement(buildFailed));
+												}
+											}
+										}
+										break;
+									}
+								}
+								boolean hasBuildField = false;
+								for (Element fieldSpecElement : fieldSpecsElement.elements()) {
+									if ("Build".equals(fieldSpecElement.elementTextTrim("name"))) {
+										hasBuildField = true;
+										break;
+									}
+								}
+								if (!hasBuildField) {
+									var build = new BuildChoiceField();
+									build.setName("Build");
+									var showCondition = new ShowCondition();
+									showCondition.setInputName("Type");
+									var valueIsOneOf = new ValueIsOneOf();
+									valueIsOneOf.setValues(List.of("Build Failed"));
+									showCondition.setValueMatcher(valueIsOneOf);
+									build.setShowCondition(showCondition);
+									fieldSpecsElement.add(beanToElement(build));
+								}
+							}
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate230(File dataDir, Stack<Integer> versions) {
+	}
+
+	private void migrate231(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Roles.xml")) {
+				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+				for (Element roleElement : dom.getRootElement().elements()) {
+					roleElement.addElement("canEditFieldsOfOtherIssues")
+							.setText("Code Writer".equals(roleElement.elementTextTrim("name")) ? "true" : "false");
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate232(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Projects.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element projectElement : dom.getRootElement().elements()) {
+					var workspaceSpecsElement = projectElement.element("workspaceSpecs");
+					for (Element workspaceSpecElement : workspaceSpecsElement.elements()) {
+						var userDatasElement = workspaceSpecElement.element("userDatas");
+						for (Element userDataElement : userDatasElement.elements()) {
+							var entriesElement = userDataElement.element("entries");
+							for (Element entryElement : entriesElement.elements()) {
+								var path = entryElement.elementTextTrim("path");
+								if (path.endsWith("/.agents"))
+									entryElement.detach();
+							}
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate233(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Dashboards.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					for (var widgetElement : element.element("widgets").elements()) {
+						for (var tabElement : widgetElement.element("tabs").elements()) {
+							if (tabElement.getName().endsWith("ProjectOverviewWidget")) {
+								tabElement.addElement("showWorkspaceStats").setText("true");
+								tabElement.addElement("showLanguageStats").setText("true");
+								tabElement.addElement("showNextIteration").setText("true");
+							}
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("GitLfsLocks.xml")) {
+				FileUtils.deleteFile(file);
+			}
+		}
+	}
+
+	private void migrate234(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Users.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					element.element("aiSetting").addElement("proactive").setText("false");
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate235(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Users.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					var aiSettingElement = element.element("aiSetting");
+					aiSettingElement.addElement("maxLoopCount").setText("3");
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Workspaces.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					element.addElement("participatingUserIds");
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate236(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Settings.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					if (element.elementTextTrim("key").equals("AI")) {
+						var valueElement = element.element("value");
+						if (valueElement != null) {
+							valueElement.addElement("codeExplanationPrompt")
+									.setText(AiSetting.DEFAULT_CODE_EXPLANATION_PROMPT);
+							valueElement.addElement("issueSummaryPrompt")
+									.setText(AiSetting.DEFAULT_ISSUE_SUMMARY_PROMPT);
+							valueElement.addElement("pullRequestSummaryPrompt")
+									.setText(AiSetting.DEFAULT_PULL_REQUEST_SUMMARY_PROMPT);
+							valueElement.addElement("buildFailureIssuePrompt")
+									.setText(AiSetting.DEFAULT_BUILD_FAILURE_ISSUE_PROMPT);
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Users.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					var responsibilitiesElement = element.element("aiSetting").addElement("pullRequestAssigneeResponsibilities");
+					responsibilitiesElement.addElement("io.onedev.server.model.support.AiSetting_-PullRequestAssigneeResponsibility")
+							.setText("FIX_FAILED_BUILDS");
+					responsibilitiesElement.addElement("io.onedev.server.model.support.AiSetting_-PullRequestAssigneeResponsibility")
+							.setText("RESOLVE_MERGE_CONFLICTS");
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Workspaces.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					element.addElement("mergeIfAcceptable").setText("false");
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate237(File dataDir, Stack<Integer> versions) {
+		var keepEmailAddressesPrivateMap = new HashMap<String, Boolean>();
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("EmailAddresss.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					if (Boolean.parseBoolean(element.elementTextTrim("primary"))) {
+						var open = Boolean.parseBoolean(element.elementTextTrim("open"));
+						keepEmailAddressesPrivateMap.put(element.elementTextTrim("owner"), !open);
+					}					
+					element.element("git").detach();
+					element.element("open").detach();
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Users.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					var isPrivate = keepEmailAddressesPrivateMap.getOrDefault(element.elementTextTrim("id"), false);
+					element.addElement("keepEmailAddressesPrivate").setText(String.valueOf(isPrivate));
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Settings.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					if (element.elementTextTrim("key").equals("SECURITY")) {
+						Element valueElement = element.element("value");
+						if (valueElement != null)
+							valueElement.addElement("disableInternalLogin").setText("false");
+					} else if (element.elementTextTrim("key").equals("SYSTEM")) {
+						Element valueElement = element.element("value");
+						if (valueElement != null) {
+							valueElement.addElement("noreplyEmailDomain")
+									.setText(SystemSetting.DEFAULT_NOREPLY_EMAIL_DOMAIN);
+						}
+					} else if (element.elementTextTrim("key").equals("GPG")) {
+						Element valueElement = element.element("value");
+						if (valueElement != null) {
+							Element encodedSigningKeyElement = valueElement.element("encodedSigningKey");
+							if (encodedSigningKeyElement != null) {
+								try {
+									var generator = GpgUtils.generateKeyRingGenerator(
+											User.SYSTEM_NAME + "<" + User.SYSTEM_NAME.toLowerCase() + "@"
+													+ SystemSetting.DEFAULT_NOREPLY_EMAIL_DOMAIN + ">");
+									var baos = new ByteArrayOutputStream();
+									generator.generateSecretKeyRing().encode(baos);
+									encodedSigningKeyElement.setText(
+											JVM.getBase64Codec().encode(baos.toByteArray()));
+								} catch (Exception e) {
+									throw new RuntimeException(e);
+								}
+							}
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate238(File dataDir, Stack<Integer> versions) {
+		var oldClaudeRunTaskCmd = "claude --dangerously-skip-permissions -p --verbose \"$TASK_PROMPT\"";
+		var newClaudeRunTaskCmd = "claude --dangerously-skip-permissions --system-prompt \"$TASK_SYSTEM_PROMPT\" -p --verbose \"$TASK_USER_PROMPT\"";
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Projects.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element projectElement : dom.getRootElement().elements()) {
+					var workspaceSpecsElement = projectElement.element("workspaceSpecs");
+					for (Element workspaceSpecElement : workspaceSpecsElement.elements()) {
+						var taskAutomationElement = workspaceSpecElement.element("taskAutomation");
+						if (taskAutomationElement != null) {
+							var runTaskCmdElement = taskAutomationElement.element("runTaskCmd");
+							if (runTaskCmdElement != null && oldClaudeRunTaskCmd.equals(runTaskCmdElement.getText()))
+								runTaskCmdElement.setText(newClaudeRunTaskCmd);
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate239(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Settings.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					if (element.elementTextTrim("key").equals("MAIL")) {
+						Element valueElement = element.element("value");
+						if (valueElement != null)
+							valueElement.addElement("concurrency").setText("2");
+					}
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate240(File dataDir, Stack<Integer> versions) {
+		var oldBuildFailureIssuePrompt = """
+			Create an issue for the build failure:
+			Title: Job '<job name>' is failed on '<ref name>'
+			Description: <The build summary>
+			Type: <Build Failed>
+			Priority: Major
+			Build: <build number>
+			Assignees: <your own user name>""";
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Settings.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					if (element.elementTextTrim("key").equals("AI")) {
+						Element valueElement = element.element("value");
+						if (valueElement != null) {
+							Element promptElement = valueElement.element("buildFailureIssuePrompt");
+							if (promptElement.getText().equals(oldBuildFailureIssuePrompt))
+								promptElement.setText(AiSetting.DEFAULT_BUILD_FAILURE_ISSUE_PROMPT);
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate241(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Projects.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element projectElement : dom.getRootElement().elements()) {
+					var workspaceSpecsElement = projectElement.element("workspaceSpecs");
+					for (Element workspaceSpecElement : workspaceSpecsElement.elements())
+						workspaceSpecElement.addElement("retrieveSubmodules").setText("true");
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate242(File dataDir, Stack<Integer> versions) {
+		var oldFixSuggestion = StringUtils.deleteWhitespace("""
+				When a commit is intended to resolve/fix/close an issue, add the issue reference
+				in the commit message footer as a separate line, for instance:
+				Fixes #100
+				Fixes PROJ-100""");
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Settings.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					if (element.elementTextTrim("key").equals("ISSUE")) {
+						var valueElement = element.element("value");
+						if (valueElement != null) {
+							var commitMessageFixSettingElement = valueElement.element("commitMessageFixSetting");
+							var fixSuggestionElement = commitMessageFixSettingElement.element("fixSuggestion");
+							if (StringUtils.deleteWhitespace(fixSuggestionElement.getText()).equals(oldFixSuggestion))
+								fixSuggestionElement.setText(CommitMessageFixSetting.DEFAULT_FIX_SUGGESTION);
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate243(File dataDir, Stack<Integer> versions) {
+		for (File file : dataDir.listFiles()) {
+			if (file.getName().startsWith("Projects.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					element.addElement("wikiSetting");
+					element.addElement("wikiManagement").setText("false");
+				}
+				dom.writeToFile(file, false);
+			}
+		}
 	}
 
 }

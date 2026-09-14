@@ -17,9 +17,9 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 import org.apache.wicket.Component;
+import org.apache.wicket.RestartResponseException;
 import org.apache.wicket.Session;
 import org.apache.wicket.ajax.AjaxRequestTarget;
-import org.apache.wicket.ajax.form.AjaxFormComponentUpdatingBehavior;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
 import org.apache.wicket.markup.ComponentTag;
 import org.apache.wicket.markup.head.IHeaderResponse;
@@ -34,13 +34,11 @@ import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.GenericPanel;
 import org.apache.wicket.markup.repeater.RepeatingView;
 import org.apache.wicket.model.IModel;
-import org.apache.wicket.model.Model;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 
-import io.onedev.commons.utils.ExplicitException;
 import io.onedev.commons.utils.TaskLogger;
 import io.onedev.server.OneDev;
 import io.onedev.server.service.AuditService;
@@ -70,11 +68,11 @@ import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.util.CryptoUtils;
 import io.onedev.server.util.DateRange;
 import io.onedev.server.util.DateUtils;
-import io.onedev.server.web.component.datepicker.DateRangePicker;
 import io.onedev.server.web.component.taskbutton.TaskButton;
 import io.onedev.server.web.component.taskbutton.TaskResult;
 import io.onedev.server.web.component.user.UserAvatar;
 import io.onedev.server.web.component.user.UserDeleteLink;
+import io.onedev.server.web.page.HomePage;
 import io.onedev.server.web.component.user.profile.activity.ApprovePullRequest;
 import io.onedev.server.web.component.user.profile.activity.CommentIssue;
 import io.onedev.server.web.component.user.profile.activity.CommentPullRequest;
@@ -108,6 +106,8 @@ public abstract class UserProfilePanel extends GenericPanel<User> {
     private final List<UserActivity> accessibleActivities = new ArrayList<>();
 
     private final long inaccessibleActivityCount;
+
+    private final int year;
 
     private final LocalDate fromDate;
 
@@ -154,15 +154,12 @@ public abstract class UserProfilePanel extends GenericPanel<User> {
             translations.put(it.name(), _T(TextUtils.getDisplayValue(it).toLowerCase()));
         });
 
-        if (dateRange != null) {
-            fromDate = dateRange.getFrom();
-            toDate = dateRange.getTo();
-            if (toDate.toEpochDay() - fromDate.toEpochDay() > 365) 
-                throw new ExplicitException("Date range must not exceed 365 days");
-        } else {
-            toDate = DateUtils.toLocalDate(new Date());
-            fromDate = toDate.minusDays(365);
-        }             
+        if (dateRange != null)
+            year = dateRange.getFrom().getYear();
+        else
+            year = LocalDate.now().getYear();
+        fromDate = LocalDate.of(year, 1, 1);
+        toDate = LocalDate.of(year, 12, 31);
         var activities = getActivities(DateUtils.toDate(fromDate.atStartOfDay()), DateUtils.toDate(toDate.atTime(23, 59, 59)));
         var inaccessibleActivityCount = 0;
         for (var activity: activities) {
@@ -191,8 +188,8 @@ public abstract class UserProfilePanel extends GenericPanel<User> {
         add(new Label("name", "@" + user.getName()));
         add(new Label("fullName", user.getFullName()).setVisible(user.getFullName() != null));
 
-        var emailAddress = user.getPublicEmailAddress();
-        if (emailAddress != null) {
+        var emailAddress = user.getPrimaryEmailAddress();
+        if (emailAddress != null && emailAddress.isVerified() && !user.isKeepEmailAddressesPrivate()) {
             add(new WebMarkupContainer("emailAddress") {
 
                 @Override
@@ -347,6 +344,22 @@ public abstract class UserProfilePanel extends GenericPanel<User> {
 		}.add(new ConfirmClickModifier(_T("Disabling account will reset password, clear access tokens, "
 				+ "and remove all references from other entities except for past activities. Do you "
 				+ "really want to continue?"))));
+
+		add(new Link<Void>("runAs") {
+
+			@Override
+			public void onClick() {
+				SecurityUtils.getSubject().runAs(getUser().getPrincipals());
+				throw new RestartResponseException(HomePage.class);
+			}
+
+			@Override
+			protected void onConfigure() {
+				super.onConfigure();
+				setVisible(SecurityUtils.isAdministrator() && !getUser().equals(SecurityUtils.getAuthUser()));
+			}
+
+		});
 		
 		add(new UserDeleteLink("delete") {
 
@@ -369,25 +382,43 @@ public abstract class UserProfilePanel extends GenericPanel<User> {
             }
 		});        
 
-        var dateRangePicker = new DateRangePicker("dateRange", Model.of(new DateRange(fromDate, toDate)));
-        dateRangePicker.add(new AjaxFormComponentUpdatingBehavior("change") {
+        add(new AjaxLink<Void>("prevYear") {
+
             @Override
-            protected void onUpdate(AjaxRequestTarget target) {
-                var newPanel = new UserProfilePanel(UserProfilePanel.this.getId(), getModel(), dateRangePicker.getModelObject()) {
-
-                    @Override
-                    protected void onDateRangeChanged(AjaxRequestTarget target, DateRange dateRange) {
-                        UserProfilePanel.this.onDateRangeChanged(target, dateRange);
-                    }
-
-                };
-                replaceWith(newPanel);
-                target.add(newPanel);
-                onDateRangeChanged(target, dateRangePicker.getModelObject());
+            public void onClick(AjaxRequestTarget target) {
+                UserProfilePanel.this.changeYear(target, year - 1);
             }
+
+            @Override
+            protected void onComponentTag(ComponentTag tag) {
+                super.onComponentTag(tag);
+                tag.put("data-tippy-content", _T("Previous year"));
+            }
+
         });
-        dateRangePicker.setRequired(true);
-        add(dateRangePicker);
+        add(new Label("year", String.valueOf(year)));
+        add(new AjaxLink<Void>("nextYear") {
+
+            @Override
+            protected void onConfigure() {
+                super.onConfigure();
+                setEnabled(year < LocalDate.now().getYear());
+            }
+
+            @Override
+            public void onClick(AjaxRequestTarget target) {
+                UserProfilePanel.this.changeYear(target, year + 1);
+            }
+
+            @Override
+            protected void onComponentTag(ComponentTag tag) {
+                super.onComponentTag(tag);
+                if (year >= LocalDate.now().getYear())
+                    tag.put("disabled", "disabled");
+                tag.put("data-tippy-content", _T("Next year"));
+            }
+
+        });
 
         add(new Label("activityCount", accessibleActivities.size() + inaccessibleActivityCount));
 
@@ -572,6 +603,21 @@ public abstract class UserProfilePanel extends GenericPanel<User> {
         }
     }
     
+    private void changeYear(AjaxRequestTarget target, int year) {
+        var dateRange = new DateRange(LocalDate.of(year, 1, 1), LocalDate.of(year, 12, 31));
+        var newPanel = new UserProfilePanel(getId(), getModel(), dateRange) {
+
+            @Override
+            protected void onDateRangeChanged(AjaxRequestTarget target, DateRange dateRange) {
+                UserProfilePanel.this.onDateRangeChanged(target, dateRange);
+            }
+
+        };
+        replaceWith(newPanel);
+        target.add(newPanel);
+        onDateRangeChanged(target, dateRange);
+    }
+
     protected abstract void onDateRangeChanged(AjaxRequestTarget target, DateRange dateRange);
 
 }

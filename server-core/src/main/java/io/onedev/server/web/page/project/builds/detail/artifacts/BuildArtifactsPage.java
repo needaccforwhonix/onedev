@@ -45,7 +45,7 @@ import io.onedev.server.web.ajaxlistener.ConfirmClickListener;
 import io.onedev.server.web.behavior.NoRecordsBehavior;
 import io.onedev.server.web.component.svg.SpriteImage;
 import io.onedev.server.web.page.project.builds.detail.BuildDetailPage;
-import io.onedev.server.web.page.project.builds.detail.dashboard.BuildDashboardPage;
+import io.onedev.server.web.page.project.builds.detail.BuildDefaultPage;
 import io.onedev.server.web.resource.ArtifactResource;
 import io.onedev.server.web.resource.ArtifactResourceReference;
 
@@ -82,7 +82,9 @@ public class BuildArtifactsPage extends BuildDetailPage {
 			@Override
 			public void populateItem(Item<ICellPopulator<Pair<String, ArtifactInfo>>> cellItem, String componentId, IModel<Pair<String, ArtifactInfo>> rowModel) {
 				ArtifactInfo artifact = rowModel.getObject().getRight();
-				cellItem.add(new Label(componentId, DateUtils.formatAge(new Date(artifact.getLastModified()))));
+				var lastModified = new Date(artifact.getLastModified());
+				cellItem.add(new Label(componentId, DateUtils.formatAge(lastModified))
+						.add(new AttributeAppender("data-tippy-content", DateUtils.formatDateTime(lastModified))));
 			}
 
 		});
@@ -110,7 +112,7 @@ public class BuildArtifactsPage extends BuildDetailPage {
 							if (getBuild().getRootArtifacts().size() != 0)
 								updateArtifacts(target);
 							else
-								setResponsePage(BuildDashboardPage.class, BuildDashboardPage.paramsOf(getBuild()));
+								setResponsePage(BuildDefaultPage.class, BuildDefaultPage.paramsOf(getBuild()));
 						}
 
 					};

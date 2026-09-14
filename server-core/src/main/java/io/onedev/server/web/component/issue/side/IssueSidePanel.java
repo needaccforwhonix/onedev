@@ -15,10 +15,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import javax.inject.Inject;
 import javax.mail.internet.InternetAddress;
 
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.Predicate;
 import org.apache.wicket.Component;
 import org.apache.wicket.RestartResponseAtInterceptPageException;
+import org.apache.wicket.Session;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.attributes.AjaxCallListener;
 import org.apache.wicket.ajax.attributes.AjaxRequestAttributes;
@@ -45,11 +49,9 @@ import org.apache.wicket.request.mapper.parameter.PageParameters;
 
 import com.google.common.collect.Lists;
 
+import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.OneDev;
 import io.onedev.server.buildspecmodel.inputspec.Input;
-import io.onedev.server.service.IssueChangeService;
-import io.onedev.server.service.IssueVoteService;
-import io.onedev.server.service.IssueWatchService;
 import io.onedev.server.entityreference.EntityReference;
 import io.onedev.server.model.AbstractEntity;
 import io.onedev.server.model.Issue;
@@ -64,19 +66,33 @@ import io.onedev.server.search.entity.issue.IssueQuery;
 import io.onedev.server.search.entity.issue.IssueQueryLexer;
 import io.onedev.server.search.entity.issue.StateCriteria;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.security.permission.AccessProject;
+import io.onedev.server.service.IssueChangeService;
+import io.onedev.server.service.IssueService;
+import io.onedev.server.service.IssueVoteService;
+import io.onedev.server.service.IssueWatchService;
+import io.onedev.server.service.ProjectService;
+import io.onedev.server.util.ProjectAndBranch;
 import io.onedev.server.util.Similarities;
+import io.onedev.server.util.facade.ProjectCache;
 import io.onedev.server.web.WebConstants;
 import io.onedev.server.web.ajaxlistener.AttachAjaxIndicatorListener;
 import io.onedev.server.web.ajaxlistener.ConfirmClickListener;
 import io.onedev.server.web.behavior.ChangeObserver;
+import io.onedev.server.web.component.branch.BranchLink;
 import io.onedev.server.web.component.entity.reference.EntityReferencePanel;
 import io.onedev.server.web.component.entity.watches.EntityWatchesPanel;
+import io.onedev.server.web.component.floating.FloatingPanel;
 import io.onedev.server.web.component.issue.fieldvalues.FieldValuesPanel;
 import io.onedev.server.web.component.issue.statestats.StateStatsBar;
+import io.onedev.server.web.component.issue.workspaces.IssueWorkspacesLink;
 import io.onedev.server.web.component.iteration.IterationStatusLabel;
 import io.onedev.server.web.component.iteration.choice.AbstractIterationChoiceProvider;
 import io.onedev.server.web.component.iteration.choice.IterationChoiceResourceReference;
+import io.onedev.server.web.component.link.DropdownLink;
 import io.onedev.server.web.component.link.ViewStateAwarePageLink;
+import io.onedev.server.web.component.modal.confirm.ConfirmModalPanel;
+import io.onedev.server.web.component.project.selector.ProjectSelector;
 import io.onedev.server.web.component.select2.Response;
 import io.onedev.server.web.component.select2.ResponseFiller;
 import io.onedev.server.web.component.select2.SelectToActChoice;
@@ -84,13 +100,17 @@ import io.onedev.server.web.component.user.ident.Mode;
 import io.onedev.server.web.component.user.ident.UserIdentPanel;
 import io.onedev.server.web.component.user.list.SimpleUserListLink;
 import io.onedev.server.web.page.base.BasePage;
+import io.onedev.server.web.page.project.issues.detail.IssueActivitiesPage;
 import io.onedev.server.web.page.project.issues.iteration.IterationIssuesPage;
 import io.onedev.server.web.page.security.LoginPage;
 
 public abstract class IssueSidePanel extends Panel {
 
 	private static final int MAX_DISPLAY_AVATARS = 20;
-		
+	
+	@Inject
+	private IssueService issueService;
+
 	private boolean confidential;
 	
 	private Component watchesContainer;
@@ -105,7 +125,17 @@ public abstract class IssueSidePanel extends Panel {
 		addOrReplace(newFieldsContainer());
 		addOrReplace(newConfidentialContainer());
 		addOrReplace(newIterationsContainer());
+		addOrReplace(newBranchContainer());
 		addOrReplace(newVotesContainer());
+		addOrReplace(new Label("workspaceCount", getIssue().getWorkspaces().size()));
+		addOrReplace(new IssueWorkspacesLink("workspaces") {
+
+			@Override
+			protected Issue getIssue() {
+				return IssueSidePanel.this.getIssue();
+			}
+
+		});
 		
 		addOrReplace(watchesContainer = new EntityWatchesPanel("watches") {
 
@@ -141,10 +171,25 @@ public abstract class IssueSidePanel extends Panel {
 			
 		});
 		
-		if (SecurityUtils.canManageIssues(getProject())) 
-			addOrReplace(newDeleteLink("delete"));		
-		else 
+		if (SecurityUtils.canManageIssues(getProject())) {
+			Component moveLink = newMoveLink("move");
+			Component deleteLink = newDeleteLink("delete");
+			if (getIssue().getWorkspaces().size() > 0) {
+				moveLink.setEnabled(false);
+				moveLink.add(AttributeAppender.append("class", "disabled"));
+				moveLink.add(AttributeAppender.append("data-tippy-content",
+						_T("Cannot move issue as it has workspaces")));
+				deleteLink.setEnabled(false);
+				deleteLink.add(AttributeAppender.append("class", "disabled"));
+				deleteLink.add(AttributeAppender.append("data-tippy-content",
+						_T("Cannot delete issue as it has workspaces")));
+			}
+			addOrReplace(moveLink);
+			addOrReplace(deleteLink);
+		} else {
+			addOrReplace(new WebMarkupContainer("move").setVisible(false));
 			addOrReplace(new WebMarkupContainer("delete").setVisible(false));
+		}
 		
 		super.onBeforeRender();
 	}
@@ -354,8 +399,8 @@ public abstract class IssueSidePanel extends Panel {
 				super.onInitialize();
 				
 				getSettings().setPlaceholder(_T("Add to iteration..."));
-				getSettings().setFormatResult("onedev.server.iterationChoiceFormatter.formatResult");
-				getSettings().setFormatSelection("onedev.server.iterationChoiceFormatter.formatSelection");
+				getSettings().setTemplateResult("onedev.server.iterationChoiceFormatter.formatResult");
+				getSettings().setTemplateSelection("onedev.server.iterationChoiceFormatter.formatSelection");
 				getSettings().setEscapeMarkup("onedev.server.iterationChoiceFormatter.escapeMarkup");
 			}
 			
@@ -381,7 +426,64 @@ public abstract class IssueSidePanel extends Panel {
 		
 		return container;
 	}
-	
+
+	private Component newBranchContainer() {
+		String branch = getIssue().getBranch();
+		boolean canCreate = branch == null && canCreateAssociatedBranch();
+		WebMarkupContainer container = new WebMarkupContainer("branch") {
+
+			@Override
+			protected void onConfigure() {
+				super.onConfigure();
+				setVisible(SecurityUtils.canReadCode(getProject()) && (branch != null || canCreate));
+			}
+
+		};
+		if (branch != null) {
+			container.add(new BranchLink("link", new ProjectAndBranch(getProject(), branch), true)
+					.add(AttributeAppender.replace("title", branch)));
+		} else {
+			container.add(new WebMarkupContainer("link").setVisible(false));
+		}
+
+		AjaxLink<Void> createLink = new AjaxLink<Void>("create") {
+
+			@Override
+			protected void updateAjaxAttributes(AjaxRequestAttributes attributes) {
+				super.updateAjaxAttributes(attributes);
+				attributes.getAjaxCallListeners().add(new AttachAjaxIndicatorListener(false));
+			}
+
+			@Override
+			protected void onConfigure() {
+				super.onConfigure();
+				setVisible(canCreate);
+			}
+
+			@Override
+			public void onClick(AjaxRequestTarget target) {
+				try {
+					var branch = issueService.ensureBranch(SecurityUtils.getSubject(), getIssue());
+					getSession().success(MessageFormat.format(_T("Branch \"{0}\" created"), branch));
+				} catch (ExplicitException e) {
+					getSession().error(e.getMessage());
+				}
+				target.add(IssueSidePanel.this);
+				onBranchCreated(target);
+			}
+
+		};
+		container.add(createLink);
+
+		return container;
+	}
+
+	private boolean canCreateAssociatedBranch() {
+		String prefix = getProject().findIssueBranchPrefix();
+		String branchName = (prefix != null ? prefix + "/" : "") + "issue-" + getIssue().getNumber();
+		return SecurityUtils.canCreateBranch(getProject(), branchName);
+	}
+
 	private List<IssueVote> getSortedVotes() {
 		List<IssueVote> votes = new ArrayList<>(getIssue().getVotes());
 		Collections.sort(votes, new Comparator<IssueVote>() {
@@ -580,9 +682,82 @@ public abstract class IssueSidePanel extends Panel {
 		response.render(CssHeaderItem.forReference(new IssueSideCssResourceReference()));
 	}
 
+	private Component newMoveLink(String componentId) {
+		return new DropdownLink(componentId) {
+
+			@Override
+			protected Component newContent(String id, FloatingPanel dropdown) {
+				return new ProjectSelector(id, new LoadableDetachableModel<List<Project>>() {
+
+					@Override
+					protected List<Project> load() {
+						Collection<Project> collection = SecurityUtils.getAuthorizedProjects(new AccessProject());
+						ProjectCache cache = OneDev.getInstance(ProjectService.class).cloneCache();
+
+						CollectionUtils.filter(collection, new Predicate<Project>() {
+
+							@Override
+							public boolean evaluate(Project object) {
+								return cache.get(object.getId()).isIssueManagement();
+							}
+
+						});
+
+						collection.remove(getProject());
+
+						List<Project> list = new ArrayList<>(collection);
+						list.sort(cache.comparingPath());
+						return list;
+					}
+
+				}) {
+
+					@Override
+					protected void onSelect(AjaxRequestTarget target, Project project) {
+						dropdown.close();
+
+						Long projectId = project.getId();
+						new ConfirmModalPanel(target) {
+
+							private Project getTargetProject() {
+								return OneDev.getInstance(ProjectService.class).load(projectId);
+							}
+
+							@Override
+							protected void onConfirm(AjaxRequestTarget target) {
+								var user = SecurityUtils.getUser();
+								Issue issue = getIssue();
+								issueService.move(user, Lists.newArrayList(issue), getProject(), getTargetProject());
+								Session.get().success(_T("Issue moved"));
+								setResponsePage(IssueActivitiesPage.class, IssueActivitiesPage.paramsOf(issue));
+							}
+
+							@Override
+							protected String getConfirmMessage() {
+								return MessageFormat.format(
+										_T("Do you really want to move this issue to project \"{0}\""),
+										getTargetProject());
+							}
+
+							@Override
+							protected String getConfirmInput() {
+								return null;
+							}
+
+						};
+					}
+
+				}.add(AttributeAppender.append("class", "no-current"));
+			}
+
+		};
+	}
+	
 	protected abstract Issue getIssue();
 
 	protected abstract Component newDeleteLink(String componentId);
+
+	protected abstract void onBranchCreated(AjaxRequestTarget target);
 
 	private void notifyIssueChange(IPartialPageRequestHandler handler, Issue issue) {
 		((BasePage)getPage()).notifyObservablesChange(handler, issue.getChangeObservables(true));

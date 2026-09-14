@@ -3,13 +3,14 @@ package io.onedev.server.security;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
+import io.onedev.server.web.util.WikiUtils;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
-import org.jspecify.annotations.Nullable;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.core.HttpHeaders;
 
@@ -20,18 +21,14 @@ import org.apache.shiro.subject.SimplePrincipalCollection;
 import org.apache.shiro.subject.Subject;
 import org.apache.shiro.util.ThreadContext;
 import org.apache.shiro.web.mgt.WebSecurityManager;
+import org.jspecify.annotations.Nullable;
 
 import com.google.common.collect.Sets;
 
 import io.onedev.commons.loader.AppLoader;
 import io.onedev.k8shelper.KubernetesHelper;
 import io.onedev.server.OneDev;
-import io.onedev.server.service.AccessTokenService;
-import io.onedev.server.service.BaseAuthorizationService;
-import io.onedev.server.service.GroupService;
-import io.onedev.server.service.ProjectService;
-import io.onedev.server.service.SettingService;
-import io.onedev.server.service.UserService;
+import io.onedev.server.git.GitUtils;
 import io.onedev.server.model.AccessToken;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.CodeComment;
@@ -53,7 +50,7 @@ import io.onedev.server.model.PullRequestWatch;
 import io.onedev.server.model.Role;
 import io.onedev.server.model.User;
 import io.onedev.server.model.UserAuthorization;
-import io.onedev.server.security.permission.AccessBuild;
+import io.onedev.server.model.Workspace;
 import io.onedev.server.security.permission.AccessBuildLog;
 import io.onedev.server.security.permission.AccessBuildPipeline;
 import io.onedev.server.security.permission.AccessBuildReports;
@@ -64,6 +61,8 @@ import io.onedev.server.security.permission.BasePermission;
 import io.onedev.server.security.permission.ConfidentialIssuePermission;
 import io.onedev.server.security.permission.CreateChildren;
 import io.onedev.server.security.permission.CreateRootProjects;
+import io.onedev.server.security.permission.CreateWorkspaces;
+import io.onedev.server.security.permission.EditFieldsOfOtherIssues;
 import io.onedev.server.security.permission.EditIssueField;
 import io.onedev.server.security.permission.EditIssueLink;
 import io.onedev.server.security.permission.JobPermission;
@@ -73,6 +72,7 @@ import io.onedev.server.security.permission.ManageIssues;
 import io.onedev.server.security.permission.ManageJob;
 import io.onedev.server.security.permission.ManageProject;
 import io.onedev.server.security.permission.ManagePullRequests;
+import io.onedev.server.security.permission.ManageWorkspaces;
 import io.onedev.server.security.permission.ProjectPermission;
 import io.onedev.server.security.permission.ReadCode;
 import io.onedev.server.security.permission.ReadPack;
@@ -82,11 +82,19 @@ import io.onedev.server.security.permission.SystemAdministration;
 import io.onedev.server.security.permission.UploadCache;
 import io.onedev.server.security.permission.WriteCode;
 import io.onedev.server.security.permission.WritePack;
+import io.onedev.server.service.AccessTokenService;
+import io.onedev.server.service.BaseAuthorizationService;
+import io.onedev.server.service.GroupService;
+import io.onedev.server.service.ProjectService;
+import io.onedev.server.service.SettingService;
+import io.onedev.server.service.UserService;
 import io.onedev.server.util.facade.ProjectCache;
 import io.onedev.server.util.facade.UserCache;
 import io.onedev.server.util.facade.UserFacade;
 
 public class SecurityUtils extends org.apache.shiro.SecurityUtils {
+
+	public static final String AUTHENTICATION_FAILED_MESSAGE = "Invalid account or incorrect credentials";
 
 	public static final String PRINCIPAL_ANONYMOUS = "anonymous";
 	
@@ -282,6 +290,39 @@ public class SecurityUtils extends org.apache.shiro.SecurityUtils {
 		return canCreateBranch(getSubject(), project, branchName);
 	}
 	
+	/** The caller must normalize the file path before checking permission and reading it. */
+	public static boolean canReadFile(Project project, String file) {
+		return canReadFile(getSubject(), project, file);
+	}
+
+	/** The caller must normalize the file path before checking permission and reading it. */
+	public static boolean canReadFile(Subject subject, Project project, String file) {
+		return canReadCode(subject, project) 
+				|| project.isWikiManagement() 
+					&& WikiUtils.isUnderFolder(project.getWikiFolder().getPath(), file)
+					&& canAccessProject(subject, project);
+	}
+
+	public static boolean canEditWikiPage(Project project, @Nullable String revision, String path) {
+		if (!project.isCodeManagement() || !project.isWikiManagement() || !canAccessProject(project))
+			return false;
+		String branchName;
+		if (revision == null) {
+			if (project.getDefaultBranch() != null || !canCreateBranch(project, "main"))
+				return false;
+			branchName = "main";
+		} else {
+			var branch = project.getRef(revision);
+			if (branch == null || !branch.getName().startsWith("refs/heads/"))
+				return false;
+			branchName = GitUtils.ref2branch(branch.getName());
+		}
+		var user = getAuthUser();
+		return user != null && canModifyFile(project, branchName, path)
+				&& project.getBranchProtection(branchName, user).getDisallowedFileTypes()
+						.stream().noneMatch(it -> it.equalsIgnoreCase("md"));
+	}
+
 	public static boolean canModifyFile(Project project, String branch, String file) {
 		var subject = getSubject();
 		var user = getUser(subject);
@@ -322,10 +363,31 @@ public class SecurityUtils extends org.apache.shiro.SecurityUtils {
 		return canOpenTerminal(getSubject(), build);
 	}
 	
+	public static boolean canEditIssueField(Issue issue, String fieldName) {
+		return canEditIssueField(getSubject(), issue, fieldName);
+	}
+
+	public static boolean canEditIssueField(Subject subject, Issue issue, String fieldName) {
+		return canEditIssueField(subject, issue.getProject(), fieldName) && canEditIssueFields(subject, issue);
+	}
+
 	public static boolean canEditIssueField(Project project, String fieldName) {
-		return getSubject().isPermitted(new ProjectPermission(project, new EditIssueField(Sets.newHashSet(fieldName))));
+		return canEditIssueField(getSubject(), project, fieldName);
+	}
+
+	public static boolean canEditIssueField(Subject subject, Project project, String fieldName) {
+		return subject.isPermitted(new ProjectPermission(project, new EditIssueField(Sets.newHashSet(fieldName))));
+	}
+
+	public static boolean canEditIssueFields(Issue issue) {
+		return canEditIssueFields(getSubject(), issue);
 	}
 	
+	public static boolean canEditIssueFields(Subject subject, Issue issue) {
+		return issue.getSubmitter().equals(getAuthUser(subject)) 
+				|| subject.isPermitted(new ProjectPermission(issue.getProject(), new EditFieldsOfOtherIssues()));
+	}
+
 	public static boolean canEditIssueLink(Project project, LinkSpec link) {
 		return getSubject().isPermitted(new ProjectPermission(project, new EditIssueLink(link)));
 	}
@@ -465,6 +527,22 @@ public class SecurityUtils extends org.apache.shiro.SecurityUtils {
 	public static boolean canManagePullRequests(Subject subject, Project project) {
 		return subject.isPermitted(new ProjectPermission(project, new ManagePullRequests()));
 	}
+
+	public static boolean canManageWorkspaces(Project project) {
+		return canManageWorkspaces(getSubject(), project);
+	}
+
+	public static boolean canManageWorkspaces(Subject subject, Project project) {
+		return subject.isPermitted(new ProjectPermission(project, new ManageWorkspaces()));
+	}
+
+	public static boolean canCreateWorkspaces(Subject subject, Project project) {
+		return subject.isPermitted(new ProjectPermission(project, new CreateWorkspaces()));
+	}
+
+	public static boolean canCreateWorkspaces(Project project) {	
+		return canCreateWorkspaces(getSubject(), project);
+	}
 	
 	public static boolean canManageCodeComments(Project project) {
 		return canManageCodeComments(getSubject(), project);
@@ -488,7 +566,11 @@ public class SecurityUtils extends org.apache.shiro.SecurityUtils {
 	}
 	
 	public static boolean canAccessLog(Build build) {
-		return getSubject().isPermitted(new ProjectPermission(build.getProject(), 
+		return canAccessLog(getSubject(), build);
+	}
+
+	public static boolean canAccessLog(Subject subject, Build build) {
+		return subject.isPermitted(new ProjectPermission(build.getProject(), 
 				new JobPermission(build.getJobName(), new AccessBuildLog())));
 	}
 
@@ -496,16 +578,7 @@ public class SecurityUtils extends org.apache.shiro.SecurityUtils {
 		return getSubject().isPermitted(new ProjectPermission(build.getProject(),
 				new JobPermission(build.getJobName(), new AccessBuildPipeline())));
 	}
-	
-	public static boolean canAccessBuild(Build build) {
-		return canAccessJob(build.getProject(), build.getJobName());
-	}
-	
-	public static boolean canAccessJob(Project project, String jobName) {
-		return getSubject().isPermitted(new ProjectPermission(project, 
-				new JobPermission(jobName, new AccessBuild())));
-	}
-
+		
 	public static boolean canReadPack(Project project) {
 		return getSubject().isPermitted(new ProjectPermission(project, new ReadPack()));
 	}
@@ -525,7 +598,11 @@ public class SecurityUtils extends org.apache.shiro.SecurityUtils {
 	}
 
 	public static boolean canWritePack(Project project) {
-		return getSubject().isPermitted(new ProjectPermission(project, new WritePack()));
+		return canWritePack(getSubject(), project);
+	}
+
+	public static boolean canWritePack(Subject subject, Project project) {
+		return subject.isPermitted(new ProjectPermission(project, new WritePack()));
 	}
 	
 	public static boolean isAdministrator() {
@@ -534,6 +611,34 @@ public class SecurityUtils extends org.apache.shiro.SecurityUtils {
 	
 	public static boolean isAdministrator(Subject subject) {
 		return subject.isPermitted(new SystemAdministration());
+	}
+
+	public static boolean canModifyOrDelete(Workspace workspace) {
+		return canModifyOrDelete(getSubject(), workspace);
+	}
+
+	public static boolean canModifyOrDelete(Subject subject, Workspace workspace) {
+		return canManageWorkspaces(subject, workspace.getProject()) 
+				|| workspace.getUser().equals(getAuthUser(subject));
+	}
+
+	public static boolean canChangeStatus(Subject subject, CodeComment comment) {
+		var user = getAuthUser(subject);
+		if (user == null)
+			return false;
+
+		if (canWriteCode(subject, comment.getProject()) 
+				|| comment.getUser().equals(user) 
+				|| canManageCodeComments(comment.getProject())) {
+			return true;
+		}
+		
+		var request = comment.getCompareContext().getPullRequest();
+		return request != null && (request.isReviewer(user) || request.getSubmitter().equals(user));
+	}
+
+	public static boolean canChangeStatus(CodeComment comment) {
+		return canChangeStatus(getSubject(), comment);
 	}
 	
 	public static boolean canModifyOrDelete(CodeComment comment) {
@@ -616,9 +721,12 @@ public class SecurityUtils extends org.apache.shiro.SecurityUtils {
 	}
 	
 	public static Runnable inheritSubject(Runnable task) {
-		Subject subject = SecurityUtils.getSubject();
+        Subject subject = ThreadContext.getSubject();
 		return () -> {
-			ThreadContext.bind(subject);
+			if (subject != null)
+				ThreadContext.bind(subject);
+			else
+				ThreadContext.unbindSubject();
 			task.run();
 		};
 	}
@@ -764,66 +872,6 @@ public class SecurityUtils extends org.apache.shiro.SecurityUtils {
 		}
 
 		return filterApplicableUsers(authorizedUsers, permission);
-	}
-
-	private static void populateAccessibleJobNames(Collection<String> accessibleJobNames,
-											Collection<String> availableJobNames, Role role) {
-		for (String jobName: availableJobNames) {
-			if (role.implies(new JobPermission(jobName, new AccessBuild())))
-				accessibleJobNames.add(jobName);
-		}
-	}
-
-	public static Collection<String> getAccessibleJobNames(Project project, Collection<String> availableJobNames) {
-		return getAccessibleJobNames(getSubject(), project, availableJobNames);
-	}
-
-	public static Collection<String> getAccessibleJobNames(Subject subject, Project project, Collection<String> availableJobNames) {
-		Collection<String> accessibleJobNames = new HashSet<>();
-		if (subject.isPermitted(new SystemAdministration())) {
-			accessibleJobNames.addAll(availableJobNames);
-		} else {
-			String principal = (String) subject.getPrincipal();
-			var user = getAuthUser(principal);
-			if (user != null) {
-				for (UserAuthorization authorization: user.getProjectAuthorizations()) {
-					if (authorization.getProject().isSelfOrAncestorOf(project)) {
-						populateAccessibleJobNames(accessibleJobNames, availableJobNames,
-								authorization.getRole());
-					}
-				}
-
-				for (Group group: user.getGroups()) {
-					for (GroupAuthorization authorization: group.getAuthorizations()) {
-						if (authorization.getProject().isSelfOrAncestorOf(project)) {
-							populateAccessibleJobNames(accessibleJobNames, availableJobNames,
-									authorization.getRole());
-						}
-					}
-				}
-			}
-			
-			var accessToken = getAccessToken(principal);
-			if (accessToken != null) {
-				for (var authorization: accessToken.getAuthorizations()) {
-					if (authorization.getProject().isSelfOrAncestorOf(project)) {
-						populateAccessibleJobNames(accessibleJobNames, availableJobNames,
-								authorization.getRole());
-					}
-				}
-			}
-
-			if (!isAnonymous(principal) || getSettingService().getSecuritySetting().isEnableAnonymousAccess()) {
-				Project current = project;
-				do {
-					for (var authorization: current.getBaseAuthorizations()) {
-						populateAccessibleJobNames(accessibleJobNames, availableJobNames, authorization.getRole());
-					}
-					current = current.getParent();
-				} while (current != null);
-			}
-		}
-		return accessibleJobNames;
 	}
 
 	private static void populateAccessibleReportNames(Map<String, Collection<String>> accessibleReportNames,

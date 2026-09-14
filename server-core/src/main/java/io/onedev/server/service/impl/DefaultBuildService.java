@@ -2,7 +2,10 @@ package io.onedev.server.service.impl;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static edu.emory.mathcs.backport.java.util.Collections.sort;
+import static io.onedev.commons.utils.LockUtils.read;
 import static io.onedev.commons.utils.LockUtils.write;
+import static io.onedev.k8shelper.KubernetesHelper.BEARER;
+import static io.onedev.k8shelper.KubernetesHelper.checkStatus;
 import static io.onedev.server.model.Build.ARTIFACTS_DIR;
 import static io.onedev.server.model.Build.LOG_FILE;
 import static io.onedev.server.model.Build.PROP_FINISH_DATE;
@@ -18,12 +21,20 @@ import static io.onedev.server.model.Build.Status.SUCCESSFUL;
 import static io.onedev.server.model.Project.BUILDS_DIR;
 import static io.onedev.server.model.Project.SHARE_TEST_DIR;
 import static io.onedev.server.search.entity.EntitySort.Direction.ASCENDING;
-import static io.onedev.server.util.DirectoryVersionUtils.isVersionFile;
+import static io.onedev.server.util.IOUtils.BUFFER_SIZE;
+import static io.onedev.server.util.SiteSyncUtils.isVersionFile;
 import static java.lang.Long.valueOf;
 import static java.util.Arrays.asList;
+import static javax.ws.rs.core.HttpHeaders.AUTHORIZATION;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectStreamException;
+import java.io.OutputStream;
 import java.io.Serializable;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -39,28 +50,36 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import org.jspecify.annotations.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.From;
+import javax.persistence.criteria.Path;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import javax.persistence.criteria.Selection;
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.client.Invocation;
+import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.StreamingOutput;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.shiro.subject.Subject;
 import org.eclipse.jgit.lib.ObjectId;
+import org.glassfish.jersey.client.ClientProperties;
 import org.hibernate.Session;
-import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.query.Query;
 import org.hibernate.query.criteria.internal.path.SingularAttributePath;
+import org.jspecify.annotations.Nullable;
 import org.quartz.CronScheduleBuilder;
 import org.quartz.ScheduleBuilder;
 import org.slf4j.Logger;
@@ -76,18 +95,14 @@ import io.onedev.commons.utils.FileUtils;
 import io.onedev.server.OneDev;
 import io.onedev.server.StorageService;
 import io.onedev.server.cluster.ClusterService;
-import io.onedev.server.service.BuildDependenceService;
-import io.onedev.server.service.BuildLabelService;
-import io.onedev.server.service.BuildParamService;
-import io.onedev.server.service.BuildService;
-import io.onedev.server.service.ProjectService;
-import io.onedev.server.service.UserService;
 import io.onedev.server.event.Listen;
 import io.onedev.server.event.entity.EntityPersisted;
 import io.onedev.server.event.entity.EntityRemoved;
+import io.onedev.server.event.project.build.BuildFinished;
 import io.onedev.server.event.system.SystemStarting;
 import io.onedev.server.event.system.SystemStopping;
 import io.onedev.server.git.service.GitService;
+import io.onedev.server.logging.LogService;
 import io.onedev.server.model.Agent;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.Build.Status;
@@ -108,9 +123,18 @@ import io.onedev.server.search.entity.EntityQuery;
 import io.onedev.server.search.entity.EntitySort;
 import io.onedev.server.search.entity.build.BuildQuery;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.security.permission.AccessProject;
+import io.onedev.server.service.BuildLabelService;
+import io.onedev.server.service.BuildParamService;
+import io.onedev.server.service.BuildService;
+import io.onedev.server.service.ProjectService;
+import io.onedev.server.service.UserService;
 import io.onedev.server.taskschedule.SchedulableTask;
 import io.onedev.server.taskschedule.TaskScheduler;
+import io.onedev.server.util.IOUtils;
 import io.onedev.server.util.ProjectBuildStatusStat;
+import io.onedev.server.util.ProjectScope;
+import io.onedev.server.util.QueryUtils;
 import io.onedev.server.util.StatusInfo;
 import io.onedev.server.util.artifact.ArtifactInfo;
 import io.onedev.server.util.artifact.DirectoryInfo;
@@ -135,10 +159,7 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 	
 	@Inject
 	private BuildParamService buildParamService;
-	
-	@Inject
-	private BuildDependenceService buildDependenceService;
-	
+		
 	@Inject
 	private ProjectService projectService;
 	
@@ -153,6 +174,9 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 	
 	@Inject
 	private BuildLabelService labelService;
+
+	@Inject
+	private LogService logService;
 	
 	@Inject
 	private ClusterService clusterService;
@@ -253,18 +277,20 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 			Long buildId = build.getProject().getId();
 			Long buildNumber = build.getNumber();
 
-			String activeServer = projectService.getActiveServer(projectId, false);
+			String projectServer = projectService.getActiveServer(projectId, false);
 			
 			transactionService.runAfterCommit(() -> {
 				cache.remove(buildId);
-				if (activeServer != null) {
-					clusterService.submitToServer(activeServer, () -> {
+				if (projectServer != null) {
+					clusterService.submitToServer(projectServer, () -> {
 						try {
 							var buildDir = getBuildDir(projectId, buildNumber);
 							FileUtils.deleteDir(buildDir);
 							projectService.directoryModified(projectId, buildDir.getParentFile());
-						} catch (Exception e) {
-							logger.error("Error deleting storage directory of build id '" + buildId + "'", e);
+						} catch (Throwable e) {
+							var message = "Error deleting build storage directory (project id: %d, build number: %d)"
+									.formatted(projectId, buildNumber);
+							logger.error(message, e);
 						}
 						return null;
 					});
@@ -272,6 +298,11 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 				}
 			});
 		}
+	}
+
+	@Listen
+	public void on(BuildFinished event) {
+		logService.flush(event.getBuild().getLoggingSupport());
 	}
 
 	@Sessional
@@ -455,43 +486,22 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 		List<Build> builds = new ArrayList<>();
 
 		EntityCriteria<Build> criteria = newCriteria();
-
-		List<Criterion> projectCriterions = new ArrayList<>();
-		Collection<String> availableJobNames = jobNames.get(project.getId());
-		if (availableJobNames != null && !availableJobNames.isEmpty()) {
-			Collection<String> accessibleJobNames = getAccessibleJobNames(subject, project);
-			if (accessibleJobNames.containsAll(availableJobNames)) {
-				projectCriterions.add(Restrictions.eq(Build.PROP_PROJECT, project));
-			} else {
-				List<Criterion> jobCriterions = new ArrayList<>();
-				for (String jobName: accessibleJobNames) 
-					jobCriterions.add(Restrictions.eq(Build.PROP_JOB_NAME, jobName));
-				if (!jobCriterions.isEmpty()) {
-					projectCriterions.add(Restrictions.and(
-							Restrictions.eq(Build.PROP_PROJECT, project), 
-							Restrictions.or(jobCriterions.toArray(new Criterion[0]))));
-				}
+		criteria.add(Restrictions.eq(Build.PROP_PROJECT, project));
+		
+		if (fuzzyQuery.length() != 0) {
+			try {
+				long buildNumber = Long.parseLong(fuzzyQuery);
+				criteria.add(Restrictions.eq(Build.PROP_NUMBER, buildNumber));
+			} catch (NumberFormatException e) {
+				criteria.add(Restrictions.or(
+						Restrictions.ilike(Build.PROP_VERSION, fuzzyQuery, MatchMode.ANYWHERE),
+						Restrictions.ilike(Build.PROP_JOB_NAME, fuzzyQuery, MatchMode.ANYWHERE)));
 			}
 		}
-		
-		if (!projectCriterions.isEmpty()) {
-			criteria.add(Restrictions.or(projectCriterions.toArray(new Criterion[0])));
-			
-			if (fuzzyQuery.length() != 0) {
-				try {
-					long buildNumber = Long.parseLong(fuzzyQuery);
-					criteria.add(Restrictions.eq(Build.PROP_NUMBER, buildNumber));
-				} catch (NumberFormatException e) {
-					criteria.add(Restrictions.or(
-							Restrictions.ilike(Build.PROP_VERSION, fuzzyQuery, MatchMode.ANYWHERE),
-							Restrictions.ilike(Build.PROP_JOB_NAME, fuzzyQuery, MatchMode.ANYWHERE)));
-				}
-			}
 
-			criteria.addOrder(Order.desc(Build.PROP_PROJECT));
-			criteria.addOrder(Order.desc(Build.PROP_NUMBER));
-			builds.addAll(query(criteria, 0, count));
-		} 
+		criteria.addOrder(Order.desc(Build.PROP_PROJECT));
+		criteria.addOrder(Order.desc(Build.PROP_NUMBER));
+		builds.addAll(query(criteria, 0, count));
 
 		return builds;
 	}
@@ -591,7 +601,7 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 		for (BuildParam param: build.getParams())
 			buildParamService.create(param);
 		for (BuildDependence dependence: build.getDependencies())
-			buildDependenceService.create(dependence);
+			dao.persist(dependence);
 	}
 
 	private Collection<Predicate> getPredicates(Subject subject, @Nullable Project project, From<Build, Build> root, CriteriaBuilder builder) {
@@ -599,46 +609,16 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 
 		if (project != null) {
 			predicates.add(builder.equal(root.get(Build.PROP_PROJECT), project));
-			if (!SecurityUtils.canManageBuilds(subject, project)) {
-				Collection<String> accessibleJobNames = getAccessibleJobNames(subject, project);
-				Collection<String> availableJobNames = jobNames.get(project.getId());
-				if (availableJobNames != null && !accessibleJobNames.containsAll(availableJobNames)) {
-					List<Predicate> jobPredicates = new ArrayList<>();
-					for (String jobName: accessibleJobNames) 
-						jobPredicates.add(builder.equal(root.get(Build.PROP_JOB_NAME), jobName));
-					predicates.add(builder.or(jobPredicates.toArray(new Predicate[0])));
-				}
-			}
 		} else if (!SecurityUtils.isAdministrator(subject)) {
-			List<Predicate> projectPredicates = new ArrayList<>();
-			Collection<Long> projectsWithAllJobs = new HashSet<>();
-			for (Map.Entry<Project, Collection<String>> entry: getAccessibleJobNames(subject).entrySet()) {
-				project = entry.getKey();
-				if (SecurityUtils.canManageBuilds(subject, project)) {
-					projectPredicates.add(builder.equal(root.get(Build.PROP_PROJECT), project));
-					projectsWithAllJobs.add(project.getId());
-				} else {
-					Collection<String> availableJobNamesOfProject = jobNames.get(project.getId());
-					if (availableJobNamesOfProject != null) {
-						Collection<String> accessibleJobNamesOfProject = entry.getValue();
-						if (accessibleJobNamesOfProject.containsAll(availableJobNamesOfProject)) {
-							projectsWithAllJobs.add(project.getId());
-							projectPredicates.add(builder.equal(root.get(Build.PROP_PROJECT), project));
-						} else {
-							List<Predicate> jobPredicates = new ArrayList<>();
-							for (String jobName: accessibleJobNamesOfProject) 
-								jobPredicates.add(builder.equal(root.get(Build.PROP_JOB_NAME), jobName));
-							projectPredicates.add(builder.and(
-									builder.equal(root.get(Build.PROP_PROJECT), project), 
-									builder.or(jobPredicates.toArray(new Predicate[0]))));
-						}
-					} else {
-						projectsWithAllJobs.add(project.getId());
-					}
-				}
+			Collection<Project> projects = SecurityUtils.getAuthorizedProjects(subject, new AccessProject());
+			if (!projects.isEmpty()) {
+				Path<Long> projectIdPath = root.get(Build.PROP_PROJECT).get(Project.PROP_ID);
+				predicates.add(Criteria.forManyValues(builder, projectIdPath,
+						projects.stream().map(it -> it.getId()).collect(Collectors.toSet()),
+						projectService.getIds()));
+			} else {
+				predicates.add(builder.disjunction());
 			}
-			if (!projectsWithAllJobs.containsAll(jobNames.keySet()))
-				predicates.add(builder.or(projectPredicates.toArray(new Predicate[0])));
 		}
 		
 		return predicates;
@@ -647,34 +627,36 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 	private Predicate[] getPredicates(Subject subject, @Nullable Project project, @Nullable Criteria<Build> criteria, 
 			CriteriaQuery<?> query, From<Build, Build> root, CriteriaBuilder builder) {
 		Collection<Predicate> predicates = getPredicates(subject, project, root, builder);
-		if (criteria != null) 
-			predicates.add(criteria.getPredicate(null, query, root, builder));
+		if (criteria != null) {
+			var projectScope = project!=null? new ProjectScope(project, false, false):null;
+			predicates.add(criteria.getPredicate(projectScope, query, root, builder));
+		}
 		return predicates.toArray(new Predicate[0]);
 	}
 	
 	private CriteriaQuery<Build> buildCriteriaQuery(Subject subject, @Nullable Project project, 
-			Session session,  EntityQuery<Build> buildQuery) {
+			Session session,  EntityQuery<Build> query) {
 		CriteriaBuilder builder = session.getCriteriaBuilder();
-		CriteriaQuery<Build> query = builder.createQuery(Build.class);
-		Root<Build> root = query.from(Build.class);
-		query.select(root);
+		CriteriaQuery<Build> criteriaQuery = builder.createQuery(Build.class);
+		Root<Build> root = criteriaQuery.from(Build.class);
+		criteriaQuery.select(root);
 		
-		query.where(getPredicates(subject, project, buildQuery.getCriteria(), query, root, builder));
+		criteriaQuery.where(getPredicates(subject, project, query.getCriteria(), criteriaQuery, root, builder));
 
-		applyOrders(root, query, builder, buildQuery);
+		applyOrders(root, criteriaQuery, builder, query);
 		
-		return query;
+		return criteriaQuery;
 	}
 	
 	@Sessional
 	@Override
-	public List<Build> query(Subject subject, Project project, EntityQuery<Build> buildQuery, 
+	public List<Build> query(Subject subject, Project project, EntityQuery<Build> query, 
 			boolean loadLabels, int firstResult, int maxResults) {
-		CriteriaQuery<Build> criteriaQuery = buildCriteriaQuery(subject, project, getSession(), buildQuery);
-		Query<Build> query = getSession().createQuery(criteriaQuery);
-		query.setFirstResult(firstResult);
-		query.setMaxResults(maxResults);
-		var builds = query.getResultList();
+		CriteriaQuery<Build> criteriaQuery = buildCriteriaQuery(subject, project, getSession(), query);
+		Query<Build> hibernateQuery = getSession().createQuery(criteriaQuery);
+		hibernateQuery.setFirstResult(firstResult);
+		hibernateQuery.setMaxResults(maxResults);
+		var builds = hibernateQuery.getResultList();
 		if (!builds.isEmpty() && loadLabels) 
 			labelService.populateLabels(builds);
 		return builds;		
@@ -682,13 +664,13 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 
 	@SuppressWarnings("rawtypes")
 	private void applyOrders(From<Build, Build> root, CriteriaQuery<?> criteriaQuery, CriteriaBuilder builder, 
-			EntityQuery<Build> buildQuery) {
+			EntityQuery<Build> query) {
 		List<javax.persistence.criteria.Order> orders = new ArrayList<>();
-		for (EntitySort sort: buildQuery.getSorts()) {
+		for (EntitySort sort: query.getSorts()) {
 			if (sort.getDirection() == ASCENDING)
-				orders.add(builder.asc(BuildQuery.getPath(root, SORT_FIELDS.get(sort.getField()).getProperty())));
+				orders.add(builder.asc(QueryUtils.getPath(root, SORT_FIELDS.get(sort.getField()).getProperty())));
 			else
-				orders.add(builder.desc(BuildQuery.getPath(root, SORT_FIELDS.get(sort.getField()).getProperty())));
+				orders.add(builder.desc(QueryUtils.getPath(root, SORT_FIELDS.get(sort.getField()).getProperty())));
 		}
 
 		boolean found = false;
@@ -706,33 +688,32 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 	}
 	
 	@Sessional
-	protected Collection<Long> queryIds(Project project, EntityQuery<Build> buildQuery, 
-			int firstResult, int maxResults) {
+	protected Collection<Long> queryIds(Project project, EntityQuery<Build> query, int firstResult, int maxResults) {
 		CriteriaBuilder builder = getSession().getCriteriaBuilder();
 		CriteriaQuery<Long> criteriaQuery = builder.createQuery(Long.class);
 		Root<Build> root = criteriaQuery.from(Build.class);
 		criteriaQuery.select(root.get(Build.PROP_ID));
 
 		var subject = userService.getSystem().asSubject();
-		criteriaQuery.where(getPredicates(subject, project, buildQuery.getCriteria(), criteriaQuery, root, builder));
+		criteriaQuery.where(getPredicates(subject, project, query.getCriteria(), criteriaQuery, root, builder));
 
-		applyOrders(root, criteriaQuery, builder, buildQuery);
+		applyOrders(root, criteriaQuery, builder, query);
 
-		Query<Long> query = getSession().createQuery(criteriaQuery);
-		query.setFirstResult(firstResult);
-		query.setMaxResults(maxResults);
+		Query<Long> hibernateQuery = getSession().createQuery(criteriaQuery);
+		hibernateQuery.setFirstResult(firstResult);
+		hibernateQuery.setMaxResults(maxResults);
 		
-		return query.list();
+		return hibernateQuery.list();
 	}
 	
 	@Sessional
 	@Override
-	public int count(Subject subject, Project project, Criteria<Build> buildCriteria) {
+	public int count(Subject subject, Project project, Criteria<Build> criteria) {
 		CriteriaBuilder builder = getSession().getCriteriaBuilder();
 		CriteriaQuery<Long> criteriaQuery = builder.createQuery(Long.class);
 		Root<Build> root = criteriaQuery.from(Build.class);
 
-		criteriaQuery.where(getPredicates(subject, project, buildCriteria, criteriaQuery, root, builder));
+		criteriaQuery.where(getPredicates(subject, project, criteria, criteriaQuery, root, builder));
 
 		criteriaQuery.select(builder.count(root));
 		return getSession().createQuery(criteriaQuery).uniqueResult().intValue();
@@ -1004,27 +985,6 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 	}
 	
 	@Override
-	public Map<Project, Collection<String>> getAccessibleJobNames(Subject subject) {
-		Map<Project, Collection<String>> accessibleJobNames = new HashMap<>();
-		for (Long projectId: jobNames.keySet()) {
-			Project project = projectService.load(projectId);
-			Collection<String> accessibleJobNamsOfProject = getAccessibleJobNames(subject, project);
-			if (!accessibleJobNamsOfProject.isEmpty())
-				accessibleJobNames.put(project, accessibleJobNamsOfProject); 
-		}
-		return accessibleJobNames;
-	}
-	
-	@Override
-	public Collection<String> getAccessibleJobNames(Subject subject, Project project) {
-		Collection<String> availableJobNames = jobNames.get(project.getId());
-		if (availableJobNames != null) 
-			return SecurityUtils.getAccessibleJobNames(subject, project, availableJobNames);
-		else 
-			return new HashSet<>();
-	}
-
-	@Override
 	public void populateBuilds(Collection<PullRequest> requests) {
 		CriteriaBuilder builder = getSession().getCriteriaBuilder();
 		CriteriaQuery<Build> query = builder.createQuery(Build.class);
@@ -1139,6 +1099,86 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 				return null;
 			}
 		});
+	}
+
+	@Override
+	public void downloadArtifact(Long projectId, Long buildNumber, String artifactPath, OutputStream os) {
+		var activeServer = projectService.getActiveServer(projectId, true);
+		if (activeServer.equals(clusterService.getLocalServerAddress())) {
+			read(getArtifactsLockName(projectId, buildNumber), () -> {
+				File artifactFile = new File(getArtifactsDir(projectId, buildNumber), artifactPath);
+				try (var is = new FileInputStream(artifactFile)) {
+					IOUtils.copy(is, os, BUFFER_SIZE);
+				}
+				return null;
+			});
+		} else {
+			Client client = ClientBuilder.newClient();
+			try {
+				String serverUrl = clusterService.getServerUrl(activeServer);
+				WebTarget target = client.target(serverUrl).path("~api/cluster/artifact")
+						.queryParam("projectId", projectId)
+						.queryParam("buildNumber", buildNumber)
+						.queryParam("artifactPath", artifactPath);
+				Invocation.Builder builder = target.request();
+				builder.header(AUTHORIZATION, BEARER + " "
+						+ clusterService.getCredential());
+				try (Response response = builder.get()) {
+					checkStatus(response);
+					try (var is = response.readEntity(InputStream.class)) {
+						IOUtils.copy(is, os, BUFFER_SIZE);
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+				}
+			} finally {
+				client.close();
+			}
+		}
+	}
+
+	@Override
+	public void uploadArtifact(Long projectId, Long buildNumber, String artifactPath, InputStream is) {
+		var activeServer = projectService.getActiveServer(projectId, true);
+		if (activeServer.equals(clusterService.getLocalServerAddress())) {
+			write(getArtifactsLockName(projectId, buildNumber), () -> {
+				var artifactsDir = storageService.initArtifactsDir(projectId, buildNumber);
+				File artifactFile = new File(artifactsDir, artifactPath);
+				FileUtils.createDir(artifactFile.getParentFile());
+				try (var os = new BufferedOutputStream(new FileOutputStream(artifactFile), BUFFER_SIZE)) {
+					IOUtils.copy(is, os, BUFFER_SIZE);
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
+				projectService.directoryModified(projectId, artifactsDir);
+				return null;
+			});
+		} else {
+			Client client = ClientBuilder.newClient();
+			client.property(ClientProperties.REQUEST_ENTITY_PROCESSING, "CHUNKED");
+			try {
+				String serverUrl = clusterService.getServerUrl(activeServer);
+				WebTarget target = client.target(serverUrl)
+						.path("~api/cluster/artifact")
+						.queryParam("projectId", projectId)
+						.queryParam("buildNumber", buildNumber)
+						.queryParam("artifactPath", artifactPath);
+				Invocation.Builder builder = target.request();
+				builder.header(AUTHORIZATION, BEARER + " " + clusterService.getCredential());
+				StreamingOutput output = os -> {
+					try {
+						IOUtils.copy(is, os, BUFFER_SIZE);
+					} finally {
+						os.close();
+					}
+				};
+				try (Response response = builder.post(Entity.entity(output, MediaType.APPLICATION_OCTET_STREAM))) {
+					checkStatus(response);
+				}
+			} finally {
+				client.close();
+			}
+		}
 	}
 	
 	@Override

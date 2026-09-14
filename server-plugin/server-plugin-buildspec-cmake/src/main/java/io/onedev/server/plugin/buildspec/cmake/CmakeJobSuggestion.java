@@ -16,7 +16,6 @@ import io.onedev.server.buildspec.job.trigger.BranchUpdateTrigger;
 import io.onedev.server.buildspec.job.trigger.PullRequestUpdateTrigger;
 import io.onedev.server.buildspec.step.CheckoutStep;
 import io.onedev.server.buildspec.step.CommandStep;
-import io.onedev.server.buildspec.step.GenerateChecksumStep;
 import io.onedev.server.buildspec.step.SetupCacheStep;
 import io.onedev.server.git.BlobIdent;
 import io.onedev.server.model.Project;
@@ -25,39 +24,34 @@ import io.onedev.server.plugin.report.coverage.PublishCoverageReportStep;
 import io.onedev.server.plugin.report.cppcheck.PublishCppcheckReportStep;
 
 public class CmakeJobSuggestion implements JobSuggestion {
-	
-	private GenerateChecksumStep newChecksumGenerateStep(String files) {
-		var generateChecksum = new GenerateChecksumStep();
-		generateChecksum.setName("generate dependency checksum");
-		generateChecksum.setFiles(files);
-		generateChecksum.setTargetFile("checksum");
-		return generateChecksum;
-	}
 
 	private SetupCacheStep newVcpkgCacheSetupStep() {
 		var setupCache = new SetupCacheStep();
 		setupCache.setName("set up dependency cache");
-		setupCache.setKey("vcpkg_cache_@file:checksum@");
+		setupCache.setKey("vcpkg_cache");
+
+		setupCache.setChecksumFiles("**/vcpkg.json");
 		setupCache.setPaths(Lists.newArrayList("/root/.cache/vcpkg"));
-		setupCache.getLoadKeys().add("vcpkg_cache");
 		return setupCache;
 	}
 
 	private SetupCacheStep newFetchContentCacheSetupStep() {
 		var setupCache = new SetupCacheStep();
 		setupCache.setName("set up dependency cache");
-		setupCache.setKey("fetchcontent_cache_@file:checksum@");
+		setupCache.setKey("fetchcontent_cache");
+
+		setupCache.setChecksumFiles("**/CMakeLists.txt");
 		setupCache.setPaths(Lists.newArrayList("build/.deps"));
-		setupCache.getLoadKeys().add("fetchcontent_cache");
 		return setupCache;
 	}
 
 	private SetupCacheStep newConanCacheSetupStep() {
 		var setupCache = new SetupCacheStep();
 		setupCache.setName("set up dependency cache");
-		setupCache.setKey("conan_cache_@file:checksum@");
+		setupCache.setKey("conan_cache");
+
+		setupCache.setChecksumFiles("**/conanfile.txt **/conanfile.py");
 		setupCache.setPaths(Lists.newArrayList("/root/.conan2/p"));
-		setupCache.getLoadKeys().add("conan_cache");
 		return setupCache;
 	}
 	
@@ -103,13 +97,10 @@ public class CmakeJobSuggestion implements JobSuggestion {
 		if (project.getBlob(new BlobIdent(commitId.name(), "CMakeLists.txt", FileMode.TYPE_FILE), false) != null) {
 			Job job = newJob();
 			if (hasVcpkg) {
-				job.getSteps().add(newChecksumGenerateStep("vcpkg.json vcpkg-configuration.json"));
 				job.getSteps().add(newVcpkgCacheSetupStep());
 			} else if (hasConan) {
-				job.getSteps().add(newChecksumGenerateStep("conanfile.txt"));
 				job.getSteps().add(newConanCacheSetupStep());
 			} else {
-				job.getSteps().add(newChecksumGenerateStep("**/CMakeLists.txt"));
 				job.getSteps().add(newFetchContentCacheSetupStep());
 			}
 

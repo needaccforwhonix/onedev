@@ -7,26 +7,27 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.jspecify.annotations.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.Pattern;
+
+import org.jspecify.annotations.Nullable;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.k8shelper.RunContainerFacade;
 import io.onedev.k8shelper.StepFacade;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Interpolative;
-import io.onedev.server.annotation.RegEx;
 import io.onedev.server.buildspec.BuildSpec;
 import io.onedev.server.buildspec.job.EnvVar;
 import io.onedev.server.buildspec.param.ParamCombination;
 import io.onedev.server.model.Build;
-import io.onedev.server.model.support.administration.jobexecutor.DockerAware;
+import io.onedev.server.model.support.administration.DockerAware;
 import io.onedev.server.model.support.administration.jobexecutor.JobExecutor;
 import io.onedev.server.model.support.administration.jobexecutor.KubernetesAware;
 
-@Editable(order=150, name="Run Docker Container", description="Run specified docker container. <a href='https://docs.onedev.io/concepts#job-workspace' target='_blank'>Job workspace</a> "
-		+ "is mounted into the container and its path is placed in environment variable <code>ONEDEV_WORKSPACE</code>. " +
+@Editable(order=150, name="Run Docker Container", description="Run specified docker container. <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job workdir</a> "
+		+ "is mounted into the container and its path is placed in environment variable <code>ONEDEV_WORKDIR</code>. " +
 		"<b class='text-warning'>Note: </b> this step can only be executed by server docker executor or remote " +
 		"docker executor")
 public class RunContainerStep extends Step {
@@ -37,7 +38,7 @@ public class RunContainerStep extends Step {
 	
 	private String args;
 	
-	private String runAs;
+	private String runAs = "0:0";
 	
 	private List<EnvVar> envVars = new ArrayList<>();
 
@@ -72,10 +73,9 @@ public class RunContainerStep extends Step {
 		this.args = args;
 	}
 
-	@Editable(order=250, name="Run As", group = "More Settings", placeholder = "root", description = "Optionally specify uid:gid to run container as. " +
-			"<b class='text-warning'>Note:</b> This setting should be left empty if container runtime is rootless or " +
-			"using user namespace remapping")
-	@RegEx(pattern="\\d+:\\d+", message = "Should be specified in form of <uid>:<gid>")
+	@Editable(order=250, name="Run As", group = "More Settings", placeholder = "root", description = "Specify uid:gid to run container as")
+	@Pattern(regexp="\\d+:\\d+", message = "Should be specified in form of <uid>:<gid>")
+	@NotEmpty
 	public String getRunAs() {
 		return runAs;
 	}
@@ -107,7 +107,7 @@ public class RunContainerStep extends Step {
 		this.envVars = envVars;
 	}
 	
-	@Editable(order=500, group = "More Settings", description="Optionally mount directories or files under job workspace into container")
+	@Editable(order=500, group = "More Settings", description="Optionally mount directories or files under job working directory into container")
 	@Valid
 	public List<VolumeMount> getVolumeMounts() {
 		return volumeMounts;

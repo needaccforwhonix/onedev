@@ -213,14 +213,14 @@ abstract class BatchEditPanel extends Panel implements InputContext {
 		});
 		
 		builtInFieldsBean = new BuiltInFieldsBean();
-		Class<? extends Serializable> fieldBeanClass = FieldUtils.getFieldBeanClass();
+		Class<? extends Serializable> fieldBeanClass = FieldUtils.getFieldBeanClass(false);
 		Issue issue = new Issue();
 		issue.setProject(getProject());
 		if (getIssueQuery() != null && getIssueQuery().getCriteria() != null) {
 			getIssueQuery().getCriteria().fill(issue);
 			builtInFieldsBean.setIterations(issue.getIterations().stream()
 					.map(it->it.getName()).collect(Collectors.toList()));
-			customFieldsBean = issue.getFieldBean(fieldBeanClass, false);
+			customFieldsBean = issue.getFieldBean(fieldBeanClass);
 		} else {
 			try {
 				customFieldsBean = fieldBeanClass.getDeclaredConstructor().newInstance();
@@ -311,8 +311,7 @@ abstract class BatchEditPanel extends Panel implements InputContext {
 							iterations = null;
 						}
 						
-						Map<String, Object> fieldValues = FieldUtils.getFieldValues(customFieldsEditor.newComponentContext(), 
-								customFieldsBean, selectedFields);
+						Map<String, Object> fieldValues = FieldUtils.getFieldValues(getProject(), customFieldsBean, selectedFields);
 						try {
 							var user = SecurityUtils.getUser();
 							OneDev.getInstance(IssueChangeService.class).batchUpdate(

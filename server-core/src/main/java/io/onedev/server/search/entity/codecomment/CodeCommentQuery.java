@@ -25,6 +25,11 @@ import static io.onedev.server.search.entity.codecomment.CodeCommentQueryParser.
 import static io.onedev.server.search.entity.codecomment.CodeCommentQueryParser.RepliedByMe;
 import static io.onedev.server.search.entity.codecomment.CodeCommentQueryParser.Resolved;
 import static io.onedev.server.search.entity.codecomment.CodeCommentQueryParser.Unresolved;
+import static io.onedev.server.util.QueryUtils.getCommitId;
+import static io.onedev.server.util.QueryUtils.getDateValue;
+import static io.onedev.server.util.QueryUtils.getIntValue;
+import static io.onedev.server.util.QueryUtils.getUser;
+import static io.onedev.server.util.QueryUtils.getValue;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -248,7 +253,7 @@ public class CodeCommentQuery extends EntityQuery<CodeComment> {
 				var fieldName = getValue(order.Quoted().getText());
 				var sortField = SORT_FIELDS.get(fieldName);
 				if (sortField == null)
-					throw new ExplicitException("Can not order by field: " + fieldName);
+					throw new ExplicitException("Cannot order by field: " + fieldName);
 
 				EntitySort commentSort = new EntitySort();
 				commentSort.setField(fieldName);

@@ -43,20 +43,22 @@ import org.json.JSONException;
 import org.json.JSONWriter;
 import org.jspecify.annotations.Nullable;
 
+import io.onedev.server.ai.ChatService;
 import io.onedev.server.model.Chat;
 import io.onedev.server.model.ChatMessage;
 import io.onedev.server.model.User;
 import io.onedev.server.persistence.dao.Dao;
-import io.onedev.server.service.ChatService;
 import io.onedev.server.service.UserService;
 import io.onedev.server.service.support.ChatResponding;
 import io.onedev.server.util.facade.UserFacade;
 import io.onedev.server.web.WebConstants;
 import io.onedev.server.web.WebSession;
 import io.onedev.server.web.behavior.ChangeObserver;
+import io.onedev.server.web.behavior.DisplayNoneBehavior;
 import io.onedev.server.web.behavior.OnTypingDoneBehavior;
 import io.onedev.server.web.component.MultilineLabel;
 import io.onedev.server.web.component.floating.FloatingPanel;
+import io.onedev.server.web.component.link.copytoclipboard.CopyToClipboardLink;
 import io.onedev.server.web.component.markdown.MarkdownViewer;
 import io.onedev.server.web.component.menu.MenuItem;
 import io.onedev.server.web.component.menu.MenuLink;
@@ -68,8 +70,6 @@ import io.onedev.server.web.component.user.UserAvatar;
 public class ChatPanel extends Panel {
 
 	private static final long serialVersionUID = 1L;
-
-	private static final int TIMEOUT_SECONDS = 300;
 
 	private static final String COOKIE_ACTIVE_AI = "active-ai";
 
@@ -353,7 +353,7 @@ public class ChatPanel extends Panel {
 			@Override
 			public void setObject(String object) {		
 				if (object != null && object.length() > ChatMessage.MAX_CONTENT_LEN)		
-					getSession().error(MessageFormat.format(_T("Message is too long. Max {0} characters"), ChatMessage.MAX_CONTENT_LEN));
+					getSession().error(MessageFormat.format(_T("Message is too long. Max {0} characters"), String.valueOf(ChatMessage.MAX_CONTENT_LEN)));
 				else
 					WebSession.get().setChatInput(object);
 			}
@@ -371,6 +371,8 @@ public class ChatPanel extends Panel {
 						
 			@Override
 			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
+				// Submit button is only enabled when input is not empty, so we can safely 
+				// assume that WebSession.get().getChatInput() is not null at this point
 				var input = WebSession.get().getChatInput().trim();
 				var chat = getActiveChat();
 				ChatMessage request = new ChatMessage();
@@ -410,7 +412,7 @@ public class ChatPanel extends Panel {
 					}
 				}
 
-				chatService.sendRequest(getPage(), request, TIMEOUT_SECONDS);
+				chatService.sendRequest(getPage(), request);
 
 				showNewMessages(target);
 				target.add(respondingContainer);
@@ -438,7 +440,7 @@ public class ChatPanel extends Panel {
 
 		add(form);		
 
-		add(AttributeAppender.append("class", "chat d-flex flex-column"));		
+		add(AttributeAppender.append("class", "chat flex-column"));		
 		setOutputMarkupPlaceholderTag(true);
 	}
 
@@ -470,7 +472,7 @@ public class ChatPanel extends Panel {
 				chat = chatService.get(activeChatId);
 			else
 				chat = WebSession.get().getAnonymousChats().get(activeChatId);			
-			if (chat != null && chat.getAi().equals(getActiveAI()))
+			if (chat != null && !getEntitledAis().isEmpty() && chat.getAi().equals(getActiveAI()))
 				return chat;
 		}
 		return null;		
@@ -525,6 +527,9 @@ public class ChatPanel extends Panel {
 		} else {
 			messageContainer.add(new MarkdownViewer("content", Model.of(message.getContent()), null));
 		}
+		messageContainer.add(new CopyToClipboardLink("copy", Model.of(message.getContent()))
+				.setVisible(!message.isError() && !message.isRequest() 
+						&& !message.getContent().contains("Conversation cancelled")));
 
 		if (message.isError()) 
 			messageContainer.add(AttributeAppender.append("class", "error"));
@@ -549,9 +554,7 @@ public class ChatPanel extends Panel {
 		WebRequest request = (WebRequest) RequestCycle.get().getRequest();
 		Cookie cookie = request.getCookie("chat.width");
 		if (cookie != null) 
-			add(AttributeAppender.replace("style", "width:" + cookie.getValue() + "px"));
-		else
-			add(AttributeAppender.replace("style", "width:400px"));				
+			add(AttributeAppender.append("style", "width:" + cookie.getValue() + "px;"));
 		super.onBeforeRender();
 	}
 
@@ -583,16 +586,20 @@ public class ChatPanel extends Panel {
 		WebSession.get().setActiveChatId(null);
 		if (prompt != null) {
 			WebSession.get().setChatInput(prompt);
-			target.appendJavaScript("""
-				$(".chat>.body>.send .submit").click();
-				""");
+			target.appendJavaScript("$('.chat>.body>.send .submit').click();");
 		}	
+		add(new DisplayNoneBehavior());		
 		target.add(this);
+		target.appendJavaScript("$('.chat').show('slide', {direction: 'right'}, 160);");	
 	}
 
 	public void hide(AjaxRequestTarget target) {
 		WebSession.get().setChatVisible(false);
-		target.add(this);
+		target.appendJavaScript("""
+			$('.chat').hide('slide', {direction: 'right'}, 160, function() {
+				$('.chat').removeClass().empty();
+			});
+			""");
 	}
 	
 }

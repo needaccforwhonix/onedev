@@ -1,10 +1,16 @@
 package io.onedev.server.service;
 
+import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Consumer;
 
 import org.jspecify.annotations.Nullable;
 
+import io.onedev.server.ai.AiTask;
+import io.onedev.server.annotation.NoDBAccess;
 import io.onedev.server.model.User;
 import io.onedev.server.util.facade.UserCache;
 import io.onedev.server.util.facade.UserFacade;
@@ -81,6 +87,9 @@ public interface UserService extends EntityService<User> {
 	
 	@Nullable
 	UserFacade findFacadeById(Long userId);
+
+	@Nullable
+	UserFacade findFacadeByName(String userName);
 	
 	@Nullable
 	User findByFullName(String fullName);
@@ -94,7 +103,33 @@ public interface UserService extends EntityService<User> {
 	List<User> query(@Nullable String term, int firstResult, int maxResults);
 	
 	int count(String term);
-		
-	UserCache cloneCache();
+
+	void execute(User ai, AiTask task);
 	
+	@NoDBAccess
+	File getWorkspaceDataBaseDir(Long userId);
+
+	@NoDBAccess
+	File getWorkspaceDataDir(Long userId, String dataKey, boolean createIfNotExist);
+
+	@NoDBAccess
+	boolean downloadWorkspaceData(Long userId, String dataKey, String path,
+								  Consumer<InputStream> dataStreamHandler);
+
+	@NoDBAccess
+	void uploadWorkspaceData(Long userId, String dataKey, String path,
+							 Consumer<OutputStream> dataStreamHandler);
+
+	@NoDBAccess
+	void notifyWorkspaceDataUploaded(Long userId, String dataKey);
+
+	@NoDBAccess
+	File getUsersDir();
+
+	@NoDBAccess
+	File getUserDir(Long userId);
+
+	UserCache cloneCache();
+
+
 }

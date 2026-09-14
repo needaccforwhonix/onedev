@@ -14,19 +14,19 @@ import io.onedev.commons.utils.StringUtils;
 import io.onedev.commons.utils.TaskLogger;
 import io.onedev.k8shelper.ServerStepResult;
 import io.onedev.server.OneDev;
+import io.onedev.server.annotation.Path;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Interpolative;
 import io.onedev.server.annotation.Patterns;
 import io.onedev.server.annotation.ProjectChoice;
-import io.onedev.server.annotation.SubPath;
 import io.onedev.server.buildspec.BuildSpec;
-import io.onedev.server.service.BuildService;
-import io.onedev.server.service.ProjectService;
-import io.onedev.server.service.SettingService;
 import io.onedev.server.job.JobContext;
 import io.onedev.server.job.JobService;
 import io.onedev.server.model.Project;
 import io.onedev.server.persistence.SessionService;
+import io.onedev.server.service.BuildService;
+import io.onedev.server.service.ProjectService;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.util.patternset.PatternSet;
 
 @Editable(order=1060, name="Site", group = PUBLISH, description="This step publishes specified files to be served as project web site. "
@@ -52,11 +52,11 @@ public class PublishSiteStep extends ServerSideStep {
 		this.projectPath = projectPath;
 	}
 	
-	@Editable(order=50, name="From Directory", placeholder="Job workspace", description="Optionally specify path "
-			+ "relative to <a href='https://docs.onedev.io/concepts#job-workspace'>job workspace</a> to publish "
-			+ "artifacts from. Leave empty to use job workspace itself")
+	@Editable(order=50, name="From Directory", placeholder="Job workdir", description="Optionally specify path "
+			+ "relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> to publish "
+			+ "artifacts from. Leave empty to use job working directory itself")
 	@Interpolative(variableSuggester="suggestVariables")
-	@SubPath
+	@Path(Path.Type.RELATIVE)
 	@Override
 	public String getSourcePath() {
 		return sourcePath;
@@ -67,8 +67,8 @@ public class PublishSiteStep extends ServerSideStep {
 	}
 	
 	@Editable(order=100, description="Specify files under above directory to be published. "
-			+ "Use * or ? for pattern match. <b>NOTE:</b> <code>index.html</code> should be "
-			+ "included in these files to be served as site start page")
+			+ "Use * or ? for pattern match. <b>NOTE:</b> If <code>index.html</code> is included, "
+			+ "it will be served as the site start page; otherwise a listing of published files will be shown")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Patterns(path=true)
 	@NotEmpty

@@ -31,7 +31,7 @@ import io.onedev.commons.utils.TaskLogger;
 import io.onedev.commons.utils.WordUtils;
 import io.onedev.server.buildspec.job.log.JobLogEntry;
 import io.onedev.server.buildspec.job.log.JobLogEntryEx;
-import io.onedev.server.job.log.StyleBuilder;
+import io.onedev.server.logging.StyleBuilder;
 import io.onedev.server.web.component.modal.ModalPanel;
 import io.onedev.server.web.component.taskbutton.TaskResult.PlainMessage;
 
@@ -121,10 +121,7 @@ public abstract class TaskButton extends AjaxButton {
 
 	protected void onCompleted(AjaxRequestTarget target, boolean successful) {
 	}
-	
-	protected void onCancelled(AjaxRequestTarget target) {
-	}
-	
+		
 	protected void submitTask(AjaxRequestTarget target) {
 		String taskId = getSession().getId() + ":" + getPath();
 
@@ -188,21 +185,26 @@ public abstract class TaskButton extends AjaxButton {
 			prevFuture.cancel(true);
 		
 		new ModalPanel(target) {
-			
-			private TaskResult result;
-			
+						
 			@Override
 			protected void onClosed() {
 				super.onClosed();
 				TaskFuture future = taskFutureService.getTaskFutures().remove(taskId);
 				
 				AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class);
+				boolean successful = false;
 				if (future != null) {
+					if (future.isDone() && !future.isCancelled()) {
+						try {
+							TaskResult taskResult = future.get();
+							successful = taskResult.isSuccessful();
+						} catch (InterruptedException | ExecutionException e) {
+							throw new RuntimeException(e);
+						}
+					}
 					future.cancel(true);
-					onCancelled(target);
-				} else {
-					onCompleted(target, result != null && result.isSuccessful());
 				}
+				onCompleted(target, successful);
 			}
 
 			@Override
@@ -228,8 +230,7 @@ public abstract class TaskButton extends AjaxButton {
 						TaskFuture future = taskFutureService.getTaskFutures().get(taskId);
 						if (future != null && future.isDone() && !future.isCancelled()) { 
 							try {
-								result = future.get();
-								return result;
+								return future.get();
 							} catch (InterruptedException | ExecutionException e) {
 								throw new RuntimeException(e);
 							}

@@ -3,6 +3,7 @@ package io.onedev.server.model.support.administration;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -11,38 +12,41 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.jspecify.annotations.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 
-import org.apache.shiro.subject.Subject;
+import org.jspecify.annotations.Nullable;
 
 import com.google.common.collect.Lists;
 
-import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.buildspecmodel.inputspec.choiceinput.choiceprovider.Choice;
 import io.onedev.server.buildspecmodel.inputspec.choiceinput.choiceprovider.SpecifiedChoices;
+import io.onedev.server.buildspecmodel.inputspec.showcondition.ShowCondition;
+import io.onedev.server.buildspecmodel.inputspec.showcondition.ValueIsOneOf;
 import io.onedev.server.model.Issue;
 import io.onedev.server.model.IssueSchedule;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.support.issue.BoardSpec;
-import io.onedev.server.model.support.issue.CommitMessageFixPatterns;
+import io.onedev.server.model.support.issue.CommitMessageFixSetting;
 import io.onedev.server.model.support.issue.ExternalIssueTransformers;
 import io.onedev.server.model.support.issue.IssueTemplate;
 import io.onedev.server.model.support.issue.NamedIssueQuery;
 import io.onedev.server.model.support.issue.StateSpec;
 import io.onedev.server.model.support.issue.TimeTrackingSetting;
+import io.onedev.server.model.support.issue.field.spec.BuildChoiceField;
 import io.onedev.server.model.support.issue.field.spec.FieldSpec;
 import io.onedev.server.model.support.issue.field.spec.choicefield.ChoiceField;
 import io.onedev.server.model.support.issue.field.spec.choicefield.defaultvalueprovider.DefaultValue;
 import io.onedev.server.model.support.issue.field.spec.choicefield.defaultvalueprovider.SpecifiedDefaultValue;
 import io.onedev.server.model.support.issue.field.spec.userchoicefield.UserChoiceField;
+import io.onedev.server.model.support.issue.transitionspec.BranchCreatedSpec;
 import io.onedev.server.model.support.issue.transitionspec.BranchUpdatedSpec;
 import io.onedev.server.model.support.issue.transitionspec.IssueStateTransitedSpec;
 import io.onedev.server.model.support.issue.transitionspec.ManualSpec;
-import io.onedev.server.model.support.issue.transitionspec.PullRequestOpenedSpec;
+import io.onedev.server.model.support.issue.transitionspec.PullRequestMergedSpec;
+import io.onedev.server.model.support.issue.transitionspec.PullRequestOpenedOrUpdatedSpec;
 import io.onedev.server.model.support.issue.transitionspec.TransitionSpec;
 import io.onedev.server.search.entity.issue.IssueQuery;
 import io.onedev.server.search.entity.issue.IssueQueryParseOption;
@@ -78,7 +82,7 @@ public class GlobalIssueSetting implements Serializable {
 	
 	private List<IssueTemplate> issueTemplates = new ArrayList<>();
 	
-	private CommitMessageFixPatterns commitMessageFixPatterns;
+	private CommitMessageFixSetting commitMessageFixSetting = new CommitMessageFixSetting();
 
 	private ExternalIssueTransformers externalIssueTransformers;
 	
@@ -114,6 +118,11 @@ public class GlobalIssueSetting implements Serializable {
 		supportRequest.setValue("Support Request");
 		supportRequest.setColor("#8950FC");
 		choices.add(supportRequest);
+
+		Choice buildFailed = new Choice();
+		buildFailed.setValue("Build Failed");
+		buildFailed.setColor("#F64E60");
+		choices.add(buildFailed);
 		
 		specifiedChoices.setChoices(choices);
 		type.setChoiceProvider(specifiedChoices);
@@ -170,6 +179,16 @@ public class GlobalIssueSetting implements Serializable {
 		assignees.setNameOfEmptyValue("Not assigned");
 		assignees.setName("Assignees");
 		fieldSpecs.add(assignees);
+
+		BuildChoiceField build = new BuildChoiceField();
+		build.setName("Build");
+		var showCondition = new ShowCondition();
+		showCondition.setInputName("Type");
+		var valueIsOneOf = new ValueIsOneOf();
+		valueIsOneOf.setValues(Lists.newArrayList("Build Failed"));
+		showCondition.setValueMatcher(valueIsOneOf);
+		build.setShowCondition(showCondition);
+		fieldSpecs.add(build);
 		
 		StateSpec open = new StateSpec();
 		open.setName("Open");
@@ -179,23 +198,11 @@ public class GlobalIssueSetting implements Serializable {
 		StateSpec inProgress = new StateSpec();
 		inProgress.setName("In Progress");
 		inProgress.setColor("#FFA700");		
-		inProgress.setDescription(
-			"The AI assistant should switch the working directory to the branch corresponding to the issue by running below command:\n\n" + 
-			"git fetch <onedev remote> main && git checkout -b <branch-name> <onedev remote>/main && git push -u <onedev remote> <branch-name>\n\n" +
-			"Here <branch name> should be derived from user instruction or issue title, and <onedev remote> should be retrieved by calling tool getCurrentRemote"
-		);
 		stateSpecs.add(inProgress);
 
 		StateSpec inReview = new StateSpec();
 		inReview.setName("In Review");
 		inReview.setColor("#9C26B0");		
-		inReview.setDescription(
-			"AI assistant should do the following:\n\n" +
-			"1. Add files to git index, and create conventional commit for current work if there are uncommitted changes. Subject line of the commit message should include the issue number at the end in form of (<issue reference>)\n" +
-			"2. Push the branch to remote by running \"git push <onedev remote>\"\n" +
-			"3. Create a pull request for current branch, with other params derived from current issue, and user instruction\n\n" +
-			"Here <issue reference> should be replaced with reference of the issue whose state is being changed, and <onedev remote> should be retrieved via tool getCurrentRemote"
-		);
 		stateSpecs.add(inReview);
 
 		StateSpec closed = new StateSpec();
@@ -208,12 +215,22 @@ public class GlobalIssueSetting implements Serializable {
 		branchUpdatedSpec.setBranches("main master");
 		branchUpdatedSpec.setIssueQuery("fixed in current commit");		
 		transitionSpecs.add(branchUpdatedSpec);
+
+		var branchCreatedSpec = new BranchCreatedSpec();
+		branchCreatedSpec.setToState("In Progress");
+		branchCreatedSpec.setIssueQuery("referenced in current branch");		
+		transitionSpecs.add(branchCreatedSpec);
 		
-		var pullRequestOpenedSpec = new PullRequestOpenedSpec();
+		var pullRequestOpenedSpec = new PullRequestOpenedOrUpdatedSpec();
 		pullRequestOpenedSpec.setToState("In Review");
 		pullRequestOpenedSpec.setBranches("main master");
 		pullRequestOpenedSpec.setIssueQuery("fixed in current pull request");		
 		transitionSpecs.add(pullRequestOpenedSpec);
+
+		var pullRequestMergedSpec = new PullRequestMergedSpec();
+		pullRequestMergedSpec.setToState("Closed");
+		pullRequestMergedSpec.setIssueQuery("fixed in current pull request and \"Type\" is \"Build Failed\"");		
+		transitionSpecs.add(pullRequestMergedSpec);
 		
 		var issueStateTransitedSpec = new IssueStateTransitedSpec();
 		issueStateTransitedSpec.setToState("Open");
@@ -272,17 +289,7 @@ public class GlobalIssueSetting implements Serializable {
 		namedQueries.add(new NamedIssueQuery("Open & Unassigned", "\"State\" is \"Open\" and \"Assignees\" is empty"));
 		namedQueries.add(new NamedIssueQuery("Open & Unscheduled", "\"State\" is \"Open\" and \"Iteration\" is empty"));
 		namedQueries.add(new NamedIssueQuery("All", null));
-		
-		commitMessageFixPatterns = new CommitMessageFixPatterns();
-		var entry = new CommitMessageFixPatterns.Entry();
-		entry.setPrefix("(^|\\W)(fix|fixed|fixes|fixing|resolve|resolved|resolves|resolving|close|closed|closes|closing)[\\s:]+");
-		entry.setSuffix("(?=$|\\W)");
-		commitMessageFixPatterns.getEntries().add(entry);
-		entry = new CommitMessageFixPatterns.Entry();
-		entry.setPrefix("\\(\\s*");
-		entry.setSuffix("\\s*\\)\\s*$");
-		commitMessageFixPatterns.getEntries().add(entry);
-		
+				
 		timeTrackingSetting.setAggregationLink("Sub Issues");
 		
 		externalIssueTransformers = new ExternalIssueTransformers();
@@ -756,12 +763,12 @@ public class GlobalIssueSetting implements Serializable {
 
 	@NotNull
 	@Valid
-	public CommitMessageFixPatterns getCommitMessageFixPatterns() {
-		return commitMessageFixPatterns;
+	public CommitMessageFixSetting getCommitMessageFixSetting() {
+		return commitMessageFixSetting;
 	}
 
-	public void setCommitMessageFixPatterns(CommitMessageFixPatterns commitMessageFixPatterns) {
-		this.commitMessageFixPatterns = commitMessageFixPatterns;
+	public void setCommitMessageFixSetting(CommitMessageFixSetting commitMessageFixSetting) {
+		this.commitMessageFixSetting = commitMessageFixSetting;
 	}
 
 	@Valid
@@ -785,19 +792,6 @@ public class GlobalIssueSetting implements Serializable {
 		
 	public int getStateOrdinal(String state) {
 		return getStateSpecs().indexOf(getStateSpec(state));
-	}
-
-	@Nullable
-	public ManualSpec getManualSpec(Subject subject, Issue issue, String state) {
-		for (var transition: getTransitionSpecs()) {
-			if (transition instanceof ManualSpec) {
-				var manualSpec = (ManualSpec) transition;
-				if (manualSpec.canTransit(subject, issue, state) && manualSpec.isAuthorized(subject, issue)) {
-					return manualSpec;
-				}
-			}
-		}
-		return null;
 	}
 
 	public Collection<String> getPromptFieldsUponIssueOpen(Project project) {

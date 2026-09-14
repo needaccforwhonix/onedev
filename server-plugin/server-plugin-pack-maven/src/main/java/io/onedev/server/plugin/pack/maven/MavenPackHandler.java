@@ -1,23 +1,32 @@
 package io.onedev.server.plugin.pack.maven;
 
-import io.onedev.commons.utils.LockUtils;
-import io.onedev.commons.utils.StringUtils;
-import io.onedev.server.pack.PackHandler;
-import io.onedev.server.service.*;
-import io.onedev.server.event.ListenerRegistry;
-import io.onedev.server.event.project.pack.PackPublished;
-import io.onedev.server.exception.DataTooLargeException;
-import io.onedev.server.exception.HttpResponseAwareException;
-import io.onedev.server.model.Build;
-import io.onedev.server.model.Pack;
-import io.onedev.server.model.PackBlob;
-import io.onedev.server.model.Project;
-import io.onedev.server.persistence.SessionService;
-import io.onedev.server.persistence.TransactionService;
-import io.onedev.server.persistence.dao.EntityCriteria;
-import io.onedev.server.security.SecurityUtils;
-import io.onedev.server.util.Digest;
-import io.onedev.server.util.Pair;
+import static io.onedev.server.model.Pack.PROP_NAME;
+import static io.onedev.server.model.Pack.PROP_PROJECT;
+import static io.onedev.server.model.Pack.PROP_TYPE;
+import static io.onedev.server.model.Pack.PROP_VERSION;
+import static io.onedev.server.plugin.pack.maven.MavenPackSupport.TYPE;
+import static io.onedev.server.util.IOUtils.copyWithMaxSize;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.toList;
+import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
+import static javax.servlet.http.HttpServletResponse.SC_CONFLICT;
+import static javax.servlet.http.HttpServletResponse.SC_CREATED;
+import static javax.servlet.http.HttpServletResponse.SC_NOT_ACCEPTABLE;
+import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
+import static javax.servlet.http.HttpServletResponse.SC_OK;
+import static javax.ws.rs.core.HttpHeaders.LAST_MODIFIED;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Date;
+import java.util.List;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.core.MediaType;
+
 import org.apache.shiro.authz.UnauthorizedException;
 import org.dom4j.Document;
 import org.dom4j.DocumentHelper;
@@ -25,25 +34,29 @@ import org.hibernate.criterion.Restrictions;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-
 import org.jspecify.annotations.Nullable;
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.core.MediaType;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.Date;
-import java.util.List;
 
-import static io.onedev.server.model.Pack.*;
-import static io.onedev.server.plugin.pack.maven.MavenPackSupport.TYPE;
-import static io.onedev.server.util.IOUtils.copyWithMaxSize;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.stream.Collectors.toList;
-import static javax.servlet.http.HttpServletResponse.*;
-import static javax.ws.rs.core.HttpHeaders.LAST_MODIFIED;
+import io.onedev.commons.utils.LockUtils;
+import io.onedev.commons.utils.StringUtils;
+import io.onedev.server.event.ListenerRegistry;
+import io.onedev.server.event.project.pack.PackPublished;
+import io.onedev.server.exception.HttpResponseAwareException;
+import io.onedev.server.model.Build;
+import io.onedev.server.model.Pack;
+import io.onedev.server.model.PackBlob;
+import io.onedev.server.model.Project;
+import io.onedev.server.pack.PackHandler;
+import io.onedev.server.persistence.SessionService;
+import io.onedev.server.persistence.TransactionService;
+import io.onedev.server.persistence.dao.EntityCriteria;
+import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.BuildService;
+import io.onedev.server.service.PackBlobReferenceService;
+import io.onedev.server.service.PackBlobService;
+import io.onedev.server.service.PackService;
+import io.onedev.server.service.ProjectService;
+import io.onedev.server.util.Digest;
+import io.onedev.server.util.Pair;
 
 @Singleton
 public class MavenPackHandler implements PackHandler {
@@ -330,11 +343,9 @@ public class MavenPackHandler implements PackHandler {
 			var blobName = getBlobName(fileName);
 			if (!blobName.equals(fileName)) { // checksum verification
 				var baos = new ByteArrayOutputStream();
-				try {
-					copyWithMaxSize(is, baos, MAX_CHECKSUM_LEN);
-				} catch (DataTooLargeException e) {
-					throw new HttpResponseAwareException(SC_REQUEST_ENTITY_TOO_LARGE, "Checksum is too large");
-				}
+				var copied = copyWithMaxSize(is, baos, MAX_CHECKSUM_LEN);
+				if (copied == -1)
+					throw new HttpResponseAwareException(SC_NOT_ACCEPTABLE, "Checksum exceeds maximum size: " + MAX_CHECKSUM_LEN);
 				var checksum = new String(baos.toByteArray(), UTF_8);
 				LockUtils.run(lockName, () -> transactionService.run(() -> {
 					var project = projectService.load(projectId);
@@ -378,6 +389,7 @@ public class MavenPackHandler implements PackHandler {
 						pack.setType(TYPE);
 						pack.setName(getName(groupId, artifactId));
 						pack.setVersion(version != null? version: NONE);
+						pack.setPrerelease(version != null && version.endsWith(VERSION_SUFFIX_SNAPSHOT));
 						pack.setData(new MavenData());
 					}
 					
@@ -388,7 +400,15 @@ public class MavenPackHandler implements PackHandler {
 					pack.setUser(SecurityUtils.getUser());
 					pack.setPublishDate(new Date());
 					MavenData data = (MavenData) pack.getData();
-					var prevSha256BlobHash = data.getSha256BlobHashes().put(blobName, sha256BlobHash);
+					var prevSha256BlobHash = data.getSha256BlobHashes().get(blobName);
+					if (version != null
+							&& !version.endsWith(VERSION_SUFFIX_SNAPSHOT)
+							&& prevSha256BlobHash != null
+							&& !prevSha256BlobHash.equals(sha256BlobHash)) {
+						throw new HttpResponseAwareException(SC_CONFLICT, "Can not redeploy package: "
+								+ pack.getName() + ":" + pack.getVersion());
+					}
+					data.getSha256BlobHashes().put(blobName, sha256BlobHash);
 					packService.createOrUpdate(pack, null, false);
 					if (prevSha256BlobHash != null) {
 						for (var blobReference: pack.getBlobReferences()) {

@@ -29,7 +29,6 @@
 					<wicket:svg href="ellipsis-circle" class="icon"></wicket:svg> <wicket:t>Operations</wicket:t>
 				</a>
 				<span wicket:id="extraActions"></span>
-				<span wicket:id="count" class="float-right text-gray"></span>
 			</div>
 			<div wicket:id="body" class="body">
 				<div wicket:id="feedback"></div>
@@ -38,16 +37,19 @@
 		</div>
 	</div>
 	<wicket:fragment wicket:id="contentFrag">
-		<div class="primary d-flex mb-2">
-			<div class="flex-grow-1 d-flex flex-wrap row-gap-2">
+		<div class="primary d-flex mb-3">
+			<div class="mr-4 flex-grow-1">
 				<span class="mr-2">
-					<span wicket:id="title" class="title h6 mb-0"></span> 
-					<a wicket:id="number" class="number h6 mb-0"></a> 
+					<span wicket:id="title" class="title"></span>
+					<span wicket:id="number" class="number ml-1 text-muted"></span>
+					<a wicket:id="link" class="d-none"></a>
 				</span>
 				<span wicket:id="labels" class="mr-2"></span>
 			</div>
-			<div class="flex-shrink-0 comments d-none d-lg-block text-muted" t:data-tippy-content="Comments">
-				<wicket:svg href="comments" class="icon"></wicket:svg> <span wicket:id="comments"></span>
+			<div class="flex-shrink-0 d-none d-lg-block text-muted">
+				<span class="comments" t:data-tippy-content="Comments">
+					<wicket:svg href="comments" class="icon"></wicket:svg> <span wicket:id="comments"></span>
+				</span>
 			</div>
 		</div>
 		<div class="secondary d-flex flex-wrap row-gap-3">

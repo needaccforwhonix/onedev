@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Stack;
 import java.util.regex.Pattern;
 
-import org.jspecify.annotations.Nullable;
+import javax.inject.Inject;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.wicket.Component;
@@ -32,7 +32,6 @@ import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.markup.html.form.TextField;
-import org.apache.wicket.markup.html.link.Link;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.markup.repeater.RepeatingView;
@@ -42,11 +41,11 @@ import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
-import org.eclipse.jgit.lib.FileMode;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevObject;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,9 +54,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 
 import io.onedev.commons.utils.ExplicitException;
-import io.onedev.server.OneDev;
-import io.onedev.server.service.BuildService;
-import io.onedev.server.git.BlobIdent;
+import io.onedev.server.exception.ExceptionUtils;
 import io.onedev.server.git.GitUtils;
 import io.onedev.server.git.command.RevListOptions;
 import io.onedev.server.git.service.GitService;
@@ -70,6 +67,7 @@ import io.onedev.server.search.commit.FuzzyCriteria;
 import io.onedev.server.search.commit.MessageCriteria;
 import io.onedev.server.search.commit.PathCriteria;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.BuildService;
 import io.onedev.server.util.DateUtils;
 import io.onedev.server.util.ProjectAndRevision;
 import io.onedev.server.util.patternset.PatternSet;
@@ -85,9 +83,10 @@ import io.onedev.server.web.component.link.DropdownLink;
 import io.onedev.server.web.component.link.ViewStateAwarePageLink;
 import io.onedev.server.web.component.link.copytoclipboard.CopyToClipboardLink;
 import io.onedev.server.web.component.savedquery.SavedQueriesClosed;
+import io.onedev.server.web.component.savedquery.SavedQueriesLink;
 import io.onedev.server.web.component.savedquery.SavedQueriesOpened;
 import io.onedev.server.web.component.user.contributoravatars.ContributorAvatars;
-import io.onedev.server.web.page.project.blob.ProjectBlobPage;
+import io.onedev.server.web.component.workspace.speclist.WorkspaceSpecListPanel;
 import io.onedev.server.web.page.project.commits.CommitDetailPage;
 import io.onedev.server.web.page.project.compare.RevisionComparePage;
 import io.onedev.server.web.util.QuerySaveSupport;
@@ -99,6 +98,15 @@ public abstract class CommitListPanel extends Panel {
 	private static final int COMMITS_PER_PAGE = 50;
 	
 	private static final int MAX_PAGES = 20;
+
+	@Inject
+	private GitService gitService;
+
+	@Inject
+	private ObjectMapper objectMapper;
+
+	@Inject
+	private BuildService buildService;
 	
 	private final IModel<String> queryStringModel;
 	
@@ -147,14 +155,16 @@ public abstract class CommitListPanel extends Panel {
 					if (options.revisions().isEmpty() && getCompareWith() != null)
 						options.revisions(Lists.newArrayList(getCompareWith()));
 					
-					commitHashes = getGitService().revList(getProject(), options);
+					commitHashes = gitService.revList(getProject(), options);
 				} catch (Exception e) {
-					if (e.getMessage() != null)
-						error(e.getMessage());
-					else
+					var explicitException = ExceptionUtils.find(e, ExplicitException.class);
+					if (explicitException != null) {
+						error(explicitException.getMessage());
+					} else {
 						error(_T("Error calculating commits: check log for details"));
+						logger.error("Error calculating commits", e);
+					}
 					commitHashes = new ArrayList<>();
-					logger.error("Error calculating commits: ", e);
 				}
 			} else {
 				commitHashes = new ArrayList<>();
@@ -168,7 +178,7 @@ public abstract class CommitListPanel extends Panel {
 			for (int i=0; i<lastMaxCount; i++) 
 				commitIds.add(ObjectId.fromString(commitHashes.get(i)));
 			
-			commits.last = getGitService().getCommits(getProject(), commitIds);
+			commits.last = gitService.getCommits(getProject(), commitIds);
 			sort(commits.last, 0);
 			commits.current = new ArrayList<>(commits.last);
 			
@@ -176,7 +186,7 @@ public abstract class CommitListPanel extends Panel {
 			for (int i=lastMaxCount; i<commitHashes.size(); i++)
 				commitIds.add(ObjectId.fromString(commitHashes.get(i)));
 			
-			for (RevCommit commit: getGitService().getCommits(getProject(), commitIds))
+			for (RevCommit commit: gitService.getCommits(getProject(), commitIds))
 				commits.current.add(commit);
 			
 			sort(commits.current, lastMaxCount);
@@ -187,6 +197,8 @@ public abstract class CommitListPanel extends Panel {
 		}
 		
 	};
+
+	private final Map<String, ObjectId> seenBranchTips = new HashMap<>();
 	
 	private final IModel<Map<String, List<String>>> labelsModel = new LoadableDetachableModel<Map<String, List<String>>>() {
 		
@@ -194,6 +206,8 @@ public abstract class CommitListPanel extends Panel {
 		protected Map<String, List<String>> load() {
 			Map<String, List<String>> labels = new HashMap<>();
 			List<RefFacade> refInfos = getProject().getBranchRefs();
+			for (RefFacade ref: refInfos) 
+				seenBranchTips.put(GitUtils.ref2branch(ref.getName()), ref.getPeeledObj().copy());
 			refInfos.addAll(getProject().getTagRefs());
 			for (RefFacade ref: refInfos) {
 				if (ref.getPeeledObj() instanceof RevCommit) {
@@ -293,7 +307,7 @@ public abstract class CommitListPanel extends Panel {
 	protected void onInitialize() {
 		super.onInitialize();
 
-		add(new AjaxLink<Void>("showSavedQueries") {
+		add(new SavedQueriesLink("showSavedQueries") {
 
 			@Override
 			public void onEvent(IEvent<?> event) {
@@ -306,7 +320,7 @@ public abstract class CommitListPanel extends Panel {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(getQuerySaveSupport() != null && !getQuerySaveSupport().isSavedQueriesVisible());
+				setVisible(getQuerySaveSupport() != null);
 			}
 
 			@Override
@@ -335,7 +349,7 @@ public abstract class CommitListPanel extends Panel {
 				if (!querySubmitted)
 					tag.put("data-tippy-content", _T("Query not submitted"));
 				else if (queryModel.getObject() == null)
-					tag.put("data-tippy-content", _T("Can not save malformed query"));
+					tag.put("data-tippy-content", _T("Cannot save malformed query"));
 			}
 
 			@Override
@@ -503,7 +517,7 @@ public abstract class CommitListPanel extends Panel {
 						target.focusComponent(null);
 						target.appendJavaScript(renderCommitGraph());
 						
-						getProject().cacheCommitStatuses(getBuildService().queryStatus(getProject(), getCommitIdsToQueryStatus()));						
+						getProject().cacheCommitStatuses(buildService.queryStatus(getProject(), getCommitIdsToQueryStatus()));						
 					}
 					
 				});
@@ -534,11 +548,7 @@ public abstract class CommitListPanel extends Panel {
 		
 		setOutputMarkupId(true);
 	}
-	
-	private BuildService getBuildService() {
-		return OneDev.getInstance(BuildService.class);
-	}
-	
+		
 	private Collection<ObjectId> getCommitIdsToQueryStatus() {
 		if (commitIdsToQueryStatus == null)
 			commitIdsToQueryStatus = new HashSet<>();
@@ -557,7 +567,7 @@ public abstract class CommitListPanel extends Panel {
 				addCommitClass(item, commitIndex++);
 			commitsView.add(item);
 		}
-		getProject().cacheCommitStatuses(getBuildService().queryStatus(getProject(), getCommitIdsToQueryStatus()));
+		getProject().cacheCommitStatuses(buildService.queryStatus(getProject(), getCommitIdsToQueryStatus()));
 		return commitsView;
 	}
 
@@ -582,6 +592,25 @@ public abstract class CommitListPanel extends Panel {
 		if (commit != null) {
 			item = new Fragment(itemId, "commitFrag", this);
 			item.add(new ContributorAvatars("avatar", commit.getAuthorIdent(), commit.getCommitterIdent()));
+
+			/*
+			 * If we query a single definitive path, let's record it to be used for
+			 * diff comparison
+			 */
+			String path = null;
+
+			for (CommitCriteria criteria: queryModel.getObject().getCriterias()) {
+				if (criteria instanceof PathCriteria) {
+					for (String value: ((PathCriteria) criteria).getValues()) {
+						if (value.contains("*") || path != null) {
+							path = null;
+							break;
+						} else {
+							path = value;
+						}
+					}
+				}
+			}
 
 			item.add(new CommitMessagePanel("message", new LoadableDetachableModel<RevCommit>() {
 
@@ -619,6 +648,62 @@ public abstract class CommitListPanel extends Panel {
 				
 			});
 
+			if (getStatusSupport() != null) {
+				item.add(new CommitStatusLink("buildStatus", commit.copy(), getStatusSupport().getRefName()) {
+
+					@Override
+					protected Project getProject() {
+						return CommitListPanel.this.getProject();
+					}
+
+					@Override
+					protected PullRequest getPullRequest() {
+						return null;
+					}
+
+					@Override
+					protected ObjectId getSeenBranchTip(String branch) {
+						return seenBranchTips.get(branch);
+					}
+					
+				});
+			} else {
+				item.add(new WebMarkupContainer("buildStatus").setVisible(false));				
+			}
+
+			item.add(new DropdownLink("workspaces") {
+
+				@Override
+				protected Component newContent(String id, FloatingPanel dropdown) {
+					return new WorkspaceSpecListPanel(id) {
+
+						@Override
+						protected Project getProject() {
+							return CommitListPanel.this.getProject();
+						}
+
+						@Override
+						protected String getBranch() {
+							return null;
+						}
+
+						@Override
+						protected ObjectId getCommitId() {
+							return commit.copy();
+						}
+
+					};
+				}
+
+				@Override
+				protected void onConfigure() {
+					super.onConfigure();
+					setVisible(getProject().canCreateWorkspace(SecurityUtils.getSubject())
+							&& !getProject().getHierarchyWorkspaceSpecs().isEmpty());
+				}
+
+			});
+
 			RepeatingView labelsView = new RepeatingView("labels");
 
 			List<String> commitLabels = labelsModel.getObject().get(commit.name());
@@ -633,35 +718,6 @@ public abstract class CommitListPanel extends Panel {
 			
 			item.add(new ContributorPanel("contribution", commit.getAuthorIdent(), commit.getCommitterIdent()));
 			
-			/*
-			 * If we query a single definitive path, let's record it to be used for 
-			 * diff comparison and code browsing  
-			 */
-			String path = null;
-			
-			for (CommitCriteria criteria: queryModel.getObject().getCriterias()) {
-				if (criteria instanceof PathCriteria) {
-					for (String value: ((PathCriteria) criteria).getValues()) {
-						if (value.contains("*") || path != null) {
-							path = null;
-							break;
-						} else {
-							path = value;
-						}
-					}
-				}
-			}
-
-			BlobIdent blobIdent;
-			if (path != null) {
-				blobIdent = new BlobIdent(commit.name(), path, null);
-			} else {
-				blobIdent = new BlobIdent(commit.name(), null, FileMode.TREE.getBits());
-			}
-			ProjectBlobPage.State browseState = new ProjectBlobPage.State(blobIdent);
-			PageParameters params = ProjectBlobPage.paramsOf(getProject(), browseState);
-			item.add(new ViewStateAwarePageLink<Void>("browseCode", ProjectBlobPage.class, params));
-			
 			if (getCompareWith() != null) {
 				RevisionComparePage.State compareState = new RevisionComparePage.State();
 				compareState.leftSide = new ProjectAndRevision(getProject(), commit.name());
@@ -670,18 +726,17 @@ public abstract class CommitListPanel extends Panel {
 					compareState.pathFilter = PatternSet.quoteIfNecessary(path);
 				compareState.tabPanel = RevisionComparePage.TabPanel.FILE_CHANGES;
 				
-				params = RevisionComparePage.paramsOf(getProject(), compareState);
+				var params = RevisionComparePage.paramsOf(getProject(), compareState);
 				item.add(new ViewStateAwarePageLink<Void>("compare", RevisionComparePage.class, params));
 			} else {
 				item.add(new WebMarkupContainer("compare").setVisible(false));
 			}
 
-			CommitDetailPage.State commitState = new CommitDetailPage.State();
-			commitState.revision = commit.name();
-			params = CommitDetailPage.paramsOf(getProject(), commitState);
-			Link<Void> hashLink = new ViewStateAwarePageLink<Void>("hashLink", CommitDetailPage.class, params);
-			item.add(hashLink);
+			PageParameters commitParams = CommitDetailPage.paramsOf(getProject(), commit.name());
+			var hashLink = new ViewStateAwarePageLink<Void>("hashLink", CommitDetailPage.class, commitParams);
 			hashLink.add(new Label("hash", GitUtils.abbreviateSHA(commit.name())));
+			item.add(hashLink);
+			
 			item.add(new CopyToClipboardLink("copyHash", Model.of(commit.name())));
 			
 			getCommitIdsToQueryStatus().add(commit.copy());
@@ -695,23 +750,6 @@ public abstract class CommitListPanel extends Panel {
 				
 			});
 			
-			if (getStatusSupport() != null) {
-				item.add(new CommitStatusLink("buildStatus", commit.copy(), getStatusSupport().getRefName()) {
-
-					@Override
-					protected Project getProject() {
-						return CommitListPanel.this.getProject();
-					}
-
-					@Override
-					protected PullRequest getPullRequest() {
-						return null;
-					}
-
-				});
-			} else {
-				item.add(new WebMarkupContainer("buildStatus").setVisible(false));				
-			}
 			item.add(AttributeAppender.append("class", "commit"));
 		} else {
 			item = new Fragment(itemId, "dateFrag", this);
@@ -795,7 +833,7 @@ public abstract class CommitListPanel extends Panel {
 			}
 		}
 		try {
-			return OneDev.getInstance(ObjectMapper.class).writeValueAsString(commitIndexes);
+			return objectMapper.writeValueAsString(commitIndexes);
 		} catch (JsonProcessingException e) {
 			throw new RuntimeException(e);
 		}
@@ -810,11 +848,7 @@ public abstract class CommitListPanel extends Panel {
 		String script = String.format("onedev.server.commitList.onDomReady('%s', %s);", body.getMarkupId(), jsonOfCommits);		
 		response.render(OnDomReadyHeaderItem.forScript(script));
 	}
-	
-	private GitService getGitService() {
-		return OneDev.getInstance(GitService.class);
-	}
-	
+		
 	/*
 	 * We do not use "--date-order", "--topo-order" or "--author-order" option of git log to 
 	 * retrieve commits as they can be slow. However use the default log ordering has the 

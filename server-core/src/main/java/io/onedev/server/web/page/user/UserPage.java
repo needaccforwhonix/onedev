@@ -2,6 +2,7 @@ package io.onedev.server.web.page.user;
 
 import static io.onedev.server.model.User.Type.AI;
 import static io.onedev.server.model.User.Type.ORDINARY;
+import static io.onedev.server.model.User.Type.SERVICE;
 import static io.onedev.server.web.translation.Translation._T;
 
 import java.util.ArrayList;
@@ -34,7 +35,7 @@ import io.onedev.server.web.page.layout.LayoutPage;
 import io.onedev.server.web.page.user.accesstoken.UserAccessTokensPage;
 import io.onedev.server.web.page.user.aisetting.UserEntitlementSettingPage;
 import io.onedev.server.web.page.user.aisetting.UserModelSettingPage;
-import io.onedev.server.web.page.user.aisetting.UserSystemPromptPage;
+import io.onedev.server.web.page.user.aisetting.UserBehaviorPage;
 import io.onedev.server.web.page.user.authorization.UserAuthorizationsPage;
 import io.onedev.server.web.page.user.avatar.UserAvatarPage;
 import io.onedev.server.web.page.user.basicsetting.UserBasicSettingPage;
@@ -47,6 +48,7 @@ import io.onedev.server.web.page.user.querywatch.UserQueryWatchesPage;
 import io.onedev.server.web.page.user.sshkeys.UserSshKeysPage;
 import io.onedev.server.web.page.user.ssoaccounts.UserSsoAccountsPage;
 import io.onedev.server.web.page.user.twofactorauthentication.UserTwoFactorAuthenticationPage;
+import io.onedev.server.web.page.user.workspacedata.UserWorkspaceDataPage;
 import io.onedev.server.web.util.UserAware;
 
 public abstract class UserPage extends LayoutPage implements UserAware {
@@ -89,8 +91,7 @@ public abstract class UserPage extends LayoutPage implements UserAware {
 		var params = paramsOf(getUser());
 		tabs.add(new PageTab(Model.of(_T("Profile")), Model.of("profile"), UserProfilePage.class, params));
 		tabs.add(new PageTab(Model.of(_T("Basic Settings")), Model.of("info"), UserBasicSettingPage.class, params));
-		if (getUser().getType() == ORDINARY) 
-			tabs.add(new PageTab(Model.of(_T("Email Addresses")), Model.of("mail"), UserEmailAddressesPage.class, params));		
+		tabs.add(new PageTab(Model.of(_T("Email Addresses")), Model.of("mail"), UserEmailAddressesPage.class, params));		
 		tabs.add(new PageTab(Model.of(_T("Edit Avatar")), Model.of("avatar"), UserAvatarPage.class, params));
 		if (!getUser().isDisabled()) {
 			if (getUser().getType() == ORDINARY)
@@ -101,7 +102,7 @@ public abstract class UserPage extends LayoutPage implements UserAware {
 					Model.of("ai-setting"), 
 					UserModelSettingPage.class, 
 					params, 
-					UserSystemPromptPage.class, 
+					UserBehaviorPage.class, 
 					UserEntitlementSettingPage.class));
 			}
 			tabs.add(new PageTab(Model.of(_T("Belonging Groups")), Model.of("group"), UserMembershipsPage.class, params));
@@ -112,10 +113,11 @@ public abstract class UserPage extends LayoutPage implements UserAware {
 			tabs.add(new PageTab(Model.of(_T("Access Tokens")), Model.of("token"), UserAccessTokensPage.class, params));
 			if (getUser().getType() == ORDINARY && getUser().isEnforce2FA())
 				tabs.add(new PageTab(Model.of(_T("Two-factor Authentication")), Model.of("shield"), UserTwoFactorAuthenticationPage.class, params));
-			if (getUser().getType() == ORDINARY) {
+			if (getUser().getType() == ORDINARY) 
 				tabs.add(new PageTab(Model.of(_T("SSO Accounts")), Model.of("user"), UserSsoAccountsPage.class, params));
+			if (getUser().getType() != SERVICE) 
 				tabs.add(new PageTab(Model.of(_T("Query Watches")), Model.of("bell"), UserQueryWatchesPage.class, params));
-			}
+			tabs.add(new PageTab(Model.of(_T("Workspace Data")), Model.of("workspace"), UserWorkspaceDataPage.class, params));
 		}
 		
 		add(new Tabbable("userTabs", tabs).setVisible(SecurityUtils.isAdministrator()));

@@ -21,9 +21,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -108,7 +111,7 @@ import io.onedev.server.model.User;
 import io.onedev.server.model.support.administration.GlobalIssueSetting;
 import io.onedev.server.model.support.administration.IssueCreationSetting;
 import io.onedev.server.model.support.administration.emailtemplates.EmailTemplates;
-import io.onedev.server.model.support.issue.field.instance.FieldInstance;
+import io.onedev.server.model.support.issue.field.FieldUtils;
 import io.onedev.server.persistence.TransactionService;
 import io.onedev.server.persistence.annotation.Sessional;
 import io.onedev.server.persistence.annotation.Transactional;
@@ -174,6 +177,10 @@ public class DefaultMailService implements MailService, Serializable {
 	
 	private volatile Thread thread;
 
+	private volatile ThreadPoolExecutor sendExecutor;
+
+	private final ThreadLocal<Boolean> inSendExecutor = ThreadLocal.withInitial(() -> false);
+
 	private boolean isProdTest() {
 		if (prodTest == null) {
 			prodTest = settingService.getSystemSetting().getServerUrl().equals("https://code.onedev.io") 
@@ -186,6 +193,33 @@ public class DefaultMailService implements MailService, Serializable {
 		return "[" + settingService.getBrandingSetting().getName() + "]";
 	}
 
+	private synchronized ThreadPoolExecutor getSendExecutor(int concurrency) {
+		if (sendExecutor == null) {
+			sendExecutor = new ThreadPoolExecutor(concurrency, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS,
+					new LinkedBlockingQueue<>());
+			sendExecutor.allowCoreThreadTimeOut(true);
+		} else if (sendExecutor.getCorePoolSize() != concurrency) {
+			sendExecutor.setCorePoolSize(concurrency);
+		}
+		return sendExecutor;
+	}
+
+	private Future<?> submitToSendExecutor(int concurrency, Runnable runnable) {
+		if (Boolean.TRUE.equals(inSendExecutor.get())) {
+			runnable.run();
+			return CompletableFuture.completedFuture(null);
+		} else {
+			return getSendExecutor(concurrency).submit(() -> {
+				inSendExecutor.set(true);
+				try {
+					runnable.run();
+				} finally {
+					inSendExecutor.remove();
+				}
+			});
+		}
+	}
+
 	public Object writeReplace() throws ObjectStreamException {
 		return new ManagedSerializedForm(MailService.class);
 	}
@@ -195,14 +229,25 @@ public class DefaultMailService implements MailService, Serializable {
 	public void sendMailAsync(Collection<String> toList, Collection<String> ccList, Collection<String> bccList, 
 							  String subject, String htmlBody, String textBody, @Nullable String replyAddress, 
 							  @Nullable String senderName, @Nullable String references) {
-		transactionService.runAfterCommit(() -> executorService.execute(() -> {
-			try {
-				sendMail(toList, ccList, bccList, subject, htmlBody, textBody, replyAddress, 
-						senderName, references);
-			} catch (Exception e) {
-				logger.error("Error sending email (to: " + toList + ", subject: " + subject + ")", e);
-			}		
-		}));
+		transactionService.runAfterCommit(() -> {
+			var mailConnector = settingService.getMailConnector();
+			if (mailConnector != null) {
+				submitToSendExecutor(mailConnector.getConcurrency(), () -> {
+					try {
+						SecurityUtils.bindAsSystem();
+						sendMail(toList, ccList, bccList, subject, htmlBody, textBody, replyAddress,
+								senderName, references);
+					} catch (Exception e) {
+						var message = String.format(
+							"Error sending email (to: %s, cc: %s, bcc: %s, subject: %s)", 
+							toList, ccList, bccList, subject);
+						logger.error(message, e);
+					}
+				});	
+			} else {
+				logger.warn("Unable to send mail as mail service is not configured");
+			}
+		});
 	}
 	
 	private String getThreadIndex(String references) {
@@ -340,8 +385,18 @@ public class DefaultMailService implements MailService, Serializable {
 			message.setContent(bodyPart);
 
 			logger.debug("Sending email (subject: {}, to: {}, cc: {}, bcc: {})... ", subject, toList, ccList, bccList);
-			
-			Transport.send(message);
+
+			try {
+				submitToSendExecutor(smtpSetting.getConcurrency(), () -> {
+					try {
+						Transport.send(message);
+					} catch (MessagingException e) {
+						throw new RuntimeException(e);
+					}	
+				}).get();
+			} catch (InterruptedException | ExecutionException e) {
+				throw new RuntimeException(e);
+			}
 		} catch (MessagingException e) {
 			throw new RuntimeException(e);
 		}
@@ -547,7 +602,7 @@ public class DefaultMailService implements MailService, Serializable {
 					}
 				}
 			} else {
-				logger.warn("Ignore message as 'From' is same as system email address");
+				logger.debug("Ignore message as 'From' is same as system email address");
 			}
 		} else {
 			logger.warn("Ignore message as 'To' or 'From' header is not available");
@@ -633,6 +688,12 @@ public class DefaultMailService implements MailService, Serializable {
 	
 	private void addComment(Issue issue, Message message, InternetAddress authorInternetAddress, @Nullable User author, 
 							Collection<InternetAddress> receiverInternetAddresses) {
+		String messageId = getMessageId(message);
+		if (messageId != null && issueCommentService.findByMessageId(messageId) != null) {
+			logger.warn("Ignored creating issue comment from message as comment with same message id already exists");
+			return;
+		}
+
 		IssueComment comment = new IssueComment();
 		comment.setIssue(issue);
 		if (author == null) {
@@ -641,33 +702,53 @@ public class DefaultMailService implements MailService, Serializable {
 		} else {
 			comment.setUser(author);
 		}
+		if (messageId != null)
+			comment.setMessageId(messageId);
 		String content = parseBody(message, issue.getProject(), issue.getUUID());
 		if (content != null) {
 			// Add double line breaks in the beginning and ending as otherwise plain text content 
 			// received from email may not be formatted correctly with our markdown renderer. 
 			comment.setContent(decorateContent(content));
-			var notifiedEmailAddresses = receiverInternetAddresses.stream().map(InternetAddress::getAddress).collect(toSet());
-			notifiedEmailAddresses.add(authorInternetAddress.getAddress());
-			issueCommentService.create(comment, notifiedEmailAddresses);
+			var listeningEmailAddresses = receiverInternetAddresses.stream().map(InternetAddress::getAddress).collect(toSet());
+			listeningEmailAddresses.add(authorInternetAddress.getAddress());
+			issueCommentService.create(comment, listeningEmailAddresses);
 		}
 	}
 	
 	private void addComment(PullRequest pullRequest, Message message, InternetAddress authorInternetAddress, 
 							User author, Collection<InternetAddress> receiverInternetAddresses) {
+		String messageId = getMessageId(message);
+		if (messageId != null && pullRequestCommentService.findByMessageId(messageId) != null) {
+			logger.warn("Ignored creating pull request comment from message as comment with same message id already exists");
+			return;
+		}
+
 		PullRequestComment comment = new PullRequestComment();
 		comment.setUser(author);
+		if (messageId != null)
+			comment.setMessageId(messageId);
 		String content = parseBody(message, pullRequest.getProject(), pullRequest.getUUID());
 		if (content != null) {
 			comment.setContent(decorateContent(content));
-			var notifiedEmailAddresses = receiverInternetAddresses.stream().map(InternetAddress::getAddress).collect(toSet());
-			notifiedEmailAddresses.add(authorInternetAddress.getAddress());
-			pullRequestCommentService.create(comment, notifiedEmailAddresses);
+			var listeningEmailAddresses = receiverInternetAddresses.stream().map(InternetAddress::getAddress).collect(toSet());
+			listeningEmailAddresses.add(authorInternetAddress.getAddress());
+			pullRequestCommentService.create(comment, listeningEmailAddresses);
 		}
 	}
 	
 	private Issue openIssue(Message message, Project project, InternetAddress submitterInternetAddress, 
 							@Nullable User submitter, ParsedEmailAddress parsedSystemAddress, 
 							Collection<InternetAddress> receiverInternetAddresses) {
+		String messageId = getMessageId(message);
+		if (messageId != null) {
+			var existingIssue = issueService.findByMessageId(messageId);
+			if (existingIssue != null) {
+				logger.warn("Ignored opening issue from message as issue with same message id already exists: {}", 
+						existingIssue.getReference());
+				return existingIssue;
+			}
+		}
+
 		Issue issue = new Issue();
 		issue.setProject(project);
 
@@ -684,7 +765,6 @@ public class DefaultMailService implements MailService, Serializable {
 			throw new RuntimeException(e);
 		}
 		
-		String messageId = getMessageId(message);
 		if (messageId != null)
 			issue.setMessageId(messageId);
 
@@ -707,11 +787,8 @@ public class DefaultMailService implements MailService, Serializable {
 		
 		IssueCreationSetting issueCreationSetting = settingService.getServiceDeskSetting().getIssueCreationSetting(project);
 		issue.setConfidential(issueCreationSetting.isConfidential());
-		for (FieldInstance instance: issueCreationSetting.getIssueFields()) {
-			Object fieldValue = issueSetting.getFieldSpec(instance.getName())
-					.convertToObject(instance.getValueProvider().getValue());
-			issue.setFieldValue(instance.getName(), fieldValue);
-		}
+		for (Map.Entry<String, Object> entry: FieldUtils.getFieldValues(project, issueCreationSetting.getIssueFields()).entrySet())
+			issue.setFieldValue(entry.getKey(), entry.getValue());
 
 		var notifyEmailAddresses = receiverInternetAddresses.stream().map(InternetAddress::getAddress).collect(toSet());
 		notifyEmailAddresses.add(submitterInternetAddress.getAddress());
@@ -790,12 +867,21 @@ public class DefaultMailService implements MailService, Serializable {
 	
 	@Listen
 	public void on(SystemStopping event) {
-		Thread copy = thread;
+		Thread threadCopy = thread;
 		thread = null;
-		if (copy != null) {
-			copy.interrupt();
+		if (threadCopy != null) {
+			threadCopy.interrupt();
 			try {
-				copy.join();
+				threadCopy.join();
+			} catch (InterruptedException ignored) {
+			}
+		}
+		var sendExecutorCopy = sendExecutor;
+		sendExecutor = null;
+		if (sendExecutorCopy != null) {
+			sendExecutorCopy.shutdown();
+			try {
+				sendExecutorCopy.awaitTermination(60, TimeUnit.SECONDS);
 			} catch (InterruptedException ignored) {
 			}
 		}
@@ -811,9 +897,8 @@ public class DefaultMailService implements MailService, Serializable {
 				int messageCount = inbox.getMessageCount();
 				for (int i=messageNumber.get()+1; i<=messageCount; i++) {
 					Message message = inbox.getMessage(i);
-					lastPosition.setUid(inbox.getUID(message));
-					logger.trace("Processing inbox message (subject: {}, uid: {}, seq: {})", 
-							message.getSubject(), lastPosition.getUid(), i);
+					long uid = inbox.getUID(message);
+					lastPosition.setUid(uid);
 					try {
 						messageConsumer.accept(message);
 					} catch (Exception e) {

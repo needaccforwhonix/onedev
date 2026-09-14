@@ -32,7 +32,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.jspecify.annotations.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.persistence.criteria.CriteriaBuilder;
@@ -54,13 +53,19 @@ import org.hibernate.criterion.Restrictions;
 import org.hibernate.query.Query;
 import org.hibernate.query.criteria.internal.path.SingularAttributePath;
 import org.joda.time.DateTime;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.chat.ChatModel;
 import io.onedev.commons.loader.ManagedSerializedForm;
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.commons.utils.LockUtils;
@@ -68,15 +73,6 @@ import io.onedev.server.OneDev;
 import io.onedev.server.cluster.ClusterRunnable;
 import io.onedev.server.cluster.ClusterService;
 import io.onedev.server.cluster.ClusterTask;
-import io.onedev.server.service.BuildService;
-import io.onedev.server.service.PendingSuggestionApplyService;
-import io.onedev.server.service.ProjectService;
-import io.onedev.server.service.PullRequestChangeService;
-import io.onedev.server.service.PullRequestLabelService;
-import io.onedev.server.service.PullRequestReviewService;
-import io.onedev.server.service.PullRequestService;
-import io.onedev.server.service.PullRequestUpdateService;
-import io.onedev.server.service.UserService;
 import io.onedev.server.event.Listen;
 import io.onedev.server.event.ListenerRegistry;
 import io.onedev.server.event.entity.EntityRemoved;
@@ -94,6 +90,7 @@ import io.onedev.server.event.project.pullrequest.PullRequestOpened;
 import io.onedev.server.event.project.pullrequest.PullRequestReviewerRemoved;
 import io.onedev.server.event.project.pullrequest.PullRequestUpdated;
 import io.onedev.server.event.project.pullrequest.PullRequestsDeleted;
+import io.onedev.server.exception.NotAcceptableException;
 import io.onedev.server.git.GitUtils;
 import io.onedev.server.git.service.GitService;
 import io.onedev.server.model.Build;
@@ -133,16 +130,26 @@ import io.onedev.server.persistence.dao.EntityCriteria;
 import io.onedev.server.search.entity.EntityQuery;
 import io.onedev.server.search.entity.EntitySort;
 import io.onedev.server.search.entity.EntitySort.Direction;
-import io.onedev.server.search.entity.pullrequest.PullRequestQuery;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.security.permission.ReadCode;
+import io.onedev.server.service.BuildService;
+import io.onedev.server.service.PendingSuggestionApplyService;
+import io.onedev.server.service.ProjectService;
+import io.onedev.server.service.PullRequestChangeService;
+import io.onedev.server.service.PullRequestLabelService;
+import io.onedev.server.service.PullRequestReviewService;
+import io.onedev.server.service.PullRequestService;
+import io.onedev.server.service.PullRequestUpdateService;
+import io.onedev.server.service.UserService;
 import io.onedev.server.util.ProjectAndBranch;
 import io.onedev.server.util.ProjectPullRequestStatusStat;
 import io.onedev.server.util.ProjectScope;
+import io.onedev.server.util.QueryUtils;
 import io.onedev.server.util.criteria.Criteria;
 import io.onedev.server.util.facade.EmailAddressFacade;
 import io.onedev.server.util.reviewrequirement.ReviewRequirement;
 import io.onedev.server.web.util.StatsGroup;
+import io.onedev.server.workspace.WorkspaceService;
 import io.onedev.server.xodus.CommitInfoService;
 import io.onedev.server.xodus.PullRequestInfoService;
 
@@ -182,6 +189,9 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 	private CommitInfoService commitInfoService;
 
 	@Inject
+	private WorkspaceService workspaceService;
+
+	@Inject
 	private PullRequestChangeService changeService;
 
 	@Inject
@@ -195,6 +205,9 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 
 	@Inject
 	private PullRequestInfoService pullRequestInfoService;
+
+	@Inject
+	private ObjectMapper objectMapper;
 
 	private SequenceGenerator numberGenerator;
 
@@ -211,8 +224,16 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 	@Transactional
 	@Override
 	public void delete(PullRequest request) {
+		checkNoWorkspaces(request);
 		doDelete(request);
 		listenerRegistry.post(new PullRequestDeleted(request));
+	}
+
+	private void checkNoWorkspaces(PullRequest request) {
+		if (request.getWorkspaces().size() > 0) {
+			throw new NotAcceptableException("Cannot delete pull request \""
+					+ request.getReference().toString(request.getProject()) + "\" as it has workspaces");
+		}
 	}
 
 	private void doDelete(PullRequest request) {
@@ -252,7 +273,10 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 	@Transactional
 	@Override
 	public void restoreSourceBranch(User user, PullRequest request, String note) {
-		Preconditions.checkState(!request.isOpen() && request.getSourceProject() != null);
+        var errorMessage = request.checkRestoreSourceBranchCondition();
+        if (errorMessage != null)
+            throw new NotAcceptableException(errorMessage);
+
 		if (request.getSource().getObjectName(false) == null) {
 			getGitService().createBranch(request.getSourceProject(), request.getSourceBranch(),
 					request.getLatestUpdate().getHeadCommitHash());
@@ -269,7 +293,9 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 	@Transactional
 	@Override
 	public void deleteSourceBranch(User user, PullRequest request, String note) {
-		Preconditions.checkState(!request.isOpen() && request.getSourceProject() != null);
+        var errorMessage = request.checkDeleteSourceBranchCondition();
+        if (errorMessage != null)
+            throw new NotAcceptableException(errorMessage);
 
 		if (request.getSource().getObjectName(false) != null) {
 			projectService.deleteBranch(request.getSourceProject(), request.getSourceBranch());
@@ -285,6 +311,10 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 	@Transactional
 	@Override
 	public void reopen(User user, PullRequest request, String note) {
+        var errorMessage = request.checkReopenCondition();
+        if (errorMessage != null)
+            throw new NotAcceptableException(errorMessage);
+
 		request.setStatus(OPEN);
 
 		PullRequestChange change = new PullRequestChange();
@@ -303,6 +333,9 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 	@Transactional
 	@Override
  	public void discard(User user, PullRequest request, String note) {
+        if (!request.isOpen())
+            throw new NotAcceptableException("Pull request already closed");
+
 		request.setStatus(Status.DISCARDED);
 		request.setCloseDate(new Date());
 
@@ -318,6 +351,13 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 	@Transactional
 	@Override
 	public void merge(User user, PullRequest request, @Nullable String commitMessage) {
+        var errorMessage = request.checkMergeCondition();
+        if (errorMessage != null)
+            throw new NotAcceptableException(errorMessage);
+        errorMessage = request.checkMergeCommitMessage(user, commitMessage);
+        if (errorMessage != null)
+            throw new NotAcceptableException("Error checking merge commit message: " + errorMessage);
+
 		MergePreview mergePreview = checkNotNull(request.checkMergePreview());
 		ObjectId mergeCommitId = ObjectId.fromString(checkNotNull(mergePreview.getMergeCommitHash()));
         PersonIdent person = user.asPerson();
@@ -362,10 +402,21 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 		gitService.updateRef(project, request.getTargetRef(), mergeCommitId,
 				ObjectId.fromString(mergePreview.getTargetHeadCommitHash()));
 
-		if (project.findDeleteBranchAfterPullRequestMerge()
-				&& request.checkDeleteSourceBranchCondition() == null
-				&& SecurityUtils.canDeleteBranch(user.asSubject(), request.getSourceProject(), request.getSourceBranch())) {
-			gitService.deleteBranch(request.getSourceProject(), request.getSourceBranch());
+		if (project.findDeleteBranchAfterPullRequestMerge()) {
+			if (!SecurityUtils.canDeleteBranch(user.asSubject(), request.getSourceProject(), request.getSourceBranch())) {
+				logger.warn("User {} does not have permission to delete source branch after pull request merge", user.getName());
+				return;
+			}
+			errorMessage = request.checkDeleteSourceBranchCondition();
+			if (errorMessage != null) {
+				logger.warn("Unable to delete source branch after pull request merge: {}", errorMessage);
+				return;
+			}
+			if (workspaceService.count(request.getSourceProject(), request.getSourceBranch()) > 0) {
+				logger.warn("Cannot delete source branch after pull request merge as it has workspaces");
+				return;
+			}
+			projectService.deleteBranch(request.getSourceProject(), request.getSourceBranch());
 		}
 	}
 
@@ -373,6 +424,61 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 	@Override
 	public void open(PullRequest request) {
 		Preconditions.checkArgument(request.isNew());
+
+		var target = Preconditions.checkNotNull(request.getTarget(),
+				"Pull request target must be set before calling open");
+		var source = Preconditions.checkNotNull(request.getSource(),
+				"Pull request source must be set before calling open");
+		Preconditions.checkNotNull(request.getSubmitter(),
+				"Pull request submitter must be set before calling open");
+
+		if (target.equals(source))
+			throw new NotAcceptableException("Source and target are the same");
+
+		PullRequest existing = findOpen(target, source);
+		if (existing != null)
+			throw new NotAcceptableException("Another pull request already opened for this change");
+
+		existing = findEffective(target, source);
+		if (existing != null) {
+			if (existing.isOpen())
+				throw new NotAcceptableException("Another pull request already opened for this change");
+			else
+				throw new NotAcceptableException("Another pull request already merged the change");
+		}
+
+		if (request.getBaseCommitHash() == null) {
+			ObjectId baseCommitId = gitService.getMergeBase(
+					target.getProject(), target.getObjectId(),
+					source.getProject(), source.getObjectId());
+			if (baseCommitId == null)
+				throw new NotAcceptableException("No common base for target and source");
+			request.setBaseCommitHash(baseCommitId.name());
+		}
+
+		if (request.getBaseCommitHash().equals(source.getObjectName()))
+			throw new NotAcceptableException("Target already up to date with source");
+
+		if (request.getUpdates().isEmpty()) {
+			PullRequestUpdate update = new PullRequestUpdate();
+			request.getUpdates().add(update);
+			request.setUpdates(request.getUpdates());
+			update.setRequest(request);
+			update.setHeadCommitHash(source.getObjectName());
+			update.setTargetHeadCommitHash(target.getObjectName());
+		}
+
+		if (request.getAssignments().isEmpty()) {
+			for (var assignee: target.getProject().findDefaultPullRequestAssignees()) {
+				PullRequestAssignment assignment = new PullRequestAssignment();
+				assignment.setRequest(request);
+				assignment.setUser(assignee);
+				request.getAssignments().add(assignment);
+			}
+		}
+
+		if (request.getMergeStrategy() == null)
+			request.setMergeStrategy(target.getProject().findDefaultPullRequestMergeStrategy());		
 
 		request.setNumberScope(request.getTargetProject().getForkRoot());
 		request.setNumber(getNumberGenerator().getNextSequence(request.getNumberScope()));
@@ -396,6 +502,7 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 		for (PullRequestUpdate update: request.getUpdates())
 			updateService.create(update);
 
+		checkReviews(request, false);
 		for (PullRequestReview review: request.getReviews())
 			dao.persist(review);
 
@@ -589,8 +696,7 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 					ofOpen(),
 					Restrictions.or(ofSource(projectAndBranch), ofTarget(projectAndBranch)));
 			for (PullRequest request: query(EntityCriteria.of(PullRequest.class).add(criterion))) {
-				boolean sourceUpdated = request.getSource() != null
-						&& request.getSource().equals(projectAndBranch);
+				boolean sourceUpdated = request.getSource() != null && request.getSource().equals(projectAndBranch);
 				checkAsync(request, sourceUpdated, sourceUpdated);
 			}
 		}
@@ -730,7 +836,7 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 								}
 
 							});
-						} catch (Exception e) {
+						} catch (Throwable e) {
 							logger.error("Error checking pull request", e);
 						}
 						return null;
@@ -743,7 +849,7 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 
 	}
 
-	@Transactional
+	@Sessional
 	@Override
 	public void checkReviews(PullRequest request, boolean sourceUpdated) {
 		if (request.isOpen()) {
@@ -768,6 +874,18 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 					checkedRequirement.mergeWith(fileProtection.getParsedReviewRequirement());
 					checkReviews(fileProtection.getParsedReviewRequirement(),
 							request, Sets.newHashSet(file), sourceUpdated);
+				}
+			}
+
+			if (sourceUpdated) {
+				// For AI user, we will request reviews every time source is updated even if the 
+				// review is not enforced by branch protection rules
+				for (PullRequestReview review: request.getReviews()) {
+					if (review.getUser().getType() == User.Type.AI 
+							&& review.getStatus() != PullRequestReview.Status.EXCLUDED 
+							&& review.getStatus() != PullRequestReview.Status.PENDING) {
+						review.setStatus(PullRequestReview.Status.PENDING);
+					}
 				}
 			}
 		}
@@ -866,7 +984,7 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 		}
 	}
 
-	private Predicate[] getPredicates(Subject subject, Project targetProject, Criteria<PullRequest> criteria,
+	private Predicate[] getPredicates(Subject subject, Project targetProject, @Nullable Criteria<PullRequest> criteria,
 			CriteriaQuery<?> query, From<PullRequest, PullRequest> from, CriteriaBuilder builder) {
 		List<Predicate> predicates = new ArrayList<>();
 		if (targetProject != null) {
@@ -892,28 +1010,28 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 
 	private Order getOrder(EntitySort sort, CriteriaBuilder builder, From<PullRequest, PullRequest> root) {
 		if (sort.getDirection() == Direction.ASCENDING)
-			return builder.asc(PullRequestQuery.getPath(root, PullRequest.SORT_FIELDS.get(sort.getField()).getProperty()));
+			return builder.asc(QueryUtils.getPath(root, PullRequest.SORT_FIELDS.get(sort.getField()).getProperty()));
 		else
-			return builder.desc(PullRequestQuery.getPath(root, PullRequest.SORT_FIELDS.get(sort.getField()).getProperty()));
+			return builder.desc(QueryUtils.getPath(root, PullRequest.SORT_FIELDS.get(sort.getField()).getProperty()));
 	}
 
 	@SuppressWarnings("rawtypes")
 	private CriteriaQuery<PullRequest> buildCriteriaQuery(Subject subject, Session session, 
-			@Nullable Project targetProject, EntityQuery<PullRequest> requestQuery) {
+			@Nullable Project targetProject, EntityQuery<PullRequest> query) {
 		CriteriaBuilder builder = session.getCriteriaBuilder();
-		CriteriaQuery<PullRequest> query = builder.createQuery(PullRequest.class);
-		Root<PullRequest> root = query.from(PullRequest.class);
+		CriteriaQuery<PullRequest> criteriaQuery = builder.createQuery(PullRequest.class);
+		Root<PullRequest> root = criteriaQuery.from(PullRequest.class);
 
-		query.where(getPredicates(subject, targetProject, requestQuery.getCriteria(), query, root, builder));
+		criteriaQuery.where(getPredicates(subject, targetProject, query.getCriteria(), criteriaQuery, root, builder));
 
 		List<Order> orders = new ArrayList<>();
-		for (EntitySort sort: requestQuery.getSorts()) 
+		for (EntitySort sort: query.getSorts()) 
 			orders.add(getOrder(sort, builder, root));
 
-		if (requestQuery.getCriteria() != null)
-			orders.addAll(requestQuery.getCriteria().getPreferOrders(builder, root));
+		if (query.getCriteria() != null)
+			orders.addAll(query.getCriteria().getPreferOrders(builder, root));
 
-		for (EntitySort sort: requestQuery.getBaseSorts()) 
+		for (EntitySort sort: query.getBaseSorts()) 
 			orders.add(getOrder(sort, builder, root));
 
 		var found = false;
@@ -929,24 +1047,24 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 			}
 		}
 		if (!found)
-			orders.add(builder.desc(PullRequestQuery.getPath(root, PullRequest.PROP_LAST_ACTIVITY + "." + LastActivity.PROP_DATE)));
+			orders.add(builder.desc(QueryUtils.getPath(root, PullRequest.PROP_LAST_ACTIVITY + "." + LastActivity.PROP_DATE)));
 		
-		query.orderBy(orders);
+		criteriaQuery.orderBy(orders);
 
-		return query;
+		return criteriaQuery;
 	}
 
 	@Sessional
 	@Override
 	public List<PullRequest> query(Subject subject, Project targetProject, 
-			EntityQuery<PullRequest> requestQuery, boolean loadExtraInfo, 
+			EntityQuery<PullRequest> query, boolean loadExtraInfo, 
 			int firstResult, int maxResults) {
-		CriteriaQuery<PullRequest> criteriaQuery = buildCriteriaQuery(subject, getSession(), targetProject, requestQuery);
-		Query<PullRequest> query = getSession().createQuery(criteriaQuery);
-		query.setFirstResult(firstResult);
-		query.setMaxResults(maxResults);
+		CriteriaQuery<PullRequest> criteriaQuery = buildCriteriaQuery(subject, getSession(), targetProject, query);
+		Query<PullRequest> hibernateQuery = getSession().createQuery(criteriaQuery);
+		hibernateQuery.setFirstResult(firstResult);
+		hibernateQuery.setMaxResults(maxResults);
 
-		List<PullRequest> requests = query.getResultList();
+		List<PullRequest> requests = hibernateQuery.getResultList();
 		if (!requests.isEmpty() && loadExtraInfo) {
 			reviewService.populateReviews(requests);
 			buildService.populateBuilds(requests);
@@ -958,12 +1076,12 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 
 	@Sessional
 	@Override
-	public int count(Subject subject, Project targetProject,  Criteria<PullRequest> requestCriteria) {
+	public int count(Subject subject, Project targetProject,  Criteria<PullRequest> criteria) {
 		CriteriaBuilder builder = getSession().getCriteriaBuilder();
 		CriteriaQuery<Long> criteriaQuery = builder.createQuery(Long.class);
 		Root<PullRequest> root = criteriaQuery.from(PullRequest.class);
 
-		criteriaQuery.where(getPredicates(subject, targetProject, requestCriteria, criteriaQuery, root, builder));
+		criteriaQuery.where(getPredicates(subject, targetProject, criteria, criteriaQuery, root, builder));
 
 		criteriaQuery.select(builder.count(root));
 		return getSession().createQuery(criteriaQuery).uniqueResult().intValue();
@@ -998,8 +1116,10 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 	@Transactional
 	@Override
 	public void delete(Collection<PullRequest> requests, Project project) {
-		for (PullRequest request: requests)
+		for (PullRequest request: requests) {
+			checkNoWorkspaces(request);
 			doDelete(request);
+		}
 		listenerRegistry.post(new PullRequestsDeleted(project, requests));
 	}
 
@@ -1026,13 +1146,13 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 	@Sessional
 	@Override
 	public Map<Integer, Integer> queryDurationStats(Subject subject, Project project, 
-			Criteria<PullRequest> pullRequestCriteria, Date startDate, Date endDate, 
+			Criteria<PullRequest> criteria, Date startDate, Date endDate, 
 			StatsGroup statsGroup) {
 		CriteriaBuilder builder = dao.getSession().getCriteriaBuilder();
 		CriteriaQuery<Object[]> criteriaQuery = builder.createQuery(Object[].class);
 		Root<PullRequest> root = criteriaQuery.from(PullRequest.class);
 
-		var predicates = new ArrayList<Predicate>(asList(getPredicates(subject, project, pullRequestCriteria, criteriaQuery, root, builder)));
+		var predicates = new ArrayList<Predicate>(asList(getPredicates(subject, project, criteria, criteriaQuery, root, builder)));
 		predicates.add(builder.equal(root.get(PROP_STATUS), MERGED));
 		predicates.add(builder.isNotNull(root.get(PROP_DURATION)));
 		if (startDate != null)
@@ -1058,13 +1178,13 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 	@Sessional
 	@Override
 	public Map<Integer, Pair<Integer, Integer>> queryFrequencyStats(Subject subject, 
-			Project project, Criteria<PullRequest> pullRequestCriteria, Date startDate, 
+			Project project, Criteria<PullRequest> criteria, Date startDate, 
 			Date endDate, StatsGroup statsGroup) {
 		CriteriaBuilder builder = dao.getSession().getCriteriaBuilder();
 		CriteriaQuery<Object[]> criteriaQuery = builder.createQuery(Object[].class);
 		Root<PullRequest> root = criteriaQuery.from(PullRequest.class);
 
-		var pullRequestPredicates = asList(getPredicates(subject, project, pullRequestCriteria, criteriaQuery, root, builder));
+		var pullRequestPredicates = asList(getPredicates(subject, project, criteria, criteriaQuery, root, builder));
 
 		var predicates = new ArrayList<>(pullRequestPredicates);
 		predicates.add(builder.equal(root.get(PROP_STATUS), OPEN));
@@ -1152,7 +1272,7 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 							comparisonBase = mergeBase1;
 							break;
 						} else {
-							PersonIdent person = new PersonIdent(User.SYSTEM_NAME, User.SYSTEM_EMAIL_ADDRESS);
+							PersonIdent person = new PersonIdent(User.SYSTEM_NAME, User.getSystemNoreplyEmailAddress());
 							comparisonBase = getGitService().merge(targetProject, oldCommitId, mergeBase1,
 									false, person, person, "helper commit", true);
 							break;
@@ -1199,6 +1319,110 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 		criteriaQuery.distinct(true);
 		
 		return getSession().createQuery(criteriaQuery).getResultList();
+	}
+
+	@Sessional
+	@Override
+	public List<PullRequest> queryAfter(Long projectId, Long afterRequestId, int count) {
+		EntityCriteria<PullRequest> criteria = newCriteria();
+		criteria.add(org.hibernate.criterion.Restrictions.eq(PullRequest.PROP_TARGET_PROJECT + ".id", projectId));
+		criteria.add(org.hibernate.criterion.Restrictions.gt("id", afterRequestId));
+		criteria.addOrder(org.hibernate.criterion.Order.asc("id"));
+		return query(criteria, 0, count);
+	}
+
+	@Override
+	public Pair<String, String> suggestTitleAndDescription(PullRequest pullRequest, ChatModel chatModel, boolean suggestTitle, boolean suggestDescription) {
+		if (!suggestTitle && !suggestDescription)
+			return ImmutablePair.of(null, null);
+
+		var sourceBranchSemantic = pullRequest.getSourceBranchSemantic();
+		String titleSuggestInstruction;
+		if (sourceBranchSemantic.isWorkInProgress()) {
+			if (sourceBranchSemantic.getWorkType() != null) {
+				titleSuggestInstruction = """
+					When suggesting pull request title, you should not add work in progress prefix
+					or conventional commit type prefix to the title even if commit messages 
+					indicate that.
+					""";
+			} else {
+				titleSuggestInstruction = """
+					When suggesting pull request title, you should not add work in progress prefix
+					to the title even if commit messages indicate that. 
+					""";
+			}
+		} else {
+			if (sourceBranchSemantic.getWorkType() != null) {
+				titleSuggestInstruction = """
+					When suggesting pull request title, you should not add conventional commit type prefix
+					to the title even if commit messages indicate that.
+					""";
+			} else {
+				titleSuggestInstruction = "";
+			}
+		}
+
+		var commitMessages = pullRequest.getLatestUpdate().getCommits().stream()
+				.map(it -> it.getFullMessage())
+				.collect(Collectors.toList());
+		String userPromptText;
+		try {
+			userPromptText = "A json array of commit messages:\n" + objectMapper.writeValueAsString(commitMessages);
+		} catch (JsonProcessingException e) {
+			throw new RuntimeException(e);
+		}
+		var userMessage = new UserMessage(userPromptText);
+
+		String title;
+		String description;
+		if (!suggestTitle) {
+			var systemMessage = new SystemMessage(String.format("""
+				You are a helpful assistant that can suggest pull request description by 
+				summarizing multiple commit messages. Maximum %d characters allowed for 
+				the description.
+				
+				IMPORTANT: only return the description, no other text or comments.
+				""", PullRequest.MAX_DESCRIPTION_LEN));
+			description = chatModel.chat(systemMessage, userMessage).aiMessage().text();
+			title = null;
+		} else if (!suggestDescription) {
+			var systemMessage = new SystemMessage(String.format("""
+				You are a helpful assistant that can suggest pull request title by summarizing 
+				multiple commit messages. %s Maximum %d characters allowed for the title. 
+
+				IMPORTANT: only return the title, no other text or comments.
+				""", titleSuggestInstruction, PullRequest.MAX_TITLE_LEN));
+			title = (pullRequest.getTitlePrefix(sourceBranchSemantic) + chatModel.chat(systemMessage, userMessage).aiMessage().text()).trim();
+			description = null;
+		} else {
+			var systemMessage = new SystemMessage(String.format("""
+				You are a helpful assistant that can suggest pull request title and description 
+				by summarizing multiple commit messages. %s Maximum %d characters allowed for the title, 
+				and %d characters allowed for the description.
+
+				IMPORTANT: only return a VALID json object with "title" property set to the title and "description" 
+				property set to the description, no other text or comments.
+				""", titleSuggestInstruction, PullRequest.MAX_TITLE_LEN, PullRequest.MAX_DESCRIPTION_LEN));
+			var responseText = chatModel.chat(systemMessage, userMessage).aiMessage().text();
+			if (responseText.startsWith("```json"))
+				responseText = responseText.substring("```json".length());
+			if (responseText.endsWith("```"))
+				responseText = responseText.substring(0, responseText.length() - "```".length());
+			try {
+				var response = objectMapper.readTree(responseText);
+				if (response.has("title"))
+					title = (pullRequest.getTitlePrefix(sourceBranchSemantic) + response.get("title").asText()).trim();
+				else
+					title = null;
+				if (response.has("description"))
+					description = response.get("description").asText();
+				else
+					description = null;
+			} catch (JsonProcessingException e) {
+				throw new RuntimeException(e);
+			}
+		}
+		return ImmutablePair.of(title, description);
 	}
 
 }

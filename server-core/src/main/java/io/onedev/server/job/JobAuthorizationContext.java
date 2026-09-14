@@ -20,8 +20,7 @@ import io.onedev.server.model.support.administration.GroovyScript;
 import io.onedev.server.model.support.build.JobSecret;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.service.AccessTokenService;
-import io.onedev.server.util.ComponentContext;
-import io.onedev.server.web.util.WicketUtils;
+import io.onedev.server.util.HierarchicalContext;
 
 public class JobAuthorizationContext {
 	
@@ -42,8 +41,8 @@ public class JobAuthorizationContext {
 	}
 	
 	public boolean isScriptAuthorized(GroovyScript script) {
-		if (script.getAuthorization() != null) {
-			JobMatch jobMatch = JobMatch.parse(script.getAuthorization(), true, false);
+		if (script.getJobAuthorization() != null) {
+			JobMatch jobMatch = JobMatch.parse(script.getJobAuthorization(), true, false);
 			if (request != null) {	
 				if (request.getSource() != null) {
 					JobMatchContext sourceContext = new JobMatchContext(request.getSourceProject(), request.getSourceBranch(), null, null);
@@ -125,11 +124,10 @@ public class JobAuthorizationContext {
 		if (!stack.get().isEmpty()) {
 			return stack.get().peek();
 		} else {
-			ComponentContext componentContext = ComponentContext.get();
-			if (componentContext != null) {
-				JobAuthorizationContextAware jobAuthorizationContextAware = WicketUtils.findInnermost(
-						componentContext.getComponent(),
-						JobAuthorizationContextAware.class);
+			var hierarchicalContext = HierarchicalContext.get();
+			if (hierarchicalContext != null) {
+				JobAuthorizationContextAware jobAuthorizationContextAware = hierarchicalContext.findData(
+					JobAuthorizationContextAware.class);
 				if (jobAuthorizationContextAware != null)
 					return jobAuthorizationContextAware.getJobAuthorizationContext();
 			}

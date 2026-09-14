@@ -16,7 +16,6 @@ import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 
-import org.jspecify.annotations.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.persistence.criteria.CriteriaBuilder;
@@ -24,10 +23,11 @@ import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
 
 import org.apache.commons.lang.SerializationUtils;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.eclipse.jetty.websocket.api.Session;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.query.Query;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,11 +59,10 @@ import io.onedev.server.persistence.annotation.Transactional;
 import io.onedev.server.persistence.dao.EntityCriteria;
 import io.onedev.server.search.entity.EntityQuery;
 import io.onedev.server.search.entity.EntitySort;
-import io.onedev.server.search.entity.agent.AgentQuery;
 import io.onedev.server.service.AgentAttributeService;
-import io.onedev.server.service.AgentLastUsedDateService;
 import io.onedev.server.service.AgentService;
 import io.onedev.server.service.AgentTokenService;
+import io.onedev.server.util.QueryUtils;
 import io.onedev.server.util.criteria.Criteria;
 import io.onedev.server.validation.validator.AttributeNameValidator;
 
@@ -86,9 +85,6 @@ public class DefaultAgentService extends BaseEntityService<Agent> implements Age
 
 	@Inject
 	private ClusterService clusterService;
-
-	@Inject
-	private AgentLastUsedDateService lastUsedDateService;
 	
 	private final String agentVersion;
 	
@@ -109,7 +105,7 @@ public class DefaultAgentService extends BaseEntityService<Agent> implements Age
 			Properties props = new Properties();
 			props.load(is);
 			for (String dependency: Splitter.on(';').omitEmptyStrings().split(props.getProperty("dependencies")))  
-				agentLibs.add(StringUtils.replace(dependency, ":", "-") + ".jar");
+				agentLibs.add(Strings.CS.replace(dependency, ":", "-") + ".jar");
 			agentVersion = props.getProperty("version");
 			agentLibs.add(props.getProperty("id") + "-" + agentVersion + ".jar");
 		} catch (IOException e) {
@@ -195,8 +191,7 @@ public class DefaultAgentService extends BaseEntityService<Agent> implements Age
 
 			AgentLastUsedDate lastUsedDate = new AgentLastUsedDate();
 			agent.setLastUsedDate(lastUsedDate);
-			lastUsedDateService.create(lastUsedDate);
-
+			dao.persist(lastUsedDate);
 			dao.persist(agent);
 			
 			for (Map.Entry<String, String> entry: data.getAttributes().entrySet()) {
@@ -245,9 +240,9 @@ public class DefaultAgentService extends BaseEntityService<Agent> implements Age
 	}
 
 	private void removeReferences(Agent agent) {
-    	Query<?> query = getSession().createQuery("update Build set agent=null where agent=:agent");
-    	query.setParameter("agent", agent);
-    	query.executeUpdate();
+		Query<?> query = getSession().createQuery("update Build set agent=null where agent=:agent");
+		query.setParameter("agent", agent);
+		query.executeUpdate();
 	}
 	
 	@Sessional
@@ -295,50 +290,50 @@ public class DefaultAgentService extends BaseEntityService<Agent> implements Age
 		return osArchs.keySet();
 	}
 	
-	private CriteriaQuery<Agent> buildCriteriaQuery(org.hibernate.Session session, EntityQuery<Agent> agentQuery) {
+	private CriteriaQuery<Agent> buildCriteriaQuery(org.hibernate.Session session, EntityQuery<Agent> query) {
 		CriteriaBuilder builder = session.getCriteriaBuilder();
-		CriteriaQuery<Agent> query = builder.createQuery(Agent.class);
-		Root<Agent> root = query.from(Agent.class);
-		query.select(root);
+		CriteriaQuery<Agent> criteriaQuery = builder.createQuery(Agent.class);
+		Root<Agent> root = criteriaQuery.from(Agent.class);
+		criteriaQuery.select(root);
 
-		if (agentQuery.getCriteria() != null)
-			query.where(agentQuery.getCriteria().getPredicate(null, query, root, builder));
+		if (query.getCriteria() != null)
+			criteriaQuery.where(query.getCriteria().getPredicate(null, criteriaQuery, root, builder));
 
 		List<javax.persistence.criteria.Order> orders = new ArrayList<>();
-		for (EntitySort sort: agentQuery.getSorts()) {
+		for (EntitySort sort: query.getSorts()) {
 			if (sort.getDirection() == ASCENDING)
-				orders.add(builder.asc(AgentQuery.getPath(root, SORT_FIELDS.get(sort.getField()).getProperty())));
+				orders.add(builder.asc(QueryUtils.getPath(root, SORT_FIELDS.get(sort.getField()).getProperty())));
 			else
-				orders.add(builder.desc(AgentQuery.getPath(root, SORT_FIELDS.get(sort.getField()).getProperty())));
+				orders.add(builder.desc(QueryUtils.getPath(root, SORT_FIELDS.get(sort.getField()).getProperty())));
 		}
 
 		if (orders.isEmpty())
-			orders.add(builder.asc(AgentQuery.getPath(root, Agent.PROP_NAME)));
-		query.orderBy(orders);
+			orders.add(builder.asc(QueryUtils.getPath(root, Agent.PROP_NAME)));
+		criteriaQuery.orderBy(orders);
 		
-		return query;
+		return criteriaQuery;
 	}
 	
 	@Sessional
 	@Override
-	public List<Agent> query(EntityQuery<Agent> agentQuery, int firstResult, int maxResults) {
-		CriteriaQuery<Agent> criteriaQuery = buildCriteriaQuery(getSession(), agentQuery);
-		Query<Agent> query = getSession().createQuery(criteriaQuery);
-		query.setFirstResult(firstResult);
-		query.setMaxResults(maxResults);
-		query.setCacheable(true);
-		return query.getResultList();
+	public List<Agent> query(EntityQuery<Agent> query, int firstResult, int maxResults) {
+		CriteriaQuery<Agent> criteriaQuery = buildCriteriaQuery(getSession(), query);
+		Query<Agent> hibernateQuery = getSession().createQuery(criteriaQuery);
+		hibernateQuery.setFirstResult(firstResult);
+		hibernateQuery.setMaxResults(maxResults);
+		hibernateQuery.setCacheable(true);
+		return hibernateQuery.getResultList();
 	}
 
 	@Sessional
 	@Override
-	public int count(Criteria<Agent> agentCriteria) {
+	public int count(Criteria<Agent> criteria) {
 		CriteriaBuilder builder = getSession().getCriteriaBuilder();
 		CriteriaQuery<Long> criteriaQuery = builder.createQuery(Long.class);
 		Root<Agent> root = criteriaQuery.from(Agent.class);
 		
-		if (agentCriteria != null)
-			criteriaQuery.where(agentCriteria.getPredicate(null, criteriaQuery, root, builder));
+		if (criteria != null)
+			criteriaQuery.where(criteria.getPredicate(null, criteriaQuery, root, builder));
 
 		criteriaQuery.select(builder.count(root));
 		return getSession().createQuery(criteriaQuery).uniqueResult().intValue();
@@ -356,7 +351,7 @@ public class DefaultAgentService extends BaseEntityService<Agent> implements Age
 					Session session = agentSessions.get(agentId);
 					if (session != null)
 						new Message(MessageTypes.RESTART, new byte[0]).sendBy(session);
-				} catch (Exception e) {
+				} catch (Throwable e) {
 					logger.error("Error restarting agent '" + agentName + "'", e);
 				}
 				return null;
@@ -373,7 +368,7 @@ public class DefaultAgentService extends BaseEntityService<Agent> implements Age
 					Session session = agentSessions.get(agentId);
 					if (session != null)
 						session.disconnect();
-				} catch (Exception e) {
+				} catch (Throwable e) {
 					logger.error("Error disconnecting agent with id '" + agentId + "'", e);
 				}
 				return null;
@@ -390,7 +385,7 @@ public class DefaultAgentService extends BaseEntityService<Agent> implements Age
 		var token = agent.getToken();
 		removeReferences(agent);
 		dao.remove(agent);
-		lastUsedDateService.delete(agent.getLastUsedDate());
+		dao.remove(agent.getLastUsedDate());
 		
 		transactionService.runAfterCommit(() -> {
 			String server = agentServers.remove(agentId);
@@ -402,7 +397,7 @@ public class DefaultAgentService extends BaseEntityService<Agent> implements Age
 							new Message(MessageTypes.STOP, new byte[0]).sendBy(prevSession);
 							prevSession.disconnect();
 						}
-					} catch (Exception e) {
+					} catch (Throwable e) {
 						logger.error("Error disconnecting agent '" + agentName + "'", e);						
 					}
 					return null;
@@ -440,7 +435,7 @@ public class DefaultAgentService extends BaseEntityService<Agent> implements Age
 						byte[] attributeBytes = SerializationUtils.serialize((Serializable) attributes);
 						new Message(MessageTypes.UPDATE_ATTRIBUTES, attributeBytes).sendBy(session);
 					}
-				} catch (Exception e) {
+				} catch (Throwable e) {
 					logger.error("Error updating attributes of agent '" + agentName + "'", e);
 				}
 				return null;
@@ -457,7 +452,7 @@ public class DefaultAgentService extends BaseEntityService<Agent> implements Age
 				Session session = agentSessions.get(agentId);
 				if (session != null) {
 					try {
-						return WebsocketUtils.call(session, new LogRequest(), 60000);
+						return WebsocketUtils.call(session, new LogRequest());
 					} catch (InterruptedException | TimeoutException e) {
 						throw new RuntimeException(e);
 					}

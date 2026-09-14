@@ -1,5 +1,6 @@
 package io.onedev.server.web.page.project.builds.detail;
 
+import static io.onedev.server.ai.ToolUtils.wrapForChat;
 import static io.onedev.server.web.translation.Translation._T;
 
 import java.io.Serializable;
@@ -24,6 +25,7 @@ import org.apache.wicket.ajax.markup.html.AjaxLink;
 import org.apache.wicket.core.request.handler.IPartialPageRequestHandler;
 import org.apache.wicket.markup.head.IHeaderResponse;
 import org.apache.wicket.markup.head.JavaScriptHeaderItem;
+import org.apache.wicket.markup.head.OnDomReadyHeaderItem;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.link.BookmarkablePageLink;
@@ -35,19 +37,24 @@ import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.request.flow.RedirectToUrlException;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
+import org.eclipse.jgit.lib.ObjectId;
 
 import com.google.common.collect.Sets;
 
+import io.onedev.server.ai.ChatTool;
+import io.onedev.server.ai.tools.build.GetBuild;
 import io.onedev.server.buildspec.job.Job;
 import io.onedev.server.buildspec.job.JobDependency;
 import io.onedev.server.buildspec.param.spec.ParamSpec;
 import io.onedev.server.buildspecmodel.inputspec.InputContext;
 import io.onedev.server.data.migration.VersionedXmlDoc;
 import io.onedev.server.event.project.build.BuildUpdated;
+import io.onedev.server.exception.NotAcceptableException;
 import io.onedev.server.job.JobAuthorizationContext;
 import io.onedev.server.job.JobAuthorizationContextAware;
 import io.onedev.server.job.JobContext;
 import io.onedev.server.job.JobService;
+import io.onedev.server.job.JobTerminalService;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.Build.Status;
 import io.onedev.server.model.Project;
@@ -57,7 +64,7 @@ import io.onedev.server.search.entity.EntityQuery;
 import io.onedev.server.search.entity.build.BuildQuery;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.service.BuildService;
-import io.onedev.server.terminal.TerminalService;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.util.ProjectScope;
 import io.onedev.server.web.WebSession;
 import io.onedev.server.web.ajaxlistener.ConfirmClickListener;
@@ -84,12 +91,11 @@ import io.onedev.server.web.page.project.ProjectPage;
 import io.onedev.server.web.page.project.builds.ProjectBuildsPage;
 import io.onedev.server.web.page.project.builds.detail.artifacts.BuildArtifactsPage;
 import io.onedev.server.web.page.project.builds.detail.changes.BuildChangesPage;
-import io.onedev.server.web.page.project.builds.detail.dashboard.BuildDashboardPage;
 import io.onedev.server.web.page.project.builds.detail.issues.FixedIssuesPage;
 import io.onedev.server.web.page.project.builds.detail.log.BuildLogPage;
 import io.onedev.server.web.page.project.builds.detail.pack.BuildPacksPage;
 import io.onedev.server.web.page.project.builds.detail.pipeline.BuildPipelinePage;
-import io.onedev.server.web.page.project.dashboard.ProjectDashboardPage;
+import io.onedev.server.web.page.project.overview.ProjectOverviewPage;
 import io.onedev.server.web.util.BuildAware;
 import io.onedev.server.web.util.ConfirmClickModifier;
 import io.onedev.server.web.util.Cursor;
@@ -104,10 +110,13 @@ public abstract class BuildDetailPage extends ProjectPage
 	protected BuildService buildService;
 
 	@Inject
-	protected JobService jobService;
+	private SettingService settingService;
 
 	@Inject
-	protected TerminalService terminalService;
+	private JobService jobService;
+
+	@Inject
+	private JobTerminalService terminalService;
 
 	@Inject
 	private Set<PackSupport> packSupports;
@@ -153,10 +162,15 @@ public abstract class BuildDetailPage extends ProjectPage
 
 			@Override
 			protected Build load() {
-				Long buildNumber = params.get(PARAM_BUILD).toLong();
+				Long buildNumber;
+				try {
+					buildNumber = Long.valueOf(buildNumberString);
+				} catch (NumberFormatException e) {
+					throw new NotAcceptableException(MessageFormat.format(_T("Invalid build number: {0}"), buildNumberString));
+				}
 				Build build = buildService.find(getProject(), buildNumber);
 				if (build == null)
-					throw new EntityNotFoundException(MessageFormat.format(_T("Unable to find build #{0} in project {1}"), buildNumber, getProject()));
+					throw new EntityNotFoundException(MessageFormat.format(_T("Unable to find build #{0} in project {1}"), String.valueOf(buildNumber), getProject()));
 				else if (!build.getProject().equals(getProject()))
 					throw new RestartResponseException(getPageClass(), paramsOf(build));
 				else
@@ -176,7 +190,7 @@ public abstract class BuildDetailPage extends ProjectPage
 	
 	@Override
 	protected boolean isPermitted() {
-		return SecurityUtils.canAccessBuild(getBuild());
+		return SecurityUtils.canAccessProject(getBuild().getProject());
 	}
 	
 	@Override
@@ -184,7 +198,7 @@ public abstract class BuildDetailPage extends ProjectPage
 		if (project.isCodeManagement()) 
 			return new ViewStateAwarePageLink<Void>(componentId, ProjectBuildsPage.class, ProjectBuildsPage.paramsOf(project, 0));
 		else
-			return new ViewStateAwarePageLink<Void>(componentId, ProjectDashboardPage.class, ProjectDashboardPage.paramsOf(project.getId()));
+			return new ViewStateAwarePageLink<Void>(componentId, ProjectOverviewPage.class, ProjectOverviewPage.paramsOf(project.getId()));
 	}
 
 	private ChangeObserver newBuildObserver(Long buildId) {
@@ -208,11 +222,11 @@ public abstract class BuildDetailPage extends ProjectPage
 	protected void onInitialize() {
 		super.onInitialize();
 		
-		add(new Label("summary", new AbstractReadOnlyModel<String>() {
+		add(new Label("caption", new AbstractReadOnlyModel<String>() {
 
 			@Override
 			public String getObject() {
-				return getBuild().getSummary(getProject());
+				return getBuild().getCaption(getProject(), false);
 			}
 			
 		}) {
@@ -226,11 +240,9 @@ public abstract class BuildDetailPage extends ProjectPage
 			
 		});
 		
-		WebMarkupContainer statusContainer = new WebMarkupContainer("status");
-		add(statusContainer);
-		statusContainer.add(newBuildObserver(getBuild().getId()));
-		statusContainer.setOutputMarkupId(true);
-		statusContainer.add(new BuildStatusIcon("statusIcon", new AbstractReadOnlyModel<Status>() {
+		add(new Label("number", "#" + getBuild().getNumber()));
+		
+		add(new BuildStatusIcon("statusIcon", new AbstractReadOnlyModel<Status>() {
 
 			@Override
 			public Status getObject() {
@@ -245,14 +257,14 @@ public abstract class BuildDetailPage extends ProjectPage
 			}
 			
 		});
-		statusContainer.add(new Label("statusLabel", new AbstractReadOnlyModel<String>() {
+		add(new Label("statusLabel", new AbstractReadOnlyModel<String>() {
 
 			@Override
 			public String getObject() {
 				return _T(buildModel.getObject().getStatus().toString());
 			}
 			
-		}));
+		}).add(newBuildObserver(getBuild().getId())));
 		
 		add(new WebMarkupContainer("actions") {
 			@Override
@@ -269,7 +281,7 @@ public abstract class BuildDetailPage extends ProjectPage
 					private void resubmit(Serializable paramBean) {
 						var user = SecurityUtils.getUser();
 						jobService.resubmit(user, getBuild(), _T("Resubmitted manually"));
-						setResponsePage(BuildDashboardPage.class, BuildDashboardPage.paramsOf(getBuild()));
+						setResponsePage(BuildDefaultPage.class, BuildDefaultPage.paramsOf(getBuild()));
 					}
 
 					@Override
@@ -332,7 +344,7 @@ public abstract class BuildDetailPage extends ProjectPage
 						super.onConfigure();
 
 						JobContext jobContext = jobService.getJobContext(getBuild().getId());
-						setVisible(jobContext!= null && SecurityUtils.canOpenTerminal(getBuild()));
+						setVisible(jobContext!= null && !getBuild().isFinished() && SecurityUtils.canOpenTerminal(getBuild()));
 					}
 
 				}.setOutputMarkupId(true));
@@ -359,6 +371,11 @@ public abstract class BuildDetailPage extends ProjectPage
 								return getBuild().getRequest();
 							}
 
+							@Override
+							protected ObjectId getSeenBranchTip(String branch) {
+								return null;
+							}
+							
 						};
 					}
 
@@ -431,11 +448,30 @@ public abstract class BuildDetailPage extends ProjectPage
 
 				});
 
+				add(new AjaxLink<Void>("createIssue") {
+
+					@Override
+					public void onClick(AjaxRequestTarget target) {
+						var prompt = settingService.getAiSetting().getBuildFailureIssuePrompt();
+						getAssistant().show(target, prompt + " Display in " + getSession().getLocale().getDisplayLanguage());
+					}
+		
+					@Override
+					protected void onConfigure() {
+						super.onConfigure();
+						setVisible(getBuild().isFailed() 
+								&& SecurityUtils.canWriteCode(getProject()) 
+								&& !getAssistant().getEntitledAis().isEmpty());
+					}
+		
+				});
+						
 				add(newBuildObserver(getBuild().getId()));
 			}
 		});
-		
+
 		add(new SideInfoLink("moreInfo"));
+		add(new SideInfoLink("moreInfoDock"));
 		
 		add(new WebMarkupContainer("buildSpecNotFound") {
 
@@ -592,7 +628,7 @@ public abstract class BuildDetailPage extends ProjectPage
 								var oldAuditContent = VersionedXmlDoc.fromBean(getBuild()).toXML();
 								auditService.audit(getBuild().getProject(), "deleted build \"" + getBuild().getReference().toString(getBuild().getProject()) + "\"", oldAuditContent, null);
 								
-								Session.get().success(MessageFormat.format(_T("Build #{0} deleted"), getBuild().getNumber()));
+								Session.get().success(MessageFormat.format(_T("Build {0} deleted"), getBuild().getReference().toString(getBuild().getProject())));
 								
 								String redirectUrlAfterDelete = WebSession.get().getRedirectUrlAfterDelete(Build.class);
 								if (redirectUrlAfterDelete != null)
@@ -656,6 +692,7 @@ public abstract class BuildDetailPage extends ProjectPage
 	public void renderHead(IHeaderResponse response) {
 		super.renderHead(response);
 		response.render(JavaScriptHeaderItem.forReference(new BuildDetailResourceReference()));
+		response.render(OnDomReadyHeaderItem.forScript("onedev.server.buildDetail.onDomReady();"));
 	}
 
 	@Override
@@ -711,5 +748,12 @@ public abstract class BuildDetailPage extends ProjectPage
 	public JobAuthorizationContext getJobAuthorizationContext() {
 		return new JobAuthorizationContext(getProject(), getBuild().getCommitId(), getBuild().getRequest());
 	}
-	
+
+	@Override
+	public List<ChatTool> getChatTools() {
+		var tools = super.getChatTools();
+		tools.add(wrapForChat(new GetBuild(getBuild().getId())));
+		return tools;
+	}
+
 }

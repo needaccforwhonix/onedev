@@ -9,8 +9,6 @@ import java.text.MessageFormat;
 import java.util.Date;
 import java.util.List;
 
-import org.jspecify.annotations.Nullable;
-
 import org.apache.commons.lang3.SerializationUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
@@ -40,11 +38,11 @@ import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
+import org.jspecify.annotations.Nullable;
 
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.OneDev;
 import io.onedev.server.data.migration.VersionedXmlDoc;
-import io.onedev.server.service.IterationService;
 import io.onedev.server.model.Iteration;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.support.issue.BoardSpec;
@@ -52,6 +50,7 @@ import io.onedev.server.search.entity.EntitySort;
 import io.onedev.server.search.entity.issue.IssueQuery;
 import io.onedev.server.search.entity.issue.IssueQueryParseOption;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.IterationService;
 import io.onedev.server.util.CollectionUtils;
 import io.onedev.server.util.DateUtils;
 import io.onedev.server.util.ProjectScope;
@@ -68,9 +67,9 @@ import io.onedev.server.web.component.link.DropdownLink;
 import io.onedev.server.web.component.link.ViewStateAwarePageLink;
 import io.onedev.server.web.component.modal.ModalLink;
 import io.onedev.server.web.component.modal.ModalPanel;
-import io.onedev.server.web.page.project.dashboard.ProjectDashboardPage;
 import io.onedev.server.web.page.project.issues.ProjectIssuesPage;
 import io.onedev.server.web.page.project.issues.iteration.IterationBurndownPage;
+import io.onedev.server.web.page.project.overview.ProjectOverviewPage;
 import io.onedev.server.web.util.ConfirmClickModifier;
 import io.onedev.server.web.util.editbean.IterationEditBean;
 
@@ -176,7 +175,7 @@ public class IssueBoardsPage extends ProjectIssuesPage {
 		if (StringUtils.isNotBlank(boardName)) {
 			boardIndex = BoardSpec.getBoardIndex(boards, boardName);
 			if (boardIndex == -1)
-				throw new ExplicitException(_T("Can not find issue board: ") + boardName);
+				throw new ExplicitException(_T("Cannot find issue board: ") + boardName);
 		} else {
 			boardIndex = 0;
 		}
@@ -391,7 +390,7 @@ public class IssueBoardsPage extends ProjectIssuesPage {
 								target.add(menuFragment);
 							}
 							
-						}.items(".board"));
+						}.items(".board").handle(".drag-indicator"));
 					}
 					
 					menuFragment.add(new CreateBoardLink("newBoard", new BoardSpec()) {
@@ -1030,7 +1029,7 @@ public class IssueBoardsPage extends ProjectIssuesPage {
 		if (project.isIssueManagement()) 
 			return new ViewStateAwarePageLink<Void>(componentId, IssueBoardsPage.class, IssueBoardsPage.paramsOf(project));
 		else
-			return new ViewStateAwarePageLink<Void>(componentId, ProjectDashboardPage.class, ProjectDashboardPage.paramsOf(project.getId()));
+			return new ViewStateAwarePageLink<Void>(componentId, ProjectOverviewPage.class, ProjectOverviewPage.paramsOf(project.getId()));
 	}
 	
 }

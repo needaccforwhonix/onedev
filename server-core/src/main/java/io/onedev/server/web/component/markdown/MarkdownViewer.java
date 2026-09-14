@@ -31,6 +31,8 @@ import io.onedev.server.entityreference.BuildReference;
 import io.onedev.server.entityreference.EntityReference;
 import io.onedev.server.entityreference.IssueReference;
 import io.onedev.server.entityreference.PullRequestReference;
+import io.onedev.server.entityreference.WorkspaceReference;
+import io.onedev.server.exception.NotAcceptableException;
 import io.onedev.server.markdown.MarkdownService;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.User;
@@ -51,6 +53,7 @@ import io.onedev.server.web.component.build.status.BuildStatusIcon;
 import io.onedev.server.web.component.svg.SpriteImage;
 import io.onedev.server.web.page.project.ProjectPage;
 import io.onedev.server.web.page.project.blob.render.BlobRenderContext;
+import io.onedev.server.workspace.WorkspaceService;
 
 public class MarkdownViewer extends GenericPanel<String> {
 
@@ -97,6 +100,9 @@ public class MarkdownViewer extends GenericPanel<String> {
 
 	@Inject
 	private ProjectService projectService;
+
+	@Inject
+	private WorkspaceService workspaceService;
 	
 	private final IModel<String> renderedModel = new LoadableDetachableModel<String>() {
 
@@ -104,8 +110,7 @@ public class MarkdownViewer extends GenericPanel<String> {
 		protected String load() {
 			String markdown = getModelObject();
 			if (markdown != null) {
-				return markdownService.process(markdownService.render(markdown), getProject(), 
-						getRenderContext(), getSuggestionSupport(), false);
+				return renderMarkdown(markdown);
 			} else {
 				return null;
 			}
@@ -120,6 +125,11 @@ public class MarkdownViewer extends GenericPanel<String> {
 			lastContentVersion = contentVersionSupport.getVersion();
 	}
 	
+	protected String renderMarkdown(String markdown) {
+		return markdownService.process(markdownService.render(markdown), getProject(),
+				getRenderContext(), getSuggestionSupport(), false);
+	}
+
 	protected BlobRenderContext getRenderContext() {
 		return null;
 	}
@@ -255,7 +265,7 @@ public class MarkdownViewer extends GenericPanel<String> {
 					reference = BuildReference.of(referenceId, null);
 					var build = buildService.find(reference.getProject(), reference.getNumber());
 					// check permission here as build project may not be the same as current project
-					if (build != null && SecurityUtils.canAccessBuild(build)) {
+					if (build != null && SecurityUtils.canAccessProject(build.getProject())) {
 						String iconHref = SpriteImage.getVersionedHref(BuildStatusIcon.getIconHref(build.getStatus()));
 						String iconCss = BuildStatusIcon.getIconClass(build.getStatus());
 						
@@ -292,17 +302,30 @@ public class MarkdownViewer extends GenericPanel<String> {
 					if (commitProject != null)
 						commit = commitProject.getRevCommit(ObjectId.fromString(commitHash), false);
 					if (commit != null && SecurityUtils.canReadCode(commitProject)) {
-						String script = String.format("onedev.server.markdown.renderCommitTooltip('%s', '%s', '%s');", 
+						String script = String.format("onedev.server.markdown.renderCommitTooltip('%s', '%s', '%s', '%s');",
 								JavaScriptEscape.escapeJavaScript(commit.getAuthorIdent().getName()), 
-								JavaScriptEscape.escapeJavaScript(DateUtils.formatAge(commit.getCommitterIdent().getWhen())), 
+								JavaScriptEscape.escapeJavaScript(DateUtils.formatAge(commit.getCommitterIdent().getWhen())),
+								JavaScriptEscape.escapeJavaScript(DateUtils.formatDateTime(commit.getCommitterIdent().getWhen())),
 								JavaScriptEscape.escapeJavaScript(commit.getFullMessage()));
 						target.appendJavaScript(script);
 					} else {
 						target.appendJavaScript("onedev.server.markdown.renderCommitTooltip();");
 					}
 					break;
+				case "workspace":
+					var workspaceRef = WorkspaceReference.of(referenceId, null);
+					var workspace = workspaceService.find(workspaceRef.getProject(), workspaceRef.getNumber());
+					if (workspace != null && SecurityUtils.canReadCode(workspace.getProject())) {
+						String title = workspace.getUser().getDisplayName() + " on " + workspace.getOnDescription() + " for " + workspace.getSpecName() + " (" + workspace.getStatus().name() + ")";
+						String script = String.format("onedev.server.markdown.renderWorkspaceTooltip('%s');",
+								JavaScriptEscape.escapeJavaScript(title));
+						target.appendJavaScript(script);
+					} else {
+						target.appendJavaScript("onedev.server.markdown.renderWorkspaceTooltip();");
+					}
+					break;
 				default:
-					throw new RuntimeException("Unrecognized reference type: " + referenceType);
+					throw new NotAcceptableException("Unrecognized reference type: " + referenceType);
 				}
 			}
 			
@@ -313,7 +336,7 @@ public class MarkdownViewer extends GenericPanel<String> {
 			@Override
 			protected void respond(AjaxRequestTarget target) {
 				IRequestParameters params = RequestCycle.get().getRequest().getPostParameters();
-				String suggestionAction = params.getParameterValue(SUGGESTION_ACTION).toString();
+				String suggestionAction = params.getParameterValue(SUGGESTION_ACTION).toString();				
 				String suggestionContent = params.getParameterValue(SUGGESTION_CONTENT).toString();
 				List<String> suggestion = StringUtils.splitToLines(suggestionContent);
 				switch (suggestionAction) {
@@ -327,7 +350,7 @@ public class MarkdownViewer extends GenericPanel<String> {
 					getSuggestionSupport().getApplySupport().getBatchSupport().removeFromBatch(target);
 					break;
 				default:
-					throw new RuntimeException("Unrecognized suggestion action: " + suggestionAction);
+					throw new NotAcceptableException("Unrecognized suggestion action: " + suggestionAction);
 				}
 			}
 			

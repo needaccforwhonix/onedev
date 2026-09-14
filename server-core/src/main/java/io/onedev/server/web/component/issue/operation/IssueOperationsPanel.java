@@ -1,17 +1,20 @@
 package io.onedev.server.web.component.issue.operation;
 
-import com.google.common.collect.Lists;
-import io.onedev.server.model.Issue;
-import io.onedev.server.web.behavior.ChangeObserver;
-import io.onedev.server.web.component.issue.IssueStateBadge;
-import io.onedev.server.web.page.project.issues.create.NewIssuePage;
+import java.util.Collection;
+
 import org.apache.wicket.markup.head.CssHeaderItem;
 import org.apache.wicket.markup.head.IHeaderResponse;
 import org.apache.wicket.markup.html.link.BookmarkablePageLink;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.model.LoadableDetachableModel;
 
-import java.util.Collection;
+import com.google.common.collect.Lists;
+
+import io.onedev.server.model.Issue;
+import io.onedev.server.web.behavior.ChangeObserver;
+import io.onedev.server.web.component.issue.IssueStateBadge;
+import io.onedev.server.web.component.issue.progress.IssueProgressPanel;
+import io.onedev.server.web.page.project.issues.create.NewIssuePage;
 
 public abstract class IssueOperationsPanel extends Panel {
 	
@@ -30,7 +33,7 @@ public abstract class IssueOperationsPanel extends Panel {
 			
 		};
 		addOrReplace(transitionMenuLink);
-		
+
 		transitionMenuLink.add(new IssueStateBadge("name", new LoadableDetachableModel<>() {
 			@Override
 			protected Issue load() {
@@ -47,6 +50,15 @@ public abstract class IssueOperationsPanel extends Panel {
 	@Override
 	protected void onInitialize() {
 		super.onInitialize();
+
+		add(new IssueProgressPanel("progress") {
+
+			@Override
+			protected Issue getIssue() {
+				return IssueOperationsPanel.this.getIssue();
+			}
+
+		});
 		
 		add(new ChangeObserver() {
 			

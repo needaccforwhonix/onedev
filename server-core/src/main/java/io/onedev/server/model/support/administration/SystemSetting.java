@@ -10,16 +10,19 @@ import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 
 import com.google.common.base.Preconditions;
 
+import io.onedev.commons.utils.PathUtils;
 import io.onedev.server.OneDev;
 import io.onedev.server.ServerConfig;
 import io.onedev.server.annotation.ClassValidating;
 import io.onedev.server.annotation.DependsOn;
 import io.onedev.server.annotation.Editable;
+import io.onedev.server.annotation.ProjectChoice;
 import io.onedev.server.annotation.ShowCondition;
 import io.onedev.server.git.location.CurlLocation;
 import io.onedev.server.git.location.GitLocation;
@@ -46,6 +49,12 @@ public class SystemSetting implements Serializable, Validatable {
 	public static final String PROP_USE_AVATAR_SERVICE = "useAvatarService";
 	
 	public static final String PROP_DISABLE_AUTO_UPDATE_CHECK = "disableAutoUpdateCheck";
+
+	public static final String PROP_DEFAULT_FORK_ROOT = "defaultForkRoot";
+
+	public static final String PROP_NOREPLY_EMAIL_DOMAIN = "noreplyEmailDomain";
+
+	public static final String DEFAULT_NOREPLY_EMAIL_DOMAIN = "noreply.localhost";
 	
 	private String serverUrl;
 	
@@ -55,7 +64,7 @@ public class SystemSetting implements Serializable, Validatable {
 	
 	private CurlLocation curlLocation = new SystemCurl();
 
-	private int sessionTimeout = 30;
+	private Integer sessionTimeout;
 
 	private boolean disableAutoUpdateCheck;
 	
@@ -64,6 +73,10 @@ public class SystemSetting implements Serializable, Validatable {
 	private boolean useAvatarService;
 	
 	private String avatarServiceUrl = "https://secure.gravatar.com/avatar/";
+	
+	private String defaultForkRoot = "forks";
+
+	private String noreplyEmailDomain = DEFAULT_NOREPLY_EMAIL_DOMAIN;
 	
 	@Editable(name="Server URL", order=90, description="Specify root URL to access this server")
 	@NotEmpty
@@ -134,13 +147,15 @@ public class SystemSetting implements Serializable, Validatable {
 		this.curlLocation = curlLocation;
 	}
 
-	@Editable(order=300, description = "Specify web UI session timeout in minutes. Existing sessions will not be affected after changing this value.")
-	@Min(value=1, message="Session timeout should be at least 1 minute")
-	public int getSessionTimeout() {
+	@Editable(order=300, placeholder="Never expire", description = """
+		Specify web UI session timeout in minutes. Leave empty to never expire when browser is open. \
+		Existing sessions will not be affected after changing this value.""")
+	@Min(value=5, message="Session timeout should be at least 5 minutes if specified")
+	public Integer getSessionTimeout() {
 		return sessionTimeout;
 	}
 
-	public void setSessionTimeout(int sessionTimeout) {
+	public void setSessionTimeout(Integer sessionTimeout) {
 		this.sessionTimeout = sessionTimeout;
 	}
 
@@ -191,6 +206,45 @@ public class SystemSetting implements Serializable, Validatable {
 
 	public void setAvatarServiceUrl(String avatarServiceUrl) {
 		this.avatarServiceUrl = avatarServiceUrl;
+	}
+
+	@Editable(order=700, name="Default Fork Root", placeholder="No default fork root", description="""
+			When forking from the UI, the default target project will be created as 
+			&lt;default fork root&gt;/&lt;account name&gt;/&lt;project name&gt; if specified 
+			(users forking need permission to create child projects under the fork 
+			root), or &lt;account name&gt;/&lt;project name&gt; otherwise (need permission 
+			to create root projects)""")
+	@ProjectChoice
+	@Nullable
+	public String getDefaultForkRoot() {
+		return defaultForkRoot;
+	}
+
+	public void setDefaultForkRoot(String defaultForkRoot) {
+		this.defaultForkRoot = defaultForkRoot;
+	}
+
+	@Editable(order=800, name="Noreply Email Domain", description="""
+			Specify domain of various noreply email addresses for git operations if users want  
+			to keep their own email addresses private""")
+	@NotEmpty
+	@Pattern(regexp = "[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+", message = "Not a valid email domain")
+	public String getNoreplyEmailDomain() {
+		return noreplyEmailDomain;
+	}
+
+	public void setNoreplyEmailDomain(String noreplyEmailDomain) {
+		this.noreplyEmailDomain = noreplyEmailDomain;
+	}
+
+	public void onMoveProject(String oldPath, String newPath) {
+		if (defaultForkRoot != null && PathUtils.isSelfOrAncestor(oldPath, defaultForkRoot))
+			defaultForkRoot = PathUtils.substituteSelfOrAncestor(defaultForkRoot, oldPath, newPath);
+	}
+
+	public void onDeleteProject(String projectPath) {
+		if (defaultForkRoot != null && PathUtils.isSelfOrAncestor(projectPath, defaultForkRoot))
+			defaultForkRoot = null;
 	}
 
 	public String getEffectiveSshRootUrl() {

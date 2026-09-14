@@ -47,6 +47,7 @@ import org.unbescape.html.HtmlEscape;
 import io.onedev.server.attachment.AttachmentSupport;
 import io.onedev.server.attachment.ProjectAttachmentSupport;
 import io.onedev.server.model.Issue;
+import io.onedev.server.web.component.issue.pullrequests.IssuePullRequestsPanel;
 import io.onedev.server.model.IssueLink;
 import io.onedev.server.model.LinkSpec;
 import io.onedev.server.model.Project;
@@ -179,7 +180,7 @@ public abstract class IssuePrimaryPanel extends Panel {
 		Issue issue = getIssue();
 		add(new UserIdentPanel("submitter", issue.getSubmitter(), Mode.AVATAR_AND_NAME));
 		add(new Label("submitDate", DateUtils.formatAge(issue.getSubmitDate()))
-			.add(new AttributeAppender("title", DateUtils.formatDateTime(issue.getSubmitDate()))));
+			.add(new AttributeAppender("data-tippy-content", DateUtils.formatDateTime(issue.getSubmitDate()))));
 
 		if (issue.getOnBehalfOf() != null) {
 			var onBehalfOfInfo = HtmlEscape.escapeHtml5(EmailAddressUtils.describe(issue.getOnBehalfOf(), SecurityUtils.canManageIssues(getProject())));
@@ -334,6 +335,13 @@ public abstract class IssuePrimaryPanel extends Panel {
 
 		});
         
+		add(new IssuePullRequestsPanel("pullRequests", new LoadableDetachableModel<Issue>() {
+			@Override
+			protected Issue load() {
+				return getIssue();
+			}
+		}));
+
 		var linksContainer = new WebMarkupContainer("links") {
 
 			@Override
@@ -417,7 +425,7 @@ public abstract class IssuePrimaryPanel extends Panel {
 							});
 						}
 						
-					}.sortable("ul"));
+					}.sortable("ul").handle(".drag-indicator"));
 				}
 
 				boolean applicable;
@@ -472,7 +480,8 @@ public abstract class IssuePrimaryPanel extends Panel {
 				}
 
 				private IssueChoiceProvider getIssueChoiceProvider() {
-					return new IssueChoiceProvider() {
+					return new IssueChoiceProvider(false) {
+						
 						@Override
 						protected Project getProject() {
 							return getIssue().getProject();
@@ -608,7 +617,7 @@ public abstract class IssuePrimaryPanel extends Panel {
 						private boolean checkLink(AjaxRequestTarget target, Issue linkIssue) {
 							LinkSpec spec = linkSpecService.load(specId);
 							if (getIssue().getId().equals(linkIssue.getId())) {
-								form.error(_T("Can not link to self: " + linkIssue.getReference().toString(getProject())));
+								form.error(_T("Cannot link to self: " + linkIssue.getReference().toString(getProject())));
 								target.add(form);
 								return false;
 							} else if (getIssue().findLinkedIssues(spec, opposite).contains(linkIssue)) { 
@@ -709,7 +718,7 @@ public abstract class IssuePrimaryPanel extends Panel {
 			protected Issue load() {
 				return issueService.load(linkedIssueId);
 			}
-		}, true).add(AttributeAppender.append("class", "badge-sm")));
+		}, true));
 		
 		fragment.add(stateLink);
 		

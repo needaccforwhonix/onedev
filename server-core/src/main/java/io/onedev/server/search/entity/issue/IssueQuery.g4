@@ -7,12 +7,13 @@ query
     ;
 
 criteria
-    : operator=(Confidential|SubmittedByMe|WatchedByMe|IgnoredByMe|CommentedByMe|MentionedMe|FixedInCurrentCommit|FixedInCurrentBuild|FixedInCurrentPullRequest|CurrentIssue) #OperatorCriteria
+    : operator=(Confidential|SubmittedByMe|WatchedByMe|IgnoredByMe|CommentedByMe|MentionedMe|FixedInCurrentCommit|FixedInCurrentBuild|FixedInCurrentPullRequest|ReferencedInCurrentBranch|CurrentIssue) #OperatorCriteria
     | operator=(SubmittedBy|WatchedBy|IgnoredBy|CommentedBy|Mentioned|FixedInCommit|FixedInBuild|FixedInPullRequest|HasAny) WS+ criteriaValue=multipleQuoted #OperatorValueCriteria
     | FixedBetween WS+ revisionCriteria WS+ And WS+ revisionCriteria #FixedBetweenCriteria
     | criteriaField=Quoted WS+ operator=(IsMe|IsNotMe|IsEmpty|IsNotEmpty|IsCurrent|IsPrevious) #FieldOperatorCriteria
     | criteriaField=Quoted WS+ operator=(Is|IsNot|IsGreaterThan|IsLessThan|IsUntil|IsSince|IsAfter|IsBefore|Contains) WS+ criteriaValue=multipleQuoted #FieldOperatorValueCriteria
     | Reference #ReferenceCriteria
+    | Number #NumberCriteria
     | criteria WS+ And WS+ criteria #AndCriteria
     | criteria WS+ Or WS+ criteria #OrCriteria
     | Not WS* LParens WS* criteria WS* RParens #NotCriteria
@@ -79,6 +80,10 @@ FixedInPullRequest
 
 FixedInCurrentPullRequest
 	: 'fixed' WS+ 'in' WS+ 'current' WS+ 'pull' WS+ 'request'
+	;
+
+ReferencedInCurrentBranch
+	: 'referenced' WS+ 'in' WS+ 'current' WS+ 'branch'
 	;
 
 IsCurrent
@@ -238,7 +243,11 @@ Quoted
     ;
 
 Reference
-    : ([a-zA-Z0-9_]([a-zA-Z0-9_\-/.]*[a-zA-Z0-9_])?)? '#' [0-9]+ | [A-Z][A-Z]+ '-' [0-9]+
+    : ([a-zA-Z0-9_]([a-zA-Z0-9_\-/.]*[a-zA-Z0-9_])?) '#' [0-9]+ | [A-Z][A-Z]+ '-' [0-9]+
+    ;
+
+Number
+    : '#' [0-9]+
     ;
 
 Comma

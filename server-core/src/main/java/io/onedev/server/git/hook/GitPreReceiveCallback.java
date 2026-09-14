@@ -1,11 +1,37 @@
 package io.onedev.server.git.hook;
 
+import static io.onedev.server.security.SecurityUtils.asPrincipals;
+import static io.onedev.server.security.SecurityUtils.asSubject;
+import static io.onedev.server.security.SecurityUtils.canManageProject;
+import static io.onedev.server.security.SecurityUtils.getUser;
+import static io.onedev.server.security.SecurityUtils.isSystem;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.shiro.util.ThreadContext;
+import org.eclipse.jgit.lib.Constants;
+import org.eclipse.jgit.lib.ObjectId;
+import org.jspecify.annotations.Nullable;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
+
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.commons.utils.StringUtils;
-import io.onedev.server.service.ProjectService;
 import io.onedev.server.git.GitUtils;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.PullRequest;
@@ -14,36 +40,22 @@ import io.onedev.server.model.User;
 import io.onedev.server.model.support.code.BranchProtection;
 import io.onedev.server.model.support.code.TagProtection;
 import io.onedev.server.persistence.annotation.Sessional;
-import org.apache.shiro.util.ThreadContext;
-import org.eclipse.jgit.lib.Constants;
-import org.eclipse.jgit.lib.ObjectId;
-
-import org.jspecify.annotations.Nullable;
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.util.*;
-
-import static io.onedev.server.security.SecurityUtils.*;
+import io.onedev.server.service.ProjectService;
+import io.onedev.server.workspace.WorkspaceService;
 
 @Singleton
 public class GitPreReceiveCallback extends HttpServlet {
 
 	public static final String PATH = "/git-prereceive-callback";
 
-	private final ProjectService projectService;
-	
-	private final Set<GitPreReceiveChecker> preReceiveCheckers;
+	@Inject
+	private ProjectService projectService;
+
+	@Inject
+	private WorkspaceService workspaceService;
 	
 	@Inject
-	public GitPreReceiveCallback(ProjectService projectService, Set<GitPreReceiveChecker> preReceiveCheckers) {
-		this.projectService = projectService;
-		this.preReceiveCheckers = preReceiveCheckers;
-	}
+	private Set<GitPreReceiveChecker> preReceiveCheckers;	
 	
 	private void error(Output output, @Nullable String refName, List<String> messages) {
 		output.markError();
@@ -68,7 +80,7 @@ public class GitPreReceiveCallback extends HttpServlet {
         List<String> fields = StringUtils.splitAndTrim(request.getPathInfo(), "/");
         Preconditions.checkState(fields.size() == 3);
         
-        if (!fields.get(2).equals(HookUtils.HOOK_TOKEN)) {
+        if (!fields.get(2).equals(HookUtils.RECEIVE_HOOK_TOKEN)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN,
                     "Git hook callbacks can only be accessed by OneDev itself");
             return;
@@ -79,7 +91,7 @@ public class GitPreReceiveCallback extends HttpServlet {
 			ThreadContext.bind(asSubject(asPrincipals(principal)));
 			Project project = projectService.load(Long.valueOf(fields.get(0)));
 			
-			String refUpdateInfo = null;
+			String refUpdateInfo = request.getParameter(HookUtils.PARAM_REF_UPDATES);
 			
 			/*
 			 * Since git 2.11, pushed commits will be placed in to a QUARANTINE directory when pre-receive hook 
@@ -90,9 +102,7 @@ public class GitPreReceiveCallback extends HttpServlet {
 			Enumeration<String> paramNames = request.getParameterNames();
 			while (paramNames.hasMoreElements()) {
 				String paramName = paramNames.nextElement();
-				if (paramName.contains(" ")) {
-					refUpdateInfo = paramName;
-				} else if (paramName.startsWith("ENV_")) {
+				if (paramName.startsWith("ENV_")) {
 					String paramValue = request.getParameter(paramName);
 					if (StringUtils.isNotBlank(paramValue))
 						gitEnvs.put(paramName.substring("ENV_".length()), paramValue);
@@ -104,10 +114,8 @@ public class GitPreReceiveCallback extends HttpServlet {
 			Output output = new Output(response.getOutputStream());
 			
 			/*
-			 * If multiple refs are updated, the hook stdin will put each ref update info into
-			 * a separate line, however the line breaks is omitted when forward the hook stdin
-			 * to curl via "@-", below logic is used to parse these info correctly even 
-			 * without line breaks.  
+			 * If multiple refs are updated, the hook stdin puts each ref update on a separate
+			 * line. Parse correctly even if those line breaks are missing.  
 			 */
 			refUpdateInfo = StringUtils.reverse(StringUtils.remove(refUpdateInfo, '\n'));
 			fields = StringUtils.splitAndTrim(refUpdateInfo, " ");
@@ -134,21 +142,21 @@ public class GitPreReceiveCallback extends HttpServlet {
 					BranchProtection protection = project.getBranchProtection(branchName, user);
 					if (oldObjectId.equals(ObjectId.zeroId())) {
 						if (protection.isPreventCreation()) {
-							errorMessages.add("Can not create this branch according to branch protection setting");
+							errorMessages.add("Cannot create this branch according to branch protection setting");
 						} else if (protection.isCommitSignatureRequired() 
 								&& !project.hasValidCommitSignature(newObjectId, gitEnvs)) {
-							errorMessages.add("Can not create this branch as branch protection setting "
+							errorMessages.add("Cannot create this branch as branch protection setting "
 									+ "requires valid signature on head commit");
 						}
 					} else if (newObjectId.equals(ObjectId.zeroId())) {
 						if (protection.isPreventDeletion()) 
-							errorMessages.add("Can not delete this branch according to branch protection setting");
+							errorMessages.add("Cannot delete this branch according to branch protection setting");
 					} else if (protection.isPreventForcedPush() 
 							&& !GitUtils.isMergedInto(projectService.getRepository(project.getId()), gitEnvs, oldObjectId, newObjectId)) {
-						errorMessages.add("Can not force-push to this branch according to branch protection setting");
+						errorMessages.add("Cannot force-push to this branch according to branch protection setting");
 					} else if (protection.isCommitSignatureRequired() 
 							&& !project.hasValidCommitSignature(newObjectId, gitEnvs)) {
-						errorMessages.add("Can not push to this branch as branch protection rule requires "
+						errorMessages.add("Cannot push to this branch as branch protection rule requires "
 								+ "valid signature for head commit");
 					} else if (protection.isReviewRequiredForPush(project, oldObjectId, newObjectId, gitEnvs)) {
 						errorMessages.add("Review required for your change. Please submit pull request instead");
@@ -178,6 +186,10 @@ public class GitPreReceiveCallback extends HttpServlet {
 						}
 					}
 					if (errorMessages.isEmpty() && newObjectId.equals(ObjectId.zeroId())) {
+						if (workspaceService.count(project, branchName) > 0) 
+							errorMessages.add("There are workspaces on this branch. Please delete them first");
+					}
+					if (errorMessages.isEmpty() && newObjectId.equals(ObjectId.zeroId())) {
 						try {
 							projectService.onDeleteBranch(project, branchName);
 						} catch (ExplicitException e) {
@@ -192,20 +204,20 @@ public class GitPreReceiveCallback extends HttpServlet {
 					TagProtection protection = project.getTagProtection(tagName, user);
 					if (oldObjectId.equals(ObjectId.zeroId())) {
 						if (protection.isPreventCreation()) {
-							errorMessages.add("Can not create this tag according to tag protection setting");
+							errorMessages.add("Cannot create this tag according to tag protection setting");
 						} else if (protection.isCommitSignatureRequired() 
 								&& !project.hasValidTagSignature(newObjectId, gitEnvs)) {
-							errorMessages.add("Can not create this tag as tag protection setting requires "
+							errorMessages.add("Cannot create this tag as tag protection setting requires "
 									+ "valid tag signature");
 						}
 					} else if (newObjectId.equals(ObjectId.zeroId())) {
 						if (protection.isPreventDeletion())
-							errorMessages.add("Can not delete this tag according to tag protection setting");
+							errorMessages.add("Cannot delete this tag according to tag protection setting");
 					} else if (protection.isPreventUpdate()) {
-						errorMessages.add("Can not update this tag according to tag protection setting");
+						errorMessages.add("Cannot update this tag according to tag protection setting");
 					} else if (protection.isCommitSignatureRequired() 
 							&& !project.hasValidTagSignature(newObjectId, gitEnvs)) {
-						errorMessages.add("Can not update this tag as tag protection setting requires "
+						errorMessages.add("Cannot update this tag as tag protection setting requires "
 								+ "valid tag signature");
 					}
 					if (errorMessages.isEmpty() && !protection.getDisallowedFileTypes().isEmpty()) {

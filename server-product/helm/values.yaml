@@ -20,7 +20,7 @@ onedev:
   trustCerts:
     # onedev.trustCerts.secretName -- Name of an existing secret containing trusted certificates. You may create the
     # secret with "kubectl create secret generic onedev-trustcerts -n onedev --from-file=/path/to/trust-certs",
-    # where /path/to/trust-certs is a local directory contains all certificates to be trusted. Certificate should be 
+    # where /path/to/trust-certs is a local directory contains all certificates to be trusted. Certificate should be
     # of base64 encoded PEM format beginning with "-----BEGIN CERTIFICATE-----" and ending with "-----END CERTIFICATE-----"
     secretName: "onedev-trustcerts"
   jvm:
@@ -57,7 +57,7 @@ database:
   name: "onedev"
   # database.user --  User with access to database
   user: "root"
-  # database.password -- Database password 
+  # database.password -- Database password
   password: "changeit"
   # database.maximumPoolSize -- Database maximum pool size
   maximumPoolSize: "25"
@@ -162,42 +162,19 @@ affinity: {}
 # [topology spread constraints](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/).
 topologySpreadConstraints: []
 
-service:
-  # service.type -- Specify the type for the Service. ClusterIP, LoadBalancer
-  type: "ClusterIP"
-  # service.annotations -- Specify annotations for the Service.
-  annotations: {}
-  # service.topologyKeys -- (array) Specify the
-  # [topologyKeys](https://kubernetes.io/docs/concepts/services-networking/service-topology/#using-service-topology).
-  topologyKeys: []
-  #  - "kubernetes.io/hostname"
-  #  - "topology.kubernetes.io/zone"
-  #  - "topology.kubernetes.io/region"
-  #  - "*"
-  # service.ports -- Manually change the ServicePorts
-  ports:
-    http: ""
-    ssh: ""
-  # service.nodePort -- Specify a nodePort for servcie
-  nodePort: ""  
-  # service.externalTrafficPolicy -- Specify the
-  # [externalTrafficPolicy](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip).
-  externalTrafficPolicy: ""
-  # service.loadBalancerIP -- Required: If service type is loadbalancer 
-  # [loadBalancerIP](https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer).
-  loadBalancerIP: ""
-  # service.ipFamilyPolicy -- Configure
-  # [IPv4/IPv6 dual-stack](https://kubernetes.io/docs/concepts/services-networking/dual-stack/).
-  ipFamilyPolicy: ""
-  # service.ipFamilies -- Configure
-  # [IPv4/IPv6 dual-stack](https://kubernetes.io/docs/concepts/services-networking/dual-stack/).
-  ipFamilies: []
-  # Configure sepearte SSH service
-  separateSSH:
-  # service.separateSSH.enabled -- If separate SSH is enabled, a separate service is created for SSH
+# Configure Git access via SSH
+ssh:
+  # ssh.enabled -- If **true**, expose OneDev's SSH port through the Kubernetes Service and the
+  # configured ingress controller
+  enabled: false
+  # ssh.port -- Manually change the SSH Service port
+  port: ""
+  # Configure a separate Service for SSH
+  separateService:
+    # ssh.separateService.enabled -- If **true**, create a separate Service for SSH instead of
+    # adding the SSH port to the main Service
     enabled: false
     type: "ClusterIP"
-    port: ""
     clusterIP: ""
     loadBalancerIP: ""
     nodePort: ""
@@ -210,30 +187,64 @@ service:
     annotations: {}
     topologyKeys: []
 
-# Configure Ingress resource
+service:
+  # service.type -- Specify the type for the Service. ClusterIP, LoadBalancer
+  type: "ClusterIP"
+  # service.annotations -- Specify annotations for the Service.
+  annotations: {}
+  # service.topologyKeys -- (array) Specify the
+  # [topologyKeys](https://kubernetes.io/docs/concepts/services-networking/service-topology/#using-service-topology).
+  topologyKeys: []
+  #  - "kubernetes.io/hostname"
+  #  - "topology.kubernetes.io/zone"
+  #  - "topology.kubernetes.io/region"
+  #  - "*"
+  # service.ports -- Manually change the HTTP Service port
+  ports:
+    http: ""
+  # service.nodePort -- Specify a nodePort for servcie
+  nodePort: ""
+  # service.externalTrafficPolicy -- Specify the
+  # [externalTrafficPolicy](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip).
+  externalTrafficPolicy: ""
+  # service.loadBalancerIP -- Required: If service type is loadbalancer
+  # [loadBalancerIP](https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer).
+  loadBalancerIP: ""
+  # service.ipFamilyPolicy -- Configure
+  # [IPv4/IPv6 dual-stack](https://kubernetes.io/docs/concepts/services-networking/dual-stack/).
+  ipFamilyPolicy: ""
+  # service.ipFamilies -- Configure
+  # [IPv4/IPv6 dual-stack](https://kubernetes.io/docs/concepts/services-networking/dual-stack/).
+  ipFamilies: []
+# Configure ingress
 ingress:
-  # ingress.enabled -- If **true**, create an Ingress resource.
+  # ingress.enabled -- If **true**, expose OneDev through the configured ingress controller
   enabled: false
-  # ingress.className -- Specify ingress class name. Requires Kubernetes >= 1.18.
+  # ingress.controller -- Specify ingress controller implementation. Supported values are nginx
+  # and traefik
+  controller: nginx
+  # ingress.className -- Specify ingress class name. Requires Kubernetes >= 1.18. This is used
+  # by the nginx Ingress and by cert-manager's http01 challenge Ingress for either controller
   # Refer to https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/#specifying-the-class-of-an-ingress for details
   className: ""
-  # ingress.annotations -- Specify annotations for the Ingress.
-  annotations: 
-    nginx.ingress.kubernetes.io/affinity: "cookie"
-    nginx.ingress.kubernetes.io/affinity-mode: "persistent"
-    nginx.ingress.kubernetes.io/session-cookie-name: "session-sticky"
-    nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
-    nginx.ingress.kubernetes.io/session-cookie-max-age: "172800"
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-  # ingress.host -- Set the host name
+  # ingress.host -- Set the primary host name. This also determines the server url advertised by
+  # OneDev
   host: onedev.example.com
+  # ingress.additionalHosts -- Specify additional host names routed to OneDev. Certificates
+  # managed by the chart cover the primary host and these additional hosts
+  additionalHosts: []
+  #  - code.int.example.com
+  # ingress.annotations -- Specify additional annotations for the nginx Ingress. These are merged
+  # on top of ingress.nginx.annotations and take precedence over them
+  annotations: {}
 
-  # ingress.tls -- Configure TLS for the Ingress.
+  # ingress.tls -- Configure TLS for ingress
   tls:
     enabled: false
     secretName: "onedev-tls"
     acme:
-      # ingress.tls.acme.enabled -- If **true**, create certificate issuer resource
+      # ingress.tls.acme.enabled -- If **true**, create certificate issuer resource. Also requires
+      # ingress.tls.enabled to be **true**
       enabled: false
       # ingress.tls.acme.type -- Specify ACME type. Currently only supports letsencrypt
       type: "letsencrypt"
@@ -243,6 +254,36 @@ ingress:
       # otherwise generate staging certificate. Set this to **false** to avoid reaching
       # rate limit while you are testing your setup
       production: false
+
+  # Nginx configuration
+  nginx:
+    # ingress.nginx.annotations -- Annotations added to the Ingress when serving traffic with the
+    # nginx ingress controller. Set to an empty map to leave them out
+    annotations:
+      nginx.ingress.kubernetes.io/affinity: "cookie"
+      nginx.ingress.kubernetes.io/affinity-mode: "persistent"
+      nginx.ingress.kubernetes.io/session-cookie-name: "session-sticky"
+      nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
+      nginx.ingress.kubernetes.io/session-cookie-max-age: "172800"
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+
+  # Traefik configuration
+  traefik:
+    # Requires Traefik v3 with its Kubernetes CRD provider enabled. When ingress.tls.acme.enabled
+    # is **true**, the http01 challenge is still solved through a temporary Kubernetes Ingress, so
+    # ingress.className has to point at your Traefik ingress class and Traefik's Kubernetes Ingress
+    # provider has to be enabled as well, otherwise the certificate will never be issued
+    # ingress.traefik.middleware -- Specify the buffering middleware created for the route.
+    # Body size limits need to be large enough to accommodate your biggest git push
+    middleware:
+      name: "buffering"
+      maxRequestBodyBytes: 1073741824
+      memRequestBodyBytes: 1073741824
+    # ingress.traefik.extraMiddlewares -- Additional middlewares to attach to the route. Each entry
+    # takes a "name" and an optional "namespace" defaulting to the release namespace
+    extraMiddlewares: []
+    #  - name: redirect-to-https
+    #    namespace: traefik
 
 # extraVolumes -- Specify additional Volumes to use.
 extraVolumes: []
@@ -285,8 +326,10 @@ dnsConfig: {}
 
 # livenessProbe -- Specify the livenessProbe
 # [configuration](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#configure-probes).
+# OneDev provides `/healthz`; allow for a brief outage while it switches to maintenance mode.
 livenessProbe: {}
 
 # readinessProbe -- Specify the readinessProbe
 # [configuration](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#configure-probes).
+# OneDev provides `/readyz` for readiness checks. It returns 503 during startup, shutdown, and maintenance.
 readinessProbe: {}

@@ -16,7 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.jspecify.annotations.Nullable;
+import javax.inject.Inject;
 
 import org.apache.commons.validator.routines.PercentValidator;
 import org.apache.wicket.Component;
@@ -54,13 +54,10 @@ import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.FileMode;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.revwalk.RevCommit;
+import org.jspecify.annotations.Nullable;
 
 import com.google.common.base.Preconditions;
 
-import io.onedev.server.OneDev;
-import io.onedev.server.service.BuildService;
-import io.onedev.server.service.ProjectService;
-import io.onedev.server.service.PullRequestService;
 import io.onedev.server.entityreference.LinkTransformer;
 import io.onedev.server.git.BlobIdent;
 import io.onedev.server.git.GitUtils;
@@ -74,6 +71,8 @@ import io.onedev.server.search.entity.pullrequest.OpenCriteria;
 import io.onedev.server.search.entity.pullrequest.PullRequestQuery;
 import io.onedev.server.search.entity.pullrequest.PullRequestQueryLexer;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.BuildService;
+import io.onedev.server.service.PullRequestService;
 import io.onedev.server.util.Path;
 import io.onedev.server.util.PathNode;
 import io.onedev.server.util.ProjectAndBranch;
@@ -83,22 +82,26 @@ import io.onedev.server.web.component.branch.choice.BranchSingleChoice;
 import io.onedev.server.web.component.commit.status.CommitStatusLink;
 import io.onedev.server.web.component.contributorpanel.ContributorPanel;
 import io.onedev.server.web.component.datatable.DefaultDataTable;
+import io.onedev.server.web.component.floating.FloatingPanel;
 import io.onedev.server.web.component.link.ArchiveMenuLink;
+import io.onedev.server.web.component.link.DropdownLink;
 import io.onedev.server.web.component.link.ViewStateAwarePageLink;
 import io.onedev.server.web.component.modal.ModalLink;
 import io.onedev.server.web.component.modal.ModalPanel;
+import io.onedev.server.web.component.workspace.speclist.WorkspaceSpecListPanel;
 import io.onedev.server.web.editable.BeanContext;
 import io.onedev.server.web.editable.BeanEditor;
 import io.onedev.server.web.page.project.ProjectPage;
 import io.onedev.server.web.page.project.blob.ProjectBlobPage;
 import io.onedev.server.web.page.project.commits.CommitDetailPage;
 import io.onedev.server.web.page.project.compare.RevisionComparePage;
-import io.onedev.server.web.page.project.dashboard.ProjectDashboardPage;
+import io.onedev.server.web.page.project.overview.ProjectOverviewPage;
 import io.onedev.server.web.page.project.pullrequests.ProjectPullRequestsPage;
 import io.onedev.server.web.page.project.pullrequests.detail.activities.PullRequestActivitiesPage;
 import io.onedev.server.web.util.LoadableDetachableDataProvider;
 import io.onedev.server.web.util.paginghistory.PagingHistorySupport;
 import io.onedev.server.web.util.paginghistory.ParamPagingHistorySupport;
+import io.onedev.server.workspace.WorkspaceService;
 
 public class ProjectBranchesPage extends ProjectPage {
 
@@ -110,7 +113,19 @@ public class ProjectBranchesPage extends ProjectPage {
 	
 	// use a small page size to load page quickly
 	private static final int PAGE_SIZE = 10;
+
+	@Inject
+	private PullRequestService pullRequestService;
 	
+	@Inject
+	private GitService gitService;
+
+	@Inject
+	private BuildService buildService;
+
+	@Inject
+	private WorkspaceService workspaceService;
+
 	private String baseBranch;
 	
 	private IModel<Map<String, RefFacade>> branchesModel = new LoadableDetachableModel<Map<String, RefFacade>>() {
@@ -147,7 +162,7 @@ public class ProjectBranchesPage extends ProjectPage {
 				sources.add(new ProjectAndBranch(getProject(), branchName)); 
 			}
 			
-			return OneDev.getInstance(PullRequestService.class).findEffectives(target, sources);
+			return pullRequestService.findEffectives(target, sources);
 		}
 		
 	};
@@ -168,8 +183,6 @@ public class ProjectBranchesPage extends ProjectPage {
 		@Override
 		protected Map<ObjectId, AheadBehind> load() {
 			List<ObjectId> compareIds = getCommitIdsToDisplay();
-
-			GitService gitService = OneDev.getInstance(GitService.class);
 			
 			RefFacade baseRef = Preconditions.checkNotNull(getProject().getBranchRef(baseBranch));
 			return gitService.getAheadBehinds(getProject(), baseRef.getObjectId(), compareIds);
@@ -391,7 +404,7 @@ public class ProjectBranchesPage extends ProjectPage {
 										_T("Valid signature required for head commit of this branch per branch protection rule"));
 								target.add(form);
 							} else {
-								OneDev.getInstance(GitService.class).createBranch(getProject(), branchName, helperBean.getRevision());
+								gitService.createBranch(getProject(), branchName, helperBean.getRevision());
 								modal.close();
 								target.add(branchesTable);
 								
@@ -451,6 +464,7 @@ public class ProjectBranchesPage extends ProjectPage {
 				link.add(new Label("name", branch));
 				fragment.add(link);
 				
+				var seenBranchTip = ref.getPeeledObj().copy();
 				fragment.add(new CommitStatusLink("buildStatus", ref.getObjectId(), ref.getName()) {
 
 					@Override
@@ -462,9 +476,47 @@ public class ProjectBranchesPage extends ProjectPage {
 					protected PullRequest getPullRequest() {
 						return null;
 					}
-					
+
+					@Override
+					protected ObjectId getSeenBranchTip(String branch) {
+						return seenBranchTip;
+					}
+
 				});
 				
+				fragment.add(new DropdownLink("workspaces") {
+
+					@Override
+					protected Component newContent(String id, FloatingPanel dropdown) {
+						return new WorkspaceSpecListPanel(id) {
+
+							@Override
+							protected Project getProject() {
+								return ProjectBranchesPage.this.getProject();
+							}
+
+							@Override
+							protected String getBranch() {
+								return branch;
+							}
+
+							@Override
+							protected ObjectId getCommitId() {
+								return ref.getObjectId();
+							}
+
+						};
+					}
+
+					@Override
+					protected void onConfigure() {
+						super.onConfigure();
+						setVisible(getProject().canCreateWorkspace(SecurityUtils.getSubject())
+								&& !getProject().getHierarchyWorkspaceSpecs().isEmpty());
+					}
+
+				});
+
 				fragment.add(new WebMarkupContainer("default") {
 
 					@Override
@@ -536,16 +588,17 @@ public class ProjectBranchesPage extends ProjectPage {
 						super.disableLink(tag);
 						tag.append("class", "disabled", " ");
 						if (getProject().getDefaultBranch().equals(branch)) {
-							tag.put("data-tippy-content", _T("Can not delete default branch"));
-						} else {
+							tag.put("data-tippy-content", _T("Cannot delete default branch"));
+						} else if (getProject().getBranchProtection(branch, getLoginUser()).isPreventDeletion()) {
 							tag.put("data-tippy-content", _T("Deletion not allowed due to branch protection rule"));
+						} else {
+							tag.put("data-tippy-content", _T("Cannot delete branch as it has workspaces"));
 						}
 					}
 
 					@Override
 					protected Component newContent(String id, ModalPanel modal) {
 						Fragment fragment = new Fragment(id, "confirmDeleteBranchFrag", ProjectBranchesPage.this);
-						PullRequestService pullRequestService = OneDev.getInstance(PullRequestService.class);
 						if (!pullRequestService.queryOpen(new ProjectAndBranch(getProject(), branch)).isEmpty()) {
 							Fragment bodyFrag = new Fragment("body", "openRequestsFrag", ProjectBranchesPage.this);
 							String query = String.format("\"%s\" %s \"%s\" %s %s", 
@@ -563,7 +616,7 @@ public class ProjectBranchesPage extends ProjectPage {
 
 							@Override
 							public void onClick(AjaxRequestTarget target) {
-								OneDev.getInstance(ProjectService.class).deleteBranch(getProject(), branch);
+								projectService.deleteBranch(getProject(), branch);
 								getSession().success(MessageFormat.format(_T("Branch \"{0}\" deleted"), branch));
 								if (branch.equals(baseBranch)) {
 									baseBranch = getProject().getDefaultBranch();
@@ -600,10 +653,9 @@ public class ProjectBranchesPage extends ProjectPage {
 
 						Project project = getProject();
 						if (SecurityUtils.canWriteCode(project)) {
-							if (project.getDefaultBranch().equals(branch)) 
-								setEnabled(false);
-							else 
-								setEnabled(!project.getBranchProtection(branch, getLoginUser()).isPreventDeletion());
+							setEnabled(!project.getDefaultBranch().equals(branch) 
+									&& !project.getBranchProtection(branch, getLoginUser()).isPreventDeletion()
+									&& workspaceService.count(project, branch) == 0);
 						} else {
 							setVisible(false);
 						}
@@ -707,8 +759,15 @@ public class ProjectBranchesPage extends ProjectPage {
 				PAGE_SIZE, pagingHistorySupport) {
 			
 			@Override
+			protected Item<RefFacade> newRowItem(String id, int index, IModel<RefFacade> model) {
+				Item<RefFacade> item = super.newRowItem(id, index, model);
+				item.add(AttributeAppender.append("class", "branch-item"));
+				return item;
+			}
+			
+			@Override
 			protected void onBeforeRender() {
-				BuildService buildService = OneDev.getInstance(BuildService.class);
+				buildService.queryStatus(getProject(), getCommitIdsToDisplay());
 				getProject().cacheCommitStatuses(buildService.queryStatus(getProject(), getCommitIdsToDisplay()));
 				super.onBeforeRender();
 			}
@@ -731,7 +790,7 @@ public class ProjectBranchesPage extends ProjectPage {
 			@Override
 			protected void onInitialize() {
 				super.onInitialize();
-				add(new Label("label", MessageFormat.format(ahead? _T("{0} ahead") : _T("{0} behind"), count)));
+				add(new Label("label", MessageFormat.format(ahead? _T("{0} ahead") : _T("{0} behind"), String.valueOf(count))));
 			}
 
 			@Override
@@ -739,9 +798,9 @@ public class ProjectBranchesPage extends ProjectPage {
 				super.onComponentTag(tag);
 				
 				if (ahead)
-					tag.put("data-tippy-content", MessageFormat.format(_T("{0} commits ahead of base branch"), count));
+					tag.put("data-tippy-content", MessageFormat.format(_T("{0} commits ahead of base branch"), String.valueOf(count)));
 				else
-					tag.put("data-tippy-content", MessageFormat.format(_T("{0} commits behind of base branch"), count));
+					tag.put("data-tippy-content", MessageFormat.format(_T("{0} commits behind of base branch"), String.valueOf(count)));
 					
 				if (count == 0)
 					tag.setName("span");
@@ -841,7 +900,7 @@ public class ProjectBranchesPage extends ProjectPage {
 		if (project.isCodeManagement() && SecurityUtils.canReadCode(project)) 
 			return new ViewStateAwarePageLink<Void>(componentId, ProjectBranchesPage.class, ProjectBranchesPage.paramsOf(project));
 		else
-			return new ViewStateAwarePageLink<Void>(componentId, ProjectDashboardPage.class, ProjectDashboardPage.paramsOf(project.getId()));
+			return new ViewStateAwarePageLink<Void>(componentId, ProjectOverviewPage.class, ProjectOverviewPage.paramsOf(project.getId()));
 	}
 	
 }

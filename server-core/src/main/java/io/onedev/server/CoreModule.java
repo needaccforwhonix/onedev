@@ -8,7 +8,7 @@ import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.SynchronousQueue;
@@ -43,7 +43,6 @@ import org.apache.wicket.Application;
 import org.apache.wicket.protocol.http.WicketFilter;
 import org.apache.wicket.protocol.http.WicketServlet;
 import org.eclipse.jetty.server.session.SessionDataStoreFactory;
-import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
 import org.hibernate.CallbackException;
@@ -67,28 +66,26 @@ import com.thoughtworks.xstream.core.JVM;
 import com.thoughtworks.xstream.mapper.MapperWrapper;
 import com.vladsch.flexmark.util.misc.Extension;
 
-import io.onedev.agent.ExecutorUtils;
 import io.onedev.commons.bootstrap.Bootstrap;
 import io.onedev.commons.loader.AbstractPlugin;
 import io.onedev.commons.loader.AbstractPluginModule;
 import io.onedev.commons.utils.ExceptionUtils;
 import io.onedev.commons.utils.StringUtils;
 import io.onedev.k8shelper.KubernetesHelper;
-import io.onedev.k8shelper.OsInfo;
 import io.onedev.server.ai.BuildSpecSchemaResource;
-import io.onedev.server.ai.McpHelperResource;
+import io.onedev.server.ai.ChatToolsContribution;
+import io.onedev.server.ai.TodResource;
 import io.onedev.server.annotation.Shallow;
+import io.onedev.server.assets.AssetsSyncManager;
 import io.onedev.server.attachment.AttachmentService;
 import io.onedev.server.attachment.DefaultAttachmentService;
-import io.onedev.server.buildspec.job.log.instruction.LogInstruction;
 import io.onedev.server.cluster.ClusterResource;
-import io.onedev.server.codequality.CodeProblemContribution;
-import io.onedev.server.codequality.LineCoverageContribution;
 import io.onedev.server.commandhandler.ApplyDatabaseConstraints;
 import io.onedev.server.commandhandler.BackupDatabase;
 import io.onedev.server.commandhandler.CheckDataVersion;
 import io.onedev.server.commandhandler.CleanDatabase;
 import io.onedev.server.commandhandler.ResetAdminPassword;
+import io.onedev.server.commandhandler.EnableInternalLogin;
 import io.onedev.server.commandhandler.RestoreDatabase;
 import io.onedev.server.commandhandler.Translate;
 import io.onedev.server.commandhandler.Upgrade;
@@ -98,6 +95,7 @@ import io.onedev.server.entityreference.DefaultReferenceChangeService;
 import io.onedev.server.entityreference.ReferenceChangeService;
 import io.onedev.server.event.DefaultListenerRegistry;
 import io.onedev.server.event.ListenerRegistry;
+import io.onedev.server.exception.handler.ConstraintViolationExceptionHandler;
 import io.onedev.server.exception.handler.ExceptionHandler;
 import io.onedev.server.git.GitFilter;
 import io.onedev.server.git.GitLfsFilter;
@@ -117,11 +115,9 @@ import io.onedev.server.jetty.DefaultJettyService;
 import io.onedev.server.jetty.DefaultSessionDataStoreFactory;
 import io.onedev.server.jetty.JettyService;
 import io.onedev.server.job.DefaultJobService;
-import io.onedev.server.job.DefaultResourceAllocator;
 import io.onedev.server.job.JobService;
-import io.onedev.server.job.ResourceAllocator;
-import io.onedev.server.job.log.DefaultLogService;
-import io.onedev.server.job.log.LogService;
+import io.onedev.server.logging.DefaultLogService;
+import io.onedev.server.logging.LogService;
 import io.onedev.server.mail.DefaultMailService;
 import io.onedev.server.mail.MailService;
 import io.onedev.server.markdown.DefaultMarkdownService;
@@ -129,6 +125,7 @@ import io.onedev.server.markdown.HtmlProcessor;
 import io.onedev.server.markdown.MarkdownService;
 import io.onedev.server.model.support.administration.GroovyScript;
 import io.onedev.server.model.support.administration.authenticator.Authenticator;
+import io.onedev.server.model.support.administration.workspaceprovisioner.WorkspaceProvisioner;
 import io.onedev.server.notification.BuildNotificationManager;
 import io.onedev.server.notification.CodeCommentNotificationManager;
 import io.onedev.server.notification.CommitNotificationManager;
@@ -136,6 +133,7 @@ import io.onedev.server.notification.IssueNotificationManager;
 import io.onedev.server.notification.PackNotificationManager;
 import io.onedev.server.notification.PullRequestNotificationManager;
 import io.onedev.server.notification.WebHookManager;
+import io.onedev.server.notification.WorkspaceNotificationManager;
 import io.onedev.server.pack.PackFilter;
 import io.onedev.server.persistence.DefaultIdService;
 import io.onedev.server.persistence.DefaultSessionFactoryService;
@@ -156,7 +154,6 @@ import io.onedev.server.persistence.annotation.Sessional;
 import io.onedev.server.persistence.annotation.Transactional;
 import io.onedev.server.persistence.dao.Dao;
 import io.onedev.server.persistence.dao.DefaultDao;
-import io.onedev.server.persistence.exception.ConstraintViolationExceptionHandler;
 import io.onedev.server.rest.DefaultServletContainer;
 import io.onedev.server.rest.JerseyConfigurator;
 import io.onedev.server.rest.ResourceConfigProvider;
@@ -189,12 +186,10 @@ import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.service.AccessTokenAuthorizationService;
 import io.onedev.server.service.AccessTokenService;
 import io.onedev.server.service.AgentAttributeService;
-import io.onedev.server.service.AgentLastUsedDateService;
 import io.onedev.server.service.AgentService;
 import io.onedev.server.service.AgentTokenService;
 import io.onedev.server.service.AlertService;
 import io.onedev.server.service.BaseAuthorizationService;
-import io.onedev.server.service.BuildDependenceService;
 import io.onedev.server.service.BuildLabelService;
 import io.onedev.server.service.BuildMetricService;
 import io.onedev.server.service.BuildParamService;
@@ -220,9 +215,7 @@ import io.onedev.server.service.GroupService;
 import io.onedev.server.service.IssueAuthorizationService;
 import io.onedev.server.service.IssueChangeService;
 import io.onedev.server.service.IssueCommentReactionService;
-import io.onedev.server.service.IssueCommentRevisionService;
 import io.onedev.server.service.IssueCommentService;
-import io.onedev.server.service.IssueDescriptionRevisionService;
 import io.onedev.server.service.IssueFieldService;
 import io.onedev.server.service.IssueLinkService;
 import io.onedev.server.service.IssueMentionService;
@@ -234,12 +227,13 @@ import io.onedev.server.service.IssueStateHistoryService;
 import io.onedev.server.service.IssueTouchService;
 import io.onedev.server.service.IssueVoteService;
 import io.onedev.server.service.IssueWatchService;
+import io.onedev.server.service.IssueWorkReactionService;
 import io.onedev.server.service.IssueWorkService;
 import io.onedev.server.service.IterationService;
-import io.onedev.server.service.JobCacheService;
 import io.onedev.server.service.LabelSpecService;
 import io.onedev.server.service.LinkAuthorizationService;
 import io.onedev.server.service.LinkSpecService;
+import io.onedev.server.service.ManagedFutureService;
 import io.onedev.server.service.MembershipService;
 import io.onedev.server.service.PackBlobReferenceService;
 import io.onedev.server.service.PackBlobService;
@@ -254,9 +248,7 @@ import io.onedev.server.service.ProjectService;
 import io.onedev.server.service.PullRequestAssignmentService;
 import io.onedev.server.service.PullRequestChangeService;
 import io.onedev.server.service.PullRequestCommentReactionService;
-import io.onedev.server.service.PullRequestCommentRevisionService;
 import io.onedev.server.service.PullRequestCommentService;
-import io.onedev.server.service.PullRequestDescriptionRevisionService;
 import io.onedev.server.service.PullRequestLabelService;
 import io.onedev.server.service.PullRequestMentionService;
 import io.onedev.server.service.PullRequestQueryPersonalizationService;
@@ -266,14 +258,15 @@ import io.onedev.server.service.PullRequestService;
 import io.onedev.server.service.PullRequestTouchService;
 import io.onedev.server.service.PullRequestUpdateService;
 import io.onedev.server.service.PullRequestWatchService;
+import io.onedev.server.service.ResourceService;
 import io.onedev.server.service.ReviewedDiffService;
 import io.onedev.server.service.RoleService;
+import io.onedev.server.service.RunCacheService;
 import io.onedev.server.service.SettingService;
 import io.onedev.server.service.SshKeyService;
 import io.onedev.server.service.SsoAccountService;
 import io.onedev.server.service.SsoProviderService;
 import io.onedev.server.service.StopwatchService;
-import io.onedev.server.service.TemporalFutureService;
 import io.onedev.server.service.UrlService;
 import io.onedev.server.service.UserAuthorizationService;
 import io.onedev.server.service.UserEntitlementService;
@@ -282,12 +275,10 @@ import io.onedev.server.service.UserService;
 import io.onedev.server.service.impl.DefaultAccessTokenAuthorizationService;
 import io.onedev.server.service.impl.DefaultAccessTokenService;
 import io.onedev.server.service.impl.DefaultAgentAttributeService;
-import io.onedev.server.service.impl.DefaultAgentLastUsedDateService;
 import io.onedev.server.service.impl.DefaultAgentService;
 import io.onedev.server.service.impl.DefaultAgentTokenService;
 import io.onedev.server.service.impl.DefaultAlertService;
 import io.onedev.server.service.impl.DefaultBaseAuthorizationService;
-import io.onedev.server.service.impl.DefaultBuildDependenceService;
 import io.onedev.server.service.impl.DefaultBuildLabelService;
 import io.onedev.server.service.impl.DefaultBuildMetricService;
 import io.onedev.server.service.impl.DefaultBuildParamService;
@@ -313,9 +304,7 @@ import io.onedev.server.service.impl.DefaultGroupService;
 import io.onedev.server.service.impl.DefaultIssueAuthorizationService;
 import io.onedev.server.service.impl.DefaultIssueChangeService;
 import io.onedev.server.service.impl.DefaultIssueCommentReactionService;
-import io.onedev.server.service.impl.DefaultIssueCommentRevisionService;
 import io.onedev.server.service.impl.DefaultIssueCommentService;
-import io.onedev.server.service.impl.DefaultIssueDescriptionRevisionService;
 import io.onedev.server.service.impl.DefaultIssueFieldService;
 import io.onedev.server.service.impl.DefaultIssueLinkService;
 import io.onedev.server.service.impl.DefaultIssueMentionService;
@@ -327,12 +316,13 @@ import io.onedev.server.service.impl.DefaultIssueStateHistoryService;
 import io.onedev.server.service.impl.DefaultIssueTouchService;
 import io.onedev.server.service.impl.DefaultIssueVoteService;
 import io.onedev.server.service.impl.DefaultIssueWatchService;
+import io.onedev.server.service.impl.DefaultIssueWorkReactionService;
 import io.onedev.server.service.impl.DefaultIssueWorkService;
 import io.onedev.server.service.impl.DefaultIterationService;
-import io.onedev.server.service.impl.DefaultJobCacheService;
 import io.onedev.server.service.impl.DefaultLabelSpecService;
 import io.onedev.server.service.impl.DefaultLinkAuthorizationService;
 import io.onedev.server.service.impl.DefaultLinkSpecService;
+import io.onedev.server.service.impl.DefaultManagedFutureService;
 import io.onedev.server.service.impl.DefaultMembershipService;
 import io.onedev.server.service.impl.DefaultPackBlobReferenceService;
 import io.onedev.server.service.impl.DefaultPackBlobService;
@@ -347,9 +337,7 @@ import io.onedev.server.service.impl.DefaultProjectService;
 import io.onedev.server.service.impl.DefaultPullRequestAssignmentService;
 import io.onedev.server.service.impl.DefaultPullRequestChangeService;
 import io.onedev.server.service.impl.DefaultPullRequestCommentReactionService;
-import io.onedev.server.service.impl.DefaultPullRequestCommentRevisionService;
 import io.onedev.server.service.impl.DefaultPullRequestCommentService;
-import io.onedev.server.service.impl.DefaultPullRequestDescriptionRevisionService;
 import io.onedev.server.service.impl.DefaultPullRequestLabelService;
 import io.onedev.server.service.impl.DefaultPullRequestMentionService;
 import io.onedev.server.service.impl.DefaultPullRequestQueryPersonalizationService;
@@ -359,14 +347,15 @@ import io.onedev.server.service.impl.DefaultPullRequestService;
 import io.onedev.server.service.impl.DefaultPullRequestTouchService;
 import io.onedev.server.service.impl.DefaultPullRequestUpdateService;
 import io.onedev.server.service.impl.DefaultPullRequestWatchService;
+import io.onedev.server.service.impl.DefaultResourceService;
 import io.onedev.server.service.impl.DefaultReviewedDiffService;
 import io.onedev.server.service.impl.DefaultRoleService;
+import io.onedev.server.service.impl.DefaultRunCacheService;
 import io.onedev.server.service.impl.DefaultSettingService;
 import io.onedev.server.service.impl.DefaultSshKeyService;
 import io.onedev.server.service.impl.DefaultSsoAccountService;
 import io.onedev.server.service.impl.DefaultSsoProviderService;
 import io.onedev.server.service.impl.DefaultStopwatchService;
-import io.onedev.server.service.impl.DefaultTemporalFutureService;
 import io.onedev.server.service.impl.DefaultUrlService;
 import io.onedev.server.service.impl.DefaultUserAuthorizationService;
 import io.onedev.server.service.impl.DefaultUserEntitlementService;
@@ -432,6 +421,12 @@ import io.onedev.server.web.websocket.DefaultWebSocketService;
 import io.onedev.server.web.websocket.IssueEventBroadcaster;
 import io.onedev.server.web.websocket.PullRequestEventBroadcaster;
 import io.onedev.server.web.websocket.WebSocketService;
+import io.onedev.server.web.websocket.WorkspaceEventBroadcaster;
+import io.onedev.server.workspace.DefaultWorkspaceQueryPersonalizationService;
+import io.onedev.server.workspace.DefaultWorkspaceService;
+import io.onedev.server.workspace.WorkspaceProvisionerDiscoverer;
+import io.onedev.server.workspace.WorkspaceQueryPersonalizationService;
+import io.onedev.server.workspace.WorkspaceService;
 import io.onedev.server.xodus.CommitInfoService;
 import io.onedev.server.xodus.DefaultCommitInfoService;
 import io.onedev.server.xodus.DefaultIssueInfoService;
@@ -454,7 +449,6 @@ public class CoreModule extends AbstractPluginModule {
 		
 		bind(ListenerRegistry.class).to(DefaultListenerRegistry.class);
 		bind(JettyService.class).to(DefaultJettyService.class);
-		bind(ServletContextHandler.class).toProvider(DefaultJettyService.class);
 		
 		bind(ObjectMapper.class).toProvider(ObjectMapperProvider.class).in(Singleton.class);
 		
@@ -517,9 +511,8 @@ public class CoreModule extends AbstractPluginModule {
 		bind(UserInvitationService.class).to(DefaultUserInvitationService.class);
 		bind(PullRequestReviewService.class).to(DefaultPullRequestReviewService.class);
 		bind(BuildService.class).to(DefaultBuildService.class);
-		bind(BuildDependenceService.class).to(DefaultBuildDependenceService.class);
 		bind(JobService.class).to(DefaultJobService.class);
-		bind(JobCacheService.class).to(DefaultJobCacheService.class);
+		bind(RunCacheService.class).to(DefaultRunCacheService.class);
 		bind(LogService.class).to(DefaultLogService.class);
 		bind(MailService.class).to(DefaultMailService.class);
 		bind(IssueService.class).to(DefaultIssueService.class);
@@ -548,6 +541,7 @@ public class CoreModule extends AbstractPluginModule {
 		bind(CommitNotificationManager.class);
 		bind(BuildNotificationManager.class);
 		bind(PackNotificationManager.class);
+		bind(WorkspaceNotificationManager.class);
 		bind(IssueNotificationManager.class);
 		bind(CodeCommentNotificationManager.class);
 		bind(CodeCommentService.class).to(DefaultCodeCommentService.class);
@@ -565,6 +559,7 @@ public class CoreModule extends AbstractPluginModule {
 		bind(CommitQueryPersonalizationService.class).to(DefaultCommitQueryPersonalizationService.class);
 		bind(BuildQueryPersonalizationService.class).to(DefaultBuildQueryPersonalizationService.class);
 		bind(PackQueryPersonalizationService.class).to(DefaultPackQueryPersonalizationService.class);
+		bind(WorkspaceQueryPersonalizationService.class).to(DefaultWorkspaceQueryPersonalizationService.class);
 		bind(PullRequestAssignmentService.class).to(DefaultPullRequestAssignmentService.class);
 		bind(SshKeyService.class).to(DefaultSshKeyService.class);
 		bind(BuildMetricService.class).to(DefaultBuildMetricService.class);
@@ -586,6 +581,7 @@ public class CoreModule extends AbstractPluginModule {
 		bind(DashboardUserShareService.class).to(DefaultDashboardUserShareService.class);
 		bind(DashboardGroupShareService.class).to(DefaultDashboardGroupShareService.class);
 		bind(DashboardVisitService.class).to(DefaultDashboardVisitService.class);
+		bind(WorkspaceService.class).to(DefaultWorkspaceService.class);
 		bind(LabelSpecService.class).to(DefaultLabelSpecService.class);
 		bind(ProjectLabelService.class).to(DefaultProjectLabelService.class);
 		bind(BuildLabelService.class).to(DefaultBuildLabelService.class);
@@ -605,18 +601,16 @@ public class CoreModule extends AbstractPluginModule {
 		bind(OAuthTokenService.class).to(DefaultOAuthTokenService.class);
 		bind(IssueReactionService.class).to(DefaultIssueReactionService.class);
 		bind(IssueCommentReactionService.class).to(DefaultIssueCommentReactionService.class);
+		bind(IssueWorkReactionService.class).to(DefaultIssueWorkReactionService.class);
 		bind(PullRequestReactionService.class).to(DefaultPullRequestReactionService.class);
 		bind(PullRequestCommentReactionService.class).to(DefaultPullRequestCommentReactionService.class);
-		bind(IssueCommentRevisionService.class).to(DefaultIssueCommentRevisionService.class);
-		bind(PullRequestCommentRevisionService.class).to(DefaultPullRequestCommentRevisionService.class);
-		bind(IssueDescriptionRevisionService.class).to(DefaultIssueDescriptionRevisionService.class);
-		bind(PullRequestDescriptionRevisionService.class).to(DefaultPullRequestDescriptionRevisionService.class);
 		bind(SsoProviderService.class).to(DefaultSsoProviderService.class);
 		bind(SsoAccountService.class).to(DefaultSsoAccountService.class);
 		bind(BaseAuthorizationService.class).to(DefaultBaseAuthorizationService.class);
 		bind(GroupEntitlementService.class).to(DefaultGroupEntitlementService.class);
 		bind(UserEntitlementService.class).to(DefaultUserEntitlementService.class);
 		bind(ProjectEntitlementService.class).to(DefaultProjectEntitlementService.class);
+		bind(AssetsSyncManager.class);
 		
 		bind(WebHookManager.class);
 		
@@ -631,6 +625,7 @@ public class CoreModule extends AbstractPluginModule {
 			@Override
 			public void execute(Runnable command) {
 				try {
+					Thread.currentThread().setContextClassLoader(OneDev.class.getClassLoader());
 					super.execute(SecurityUtils.inheritSubject(command));
 				} catch (RejectedExecutionException e) {
 					if (!isShutdown())
@@ -641,17 +636,25 @@ public class CoreModule extends AbstractPluginModule {
         };
 
 	    bind(ExecutorService.class).toProvider(() -> Bootstrap.executorService).in(Singleton.class);
-	    
-	    bind(OsInfo.class).toProvider(() -> ExecutorUtils.getOsInfo()).in(Singleton.class);
-	    
-	    contributeFromPackage(LogInstruction.class, LogInstruction.class);	    
-	    
-		contribute(CodeProblemContribution.class, (build, blobPath, reportName) -> newArrayList());
-	    
-		contribute(LineCoverageContribution.class, (build, blobPath, reportName) -> new HashMap<>());
+	    	    	    
 		contribute(AdministrationSettingContribution.class, () -> new ArrayList<>());
 		contribute(ProjectSettingContribution.class, () -> new ArrayList<>());
+		contribute(ChatToolsContribution.class, page -> List.of());
 		contribute(GitPreReceiveChecker.class, (project, submitter, refName, oldObjectId, newObjectId) -> null);
+
+		contribute(WorkspaceProvisionerDiscoverer.class, new WorkspaceProvisionerDiscoverer() {
+
+			@Override
+			public WorkspaceProvisioner discover() {
+				return null;
+			}
+
+			@Override
+			public int getOrder() {
+				return 10000;
+			}
+
+		});
 
 		bind(PackFilter.class);
 	}
@@ -702,7 +705,7 @@ public class CoreModule extends AbstractPluginModule {
 		contribute(FilterChainConfigurator.class, filterChainManager -> filterChainManager.createChain("/~api/**", "noSessionCreation, authcBasic, authcBearer"));
 		contribute(JerseyConfigurator.class, resourceConfig -> resourceConfig.packages(ProjectResource.class.getPackage().getName()));
 		contribute(JerseyConfigurator.class, resourceConfig -> resourceConfig.register(ClusterResource.class));
-		contribute(JerseyConfigurator.class, resourceConfig -> resourceConfig.register(McpHelperResource.class));
+		contribute(JerseyConfigurator.class, resourceConfig -> resourceConfig.register(TodResource.class));
 		contribute(JerseyConfigurator.class, resourceConfig -> resourceConfig.register(BuildSpecSchemaResource.class));
 	}
 
@@ -746,19 +749,19 @@ public class CoreModule extends AbstractPluginModule {
 		bind(PullRequestEventBroadcaster.class);
 		bind(IssueEventBroadcaster.class);
 		bind(BuildEventBroadcaster.class);
+		bind(WorkspaceEventBroadcaster.class);
 		bind(AlertEventBroadcaster.class);
 		bind(UploadService.class).to(DefaultUploadService.class);
 		
 		bind(TaskFutureService.class).to(DefaultTaskFutureService.class);
-		bind(TemporalFutureService.class).to(DefaultTemporalFutureService.class);
+		bind(ManagedFutureService.class).to(DefaultManagedFutureService.class);
 	}
 	
 	private void configureBuild() {
-		bind(ResourceAllocator.class).to(DefaultResourceAllocator.class);
+		bind(ResourceService.class).to(DefaultResourceService.class);
 		bind(AgentService.class).to(DefaultAgentService.class);
 		bind(AgentTokenService.class).to(DefaultAgentTokenService.class);
 		bind(AgentAttributeService.class).to(DefaultAgentAttributeService.class);
-		bind(AgentLastUsedDateService.class).to(DefaultAgentLastUsedDateService.class);
 		
 		contribute(ScriptContribution.class, new ScriptContribution() {
 
@@ -943,6 +946,8 @@ public class CoreModule extends AbstractPluginModule {
 				return CleanDatabase.class;
 			else if (ResetAdminPassword.COMMAND.equals(Bootstrap.command.getName()))
 				return ResetAdminPassword.class;
+			else if (EnableInternalLogin.COMMAND.equals(Bootstrap.command.getName()))
+				return EnableInternalLogin.class;
 			else if (Translate.COMMAND.equals(Bootstrap.command.getName()))
 				return Translate.class;
 			else

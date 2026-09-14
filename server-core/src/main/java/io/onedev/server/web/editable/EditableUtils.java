@@ -12,8 +12,8 @@ import io.onedev.server.OneDev;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Interpolative;
 import io.onedev.server.annotation.WorkingPeriod;
-import io.onedev.server.service.SettingService;
 import io.onedev.server.model.Project;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.util.BeanUtils;
 import io.onedev.server.util.ReflectionUtils;
 import io.onedev.server.util.interpolative.VariableInterpolator;
@@ -83,7 +83,7 @@ public class EditableUtils {
 	 * @param element
 	 * 			annotated element to get description from
 	 * @return
-	 * 			defined description, or <tt>null</tt> if description can not be found
+	 * 			defined description, or <tt>null</tt> if description cannot be found
 	 */
 	@Nullable
 	public static String getDescription(AnnotatedElement element) {

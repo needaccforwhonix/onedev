@@ -8,6 +8,7 @@ import java.util.List;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.Pattern;
 
 import io.onedev.commons.codeassist.InputCompletion;
 import io.onedev.commons.codeassist.InputStatus;
@@ -16,11 +17,11 @@ import io.onedev.k8shelper.ServiceFacade;
 import io.onedev.server.annotation.DnsName;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Interpolative;
-import io.onedev.server.annotation.RegEx;
 import io.onedev.server.annotation.SuggestionProvider;
 import io.onedev.server.buildspec.job.EnvVar;
 import io.onedev.server.buildspec.step.RegistryLogin;
 import io.onedev.server.model.Build;
+import io.onedev.server.web.util.SuggestionUtils;
 
 @Editable
 public class Service implements NamedElement {
@@ -37,7 +38,7 @@ public class Service implements NamedElement {
 	
 	private String readinessCheckCommand;
 	
-	private String runAs;
+	private String runAs = "0:0";
 
 	private List<RegistryLogin> registryLogins = new ArrayList<>();
 	
@@ -60,7 +61,7 @@ public class Service implements NamedElement {
 		if (buildSpec != null) {
 			List<String> candidates = new ArrayList<>(buildSpec.getServiceMap().keySet());
 			buildSpec.getServices().forEach(it->candidates.remove(it.getName()));
-			return BuildSpec.suggestOverrides(candidates, status);
+			return SuggestionUtils.suggestOverrides(candidates, status);
 		}
 		return new ArrayList<>();
 	}
@@ -110,10 +111,9 @@ public class Service implements NamedElement {
 		this.readinessCheckCommand = readinessCheckCommand;
 	}
 
-	@Editable(order=450, name="Run As", group = "More Settings", placeholder = "root", description = "Optionally specify uid:gid to run container as. " +
-			"<b class='text-warning'>Note:</b> This setting should be left empty if container runtime is rootless or " +
-			"using user namespace remapping")
-	@RegEx(pattern="\\d+:\\d+", message = "Should be specified in form of <uid>:<gid>")
+	@Editable(order=450, name="Run As", group = "More Settings", description = "Specify uid:gid to run container as")
+	@Pattern(regexp="\\d+:\\d+", message = "Should be specified in form of <uid>:<gid>")
+	@NotEmpty
 	public String getRunAs() {
 		return runAs;
 	}

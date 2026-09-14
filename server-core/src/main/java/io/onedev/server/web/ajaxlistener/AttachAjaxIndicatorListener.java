@@ -64,9 +64,13 @@ public class AttachAjaxIndicatorListener implements IAjaxCallListener {
 		CharSequence url = RequestCycle.get().urlFor(handler);
 		String insertAt = attachMode==AttachMode.APPEND?"after":"before";
 		return String.format(""
-				+ "$('#%s').siblings('.working-indicator').remove(); "
-				+ "$('#%s').addClass('with-working-indicator').%s('<img src=\"%s\" width=\"16\" height=\"16\" class=\"working-indicator\"></img>');", 
-				attachTo.getMarkupId(), attachTo.getMarkupId(), insertAt, url);
+				+ "var $attachTo = $('#%s');"
+				+ "if ($attachTo.length != 0) {"
+				+ "clearTimeout($attachTo[0].successIndicatorTimeout);"
+				+ "$attachTo.siblings('.working-indicator').remove(); "
+				+ "$attachTo.addClass('with-working-indicator').%s('<img src=\"%s\" width=\"16\" height=\"16\" class=\"working-indicator\"></img>');"
+				+ "}",
+				attachTo.getMarkupId(), insertAt, url);
 	}
 
 	@Override
@@ -82,9 +86,16 @@ public class AttachAjaxIndicatorListener implements IAjaxCallListener {
 		if (indicateSuccessful) {
 			String insertAt = attachMode==AttachMode.APPEND?"after":"before";
 			return String.format(""
-					+ "$('#%s').removeClass('with-working-indicator').siblings('.working-indicator').remove();"
-					+ "$('#%s').%s('<svg class=\"icon working-indicator text-success\"><use xlink:href=\"%s\"/></svg>');", 
-					attachTo.getMarkupId(), attachTo.getMarkupId(), insertAt, 
+					+ "var $attachTo = $('#%s');"
+					+ "if ($attachTo.length != 0) {"
+					+ "clearTimeout($attachTo[0].successIndicatorTimeout);"
+					+ "$attachTo.removeClass('with-working-indicator').siblings('.working-indicator').remove();"
+					+ "$attachTo.%s('<svg class=\"icon working-indicator text-success\"><use xlink:href=\"%s\"/></svg>');"
+					+ "$attachTo[0].successIndicatorTimeout = setTimeout(function() {"
+					+ "$attachTo.siblings('.working-indicator').remove();"
+					+ "}, 1000);"
+					+ "}",
+					attachTo.getMarkupId(), insertAt, 
 					SpriteImage.getVersionedHref(IconScope.class, "tick"));
 		} else {
 			return String.format("$('#%s').removeClass('with-working-indicator').siblings('.working-indicator').remove();", 

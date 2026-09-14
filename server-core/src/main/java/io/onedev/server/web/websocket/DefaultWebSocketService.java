@@ -36,6 +36,8 @@ import io.onedev.server.cluster.ClusterRunnable;
 import io.onedev.server.cluster.ClusterService;
 import io.onedev.server.event.Listen;
 import io.onedev.server.event.system.SystemStarted;
+import io.onedev.server.event.system.SystemStarting;
+import io.onedev.server.event.system.SystemStopped;
 import io.onedev.server.event.system.SystemStopping;
 import io.onedev.server.persistence.TransactionService;
 import io.onedev.server.persistence.annotation.Sessional;
@@ -52,9 +54,6 @@ public class DefaultWebSocketService implements WebSocketService, SessionListene
 
 	private static final Logger logger = LoggerFactory.getLogger(DefaultWebSocketService.class);
 
-	// Using 30 seconds to avoid Nginx websocket timeout (60 seconds by default)
-	private static final int KEEP_ALIVE_INTERVAL = 30;
-
 	private static final int CHECK_MESSAGE_QUEUE_INTERVAL = 5;
 
 	@Inject
@@ -68,7 +67,7 @@ public class DefaultWebSocketService implements WebSocketService, SessionListene
 
 	@Inject
 	private ClusterService clusterService;
-	
+		
 	private final Map<String, Map<IKey, Collection<String>>> registeredObservables = new ConcurrentHashMap<>();
 		
 	private final Map<String, Pair<PageKey, Date>> notifiedObservables = new ConcurrentHashMap<>();
@@ -165,19 +164,23 @@ public class DefaultWebSocketService implements WebSocketService, SessionListene
 			@Override
 			public void run() {
 				clusterService.submitToAllServers(() -> {
-					for (var observable: observables)
-						notifiedObservables.put(observable, new Pair<>(sourcePageKey, new Date()));
-					for (IWebSocketConnection connection: getConnectionRegistry().getConnections(application)) {
-						PageKey pageKey = ((WebSocketConnection) connection).getPageKey();
-						if (sourcePageKey == null || !sourcePageKey.equals(pageKey)) {
-							Collection<String> registeredObservables = getRegisteredObservables(connection);
-							if (registeredObservables != null) {
-								var registeredChangedObservables = 
-										filterObservables(registeredObservables, observables);
-								if (!registeredChangedObservables.isEmpty())
-									notifyObservablesChange(connection, registeredChangedObservables);
+					try {
+						for (var observable: observables)
+							notifiedObservables.put(observable, new Pair<>(sourcePageKey, new Date()));
+						for (IWebSocketConnection connection: getConnectionRegistry().getConnections(application)) {
+							PageKey pageKey = ((WebSocketConnection) connection).getPageKey();
+							if (sourcePageKey == null || !sourcePageKey.equals(pageKey)) {
+								Collection<String> registeredObservables = getRegisteredObservables(connection);
+								if (registeredObservables != null) {
+									var registeredChangedObservables = 
+											filterObservables(registeredObservables, observables);
+									if (!registeredChangedObservables.isEmpty())
+										notifyObservablesChange(connection, registeredChangedObservables);
+								}
 							}
 						}
+					} catch (Throwable t) {
+						logger.error("Error notifying observables change", t);
 					}
 					return null;
 				});
@@ -186,8 +189,13 @@ public class DefaultWebSocketService implements WebSocketService, SessionListene
 		});
 	}
 	
+	/*
+	 * Need to set up websocket keep alive task early to prevent session timeout while we are set up the server
+	 * which is happening before getting SystemStarted event.
+	 * @param event
+	 */
 	@Listen
-	public void on(SystemStarted event) {
+	public void on(SystemStarting event) {
 		keepAliveTaskId = taskScheduler.schedule(new SchedulableTask() {
 			
 			@Override
@@ -209,7 +217,10 @@ public class DefaultWebSocketService implements WebSocketService, SessionListene
 			}
 			
 		});
-		
+	}
+
+	@Listen
+	public void on(SystemStarted event) {		
 		notifiedObservableCleanupTaskId = taskScheduler.schedule(new SchedulableTask() {
 			
 			private static final int TOLERATE_SECONDS = 5;
@@ -256,6 +267,12 @@ public class DefaultWebSocketService implements WebSocketService, SessionListene
 			taskScheduler.unschedule(keepAliveTaskId);
 		if (notifiedObservableCleanupTaskId != null)
 			taskScheduler.unschedule(notifiedObservableCleanupTaskId);
+	}
+
+	@Listen
+	public void on(SystemStopped event) {
+		if (keepAliveTaskId != null)
+			taskScheduler.unschedule(keepAliveTaskId);
 	}
 	
 	/**

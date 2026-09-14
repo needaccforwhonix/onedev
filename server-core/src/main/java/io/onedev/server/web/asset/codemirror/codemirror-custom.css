@@ -14,6 +14,9 @@
 }
 .CodeMirror-mark {
 	background: #8950FC;
+	padding: 0.25em 0;
+	-webkit-box-decoration-break: clone;
+	box-decoration-break: clone;
 }
 .cm-identifierhighlight.CodeMirror-mark {
 	background: var(--dark);	
@@ -114,4 +117,14 @@
 }
 .dark-mode .cm-s-eclipse .CodeMirror-matchingbracket {
 	background: var(--primary);
+}
+
+.cm-conflict-marker {
+	color: #9c6500 !important;
+	background: #fff3cd;
+	font-weight: bold;
+}
+.dark-mode .cm-conflict-marker {
+	color: #d4a857 !important;
+	background: #3d3520;
 }

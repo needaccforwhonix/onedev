@@ -3,6 +3,8 @@ package io.onedev.server.service.impl;
 import static io.onedev.server.model.Setting.PROP_KEY;
 import static org.hibernate.criterion.Restrictions.eq;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
@@ -12,6 +14,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.bouncycastle.openpgp.PGPException;
+import org.bouncycastle.openpgp.PGPKeyRingGenerator;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -30,8 +35,9 @@ import io.onedev.server.event.entity.EntityPersisted;
 import io.onedev.server.event.system.SystemStarting;
 import io.onedev.server.model.Setting;
 import io.onedev.server.model.Setting.Key;
-import io.onedev.server.model.support.administration.AiSetting;
+import io.onedev.server.model.User;
 import io.onedev.server.model.support.administration.AgentSetting;
+import io.onedev.server.model.support.administration.AiSetting;
 import io.onedev.server.model.support.administration.AlertSetting;
 import io.onedev.server.model.support.administration.AuditSetting;
 import io.onedev.server.model.support.administration.BackupSetting;
@@ -42,6 +48,7 @@ import io.onedev.server.model.support.administration.GlobalIssueSetting;
 import io.onedev.server.model.support.administration.GlobalPackSetting;
 import io.onedev.server.model.support.administration.GlobalProjectSetting;
 import io.onedev.server.model.support.administration.GlobalPullRequestSetting;
+import io.onedev.server.model.support.administration.GlobalWorkspaceSetting;
 import io.onedev.server.model.support.administration.GpgSetting;
 import io.onedev.server.model.support.administration.GroovyScript;
 import io.onedev.server.model.support.administration.PerformanceSetting;
@@ -53,9 +60,11 @@ import io.onedev.server.model.support.administration.authenticator.Authenticator
 import io.onedev.server.model.support.administration.emailtemplates.EmailTemplates;
 import io.onedev.server.model.support.administration.jobexecutor.JobExecutor;
 import io.onedev.server.model.support.administration.mailservice.MailConnector;
+import io.onedev.server.model.support.administration.workspaceprovisioner.WorkspaceProvisioner;
 import io.onedev.server.persistence.annotation.Sessional;
 import io.onedev.server.persistence.annotation.Transactional;
 import io.onedev.server.service.SettingService;
+import io.onedev.server.util.GpgUtils;
 import io.onedev.server.util.usage.Usage;
 import io.onedev.server.web.component.issue.workflowreconcile.UndefinedFieldResolution;
 import io.onedev.server.web.component.issue.workflowreconcile.UndefinedFieldValue;
@@ -86,9 +95,8 @@ public class DefaultSettingService extends BaseEntityService<Setting> implements
 	@Sessional
 	@Listen
 	public void on(SystemStarting event) {
-		for (var setting: query()) {
+		for (var setting: query()) 
 			cache.put(setting.getKey(), Optional.ofNullable(setting.getValue()));
-		}
 	}
 	
 	@Sessional
@@ -198,6 +206,12 @@ public class DefaultSettingService extends BaseEntityService<Setting> implements
 		return (List<JobExecutor>) getSettingValue(Key.JOB_EXECUTORS);
 	}
 
+	@SuppressWarnings("unchecked")
+	@Override
+	public List<WorkspaceProvisioner> getWorkspaceProvisioners() {
+		return (List<WorkspaceProvisioner>) getSettingValue(Key.WORKSPACE_PROVISIONERS);
+	}
+
 	@Override
 	public EmailTemplates getEmailTemplates() {
 		return (EmailTemplates) getSettingValue(Key.EMAIL_TEMPLATES);
@@ -217,6 +231,11 @@ public class DefaultSettingService extends BaseEntityService<Setting> implements
 	@Override
 	public GlobalBuildSetting getBuildSetting() {
 		return (GlobalBuildSetting) getSettingValue(Key.BUILD);
+	}
+
+	@Override
+	public GlobalWorkspaceSetting getWorkspaceSetting() {
+		return (GlobalWorkspaceSetting) getSettingValue(Key.WORKSPACE);
 	}
 
 	@Override
@@ -257,7 +276,29 @@ public class DefaultSettingService extends BaseEntityService<Setting> implements
 	@Transactional
 	@Override
 	public void saveSystemSetting(SystemSetting systemSetting) {
+		String oldNoreplyEmailDomain = null;
+		var setting = findSetting(Key.SYSTEM);
+		if (setting != null)
+			oldNoreplyEmailDomain = ((SystemSetting) setting.getValue()).getNoreplyEmailDomain();
+
 		saveSetting(Key.SYSTEM, systemSetting);
+
+		if (oldNoreplyEmailDomain != null
+				&& !oldNoreplyEmailDomain.equals(systemSetting.getNoreplyEmailDomain())) {
+			var gpgSetting = getGpgSetting();
+			if (gpgSetting != null && gpgSetting.getEncodedSigningKey() != null) {
+				try {
+					PGPKeyRingGenerator generator = GpgUtils.generateKeyRingGenerator(
+							User.SYSTEM_NAME + "<" + User.getSystemNoreplyEmailAddress() + ">");
+					var baos = new ByteArrayOutputStream();
+					generator.generateSecretKeyRing().encode(baos);
+					gpgSetting.setEncodedSigningKey(baos.toByteArray());
+					saveGpgSetting(gpgSetting);
+				} catch (PGPException | IOException e) {
+					throw new RuntimeException(e);
+				}
+			}
+		}
 	}
 
 	@Transactional
@@ -340,6 +381,12 @@ public class DefaultSettingService extends BaseEntityService<Setting> implements
 
 	@Transactional
 	@Override
+	public void saveWorkspaceProvisioners(List<WorkspaceProvisioner> workspaceProvisioners) {
+		saveSetting(Key.WORKSPACE_PROVISIONERS, (Serializable) workspaceProvisioners);
+	}
+
+	@Transactional
+	@Override
 	public void saveEmailTemplates(EmailTemplates emailTemplates) {
 		saveSetting(Key.EMAIL_TEMPLATES, emailTemplates);
 	}
@@ -366,6 +413,12 @@ public class DefaultSettingService extends BaseEntityService<Setting> implements
 	@Override
 	public void saveBuildSetting(GlobalBuildSetting buildSetting) {
 		saveSetting(Key.BUILD, buildSetting);
+	}
+
+	@Transactional
+	@Override
+	public void saveWorkspaceSetting(GlobalWorkspaceSetting workspaceSetting) {
+		saveSetting(Key.WORKSPACE, workspaceSetting);
 	}
 
 	@Transactional
@@ -505,16 +558,21 @@ public class DefaultSettingService extends BaseEntityService<Setting> implements
 	public void onMoveProject(String oldPath, String newPath) {
     	for (JobExecutor jobExecutor: getJobExecutors())
     		jobExecutor.onMoveProject(oldPath, newPath);
+    	for (WorkspaceProvisioner workspaceProvisioner: getWorkspaceProvisioners())
+    		workspaceProvisioner.onMoveProject(oldPath, newPath);
     	for (GroovyScript groovyScript: getGroovyScripts())
     		groovyScript.onMoveProject(oldPath, newPath);
     	if (getServiceDeskSetting() != null)
     		getServiceDeskSetting().onMoveProject(oldPath, newPath);
     	getIssueSetting().onMoveProject(oldPath, newPath);
+    	getSystemSetting().onMoveProject(oldPath, newPath);
     	
 		saveSetting(Key.JOB_EXECUTORS, (Serializable) getJobExecutors());
+		saveSetting(Key.WORKSPACE_PROVISIONERS, (Serializable) getWorkspaceProvisioners());
 		saveSetting(Key.GROOVY_SCRIPTS, (Serializable) getGroovyScripts());
 		saveSetting(Key.SERVICE_DESK_SETTING, getServiceDeskSetting());
 		saveSetting(Key.ISSUE, getIssueSetting());
+		saveSetting(Key.SYSTEM, getSystemSetting());
 	}
 
 	@Override
@@ -523,12 +581,17 @@ public class DefaultSettingService extends BaseEntityService<Setting> implements
 		
     	for (JobExecutor jobExecutor: getJobExecutors()) 
     		usage.add(jobExecutor.onDeleteProject(projectPath).prefix("job executor '" + jobExecutor.getName() + "'"));
+    	for (WorkspaceProvisioner workspaceProvisioner: getWorkspaceProvisioners())
+    		usage.add(workspaceProvisioner.onDeleteProject(projectPath).prefix("workspace provisioner '" + workspaceProvisioner.getName() + "'"));
     	for (GroovyScript groovyScript: getGroovyScripts()) 
     		usage.add(groovyScript.onDeleteProject(projectPath).prefix("groovy script '" + groovyScript.getName() + "'"));
     	if (getServiceDeskSetting() != null)
     		usage.add(getServiceDeskSetting().onDeleteProject(projectPath));
     	usage.add(getIssueSetting().onDeleteProject(projectPath));
-		
+
+    	getSystemSetting().onDeleteProject(projectPath);
+    	saveSetting(Key.SYSTEM, getSystemSetting());
+
 		return usage.prefix("administration");
 	}
 

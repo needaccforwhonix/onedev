@@ -1,18 +1,15 @@
 package io.onedev.server.web.page.project.issues.detail;
 
-import static io.onedev.server.ai.ChatToolUtils.convertToJson;
+import static io.onedev.server.ai.ToolUtils.wrapForChat;
 import static io.onedev.server.web.translation.Translation._T;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 import javax.inject.Inject;
 import javax.persistence.EntityNotFoundException;
-import javax.validation.ValidationException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.wicket.Component;
@@ -20,7 +17,6 @@ import org.apache.wicket.Page;
 import org.apache.wicket.RestartResponseException;
 import org.apache.wicket.Session;
 import org.apache.wicket.ajax.AjaxRequestTarget;
-import org.apache.wicket.core.request.handler.IPartialPageRequestHandler;
 import org.apache.wicket.markup.head.IHeaderResponse;
 import org.apache.wicket.markup.head.JavaScriptHeaderItem;
 import org.apache.wicket.markup.head.OnDomReadyHeaderItem;
@@ -36,15 +32,14 @@ import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.flow.RedirectToUrlException;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.Lists;
 
-import dev.langchain4j.agent.tool.ToolSpecification;
 import io.onedev.server.ai.ChatTool;
-import io.onedev.server.ai.ChatToolAware;
-import io.onedev.server.ai.IssueHelper;
+import io.onedev.server.ai.tools.issue.GetIssue;
+import io.onedev.server.ai.tools.issue.GetIssueComments;
 import io.onedev.server.buildspecmodel.inputspec.InputContext;
 import io.onedev.server.data.migration.VersionedXmlDoc;
+import io.onedev.server.exception.NotAcceptableException;
 import io.onedev.server.model.Issue;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.support.issue.field.spec.FieldSpec;
@@ -71,16 +66,15 @@ import io.onedev.server.web.component.tabbable.PageTabHead;
 import io.onedev.server.web.component.tabbable.Tab;
 import io.onedev.server.web.component.tabbable.Tabbable;
 import io.onedev.server.web.page.project.ProjectPage;
-import io.onedev.server.web.page.project.dashboard.ProjectDashboardPage;
 import io.onedev.server.web.page.project.issues.ProjectIssuesPage;
 import io.onedev.server.web.page.project.issues.list.ProjectIssueListPage;
+import io.onedev.server.web.page.project.overview.ProjectOverviewPage;
 import io.onedev.server.web.util.ConfirmClickModifier;
 import io.onedev.server.web.util.Cursor;
 import io.onedev.server.web.util.CursorSupport;
-import io.onedev.server.web.websocket.ChatToolExecution;
 import io.onedev.server.xodus.VisitInfoService;
 
-public abstract class IssueDetailPage extends ProjectIssuesPage implements InputContext, ChatToolAware {
+public abstract class IssueDetailPage extends ProjectIssuesPage implements InputContext {
 
 	public static final String PARAM_ISSUE = "issue";
 	
@@ -117,13 +111,14 @@ public abstract class IssueDetailPage extends ProjectIssuesPage implements Input
 				try {
 					issueNumber = Long.valueOf(issueNumberString);
 				} catch (NumberFormatException e) {
-					throw new ValidationException(MessageFormat.format(_T("Invalid issue number: {0}"), issueNumberString));
+					throw new NotAcceptableException(MessageFormat.format(_T("Invalid issue number: {0}"), issueNumberString));
 				}
 				
 				Issue issue = issueService.find(getProject(), issueNumber);
 				if (issue == null) { 
 					throw new EntityNotFoundException(MessageFormat.format(_T("Unable to find issue #{0} in project {1}"), issueNumber, getProject()));
 				} else {
+					issue = issue.resolveMovedTo();
 					issueLinkService.loadDeepLinks(issue);
 					if (!issue.getProject().equals(getProject())) 
 						throw new RestartResponseException(getPageClass(), paramsOf(issue));
@@ -154,16 +149,13 @@ public abstract class IssueDetailPage extends ProjectIssuesPage implements Input
 				return IssueDetailPage.this.getIssue();
 			}
 
-			@Override
-			protected Project getProject() {
-				return getIssue().getProject();
-			}
-
 		});
 		
 		add(new SideInfoLink("moreInfo"));
+		add(new SideInfoLink("moreInfoDock"));
 		
-		add(new IssueOperationsPanel("operations") {
+		Component operationsPanel;
+		add(operationsPanel = new IssueOperationsPanel("operations") {
 
 			@Override
 			protected Issue getIssue() {
@@ -223,23 +215,6 @@ public abstract class IssueDetailPage extends ProjectIssuesPage implements Input
 							}
 
 						});
-						if (!getIssue().getPullRequests().isEmpty()) {
-							tabs.add(new PageTab(Model.of(_T("Pull Requests")), IssuePullRequestsPage.class, IssuePullRequestsPage.paramsOf(getIssue())) {
-
-								@Override
-								public Component render(String componentId) {
-									return new PageTabHead(componentId, this) {
-					
-										@Override
-										protected Link<?> newLink(String componentId, Class<? extends Page> pageClass, PageParameters pageParams) {
-											return new ViewStateAwarePageLink<Void>(componentId, pageClass, pageParams, KEY_SCROLL_TOP);
-										}
-					
-									};
-								}
-	
-							});
-						}
 					}
 					// Do not calculate fix builds now as it might be slow
 					tabs.add(new PageTab(Model.of(_T("Fixing Builds")), IssueBuildsPage.class, IssueBuildsPage.paramsOf(getIssue())) {
@@ -258,6 +233,7 @@ public abstract class IssueDetailPage extends ProjectIssuesPage implements Input
 
 					});
 				}
+
 
 				if (getIssue().isConfidential() && SecurityUtils.canModifyIssue(getIssue())) {
 					tabs.add(new PageTab(Model.of(_T("Authorizations")), IssueAuthorizationsPage.class, IssueAuthorizationsPage.paramsOf(getIssue())) {
@@ -310,8 +286,21 @@ public abstract class IssueDetailPage extends ProjectIssuesPage implements Input
 					}
 
 					@Override
+					protected void onBranchCreated(AjaxRequestTarget target) {
+						target.add(operationsPanel);
+					}
+
+					@Override
 					protected Component newDeleteLink(String componentId) {
 						return new Link<Void>(componentId) {
+
+							@Override
+							protected void onInitialize() {
+								super.onInitialize();
+								if (getIssue().getWorkspaces().size() == 0) {
+									add(new ConfirmClickModifier(_T("Do you really want to delete this issue?")));
+								}
+							}
 
 							@Override
 							public void onClick() {
@@ -319,7 +308,7 @@ public abstract class IssueDetailPage extends ProjectIssuesPage implements Input
 								var oldAuditContent = VersionedXmlDoc.fromBean(getIssue()).toXML();
 								auditService.audit(getIssue().getProject(), "deleted issue \"" + getIssue().getReference().toString(getIssue().getProject()) + "\"", oldAuditContent, null);
 								
-								Session.get().success(MessageFormat.format(_T("Issue #{0} deleted"), getIssue().getNumber()));
+								Session.get().success(MessageFormat.format(_T("Issue {0} deleted"), getIssue().getReference().toString(getIssue().getProject())));
 								
 								String redirectUrlAfterDelete = WebSession.get().getRedirectUrlAfterDelete(Issue.class);
 								if (redirectUrlAfterDelete != null)
@@ -328,7 +317,7 @@ public abstract class IssueDetailPage extends ProjectIssuesPage implements Input
 									setResponsePage(ProjectIssueListPage.class, ProjectIssueListPage.paramsOf(getProject()));
 							}
 							
-						}.add(new ConfirmClickModifier(_T("Do you really want to delete this issue?")));
+						};
 					}
 
 				};
@@ -443,45 +432,14 @@ public abstract class IssueDetailPage extends ProjectIssuesPage implements Input
 		if (project.isIssueManagement()) 
 			return new ViewStateAwarePageLink<Void>(componentId, ProjectIssueListPage.class, ProjectIssueListPage.paramsOf(project, 0));
 		else
-			return new ViewStateAwarePageLink<Void>(componentId, ProjectDashboardPage.class, ProjectDashboardPage.paramsOf(project.getId()));
+			return new ViewStateAwarePageLink<Void>(componentId, ProjectOverviewPage.class, ProjectOverviewPage.paramsOf(project.getId()));
 	}
 	
 	@Override
-	public Collection<ChatTool> getChatTools() {
-		var tools = new ArrayList<ChatTool>();
-		tools.add(new ChatTool() {
-
-			@Override
-			public ToolSpecification getSpecification() {
-				return ToolSpecification.builder()
-					.name("getCurrentIssue")
-					.description("Get info of current issue in json format")
-					.build();
-			}
-
-			@Override
-			public CompletableFuture<ChatToolExecution.Result> execute(IPartialPageRequestHandler handler, JsonNode arguments) {
-				return completedFuture(new ChatToolExecution.Result(convertToJson(IssueHelper.getDetail(getIssue().getProject(), getIssue())), false));
-			}
-			
-		});
-		
-		tools.add(new ChatTool() {
-
-			@Override
-			public ToolSpecification getSpecification() {
-				return ToolSpecification.builder()
-					.name("getCurrentIssueComments")
-					.description("Get comments of current issue in json format")
-					.build();
-			}
-
-			@Override
-			public CompletableFuture<ChatToolExecution.Result> execute(IPartialPageRequestHandler handler, JsonNode arguments) {	
-				return completedFuture(new ChatToolExecution.Result(convertToJson(IssueHelper.getComments(getIssue())), false));
-			}
-			
-		});
+	public List<ChatTool> getChatTools() {
+		var tools = super.getChatTools();
+		tools.add(wrapForChat(new GetIssue(getIssue().getId())));
+		tools.add(wrapForChat(new GetIssueComments(getIssue().getId())));
 		return tools;
 	}
 

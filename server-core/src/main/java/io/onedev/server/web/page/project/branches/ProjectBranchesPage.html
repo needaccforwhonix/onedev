@@ -4,7 +4,7 @@
 			<div class="head d-flex flex-wrap">
 				<div class="input-group base mr-3 mb-4 d-none d-lg-inline-flex">
 					<span class="input-group-prepend"><span class="input-group-text"><wicket:t>Base</wicket:t></span></span> 
-					<input wicket:id="baseBranch" type="hidden" class="form-control">					
+					<select wicket:id="baseBranch" class="form-control"></select>
 				</div>
 				<div class="clearable-wrapper mr-3 mb-4">
 					<input wicket:id="filterBranches" class="form-control search" t:placeholder="Filter branches...">
@@ -18,10 +18,11 @@
 		</div>
 	</div>
 	<wicket:fragment wicket:id="branchFrag">
-		<div class="title my-2">
+		<div class="title my-2 dropdown-aware">
 			<a wicket:id="branchLink" class="name mr-2"><span wicket:id="name"></span></a>
-			<a wicket:id="buildStatus" class="build-status mr-2"></a>
 			<span class="badge badge-info badge-sm mr-2" wicket:id="default"><wicket:t>default</wicket:t></span>
+			<a wicket:id="buildStatus" class="build-status mr-2"></a>
+			<a wicket:id="workspaces" t:data-tippy-content="Workspaces on this branch" class="mr-2 workspaces"><wicket:svg href="workspace" class="icon"/> <wicket:svg href="arrow" class="icon rotate-90"/></a>
 		</div>
 		<div class="commit-message mb-2">
 			<span wicket:id="message"></span>
@@ -31,7 +32,7 @@
 		</div>
 		<div wicket:id="actions" class="actions">
 			<a wicket:id="download" t:data-tippy-content="Download archive of this branch" class="btn btn-light btn-hover-primary btn-sm btn-icon mr-2 mb-2"><wicket:svg href="download" class="icon"/></a>
-			<a wicket:id="delete" t:data-tippy-content="Delete this branch" class="btn btn-sm btn-icon btn-light btn-hover-danger mr-2 mb-2"><wicket:svg href="trash" class="icon"></wicket:svg></a>
+			<a wicket:id="delete" class="btn btn-sm btn-icon btn-light btn-hover-danger mr-2 mb-2"><wicket:svg href="trash" class="icon"></wicket:svg></a>
 			<a wicket:id="makeDefault" class="make-default btn btn-sm btn-light btn-hover-primary mr-2 mb-2"><wicket:svg href="tick" class="icon mr-2"/> Set default</a>
 			<a wicket:id="effectiveRequest" class="btn btn-sm mr-2 mb-2"><wicket:svg href="pull-request" class="icon mr-1"></wicket:svg> <span wicket:id="label"></span></a>
 		</div>

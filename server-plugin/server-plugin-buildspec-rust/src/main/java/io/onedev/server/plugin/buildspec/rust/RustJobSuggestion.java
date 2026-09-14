@@ -22,15 +22,6 @@ import java.util.Collection;
 import java.util.List;
 
 public class RustJobSuggestion implements JobSuggestion {
-
-	
-	private GenerateChecksumStep newChecksumGenerateStep(String name, String files) {
-		var generateChecksum = new GenerateChecksumStep();
-		generateChecksum.setName(name);
-		generateChecksum.setFiles(files);
-		generateChecksum.setTargetFile("checksum");
-		return generateChecksum;
-	}
 	
 	private Job newJob() {
 		Job job = new Job();
@@ -96,18 +87,18 @@ public class RustJobSuggestion implements JobSuggestion {
 				job.getSteps().add(setBuildVersion);
 			}
 			
-			job.getSteps().add(newChecksumGenerateStep("generate dependency checksum", "**/Cargo.toml **/Cargo.lock"));
 			var setupCache = new SetupCacheStep();
 			setupCache.setName("set up dependency cache");
-			setupCache.setKey("rust_cache_@file:checksum@");
+			setupCache.setKey("rust_cache");
+
+			setupCache.setChecksumFiles("**/Cargo.toml **/Cargo.lock");
 			setupCache.setPaths(Lists.newArrayList("/root/.cache/cargo"));
-			setupCache.getLoadKeys().add("rust_cache");
 			job.getSteps().add(setupCache);
 
 			CommandStep buildAndTest = new CommandStep();
 			buildAndTest.setName("build and test");
 			
-			buildAndTest.setImage("1dev/rust:1.0.3");
+			buildAndTest.setImage("1dev/rust:1.0.4");
 			buildAndTest.getInterpreter().setCommands("" +
 					"set -e\n" +
 					"\n" +

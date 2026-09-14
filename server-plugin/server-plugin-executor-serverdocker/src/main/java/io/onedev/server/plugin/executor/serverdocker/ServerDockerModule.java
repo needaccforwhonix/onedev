@@ -1,16 +1,15 @@
 package io.onedev.server.plugin.executor.serverdocker;
 
-import java.io.File;
 import java.util.Collection;
 
-import org.apache.commons.lang.SystemUtils;
+import org.apache.commons.lang3.SystemUtils;
 
 import com.google.common.collect.Sets;
 
+import io.onedev.agent.AgentUtils;
 import io.onedev.commons.loader.AbstractPluginModule;
 import io.onedev.commons.loader.ImplementationProvider;
 import io.onedev.commons.utils.ExceptionUtils;
-import io.onedev.commons.utils.command.Commandline;
 import io.onedev.commons.utils.command.LineConsumer;
 import io.onedev.server.OneDev;
 import io.onedev.server.buildspec.job.JobExecutorDiscoverer;
@@ -28,7 +27,7 @@ public class ServerDockerModule extends AbstractPluginModule {
 		
 		// put your guice bindings here
 
-		if (OneDev.getK8sService() == null) {
+		if (OneDev.getK8sService() == null && !SystemUtils.IS_OS_WINDOWS) {
 			contribute(ImplementationProvider.class, new ImplementationProvider() {
 
 				@Override
@@ -47,11 +46,7 @@ public class ServerDockerModule extends AbstractPluginModule {
 
 				@Override
 				public JobExecutor discover() {
-					Commandline docker;
-					if (SystemUtils.IS_OS_MAC_OSX && new File("/usr/local/bin/docker").exists())
-						docker = new Commandline("/usr/local/bin/docker");
-					else
-						docker = new Commandline("docker");
+					var docker = AgentUtils.newDocker(null, null);
 					
 					docker.addArgs("version");
 					try {

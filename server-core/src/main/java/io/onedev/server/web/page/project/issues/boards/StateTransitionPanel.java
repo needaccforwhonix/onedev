@@ -34,8 +34,8 @@ abstract class StateTransitionPanel extends Panel implements InputContext {
 	protected void onInitialize() {
 		super.onInitialize();
 		
-		Class<?> fieldBeanClass = FieldUtils.getFieldBeanClass();
-		Serializable fieldBean = getIssue().getFieldBean(fieldBeanClass, true);
+		Class<?> fieldBeanClass = FieldUtils.getFieldBeanClass(true);
+		Serializable fieldBean = getIssue().getFieldBean(fieldBeanClass);
 
 		Form<?> form = new Form<Void>("form");
 		form.setOutputMarkupId(true);
@@ -59,8 +59,7 @@ abstract class StateTransitionPanel extends Panel implements InputContext {
 				
 				Collection<String> editableFields = FieldUtils.getEditableFields(
 						getIssue().getProject(), transition.getPromptFields());
-				Map<String, Object> fieldValues = FieldUtils.getFieldValues(
-						editor.newComponentContext(), fieldBean, editableFields);
+				Map<String, Object> fieldValues = FieldUtils.getFieldValues(getIssue().getProject(), fieldBean, editableFields);
 				OneDev.getInstance(IssueChangeService.class).changeState(SecurityUtils.getUser(), getIssue(),
 						getToState(), fieldValues, transition.getPromptFields(), transition.getRemoveFields(), null);
 				onSaved(target);

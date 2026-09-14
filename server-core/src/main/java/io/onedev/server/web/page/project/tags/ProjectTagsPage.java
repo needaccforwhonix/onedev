@@ -24,6 +24,9 @@ import io.onedev.server.web.asset.emoji.Emojis;
 import io.onedev.server.web.behavior.OnTypingDoneBehavior;
 import io.onedev.server.web.component.commit.status.CommitStatusLink;
 import io.onedev.server.web.component.contributorpanel.ContributorPanel;
+import io.onedev.server.web.component.floating.FloatingPanel;
+import io.onedev.server.web.component.link.DropdownLink;
+import io.onedev.server.web.component.workspace.speclist.WorkspaceSpecListPanel;
 import io.onedev.server.web.component.datatable.DefaultDataTable;
 import io.onedev.server.web.component.gitsignature.SignatureStatusPanel;
 import io.onedev.server.web.component.link.ArchiveMenuLink;
@@ -37,7 +40,7 @@ import io.onedev.server.web.editable.BeanEditor;
 import io.onedev.server.web.page.project.ProjectPage;
 import io.onedev.server.web.page.project.blob.ProjectBlobPage;
 import io.onedev.server.web.page.project.commits.CommitDetailPage;
-import io.onedev.server.web.page.project.dashboard.ProjectDashboardPage;
+import io.onedev.server.web.page.project.overview.ProjectOverviewPage;
 import io.onedev.server.web.util.LoadableDetachableDataProvider;
 import io.onedev.server.web.util.paginghistory.PagingHistorySupport;
 import io.onedev.server.web.util.paginghistory.ParamPagingHistorySupport;
@@ -332,7 +335,45 @@ public class ProjectTagsPage extends ProjectPage {
 					protected PullRequest getPullRequest() {
 						return null;
 					}
-					
+
+					@Override
+					protected ObjectId getSeenBranchTip(String branch) {
+						return null;
+					}
+
+				});
+
+				fragment.add(new DropdownLink("workspaces") {
+
+					@Override
+					protected Component newContent(String id, FloatingPanel dropdown) {
+						return new WorkspaceSpecListPanel(id) {
+
+							@Override
+							protected Project getProject() {
+								return ProjectTagsPage.this.getProject();
+							}
+
+							@Override
+							protected String getBranch() {
+								return null;
+							}
+
+							@Override
+							protected ObjectId getCommitId() {
+								return ref.getPeeledObj().copy();
+							}
+
+						};
+					}
+
+					@Override
+					protected void onConfigure() {
+						super.onConfigure();
+						setVisible(getProject().canCreateWorkspace(SecurityUtils.getSubject())
+								&& !getProject().getHierarchyWorkspaceSpecs().isEmpty());
+					}
+
 				});
 
 				if (ref.getObj() instanceof RevTag) {
@@ -523,7 +564,7 @@ public class ProjectTagsPage extends ProjectPage {
 		if (project.isCodeManagement() && SecurityUtils.canReadCode(project)) 
 			return new ViewStateAwarePageLink<Void>(componentId, ProjectTagsPage.class, ProjectTagsPage.paramsOf(project));
 		else
-			return new ViewStateAwarePageLink<Void>(componentId, ProjectDashboardPage.class, ProjectDashboardPage.paramsOf(project.getId()));
+			return new ViewStateAwarePageLink<Void>(componentId, ProjectOverviewPage.class, ProjectOverviewPage.paramsOf(project.getId()));
 	}
 	
 }

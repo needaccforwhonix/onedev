@@ -6,7 +6,6 @@ import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 
-import org.jspecify.annotations.Nullable;
 import javax.naming.AuthenticationException;
 import javax.naming.CompositeName;
 import javax.naming.Context;
@@ -24,8 +23,11 @@ import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
+import org.apache.commons.lang3.Strings;
+import org.apache.shiro.authc.IncorrectCredentialsException;
 import org.apache.shiro.authc.UnknownAccountException;
 import org.apache.shiro.authc.UsernamePasswordToken;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -192,9 +194,9 @@ public class LdapAuthenticator extends Authenticator {
 		Collection<String> groupNames = null;
         Collection<String> sshKeys = null;
 
-        String userSearchFilter = StringUtils.replace(getUserSearchFilter(), "{0}", 
+        String userSearchFilter = Strings.CS.replace(getUserSearchFilter(), "{0}", 
         		escape(token.getUsername()));
-        userSearchFilter = StringUtils.replace(userSearchFilter, "\\", "\\\\");
+        userSearchFilter = Strings.CS.replace(userSearchFilter, "\\", "\\\\");
         logger.debug("Evaluated user search filter: " + userSearchFilter);
         
         SearchControls searchControls = new SearchControls();
@@ -237,7 +239,7 @@ public class LdapAuthenticator extends Authenticator {
             try {
             	ctx = new InitialDirContext(ldapEnv);
             } catch (AuthenticationException e) {
-        		throw new RuntimeException("Can not bind to ldap server '" + getLdapUrl() + "': " + e.getMessage());
+        		throw new RuntimeException("Cannot bind to ldap server '" + getLdapUrl() + "': " + e.getMessage());
             }
 
 			NamingEnumeration<SearchResult> results = null;
@@ -250,7 +252,7 @@ public class LdapAuthenticator extends Authenticator {
 			if (results == null)
 				throw new ExplicitException("No user search base specified");
 			if (!results.hasMore())
-				throw new UnknownAccountException("Invalid credentials");
+				throw new UnknownAccountException("Unknown account");
             
             SearchResult searchResult = results.next();
             String userDN = searchResult.getNameInNamespace();
@@ -277,7 +279,7 @@ public class LdapAuthenticator extends Authenticator {
                 userCtx = new InitialDirContext(ldapEnv);
             } catch (AuthenticationException e) {
                 logger.error("Unable to bind as '" + userDN + "'", e);
-            	throw new org.apache.shiro.authc.AuthenticationException("Invalid credentials");
+            	throw new IncorrectCredentialsException("Incorrect credentials");
             } finally {
                 if (userCtx != null) {
                     try {
@@ -349,7 +351,7 @@ public class LdapAuthenticator extends Authenticator {
                         groupCtx = (DirContext) ctx.lookup(groupDN);
 
                         if (groupCtx == null) {
-                            throw new RuntimeException("Can not find group entry " +
+                            throw new RuntimeException("Cannot find group entry " +
                             		"identified by '" + groupDN + "'.");
                         }
                         String groupNameAttribute = groupRetrieval.getGroupNameAttribute();
@@ -358,7 +360,7 @@ public class LdapAuthenticator extends Authenticator {
                         if (groupAttributes == null 
                         		|| groupAttributes.get(groupNameAttribute) == null
                                 || groupAttributes.get(groupNameAttribute).get() == null) {
-                            throw new RuntimeException("Can not find attribute '" 
+                            throw new RuntimeException("Cannot find attribute '" 
                             		+ groupNameAttribute + "' in returned group entry.");
                         }
                         groupNames.add((String) groupAttributes.get(groupNameAttribute).get());
@@ -387,8 +389,8 @@ public class LdapAuthenticator extends Authenticator {
 	    	SearchGroupsUsingFilter groupRetrieval = (SearchGroupsUsingFilter) getGroupRetrieval();
 	    	String groupNameAttribute = groupRetrieval.getGroupNameAttribute();
 	        Name groupSearchBase = new CompositeName().add(groupRetrieval.getGroupSearchBase());
-	        String groupSearchFilter = StringUtils.replace(groupRetrieval.getGroupSearchFilter(), "{0}", userDN);
-	        groupSearchFilter = StringUtils.replace(groupSearchFilter, "\\", "\\\\");
+	        String groupSearchFilter = Strings.CS.replace(groupRetrieval.getGroupSearchFilter(), "{0}", userDN);
+	        groupSearchFilter = Strings.CS.replace(groupSearchFilter, "\\", "\\\\");
 	
 	        logger.debug("Evaluated group search filter: " + groupSearchFilter);
 	        SearchControls searchControls = new SearchControls();
@@ -404,7 +406,7 @@ public class LdapAuthenticator extends Authenticator {
 	                if (searchResultAttributes == null 
 	                		|| searchResultAttributes.get(groupNameAttribute) == null
 	                        || searchResultAttributes.get(groupNameAttribute).get() == null) {
-	                    throw new RuntimeException("Can not find attribute '" 
+	                    throw new RuntimeException("Cannot find attribute '" 
 	                    		+ groupNameAttribute + "' in the returned group object.");
 	                }
 	                groupNames.add((String) searchResultAttributes.get(groupNameAttribute).get());

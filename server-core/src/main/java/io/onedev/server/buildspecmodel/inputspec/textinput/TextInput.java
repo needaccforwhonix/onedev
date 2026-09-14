@@ -19,7 +19,7 @@ public class TextInput {
 	public static final int MAX_LEN = 500;
 	
 	public static String getPropertyDef(InputSpec inputSpec, Map<String, Integer> indexes, 
-			@Nullable String pattern, boolean multiline, DefaultValueProvider defaultValueProvider) {
+			@Nullable String pattern, boolean multiline, @Nullable DefaultValueProvider defaultValueProvider) {
 		if (pattern != null)
 			pattern = InputSpec.escape(pattern);
 		int index = indexes.get(inputSpec.getName());
@@ -30,7 +30,7 @@ public class TextInput {
 			buffer.append("    @NotEmpty\n");
 		if (multiline)
 			buffer.append("    @Multiline\n");
-		buffer.append(MessageFormat.format("@Size(max={0}, message=\"Text is too long. Max {0} characters\")", MAX_LEN));
+		buffer.append(MessageFormat.format("@Size(max={0}, message=\"Text is too long. Max {0} characters\")", String.valueOf(MAX_LEN)));
 		if (pattern != null)
 			buffer.append("    @Pattern(regexp=\"" + pattern + "\", message=\"Should match regular expression: " + pattern + "\")\n");
 		inputSpec.appendMethods(buffer, index, "String", null, defaultValueProvider);

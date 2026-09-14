@@ -9,15 +9,19 @@ import static org.unbescape.javascript.JavaScriptEscape.escapeJavaScript;
 import java.io.Serializable;
 import java.text.MessageFormat;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.inject.Inject;
+
+import org.apache.commons.lang3.Strings;
 import org.apache.wicket.Component;
+import org.apache.wicket.MetaDataKey;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.behavior.AttributeAppender;
+import org.apache.wicket.core.request.handler.IPartialPageRequestHandler;
 import org.apache.wicket.markup.head.IHeaderResponse;
 import org.apache.wicket.markup.head.JavaScriptHeaderItem;
 import org.apache.wicket.markup.head.OnDomReadyHeaderItem;
@@ -39,13 +43,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.ibm.icu.text.SpoofChecker;
 
+import io.onedev.commons.jsymbol.SymbolExtractorRegistry;
 import io.onedev.commons.utils.LinearRange;
 import io.onedev.commons.utils.PlanarRange;
-import io.onedev.commons.utils.StringUtils;
-import io.onedev.server.OneDev;
 import io.onedev.server.ai.ChatTool;
 import io.onedev.server.ai.ChatToolAware;
-import io.onedev.server.ai.tools.GetHighlightedText;
+import io.onedev.server.ai.ToolUtils;
+import io.onedev.server.ai.tools.code.GetHighlightedText;
 import io.onedev.server.codequality.CodeProblem;
 import io.onedev.server.git.BlameBlock;
 import io.onedev.server.git.BlameCommit;
@@ -55,18 +59,20 @@ import io.onedev.server.git.service.GitService;
 import io.onedev.server.model.CodeComment;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.PullRequest;
+import io.onedev.server.search.code.CodeSearchService;
 import io.onedev.server.search.code.hit.QueryHit;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.service.CodeCommentService;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.util.DateUtils;
 import io.onedev.server.util.Pair;
 import io.onedev.server.util.diff.DiffBlock;
 import io.onedev.server.util.diff.DiffMatchPatch.Operation;
 import io.onedev.server.util.diff.DiffUtils;
-import io.onedev.server.web.component.diff.DiffExpandSupport;
 import io.onedev.server.web.asset.icon.IconScope;
 import io.onedev.server.web.behavior.AbstractPostAjaxBehavior;
 import io.onedev.server.web.behavior.blamemessage.BlameMessageBehavior;
+import io.onedev.server.web.component.diff.DiffExpandSupport;
 import io.onedev.server.web.component.diff.blob.BlobAnnotationSupport;
 import io.onedev.server.web.component.diff.revision.DiffViewMode;
 import io.onedev.server.web.component.svg.SpriteImage;
@@ -79,9 +85,62 @@ import io.onedev.server.web.page.project.commits.CommitDetailPage;
 import io.onedev.server.web.util.AnnotationInfo;
 import io.onedev.server.web.util.CodeCommentInfo;
 import io.onedev.server.web.util.DiffPlanarRange;
-import io.onedev.server.web.util.WicketUtils;
 
 public class BlobTextDiffPanel extends Panel implements ChatToolAware {
+
+	private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BlobTextDiffPanel.class);
+
+	private static final MetaDataKey<Map<String, List<List<Object>>>> SYMBOL_CONTEXT_CACHE = new MetaDataKey<>() {};
+
+	@Inject
+	private CodeSearchService codeSearchService;
+
+	private List<List<Object>> getSymbolContext(boolean old) {
+		var ident = old ? change.getOldBlobIdent() : change.getNewBlobIdent();
+		if (ident.path == null || SymbolExtractorRegistry.getExtractor(ident.path) == null
+				|| old && (change.getType() == ChangeType.ADD || change.getType() == ChangeType.COPY)
+				|| !old && change.getType() == ChangeType.DELETE)
+			return List.of();
+		var cache = RequestCycle.get().getMetaData(SYMBOL_CONTEXT_CACHE);
+		if (cache == null) {
+			cache = new HashMap<>();
+			RequestCycle.get().setMetaData(SYMBOL_CONTEXT_CACHE, cache);
+		}
+		var blob = old ? change.getOldBlob() : change.getNewBlob();
+		var key = change.getProject().getId() + ":" + blob.getBlobId().name() + ":" + ident.path;
+		return cache.computeIfAbsent(key, it -> {
+			try {
+				var symbols = codeSearchService.getSymbols(change.getProject(), blob.getBlobId(), ident.path);
+				return DiffSymbolContext.build(symbols, blob.getText().getLines().size());
+			} catch (Exception e) {
+				logger.debug("Unable to load diff symbol context for {}", ident.path, e);
+				return List.of();
+			}
+		});
+	}
+
+	private String getSymbolContextJson() {
+		return convertToJson(Map.of("old", getSymbolContext(true), "new", getSymbolContext(false))).replace("<", "\\u003c");
+	}
+
+	public void refreshSymbolContext(IPartialPageRequestHandler handler) {
+		// Update only the labels so expanded lines, selections and comments stay intact.
+		handler.appendJavaScript(String.format("onedev.server.diffSymbolContext.init($('#%s'), %s, %s);",
+				getMarkupId(), getSymbolContextJson(),
+				convertToJson(Map.of("old-context", _T("Old"), "new-context", _T("New")))));
+	}
+
+	@Inject
+	private SettingService settingService;
+
+	@Inject
+	private ObjectMapper objectMapper;
+
+	@Inject
+	private GitService gitService;
+
+	@Inject
+	private CodeCommentService codeCommentService;
 
 	private final BlobChange change;
 	
@@ -147,7 +206,7 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 
 	private String convertToJson(Object obj) {
 		try {
-			return OneDev.getInstance(ObjectMapper.class).writeValueAsString(obj);
+			return objectMapper.writeValueAsString(obj);
 		} catch (JsonProcessingException e) {
 			throw new RuntimeException(e);
 		}
@@ -171,16 +230,12 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 	protected PullRequest getPullRequest() {
 		return null;
 	}
-	
-	private GitService getGitService() {
-		return OneDev.getInstance(GitService.class);
-	}
-	
+		
 	private BlameInfo getBlameInfo() {
 		blameInfo = new BlameInfo();
 		String oldPath = change.getOldBlobIdent().path;
 		if (oldPath != null) {
-			for (BlameBlock blame: getGitService().blame(change.getProject(), change.getOldCommitId(), oldPath, null)) {
+			for (BlameBlock blame: gitService.blame(change.getProject(), change.getOldCommitId(), oldPath, null)) {
 				for (LinearRange range: blame.getRanges()) {
 					for (int i=range.getFrom(); i<=range.getTo(); i++) 
 						blameInfo.oldBlame.put(i, blame.getCommit());
@@ -189,7 +244,7 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 		}
 		String newPath = change.getNewBlobIdent().path;
 		if (newPath != null) {
-			for (BlameBlock blame: getGitService().blame(change.getProject(), change.getNewCommitId(), newPath, null)) {
+			for (BlameBlock blame: gitService.blame(change.getProject(), change.getNewCommitId(), newPath, null)) {
 				for (LinearRange range: blame.getRanges()) {
 					for (int i=range.getFrom(); i<=range.getTo(); i++) 
 						blameInfo.newBlame.put(i, blame.getCommit());
@@ -265,15 +320,19 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 						blameInfo.lastNewCommitHash = null;
 					}
 					int index = params.getParameterValue("param1").toInt();
-					int lastContextSize = expandSupport.getContextSize(index);
-					int contextSize = expandSupport.expand(index);
+					DiffBlock<String> block = change.getDiffBlocks().get(index);
+					var lastContextSizes = expandSupport.getContextSizes(index, block.getElements().size(),
+							change.getDiffBlocks().size());
+					var direction = DiffExpandSupport.Direction.fromString(
+							params.getParameterValue("param2").toString("down"));
+					var contextSizes = expandSupport.expand(index, block.getElements().size(),
+							change.getDiffBlocks().size(), direction);
 					
 					StringBuilder builder = new StringBuilder();
-					DiffBlock<String> block = change.getDiffBlocks().get(index);
-					expandSupport.appendEquals(builder, index, lastContextSize, contextSize,
+					expandSupport.appendEquals(builder, index, lastContextSizes, contextSizes,
 							block, change.getDiffBlocks().size(), new ExpandCallbackImpl());
 					
-					String expanded = StringUtils.replace(builder.toString(), "\n", "");
+					String expanded = Strings.CS.replace(builder.toString(), "\n", "");
 					String script = String.format("onedev.server.blobTextDiff.expand('%s', %d, \"%s\");",
 							getMarkupId(), index, escapeJavaScript(expanded));
 					target.appendJavaScript(script);
@@ -312,7 +371,7 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 					case "openComment": 
 						Long commentId = params.getParameterValue("param1").toLong();
 						commentRange = getRange(params, "param2", "param3", "param4", "param5", "param6");
-						CodeComment comment = OneDev.getInstance(CodeCommentService.class).load(commentId);
+						CodeComment comment = codeCommentService.load(commentId);
 						getAnnotationSupport().onOpenComment(target, comment, commentRange);
 						script = String.format("onedev.server.blobTextDiff.onCommentOpened($('#%s'), %s);", 
 								getMarkupId(), convertToJson(new DiffCodeCommentInfo(comment, commentRange)));
@@ -325,7 +384,9 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 						var range = getRange(params, "param1", "param2", "param3", "param4", "param5");
 						getAnnotationSupport().onMark(target, range);
 						var page = (LayoutPage) getPage();
-						page.getChatter().show(target, "Help me understand highlighted text. Display in " + getSession().getLocale().getDisplayLanguage());
+						var prompt = settingService.getAiSetting().getCodeExplanationPrompt();
+						page.getAssistant().show(target,
+								prompt + " Display in " + getSession().getLocale().getDisplayLanguage());
 						script = String.format("onedev.server.blobTextDiff.mark($('#%s'), %s);", 
 								getMarkupId(), convertToJson(range));
 						target.appendJavaScript(script);
@@ -476,6 +537,8 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 				explicit("param6"), explicit("param7"), explicit("param8")); 
 
 		var translations = new HashMap<String, String>();
+		translations.put("old-context", _T("Old"));
+		translations.put("new-context", _T("New"));
 		translations.put("unable-to-comment", _T("Unable to comment"));
 		translations.put("perma-link", _T("Permanent link of this selection")); 
 		translations.put("copy-to-clipboard", _T("Copy selected text to clipboard")); 
@@ -489,17 +552,14 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 		translations.put("loading", _T("Loading..."));
 		translations.put("invalid-selection", _T("Invalid selection, click for details"));
 		var page = (LayoutPage) getPage();
-		if (getAnnotationSupport() != null 
-				&& WicketUtils.isSubscriptionActive() 
-				&& !page.getChatter().getEntitledAis().isEmpty()) {
+		if (getAnnotationSupport() != null && !page.getAssistant().getEntitledAis().isEmpty()) 
 			translations.put("explain-selection", _T("Explain selected text with AI"));
-		}
 		for (var severity: CodeProblem.Severity.values())
 			translations.put(severity.name(), _T("severity:" + severity.name()));
 		translations.put("add-problem-comment", _T("Add comment"));
 
 		var jsonOfMarkRange = convertToJson(markRange);
-		String script = String.format("onedev.server.blobTextDiff.onDomReady('%s', '%s', '%s', '%s', '%s', '%s', %s, %s, %s, %s, %s, %s, %s);", 
+		String script = String.format("onedev.server.blobTextDiff.onDomReady('%s', '%s', '%s', '%s', '%s', '%s', %s, %s, %s, %s, %s, %s, %s, %s);",
 				getMarkupId(), symbolTooltip.getMarkupId(), 
 				change.getOldBlobIdent().revision, 
 				change.getNewBlobIdent().revision,
@@ -508,7 +568,8 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 				callback, blameMessageBehavior.getCallback(),
 				jsonOfMarkRange, convertToJson(openCommentInfo), 
 				convertToJson(annotationInfoModel.getObject()), 
-				commentContainerId, convertToJson(translations));
+				commentContainerId, convertToJson(translations),
+				getSymbolContextJson());
 		
 		response.render(OnDomReadyHeaderItem.forScript(script));
 
@@ -577,8 +638,9 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 		for (int i=0; i<change.getDiffBlocks().size(); i++) {
 			DiffBlock<String> block = change.getDiffBlocks().get(i);
 			if (block.getOperation() == Operation.EQUAL) {
-				int contextSize = expandSupport.getContextSize(i);
-				expandSupport.appendEquals(builder, i, 0, contextSize,
+				var contextSizes = expandSupport.getContextSizes(i, block.getElements().size(),
+						change.getDiffBlocks().size());
+				expandSupport.appendEquals(builder, i, new DiffExpandSupport.ContextSizes(0, 0), contextSizes,
 						block, change.getDiffBlocks().size(), callback);
 			} else if (block.getOperation() == Operation.DELETE) {
 				if (i+1<change.getDiffBlocks().size()) {
@@ -947,43 +1009,61 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 		builder.append("</td></tr>");		
 	}
 	
-	private void appendExpander(StringBuilder builder, int blockIndex, int skippedLines) {
+	private String expanderLink(String cssClass, String tooltip, String svg, int blockIndex,
+			String direction) {
+		String script = String.format("javascript:$('#%s').data('callback')('expand', %d, '%s');",
+				getMarkupId(), blockIndex, direction);
+		return "<a class='" + cssClass + "' aria-label='" + tooltip
+				+ "' data-tippy-content='" + tooltip + "' href=\"" + script + "\">" + svg + "</a>";
+	}
+
+	private void appendExpander(StringBuilder builder, int blockIndex, int skippedLines,
+			boolean canExpandDown, boolean canExpandUp) {
 		builder.append("<tr class='expander expander").append(blockIndex).append("'>");
 		
-		String expandSvg = String.format("<svg class='icon'><use xlink:href='%s'/></svg>", 
-				SpriteImage.getVersionedHref(IconScope.class, "expand2"));
+		String upSvg = String.format("<svg class='icon rotate-270'><use xlink:href='%s'/></svg>",
+				SpriteImage.getVersionedHref(IconScope.class, "arrow"));
+		String downSvg = String.format("<svg class='icon rotate-90'><use xlink:href='%s'/></svg>",
+				SpriteImage.getVersionedHref(IconScope.class, "arrow"));
 		String ellipsisSvg = String.format("<svg class='icon'><use xlink:href='%s'/></svg>", 
 				SpriteImage.getVersionedHref(IconScope.class, "ellipsis"));
 		
-		String script = String.format("javascript:$('#%s').data('callback')('expand', %d);", getMarkupId(), blockIndex);
-		var skippedMessage = MessageFormat.format(_T("skipped {0} lines"), skippedLines);
+		var skippedMessage = MessageFormat.format(_T("skipped {0} lines"), String.valueOf(skippedLines));
+		String downLink = expanderLink("expand-down", _T("Show more lines above"), downSvg, blockIndex, "down");
+		String upLink = expanderLink("expand-up", _T("Show more lines below"), upSvg, blockIndex, "up");
+		boolean directional = canExpandDown && canExpandUp;
+		String expanderInner;
+		if (directional)
+			expanderInner = "<div class='expander-controls'>" + downLink + upLink + "</div>";
+		else
+			expanderInner = canExpandDown ? downLink : upLink;
+		String skippedInner = ellipsisSvg + " " + skippedMessage + " " + ellipsisSvg;
+
+		String expanderClass = directional ? "expander directional noselect" : "expander noselect";
 		if (diffMode == DiffViewMode.UNIFIED) {
 			if (blameInfo != null) {
-				builder.append("<td colspan='3' class='expander noselect'><a data-tippy-content='" + _T("Show more lines") + "' href=\"")
-						.append(script).append("\">").append(expandSvg).append("</a></td>");
+				builder.append("<td colspan='3' class='").append(expanderClass).append("'>")
+						.append(expanderInner).append("</td>");
 				blameInfo.lastCommitHash = null;
 				blameInfo.lastOldCommitHash = null;
 				blameInfo.lastNewCommitHash = null;
 			} else {
-				builder.append("<td colspan='2' class='expander noselect'><a data-tippy-content='" + _T("Show more lines") + "' href=\"")
-						.append(script).append("\">").append(expandSvg).append("</a></td>");
+				builder.append("<td colspan='2' class='").append(expanderClass).append("'>")
+						.append(expanderInner).append("</td>");
 			}
-			builder.append("<td colspan='2' class='skipped noselect'>").append(ellipsisSvg).append(" ")
-					.append(skippedMessage).append(" ").append(ellipsisSvg).append("</td>");
+			builder.append("<td colspan='2' class='skipped noselect'>").append(skippedInner).append("</td>");
 		} else {
 			if (blameInfo != null) {
-				builder.append("<td colspan='2' class='expander noselect'><a data-tippy-content='" + _T("Show more lines") + "' href=\"").append(script)
-						.append("\">").append(expandSvg).append("</a></td>");
-				builder.append("<td class='skipped noselect' colspan='6'>").append(ellipsisSvg).append(" ")
-						.append(skippedMessage).append(" ").append(ellipsisSvg).append("</td>");
+				builder.append("<td colspan='2' class='").append(expanderClass).append("'>")
+						.append(expanderInner).append("</td>");
+				builder.append("<td class='skipped noselect' colspan='6'>").append(skippedInner).append("</td>");
 				blameInfo.lastCommitHash = null;
 				blameInfo.lastOldCommitHash = null;
 				blameInfo.lastNewCommitHash = null;
 			} else {
-				builder.append("<td class='expander noselect'><a data-tippy-content='" + _T("Show more lines") + "' href=\"").append(script)
-						.append("\">").append(expandSvg).append("</a></td>");
-				builder.append("<td class='skipped noselect' colspan='5'>").append(ellipsisSvg).append(" ")
-						.append(skippedMessage).append(" ").append(ellipsisSvg).append("</td>");
+				builder.append("<td class='").append(expanderClass).append("'>")
+						.append(expanderInner).append("</td>");
+				builder.append("<td class='skipped noselect' colspan='5'>").append(skippedInner).append("</td>");
 			}
 		}
 		builder.append("</tr>");
@@ -1077,13 +1157,14 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 		}
 		
 		@Override
-		public void appendExpander(StringBuilder builder, int blockIndex, int skippedLines) {
-			BlobTextDiffPanel.this.appendExpander(builder, blockIndex, skippedLines);
+		public void appendExpander(StringBuilder builder, int blockIndex, int skippedLines,
+				boolean canExpandDown, boolean canExpandUp) {
+			BlobTextDiffPanel.this.appendExpander(builder, blockIndex, skippedLines, canExpandDown, canExpandUp);
 		}
 	}
 
 	@Override
-	public Collection<ChatTool> getChatTools() {
+	public List<ChatTool> getChatTools() {
 		var tools = new ArrayList<ChatTool>();
 		if (getAnnotationSupport() != null) {
 			var markRange = getAnnotationSupport().getMarkRange();
@@ -1097,7 +1178,7 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 					filePath = change.getNewBlobIdent().path;
 					fileLines = change.getNewText().getLines();
 				}
-				tools.add(new GetHighlightedText(filePath, fileLines, markRange));				
+				tools.add(ToolUtils.wrapForChat(new GetHighlightedText(filePath, fileLines, markRange)));				
 			}
 		}
 		return tools;

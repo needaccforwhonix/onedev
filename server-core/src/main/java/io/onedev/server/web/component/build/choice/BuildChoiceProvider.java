@@ -1,22 +1,22 @@
 package io.onedev.server.web.component.build.choice;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-
-import org.jspecify.annotations.Nullable;
 
 import org.hibernate.Hibernate;
 import org.json.JSONException;
 import org.json.JSONWriter;
+import org.jspecify.annotations.Nullable;
 import org.unbescape.html.HtmlEscape;
 
 import com.google.common.collect.Lists;
 
 import io.onedev.server.OneDev;
-import io.onedev.server.service.BuildService;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.Project;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.BuildService;
 import io.onedev.server.util.ProjectScopedQuery;
 import io.onedev.server.web.WebConstants;
 import io.onedev.server.web.component.select2.ChoiceProvider;
@@ -27,8 +27,16 @@ public abstract class BuildChoiceProvider extends ChoiceProvider<Build> {
 
 	private static final long serialVersionUID = 1L;
 
+	private final boolean useNumber;
+
+	public BuildChoiceProvider(boolean useNumber) {
+		this.useNumber = useNumber;
+	}
+
 	@Override
 	public void toJson(Build choice, JSONWriter writer) throws JSONException {
+		writer.key("text").value(choice.getJobName() + (choice.getVersion() != null ? ": " + choice.getVersion() : "")
+				+ " (" + choice.getReference().toString(getProject()) + ")");
 		writer
 			.key("id").value(choice.getId())
 			.key("reference").value(choice.getReference().toString(getProject()))
@@ -52,12 +60,23 @@ public abstract class BuildChoiceProvider extends ChoiceProvider<Build> {
 	@Override
 	public void query(String term, int page, Response<Build> response) {
 		int count = (page+1) * WebConstants.PAGE_SIZE + 1;
-		var scopedQuery = ProjectScopedQuery.of(getProject(), term, '#', '-');
-		if (scopedQuery != null) {
-			List<Build> builds = OneDev.getInstance(BuildService.class).query(SecurityUtils.getSubject(), scopedQuery.getProject(), scopedQuery.getQuery(), count);
+		var buildService = OneDev.getInstance(BuildService.class);
+		var subject = SecurityUtils.getSubject();
+		if (useNumber) {
+			List<Build> builds;
+			if (getProject() != null) 
+				builds = buildService.query(subject, getProject(), term, count);
+			else 
+				builds = new ArrayList<>();
 			new ResponseFiller<>(response).fill(builds, page, WebConstants.PAGE_SIZE);
 		} else {
-			response.setHasMore(false);
+			var scopedQuery = ProjectScopedQuery.of(getProject(), term, '#', '-');
+			if (scopedQuery != null) {
+				List<Build> builds = buildService.query(subject, scopedQuery.getProject(), scopedQuery.getQuery(), count);
+				new ResponseFiller<>(response).fill(builds, page, WebConstants.PAGE_SIZE);
+			} else {
+				response.setHasMore(false);
+			}	
 		}
 	}
 	

@@ -10,6 +10,7 @@ import static io.onedev.server.model.Pack.PROP_VERSION;
 import static io.onedev.server.model.Pack.SORT_FIELDS;
 import static io.onedev.server.search.entity.EntitySort.Direction.ASCENDING;
 import static java.lang.Math.min;
+import static javax.servlet.http.HttpServletResponse.SC_CONFLICT;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -21,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.jspecify.annotations.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.persistence.criteria.CriteriaBuilder;
@@ -35,18 +35,14 @@ import org.apache.shiro.subject.Subject;
 import org.hibernate.Session;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.query.Query;
+import org.jspecify.annotations.Nullable;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 
-import io.onedev.server.service.PackBlobReferenceService;
-import io.onedev.server.service.PackBlobService;
-import io.onedev.server.service.PackLabelService;
-import io.onedev.server.service.PackService;
-import io.onedev.server.service.ProjectService;
-import io.onedev.server.service.UserService;
 import io.onedev.server.event.ListenerRegistry;
 import io.onedev.server.event.project.pack.PackPublished;
+import io.onedev.server.exception.HttpResponseAwareException;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.Pack;
 import io.onedev.server.model.PackBlob;
@@ -56,10 +52,16 @@ import io.onedev.server.persistence.annotation.Sessional;
 import io.onedev.server.persistence.annotation.Transactional;
 import io.onedev.server.search.entity.EntityQuery;
 import io.onedev.server.search.entity.EntitySort;
-import io.onedev.server.search.entity.pack.PackQuery;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.security.permission.ReadPack;
+import io.onedev.server.service.PackBlobReferenceService;
+import io.onedev.server.service.PackBlobService;
+import io.onedev.server.service.PackLabelService;
+import io.onedev.server.service.PackService;
+import io.onedev.server.service.ProjectService;
+import io.onedev.server.service.UserService;
 import io.onedev.server.util.ProjectPackTypeStat;
+import io.onedev.server.util.QueryUtils;
 import io.onedev.server.util.criteria.Criteria;
 
 @Singleton
@@ -84,18 +86,17 @@ public class DefaultPackService extends BaseEntityService<Pack>
 	@Inject
 	private ListenerRegistry listenerRegistry;
 
-	private CriteriaQuery<Pack> buildCriteriaQuery(Subject subject, Project project, 
-			Session session, EntityQuery<Pack> packQuery) {
+	private CriteriaQuery<Pack> buildCriteriaQuery(Subject subject, Project project, Session session, EntityQuery<Pack> query) {
 		CriteriaBuilder builder = session.getCriteriaBuilder();
-		CriteriaQuery<Pack> query = builder.createQuery(Pack.class);
-		Root<Pack> root = query.from(Pack.class);
-		query.select(root);
+		CriteriaQuery<Pack> criteriaQuery = builder.createQuery(Pack.class);
+		Root<Pack> root = criteriaQuery.from(Pack.class);
+		criteriaQuery.select(root);
 
-		query.where(getPredicates(subject, project, packQuery.getCriteria(), query, root, builder));
+		criteriaQuery.where(getPredicates(subject, project, query.getCriteria(), criteriaQuery, root, builder));
 
-		applyOrders(root, query, builder, packQuery.getSorts());
+		applyOrders(root, criteriaQuery, builder, query.getSorts());
 
-		return query;
+		return criteriaQuery;
 	}
 
 	private void applyOrders(From<Pack, Pack> root, CriteriaQuery<?> criteriaQuery, CriteriaBuilder builder,
@@ -103,9 +104,9 @@ public class DefaultPackService extends BaseEntityService<Pack>
 		List<javax.persistence.criteria.Order> orders = new ArrayList<>();
 		for (EntitySort sort: sorts) {
 			if (sort.getDirection() == ASCENDING)
-				orders.add(builder.asc(PackQuery.getPath(root, SORT_FIELDS.get(sort.getField()).getProperty())));
+				orders.add(builder.asc(QueryUtils.getPath(root, SORT_FIELDS.get(sort.getField()).getProperty())));
 			else
-				orders.add(builder.desc(PackQuery.getPath(root, SORT_FIELDS.get(sort.getField()).getProperty())));
+				orders.add(builder.desc(QueryUtils.getPath(root, SORT_FIELDS.get(sort.getField()).getProperty())));
 		}
 
 		if (orders.isEmpty())
@@ -115,13 +116,13 @@ public class DefaultPackService extends BaseEntityService<Pack>
 	
 	@Sessional
 	@Override
-	public List<Pack> query(Subject subject, Project project, EntityQuery<Pack> packQuery, 
+	public List<Pack> query(Subject subject, Project project, EntityQuery<Pack> query, 
 							boolean loadLabelsAndBlobs, int firstResult, int maxResults) {
-		CriteriaQuery<Pack> criteriaQuery = buildCriteriaQuery(subject, project, getSession(), packQuery);
-		Query<Pack> query = getSession().createQuery(criteriaQuery);
-		query.setFirstResult(firstResult);
-		query.setMaxResults(maxResults);
-		var packs = query.getResultList();
+		CriteriaQuery<Pack> criteriaQuery = buildCriteriaQuery(subject, project, getSession(), query);
+		Query<Pack> hibernateQuery = getSession().createQuery(criteriaQuery);
+		hibernateQuery.setFirstResult(firstResult);
+		hibernateQuery.setMaxResults(maxResults);
+		var packs = hibernateQuery.getResultList();
 		
 		if (!packs.isEmpty() && loadLabelsAndBlobs) {
 			labelService.populateLabels(packs);
@@ -164,12 +165,12 @@ public class DefaultPackService extends BaseEntityService<Pack>
 
 	@Sessional
 	@Override
-	public int count(Subject subject, Project project, Criteria<Pack> packCriteria) {
+	public int count(Subject subject, Project project, Criteria<Pack> criteria) {
 		CriteriaBuilder builder = getSession().getCriteriaBuilder();
 		CriteriaQuery<Long> criteriaQuery = builder.createQuery(Long.class);
 		Root<Pack> root = criteriaQuery.from(Pack.class);
 
-		criteriaQuery.where(getPredicates(subject, project, packCriteria, criteriaQuery, root, builder));
+		criteriaQuery.where(getPredicates(subject, project, criteria, criteriaQuery, root, builder));
 
 		criteriaQuery.select(builder.count(root));
 		return getSession().createQuery(criteriaQuery).uniqueResult().intValue();
@@ -314,17 +315,17 @@ public class DefaultPackService extends BaseEntityService<Pack>
 	@SuppressWarnings("unchecked")
 	@Sessional
 	@Override
-	public List<Pack> queryLatests(Project project, String type, String nameQuery,
+	public List<Pack> queryLatests(Project project, String type, String nameTerm,
 								   boolean includePrerelease, int firstResult, int maxResults) {
 		var queryString = "" +
 				"select p1 from Pack p1 " +
 				"left outer join Pack p2 " +
-				"	on p1.name = p2.name and p1.id < p2.id";
+				"	on p1.name = p2.name and p1.project = p2.project and p1.type = p2.type and p1.id < p2.id";
 		if (!includePrerelease)
 			queryString += " and p2.prerelease = false";
-		queryString += " where p2.id is null";
+		queryString += " where p2.id is null and p1.project = :project and p1.type = :type";
 		
-		if (nameQuery != null) 
+		if (nameTerm != null) 
 			queryString += " and lower(p1.name) like :name";		
 		if (!includePrerelease)
 			queryString += " and p1.prerelease = false";
@@ -332,8 +333,10 @@ public class DefaultPackService extends BaseEntityService<Pack>
 		queryString += " order by p1.name";
 
 		Query<Pack> query = getSession().createQuery(queryString);
-		if (nameQuery != null)
-			query.setParameter("name", "%" + nameQuery + "%");
+		query.setParameter("project", project);
+		query.setParameter("type", type);
+		if (nameTerm != null)
+			query.setParameter("name", "%" + nameTerm + "%");
 		
 		query.setFirstResult(firstResult);
 		query.setMaxResults(maxResults);
@@ -349,13 +352,14 @@ public class DefaultPackService extends BaseEntityService<Pack>
 		criteriaQuery.select(builder.countDistinct(root.get(PROP_NAME)));
 
 		var predicates = new ArrayList<Predicate>();
+		predicates.add(builder.equal(root.get(PROP_PROJECT), project));
+		predicates.add(builder.equal(root.get(PROP_TYPE), type));
 		if (nameQuery != null)
 			predicates.add(builder.like(builder.lower(root.get(PROP_NAME)), "%" + nameQuery.toLowerCase() + "%"));
 		if (!includePrerelease)
 			predicates.add(builder.equal(root.get(PROP_PRERELEASE), false));
 		
-		if (!predicates.isEmpty())
-			criteriaQuery.where(predicates.toArray(new Predicate[0]));
+		criteriaQuery.where(predicates.toArray(new Predicate[0]));
 
 		return getSession().createQuery(criteriaQuery).uniqueResult().intValue();
 	}
@@ -370,13 +374,14 @@ public class DefaultPackService extends BaseEntityService<Pack>
 		criteriaQuery.select(root.get(PROP_NAME)).distinct(true);
 
 		var predicates = new ArrayList<Predicate>();
+		predicates.add(builder.equal(root.get(PROP_PROJECT), project));
+		predicates.add(builder.equal(root.get(PROP_TYPE), type));
 		if (nameQuery != null)
 			predicates.add(builder.like(builder.lower(root.get(PROP_NAME)), "%" + nameQuery.toLowerCase() + "%"));
 		if (!includePrerelease)
 			predicates.add(builder.equal(root.get(PROP_PRERELEASE), false));
 
-		if (!predicates.isEmpty())
-			criteriaQuery.where(predicates.toArray(new Predicate[0]));
+		criteriaQuery.where(predicates.toArray(new Predicate[0]));
 
 		var query = getSession().createQuery(criteriaQuery);
 		query.setFirstResult(firstResult);
@@ -386,14 +391,17 @@ public class DefaultPackService extends BaseEntityService<Pack>
 	
 	@Sessional
 	@Override
-	public Map<String, List<Pack>> loadPacks(List<String> names, boolean includePrerelease, 
-											 Comparator<Pack> sortComparator) {
+	public Map<String, List<Pack>> loadPacks(Project project, String type, List<String> names, 
+											 boolean includePrerelease, Comparator<Pack> sortComparator) {
 		CriteriaBuilder builder = getSession().getCriteriaBuilder();
 		CriteriaQuery<Pack> criteriaQuery = builder.createQuery(Pack.class);
 		Root<Pack> root = criteriaQuery.from(Pack.class);
 		criteriaQuery.select(root);
 
-		var predicates = Lists.newArrayList(root.get(PROP_NAME).in(names));
+		var predicates = Lists.newArrayList(
+				builder.equal(root.get(PROP_PROJECT), project),
+				builder.equal(root.get(PROP_TYPE), type),
+				root.get(PROP_NAME).in(names));
 		if (!includePrerelease)
 			predicates.add(builder.equal(root.get(PROP_PRERELEASE), false));
 		criteriaQuery.where(predicates.toArray(new Predicate[0]));
@@ -429,6 +437,15 @@ public class DefaultPackService extends BaseEntityService<Pack>
 	@Transactional
 	@Override
 	public void createOrUpdate(Pack pack, Collection<PackBlob> packBlobs, boolean postPublishEvent) {
+		if (!pack.isNew() && packBlobs != null && !pack.getSupport().isVersionMutable(pack)) {
+			var sha256Hashes = packBlobs.stream().map(PackBlob::getSha256Hash).collect(Collectors.toSet());
+			for (var blobReference: pack.getBlobReferences()) {
+				if (!sha256Hashes.contains(blobReference.getPackBlob().getSha256Hash())) {
+					throw new HttpResponseAwareException(SC_CONFLICT, "Can not redeploy package: "
+							+ pack.getName() + ":" + pack.getVersion());
+				}
+			}
+		}
 		dao.persist(pack);
 		if (packBlobs != null) {
 			packBlobs = new HashSet<>(packBlobs);

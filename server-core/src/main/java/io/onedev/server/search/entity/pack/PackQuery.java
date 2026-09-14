@@ -15,6 +15,9 @@ import static io.onedev.server.search.entity.pack.PackQueryParser.IsNot;
 import static io.onedev.server.search.entity.pack.PackQueryParser.IsSince;
 import static io.onedev.server.search.entity.pack.PackQueryParser.IsUntil;
 import static io.onedev.server.search.entity.pack.PackQueryParser.PublishedByMe;
+import static io.onedev.server.util.QueryUtils.getLabelSpec;
+import static io.onedev.server.util.QueryUtils.getUser;
+import static io.onedev.server.util.QueryUtils.getValue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -204,7 +207,7 @@ public class PackQuery extends EntityQuery<Pack> {
 				var fieldName = getValue(order.Quoted().getText());
 				var sortField = SORT_FIELDS.get(fieldName);
 				if (sortField == null)
-					throw new ExplicitException("Can not order by field: " + fieldName);
+					throw new ExplicitException("Cannot order by field: " + fieldName);
 				
 				EntitySort packSort = new EntitySort();
 				packSort.setField(fieldName);

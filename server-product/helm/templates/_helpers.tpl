@@ -67,6 +67,25 @@ Return the ServiceAccount name
 {{- end -}}
 
 {{/*
+Return and validate the configured ingress controller
+*/}}
+{{- define "ods.ingressController" -}}
+{{- $controller := default "nginx" .Values.ingress.controller -}}
+{{- if not (has $controller (list "nginx" "traefik")) -}}
+{{- fail (printf "unsupported ingress controller %q: expected nginx or traefik" $controller) -}}
+{{- end -}}
+{{- $controller -}}
+{{- end -}}
+
+{{/*
+Return the name of the buffering middleware created along with the Traefik IngressRoute
+*/}}
+{{- define "ods.traefikMiddlewareName" -}}
+{{- $middleware := .Values.ingress.traefik.middleware | default dict -}}
+{{- printf "%s-%s" (include "ods.fullname" .) (default "buffering" $middleware.name) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
 Return the target Kubernetes version
 */}}
 {{- define "ods.kubeVersion" -}}

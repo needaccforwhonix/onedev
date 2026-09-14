@@ -7,7 +7,6 @@ import io.onedev.server.buildspec.job.trigger.BranchUpdateTrigger;
 import io.onedev.server.buildspec.job.trigger.PullRequestUpdateTrigger;
 import io.onedev.server.buildspec.step.CheckoutStep;
 import io.onedev.server.buildspec.step.CommandStep;
-import io.onedev.server.buildspec.step.GenerateChecksumStep;
 import io.onedev.server.buildspec.step.SetupCacheStep;
 import io.onedev.server.git.BlobIdent;
 import io.onedev.server.model.Project;
@@ -19,14 +18,6 @@ import java.util.Collection;
 import java.util.List;
 
 public class BazelJobSuggestion implements JobSuggestion {
-	
-	private GenerateChecksumStep newChecksumGenerateStep(String name, String files) {
-		var generateChecksum = new GenerateChecksumStep();
-		generateChecksum.setName(name);
-		generateChecksum.setFiles(files);
-		generateChecksum.setTargetFile("checksum");
-		return generateChecksum;
-	}
 	
 	private Job newJob() {
 		Job job = new Job();
@@ -49,12 +40,12 @@ public class BazelJobSuggestion implements JobSuggestion {
 				project.getBlob(new BlobIdent(commitId.name(), "BUILD.bazel", FileMode.TYPE_FILE), false) != null ||
 				project.getBlob(new BlobIdent(commitId.name(), "WORKSPACE.bazel", FileMode.TYPE_FILE), false) != null) {
 			Job job = newJob();
-			job.getSteps().add(newChecksumGenerateStep("generate bazel checksum", ".bazelversion MODULE.bazel MODULE.bazel.lock **/BUILD **/BUILD.bazel"));
 			var setupCache = new SetupCacheStep();
 			setupCache.setName("set up bazel cache");
-			setupCache.setKey("bazel_cache_@file:checksum@");
+			setupCache.setKey("bazel_cache");
+
+			setupCache.setChecksumFiles(".bazelversion MODULE.bazel MODULE.bazel.lock **/BUILD **/BUILD.bazel");
 			setupCache.setPaths(Lists.newArrayList("/root/.cache/bazelisk", "/root/.cache/bazel"));
-			setupCache.getLoadKeys().add("bazel_cache");
 			job.getSteps().add(setupCache);
 
 			CommandStep buildAndTest = new CommandStep();

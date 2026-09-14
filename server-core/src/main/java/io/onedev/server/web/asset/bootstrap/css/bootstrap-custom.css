@@ -173,7 +173,7 @@ a.link-gray:hover, a.link-gray:focus {
 	color: var(--gray-dark) !important;
 }
 .dark-mode a.link-gray:hover, .dark-mode a.link-gray:focus {
-	color: var(--primary) !important;
+	color: var(--muted) !important;
 }
 .text-muted, a.link-muted {
 	color: var(--muted) !important;
@@ -1252,6 +1252,16 @@ input[type="radio"], input[type="checkbox"] {
 .show>.btn.btn-primary.dropdown-toggle, .show .btn.btn-primary.btn-dropdown {
     background-color: #187DE4;
     border-color: #187DE4;
+}
+
+/* Hide the internal seam when a split button is disabled as a pair */
+.btn-group>.btn:first-child:disabled {
+	border-right-color: transparent;
+}
+
+.btn-group>.btn:first-child:disabled+.dropdown-toggle:disabled {
+	margin-left: 0;
+	border-left-color: transparent;
 }
 
 .btn.btn-secondary {

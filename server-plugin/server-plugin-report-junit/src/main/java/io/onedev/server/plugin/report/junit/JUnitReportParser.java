@@ -1,19 +1,20 @@
 package io.onedev.server.plugin.report.junit;
 
-import io.onedev.commons.utils.StringUtils;
-import io.onedev.server.model.Build;
-import io.onedev.server.plugin.report.unittest.UnitTestReport.Status;
-import io.onedev.server.plugin.report.unittest.UnitTestReport.TestCase;
-import io.onedev.server.plugin.report.unittest.UnitTestReport.TestSuite;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
 import org.apache.wicket.Component;
 import org.apache.wicket.markup.html.basic.Label;
 import org.dom4j.Document;
 import org.dom4j.Element;
-
 import org.jspecify.annotations.Nullable;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+
+import io.onedev.commons.utils.StringUtils;
+import io.onedev.server.model.Build;
+import io.onedev.server.codequality.UnitTestReport.Status;
+import io.onedev.server.codequality.UnitTestReport.TestCase;
+import io.onedev.server.codequality.UnitTestReport.TestSuite;
 
 public class JUnitReportParser {
 
@@ -59,7 +60,7 @@ public class JUnitReportParser {
 
 				@Nullable
 				@Override
-				protected Component renderDetail(String componentId, Build build) {
+				public Component renderDetail(String componentId, Build build) {
 					return null;
 				}
 			};
@@ -69,9 +70,8 @@ public class JUnitReportParser {
 				if (testCaseElement.element("skipped") != null) {
 					testCases.add(new TestCase(testSuite, name, Status.NOT_RUN, "skipped", 0) {
 
-						@Nullable
 						@Override
-						protected Component renderDetail(String componentId, Build build) {
+						public Component renderDetail(String componentId, Build build, String reportName) {
 							return null;
 						}
 					});
@@ -92,9 +92,8 @@ public class JUnitReportParser {
 					}
 					testCases.add(new TestCase(testSuite, name, status, null, duration) {
 
-						@Nullable
 						@Override
-						protected Component renderDetail(String componentId, Build build) {
+						public Component renderDetail(String componentId, Build build, String reportName) {
 							if (message != null)
 								return new Label(componentId, message);
 							else 

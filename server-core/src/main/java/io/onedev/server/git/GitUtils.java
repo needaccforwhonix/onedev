@@ -1,5 +1,6 @@
 package io.onedev.server.git;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.eclipse.jgit.lib.Constants.R_HEADS;
 import static org.eclipse.jgit.lib.Constants.R_TAGS;
 
@@ -16,8 +17,12 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.StringTokenizer;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.Strings;
 import org.bouncycastle.bcpg.ArmoredOutputStream;
 import org.bouncycastle.bcpg.BCPGOutputStream;
 import org.bouncycastle.bcpg.HashAlgorithmTags;
@@ -59,12 +64,16 @@ import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.revwalk.RevWalkUtils;
 import org.eclipse.jgit.revwalk.filter.RevFilter;
+import org.eclipse.jgit.transport.PacketLineOut;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.treewalk.filter.TreeFilter;
+import org.eclipse.jgit.util.QuotedString;
 import org.eclipse.jgit.util.SystemReader;
 import org.eclipse.jgit.util.io.NullOutputStream;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
@@ -72,21 +81,42 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 
+import io.onedev.agent.Agent;
+import io.onedev.commons.bootstrap.SecretMasker;
 import io.onedev.commons.utils.ExplicitException;
+import io.onedev.commons.utils.FileUtils;
 import io.onedev.commons.utils.PathUtils;
 import io.onedev.commons.utils.StringUtils;
+import io.onedev.commons.utils.command.Commandline;
+import io.onedev.commons.utils.command.ExecutionResult;
+import io.onedev.commons.utils.command.LineConsumer;
+import io.onedev.commons.utils.match.PathMatcher;
+import io.onedev.k8shelper.KubernetesHelper;
+import io.onedev.server.OneDev;
+import io.onedev.server.cluster.ClusterService;
+import io.onedev.server.exception.NotFoundException;
+import io.onedev.server.git.command.AdvertiseReceiveRefsCommand;
+import io.onedev.server.git.command.AdvertiseUploadRefsCommand;
+import io.onedev.server.git.command.FileChange;
 import io.onedev.server.git.command.IsAncestorCommand;
-import io.onedev.server.git.exception.ObjectNotFoundException;
+import io.onedev.server.git.command.ReceivePackCommand;
+import io.onedev.server.git.command.UploadPackCommand;
 import io.onedev.server.git.exception.ObsoleteCommitException;
 import io.onedev.server.git.exception.RefUpdateException;
+import io.onedev.server.git.location.GitLocation;
 import io.onedev.server.git.service.DiffEntryFacade;
 import io.onedev.server.git.service.RefFacade;
 import io.onedev.server.util.GpgUtils;
+import io.onedev.server.util.patternset.PatternSet;
 
 public class GitUtils {
 
 	public static final int SHORT_SHA_LENGTH = 8;
 	
+	private static final String MIN_VERSION = "2.11.1";
+
+	private static final Logger logger = LoggerFactory.getLogger(GitUtils.class);
+
 	public static String abbreviateSHA(String sha, int length) {
 		Preconditions.checkArgument(ObjectId.isId(sha));
 		return sha.substring(0, length);
@@ -128,13 +158,11 @@ public class GitUtils {
 		}
 	}
 
-	public static void diff(Repository repository, AnyObjectId oldRevId, AnyObjectId newRevId, OutputStream stdout) {
+	public static void diff(Repository repository, AnyObjectId oldRevId, AnyObjectId newRevId, @Nullable String excludedFiles, OutputStream stdout) {
 		try (var diffFormatter = new DiffFormatter(stdout);
 			 var revWalk = new RevWalk(repository);
 			 var reader = repository.newObjectReader()) {
-			diffFormatter.setRepository(repository);
-			diffFormatter.setDetectRenames(true);
-			diffFormatter.setDiffComparator(RawTextComparator.DEFAULT);
+			configureDiffFormatter(diffFormatter, repository);
 
 			var oldTreeParser = new CanonicalTreeParser();
 			if (!oldRevId.equals(ObjectId.zeroId()))
@@ -144,7 +172,24 @@ public class GitUtils {
 			if (!newRevId.equals(ObjectId.zeroId()))
 				newTreeParser.reset(reader, revWalk.parseCommit(newRevId).getTree());
 
-			diffFormatter.format(oldTreeParser, newTreeParser);
+			if (excludedFiles != null) {
+				var patternSet = PatternSet.parse(excludedFiles);
+				var matcher = new PathMatcher();
+				for (var entry : diffFormatter.scan(oldTreeParser, newTreeParser)) {
+					var oldPath = entry.getOldPath();
+					if (DiffEntry.DEV_NULL.equals(oldPath))
+						oldPath = null;
+					var newPath = entry.getNewPath();
+					if (DiffEntry.DEV_NULL.equals(newPath))
+						newPath = null;
+					boolean shouldExclude = (oldPath != null && patternSet.matches(matcher, oldPath))
+							|| (newPath != null && patternSet.matches(matcher, newPath));
+					if (!shouldExclude)
+						diffFormatter.format(entry);
+				}
+			} else {
+				diffFormatter.format(oldTreeParser, newTreeParser);
+			}
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -155,9 +200,7 @@ public class GitUtils {
 		try (var diffFormatter = new DiffFormatter(NullOutputStream.INSTANCE);
 			 var revWalk = new RevWalk(repository);
 			 var reader = repository.newObjectReader();) {
-			diffFormatter.setRepository(repository);
-			diffFormatter.setDetectRenames(true);
-			diffFormatter.setDiffComparator(RawTextComparator.DEFAULT);
+			configureDiffFormatter(diffFormatter, repository);
 
 			var oldTreeParser = new CanonicalTreeParser();
 			if (!oldRevId.equals(ObjectId.zeroId()))
@@ -181,6 +224,13 @@ public class GitUtils {
 		return diffs;
 	}
 
+	static void configureDiffFormatter(DiffFormatter diffFormatter, Repository repository) {
+		diffFormatter.setRepository(repository);
+		diffFormatter.setDetectRenames(true);
+		diffFormatter.getRenameDetector().setRenameLimit(-1);
+		diffFormatter.setDiffComparator(RawTextComparator.DEFAULT);
+	}
+
 	public static InputStream getInputStream(Repository repository, ObjectId revId, String path) {
 		try (RevWalk revWalk = new RevWalk(repository)) {
 			RevTree revTree = revWalk.parseCommit(revId).getTree();
@@ -189,7 +239,7 @@ public class GitUtils {
 				ObjectLoader objectLoader = treeWalk.getObjectReader().open(treeWalk.getObjectId(0));
 				return objectLoader.openStream();
 			} else {
-				throw new ObjectNotFoundException("Unable to find blob path '" + path + "' in revision '" + revId + "'");
+				throw new NotFoundException("Unable to find blob path '" + path + "' in revision '" + revId + "'");
 			}
 		} catch (IOException e) {
 			throw new RuntimeException(e);
@@ -314,17 +364,11 @@ public class GitUtils {
 	 *         represent a branch
 	 */
 	public static @Nullable String ref2branch(String refName) {
-		if (refName.startsWith(R_HEADS))
-			return refName.substring(R_HEADS.length());
-		else
-			return null;
+		return KubernetesHelper.ref2branch(refName);
 	}
 
 	public static String branch2ref(String branch) {
-		if (!branch.startsWith(R_HEADS))
-			return R_HEADS + branch;
-		else 
-			return branch;
+		return KubernetesHelper.branch2ref(branch);
 	}
 
 	/**
@@ -388,7 +432,7 @@ public class GitUtils {
 
 	/**
 	 * @return merge base of specified commits, or <tt>null</tt> if two commits do
-	 *         not have related history. In this case, these two commits can not be
+	 *         not have related history. In this case, these two commits cannot be
 	 *         merged
 	 */
 	@Nullable
@@ -717,4 +761,240 @@ public class GitUtils {
 		}
 	}
 
+	/**
+	 * Normalizes a string for use as part of a git branch name (e.g. issue title).
+	 * Keeps only alphanumeric characters, collapses and trims hyphens, lowercases.
+	 */
+	@Nullable
+	public static String normalizeForBranch(String text) {
+		var branch = text
+				.replaceAll("[^a-zA-Z0-9]", "-")
+				.replaceAll("-+", "-")
+				.replaceAll("^-|-$", "")
+				.toLowerCase();
+		return StringUtils.trimToNull(branch);
+	}
+	
+	public static Commandline newGit() {
+		return new Commandline(OneDev.getInstance(GitLocation.class).getExecutable());
+	}
+	
+	public static <T> T callWithClusterCredential(GitTask<T> task) {
+		File homeDir = FileUtils.createTempDir("githome"); 
+
+		ClusterService clusterService = OneDev.getInstance(ClusterService.class);
+		SecretMasker.push(text -> Strings.CS.replace(text, clusterService.getCredential(), "******"));
+		try {
+			Commandline git = newGit();
+			git.envs().put("HOME", homeDir.getAbsolutePath());
+			String extraHeader = KubernetesHelper.AUTHORIZATION + ": " 
+					+ KubernetesHelper.BEARER + " " + clusterService.getCredential();
+			git.addArgs("config", "--global", "http.extraHeader", extraHeader);
+			git.execute(new LineConsumer() {
+
+				@Override
+				public void consume(String line) {
+					logger.info(line);
+				}
+				
+			}, new LineConsumer() {
+
+				@Override
+				public void consume(String line) {
+					logger.warn(line);
+				}
+				
+			}).checkReturnCode();
+			
+			return task.call(git);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		} finally {
+			SecretMasker.pop();
+			FileUtils.deleteDir(homeDir);
+		}
+	}
+	
+	/**
+	 * Check if there are any errors with git command line. 
+	 *
+	 * @return
+	 * 			error message if failed to check git command line, 
+	 * 			or <tt>null</tt> otherwise
+	 * 			
+	 */
+	public static String checkError(String gitExe) {
+		return Agent.checkGitError(gitExe, MIN_VERSION);
+	}
+	
+	public static FileChange parseNumStats(String line) {
+		FileChange change;
+		StringTokenizer tokenizer = new StringTokenizer(line, "\t");
+		String additionsToken = tokenizer.nextToken();
+		int additions = additionsToken.equals("-")?-1:Integer.parseInt(additionsToken);
+		String deletionsToken = tokenizer.nextToken();
+		int deletions = deletionsToken.equals("-")?-1:Integer.parseInt(deletionsToken);
+		
+		String path = tokenizer.nextToken();
+		int renameSignIndex = path.indexOf(" => ");
+		if (renameSignIndex != -1) {
+			int leftBraceIndex = path.indexOf("{");
+			int rightBraceIndex = path.indexOf("}");
+			if (leftBraceIndex != -1 && rightBraceIndex != -1 && leftBraceIndex<renameSignIndex
+					&& rightBraceIndex>renameSignIndex) {
+				String leftCommon = path.substring(0, leftBraceIndex);
+				String rightCommon = path.substring(rightBraceIndex+1);
+				String oldPath = leftCommon + path.substring(leftBraceIndex+1, renameSignIndex) 
+						+ rightCommon;
+				String newPath = leftCommon + path.substring(renameSignIndex+4, rightBraceIndex) 
+						+ rightCommon;
+    			change = new FileChange(oldPath, newPath, additions, deletions);
+			} else {
+				String oldPath = QuotedString.GIT_PATH.dequote(path.substring(0, renameSignIndex));
+				String newPath = QuotedString.GIT_PATH.dequote(path.substring(renameSignIndex+4));
+    			change = new FileChange(oldPath, newPath, additions, deletions);
+			}
+		} else {
+			path = QuotedString.GIT_PATH.dequote(path);
+			change = new FileChange(null, path, additions, deletions);
+		}            			
+		return change;
+	}
+	
+	public static void advertiseUploadRefs(File gitDir, String protocol, OutputStream stdout) {
+		advertiseUploadRefs(gitDir, protocol, stdout, true);
+	}
+
+	public static void advertiseUploadRefs(File gitDir, String protocol, OutputStream stdout, boolean logError) {
+		AtomicBoolean outputWritten = new AtomicBoolean(false);
+		var errorMessage = new AtomicReference<String>();
+		var advertise = new AdvertiseUploadRefsCommand(gitDir, trackOutput(stdout, outputWritten),
+				errorLogger(errorMessage, logError));
+		var result = advertise.protocol(protocol).run();
+		handleGitResult(result, stdout, outputWritten, errorMessage.get(),
+				"git upload-pack --advertise-refs failed", logError);
+	}
+
+	public static void advertiseReceiveRefs(File gitDir, String protocol, OutputStream stdout) {
+		advertiseReceiveRefs(gitDir, protocol, stdout, true);
+	}
+
+	public static void advertiseReceiveRefs(File gitDir, String protocol, OutputStream stdout, boolean logError) {
+		AtomicBoolean outputWritten = new AtomicBoolean(false);
+		var errorMessage = new AtomicReference<String>();
+		var advertise = new AdvertiseReceiveRefsCommand(gitDir, trackOutput(stdout, outputWritten),
+				errorLogger(errorMessage, logError));
+		var result = advertise.protocol(protocol).run();
+		handleGitResult(result, stdout, outputWritten, errorMessage.get(),
+				"git receive-pack --advertise-refs failed", logError);
+	}
+
+	public static void uploadPack(File gitDir, Map<String, String> environments, String protocol,
+			InputStream stdin, OutputStream stdout) {
+		uploadPack(gitDir, environments, protocol, stdin, stdout, true);
+	}
+
+	public static void uploadPack(File gitDir, Map<String, String> environments, String protocol,
+			InputStream stdin, OutputStream stdout, boolean logError) {
+		AtomicBoolean toleratedErrors = new AtomicBoolean(false);
+		AtomicBoolean outputWritten = new AtomicBoolean(false);
+		var errorMessage = new AtomicReference<String>();
+		var stderr = new LineConsumer(UTF_8.name()) {
+
+			@Override
+			public void consume(String line) {
+				// This error may happen during a normal shallow fetch/clone 
+				if (line.contains("remote end hung up unexpectedly")) {
+					toleratedErrors.set(true);
+					logger.debug(line);
+				} else {
+					errorMessage.compareAndSet(null, line);
+					if (logError)
+						logger.error(line);
+				}
+			}
+			
+		};
+
+		var upload = new UploadPackCommand(gitDir, stdin, trackOutput(stdout, outputWritten), stderr, environments);
+		upload.statelessRpc(true).protocol(protocol);
+		var result = upload.run();
+		if (!toleratedErrors.get())
+			handleGitResult(result, stdout, outputWritten, errorMessage.get(), "git upload-pack failed", logError);
+	}
+
+	public static void receivePack(File gitDir, Map<String, String> environments, String protocol, 
+			InputStream stdin, OutputStream stdout) {
+		receivePack(gitDir, environments, protocol, stdin, stdout, true);
+	}
+
+	public static void receivePack(File gitDir, Map<String, String> environments, String protocol,
+			InputStream stdin, OutputStream stdout, boolean logError) {
+		AtomicBoolean outputWritten = new AtomicBoolean(false);
+		var errorMessage = new AtomicReference<String>();
+		var receive = new ReceivePackCommand(gitDir, stdin, trackOutput(stdout, outputWritten),
+				errorLogger(errorMessage, logError), environments);
+		receive.statelessRpc(true).protocol(protocol);
+		ExecutionResult result = receive.run();
+		handleGitResult(result, stdout, outputWritten, errorMessage.get(), "git receive-pack failed", logError);
+	}
+
+	private static LineConsumer errorLogger(AtomicReference<String> errorMessage, boolean logError) {
+		return new LineConsumer(UTF_8.name()) {
+
+			@Override
+			public void consume(String line) {
+				errorMessage.compareAndSet(null, line);
+				if (logError)
+					logger.error(line);
+			}
+
+		};
+	}
+
+	private static OutputStream trackOutput(OutputStream output, AtomicBoolean outputWritten) {
+		return new OutputStream() {
+
+			@Override
+			public void write(int b) throws IOException {
+				output.write(b);
+				outputWritten.set(true);
+			}
+
+			@Override
+			public void write(byte[] b, int off, int len) throws IOException {
+				output.write(b, off, len);
+				if (len != 0)
+					outputWritten.set(true);
+			}
+
+			@Override
+			public void flush() throws IOException {
+				output.flush();
+			}
+
+		};
+	}
+
+	private static void handleGitResult(ExecutionResult result, OutputStream output, AtomicBoolean outputWritten,
+			String errorMessage, String fallbackMessage, boolean logError) {
+		if (result.getReturnCode() != 0) {
+			if (!outputWritten.get()) {
+				var message = errorMessage;
+				if (message == null)
+					message = fallbackMessage;
+				try {
+					var packet = new PacketLineOut(output);
+					packet.writeString("ERR " + message + "\n");
+					packet.end();
+					output.flush();
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
+			} else if (errorMessage == null && logError) {
+				logger.error("{} (exit code: {})", fallbackMessage, result.getReturnCode());
+			}
+		}
+	}
+		
 }

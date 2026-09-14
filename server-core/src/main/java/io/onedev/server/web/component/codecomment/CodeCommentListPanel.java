@@ -82,6 +82,7 @@ import io.onedev.server.web.component.menu.MenuItem;
 import io.onedev.server.web.component.menu.MenuLink;
 import io.onedev.server.web.component.modal.confirm.ConfirmModalPanel;
 import io.onedev.server.web.component.savedquery.SavedQueriesClosed;
+import io.onedev.server.web.component.savedquery.SavedQueriesLink;
 import io.onedev.server.web.component.savedquery.SavedQueriesOpened;
 import io.onedev.server.web.component.sortedit.SortEditPanel;
 import io.onedev.server.web.component.svg.SpriteImage;
@@ -119,7 +120,6 @@ public abstract class CodeCommentListPanel extends Panel {
 		
 	};
 	
-	private Component countLabel;
 	
 	private DataTable<CodeComment, Void> commentsTable;
 	
@@ -146,7 +146,6 @@ public abstract class CodeCommentListPanel extends Panel {
 	
 	private void doQuery(AjaxRequestTarget target) {
 		commentsTable.setCurrentPage(0);
-		target.add(countLabel);
 		target.add(body);
 		if (selectionColumn != null)
 			selectionColumn.getSelections().clear();
@@ -159,7 +158,7 @@ public abstract class CodeCommentListPanel extends Panel {
 	protected void onInitialize() {
 		super.onInitialize();
 		
-		add(new AjaxLink<Void>("showSavedQueries") {
+		add(new SavedQueriesLink("showSavedQueries") {
 
 			@Override
 			public void onEvent(IEvent<?> event) {
@@ -172,7 +171,7 @@ public abstract class CodeCommentListPanel extends Panel {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(getQuerySaveSupport() != null && !getQuerySaveSupport().isSavedQueriesVisible());
+				setVisible(getQuerySaveSupport() != null);
 			}
 
 			@Override
@@ -201,7 +200,7 @@ public abstract class CodeCommentListPanel extends Panel {
 				if (!querySubmitted)
 					tag.put("data-tippy-content", _T("Query not submitted"));
 				else if (queryModel.getObject() == null)
-					tag.put("data-tippy-content", _T("Can not save malformed query"));
+					tag.put("data-tippy-content", _T("Cannot save malformed query"));
 			}
 
 			@Override
@@ -241,7 +240,6 @@ public abstract class CodeCommentListPanel extends Panel {
 						OneDev.getInstance(CodeCommentStatusChangeService.class).create(changes, note);
 						selectionColumn.getSelections().clear();
 						dataProvider.detach();
-						target.add(countLabel);
 						target.add(body);
 						
 						close();
@@ -376,7 +374,6 @@ public abstract class CodeCommentListPanel extends Panel {
 												comments.add(each.getObject());
 											OneDev.getInstance(CodeCommentService.class).delete(comments, getProject());
 											selectionColumn.getSelections().clear();
-											target.add(countLabel);
 											target.add(body);
 										}
 										
@@ -533,18 +530,17 @@ public abstract class CodeCommentListPanel extends Panel {
 											OneDev.getInstance(CodeCommentService.class).delete(comments, getProject());
 											dataProvider.detach();
 											selectionColumn.getSelections().clear();
-											target.add(countLabel);
 											target.add(body);
 										}
 										
 										@Override
 										protected String getConfirmMessage() {
-											return _T("Type <code>yes</code> below to delete all queried comments");
+											return _T("Type <code>delete ALL comments</code> below to delete all queried comments");
 										}
 										
 										@Override
 										protected String getConfirmInput() {
-											return "yes";
+											return "delete ALL comments";
 										}
 										
 									};
@@ -735,21 +731,6 @@ public abstract class CodeCommentListPanel extends Panel {
 		
 		body.add(new FencedFeedbackPanel("feedback", this));
 
-		add(countLabel = new Label("count", new AbstractReadOnlyModel<String>() {
-			@Override
-			public String getObject() {
-				if (dataProvider.size() > 1)
-					return MessageFormat.format(_T("found {0} comments"), dataProvider.size());
-				else
-					return _T("found 1 comment");
-			}
-		}) {
-			@Override
-			protected void onConfigure() {
-				super.onConfigure();
-				setVisible(dataProvider.size() != 0);
-			}
-		}.setOutputMarkupPlaceholderTag(true));
 		
 		dataProvider = new LoadableDetachableDataProvider<>() {
 
@@ -870,7 +851,7 @@ public abstract class CodeCommentListPanel extends Panel {
 				}
 				fragment.add(new Label("activity", lastActivity.getDescription()));
 				fragment.add(new Label("date", DateUtils.formatAge(lastActivity.getDate()))
-						.add(new AttributeAppender("title", DateUtils.formatDateTime(lastActivity.getDate()))));
+						.add(new AttributeAppender("data-tippy-content", DateUtils.formatDateTime(lastActivity.getDate()))));
 
 				cellItem.add(fragment);
 			}
@@ -878,7 +859,7 @@ public abstract class CodeCommentListPanel extends Panel {
 		});  
 		
 		body.add(commentsTable = new DefaultDataTable<>("comments", columns, dataProvider,
-				WebConstants.PAGE_SIZE, getPagingHistorySupport()) {
+				WebConstants.PAGE_SIZE, getPagingHistorySupport(), true) {
 
 			@Override
 			protected Item<CodeComment> newRowItem(String id, int index, IModel<CodeComment> model) {

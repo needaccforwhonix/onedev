@@ -5,6 +5,7 @@ import static org.apache.commons.lang3.StringUtils.deleteWhitespace;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -38,7 +39,7 @@ public abstract class ReferenceInputBehavior extends InputAssistBehavior {
 			List<InputSuggestion> suggestions = new ArrayList<>();
 			String type = matcher.group("type");
 			if (type != null)
-				type = deleteWhitespace(type);
+				type = deleteWhitespace(type).toLowerCase(Locale.ENGLISH);
 			else
 				type = "";
 			switch (type) {
@@ -73,7 +74,16 @@ public abstract class ReferenceInputBehavior extends InputAssistBehavior {
 
 	@Override
 	protected int getAnchor(String inputContent) {
-		return inputContent.lastIndexOf('#');
+		Matcher matcher = REFERENCE_PATTERN.matcher(inputContent);
+		if (matcher.find()) {
+			String query = matcher.group("query");
+			int triggerIndex = query.lastIndexOf('#');
+			if (triggerIndex == -1)
+				triggerIndex = query.indexOf('-');
+			return matcher.start("query") + triggerIndex;
+		} else {
+			return inputContent.lastIndexOf('#');
+		}
 	}
 
 	protected abstract Project getProject();

@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.jspecify.annotations.Nullable;
+import javax.inject.Inject;
 
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
@@ -26,21 +26,14 @@ import org.apache.wicket.markup.repeater.RepeatingView;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.eclipse.jgit.lib.ObjectId;
+import org.jspecify.annotations.Nullable;
 import org.unbescape.html.HtmlEscape;
 
-import io.onedev.server.OneDev;
 import io.onedev.server.buildspecmodel.inputspec.Input;
 import io.onedev.server.buildspecmodel.inputspec.InputContext;
 import io.onedev.server.buildspecmodel.inputspec.InputSpec;
 import io.onedev.server.buildspecmodel.inputspec.SecretInput;
 import io.onedev.server.buildspecmodel.inputspec.choiceinput.choiceprovider.ChoiceProvider;
-import io.onedev.server.service.BuildService;
-import io.onedev.server.service.IssueChangeService;
-import io.onedev.server.service.IssueService;
-import io.onedev.server.service.IterationService;
-import io.onedev.server.service.PullRequestService;
-import io.onedev.server.service.SettingService;
-import io.onedev.server.service.UserService;
 import io.onedev.server.git.GitUtils;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.Issue;
@@ -54,10 +47,18 @@ import io.onedev.server.model.support.issue.field.spec.FieldSpec;
 import io.onedev.server.model.support.issue.field.spec.TextField;
 import io.onedev.server.model.support.issue.field.spec.choicefield.ChoiceField;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.BuildService;
+import io.onedev.server.service.IssueChangeService;
+import io.onedev.server.service.IssueService;
+import io.onedev.server.service.IterationService;
+import io.onedev.server.service.PullRequestService;
+import io.onedev.server.service.SettingService;
+import io.onedev.server.service.UserService;
 import io.onedev.server.util.ColorUtils;
-import io.onedev.server.util.ComponentContext;
+import io.onedev.server.util.ComponentHierarchical;
 import io.onedev.server.util.DateUtils;
 import io.onedev.server.util.EditContext;
+import io.onedev.server.util.HierarchicalContext;
 import io.onedev.server.web.ajaxlistener.AttachAjaxIndicatorListener;
 import io.onedev.server.web.ajaxlistener.DisableGlobalAjaxIndicatorListener;
 import io.onedev.server.web.component.MultilineLabel;
@@ -71,7 +72,7 @@ import io.onedev.server.web.editable.EditableUtils;
 import io.onedev.server.web.editable.InplacePropertyEditLink;
 import io.onedev.server.web.editable.PropertyDescriptor;
 import io.onedev.server.web.page.base.BasePage;
-import io.onedev.server.web.page.project.builds.detail.dashboard.BuildDashboardPage;
+import io.onedev.server.web.page.project.builds.detail.BuildDefaultPage;
 import io.onedev.server.web.page.project.commits.CommitDetailPage;
 import io.onedev.server.web.page.project.issues.detail.IssueActivitiesPage;
 import io.onedev.server.web.page.project.issues.iteration.IterationIssuesPage;
@@ -79,6 +80,27 @@ import io.onedev.server.web.page.project.pullrequests.detail.activities.PullRequ
 import io.onedev.server.web.util.ProjectAware;
 
 public abstract class FieldValuesPanel extends Panel implements EditContext, ProjectAware {
+
+	@Inject
+	private IssueService issueService;
+
+	@Inject
+	private PullRequestService pullRequestService;
+
+	@Inject
+	private BuildService buildService;
+
+	@Inject
+	private SettingService settingService;
+
+	@Inject
+	private IssueChangeService issueChangeService;
+
+	@Inject
+	private UserService userService;
+
+	@Inject
+	private IterationService iterationService;
 
 	private final Mode userFieldDisplayMode;
 	
@@ -91,7 +113,7 @@ public abstract class FieldValuesPanel extends Panel implements EditContext, Pro
 	}
 
 	private GlobalIssueSetting getIssueSetting() {
-		return OneDev.getInstance(SettingService.class).getIssueSetting();
+		return settingService.getIssueSetting();
 	}
 	
 	private InplacePropertyEditLink newInplaceEditLink(String componentId) {
@@ -122,8 +144,7 @@ public abstract class FieldValuesPanel extends Panel implements EditContext, Pro
 				FieldSpec fieldSpec = getIssueSetting().getFieldSpec(getField().getName());
 				Collection<String> dependentFields = fieldSpec.getTransitiveDependents();
 				boolean hasVisibleEditableDependents = dependentFields.stream()
-						.anyMatch(it->SecurityUtils.canEditIssueField(getIssue().getProject(), it) 
-								&& FieldUtils.isFieldVisible(beanDescriptor, bean, it));
+						.anyMatch(it->SecurityUtils.canEditIssueField(getIssue(), it) && FieldUtils.isFieldVisible(getProject(), beanDescriptor, bean, it));
 				
 				Map<String, Object> fieldValues = new HashMap<>();
 				Object propertyValue = new PropertyDescriptor(bean.getClass(), propertyName).getPropertyValue(bean);
@@ -162,11 +183,9 @@ public abstract class FieldValuesPanel extends Panel implements EditContext, Pro
 
 						@Override
 						protected String onSave(AjaxRequestTarget target, Serializable bean) {
-							fieldValues.putAll(FieldUtils.getFieldValues(
-									FieldUtils.newBeanComponentContext(beanDescriptor, bean), 
-									bean, FieldUtils.getEditableFields(getProject(), dependentFields)));
+							fieldValues.putAll(FieldUtils.getFieldValues(getProject(), bean, FieldUtils.getEditableFields(getProject(), dependentFields)));
 							var user = SecurityUtils.getUser();
-							OneDev.getInstance(IssueChangeService.class).changeFields(user, getIssue(), fieldValues);
+							issueChangeService.changeFields(user, getIssue(), fieldValues);
 							notifyObservablesChange(target);
 							close();
 							return null;
@@ -177,21 +196,21 @@ public abstract class FieldValuesPanel extends Panel implements EditContext, Pro
 					new DependentFieldsEditor(handler, bean, propertyNames, false, "Dependent Fields");
 				} else {
 					var user = SecurityUtils.getUser();
-					OneDev.getInstance(IssueChangeService.class).changeFields(user, getIssue(), fieldValues);
+					issueChangeService.changeFields(user, getIssue(), fieldValues);
 					notifyObservablesChange(handler);					
 				}
 			}
 			
 			@Override
 			protected String getPropertyName() {
-				BeanDescriptor descriptor = new BeanDescriptor(FieldUtils.getFieldBeanClass());
+				BeanDescriptor descriptor = new BeanDescriptor(FieldUtils.getFieldBeanClass(false));
 				return FieldUtils.getPropertyName(descriptor, getField().getName());
 			}
 			
 			@Override
 			protected Serializable getBean() {
-				Class<?> fieldBeanClass = FieldUtils.getFieldBeanClass();
-				return getIssue().getFieldBean(fieldBeanClass, true); 
+				Class<?> fieldBeanClass = FieldUtils.getFieldBeanClass(true);
+				return getIssue().getFieldBean(fieldBeanClass); 
 			}
 
 			@Override
@@ -206,19 +225,10 @@ public abstract class FieldValuesPanel extends Panel implements EditContext, Pro
 	private String getUneditableReason() {
 		if (getIssueSetting().isReconciled()) { 
 			if (getField() != null && getIssueSetting().getFieldSpec(getField().getName()) != null) {
-				User user = SecurityUtils.getUser();
-				String initialState = OneDev.getInstance(SettingService.class).getIssueSetting().getInitialStateSpec().getName();
-				if (SecurityUtils.canManageIssues(getIssue().getProject())) {
+				if (SecurityUtils.canEditIssueField(getIssue(), getField().getName())) {
 					return null;
 				} else {
-					if (SecurityUtils.canEditIssueField(getIssue().getProject(), getField().getName())
-							&& user != null
-							&& user.equals(getIssue().getSubmitter())
-							&& getIssue().getState().equals(initialState)) {
-						return null;
-					} else {
-						return "No permission to edit field";
-					}
+					return "No permission to edit issue field";
 				}
 			} else {
 				return "Field spec not found";
@@ -260,13 +270,13 @@ public abstract class FieldValuesPanel extends Panel implements EditContext, Pro
 				} else if (getField().getType().equals(FieldSpec.DATE_TIME)) {
 					valueContainer.add(new Label("value", DateUtils.formatDateTime(new Date(Long.parseLong(value)))));
 				} else if (getField().getType().equals(FieldSpec.USER)) {
-					User user = OneDev.getInstance(UserService.class).findByName(value);
+					User user = userService.findByName(value);
 					if (user != null)
 						valueContainer.add(new UserIdentPanel("value", user, userFieldDisplayMode));
 					else 
 						valueContainer.add(new Label("value", value));
 				} else if (getField().getType().equals(FieldSpec.ISSUE)) {
-					Issue issue = OneDev.getInstance(IssueService.class).get(Long.valueOf(value));
+					Issue issue = issueService.find(getProject(), Long.valueOf(value));
 					if (issue != null) {
 						Fragment linkFrag = new Fragment("value", "linkFrag", FieldValuesPanel.this);
 						Link<Void> issueLink = new BookmarkablePageLink<Void>("link", IssueActivitiesPage.class, 
@@ -278,11 +288,11 @@ public abstract class FieldValuesPanel extends Panel implements EditContext, Pro
 						valueContainer.add(new Label("value", "<i>Not Found</i>").setEscapeModelStrings(false));
 					}
 				} else if (getField().getType().equals(FieldSpec.BUILD)) {
-					Build build = OneDev.getInstance(BuildService.class).get(Long.valueOf(value));
+					Build build = buildService.find(getProject(), Long.valueOf(value));
 					if (build != null) {
 						Fragment linkFrag = new Fragment("value", "linkFrag", FieldValuesPanel.this);
 						Link<Void> buildLink = new BookmarkablePageLink<Void>("link", 
-								BuildDashboardPage.class, BuildDashboardPage.paramsOf(build));
+								BuildDefaultPage.class, BuildDefaultPage.paramsOf(build));
 						buildLink.add(new Label("label", build.getReference().toString(getProject())));
 						linkFrag.add(buildLink);
 						valueContainer.add(linkFrag);
@@ -290,7 +300,7 @@ public abstract class FieldValuesPanel extends Panel implements EditContext, Pro
 						valueContainer.add(new Label("value", "<i>Not Found</i>").setEscapeModelStrings(false));
 					}
 				} else if (getField().getType().equals(FieldSpec.PULL_REQUEST)) {
-					PullRequest request = OneDev.getInstance(PullRequestService.class).get(Long.valueOf(value));
+					PullRequest request = pullRequestService.find(getProject(), Long.valueOf(value));
 					if (request != null) {
 						Fragment linkFrag = new Fragment("value", "linkFrag", FieldValuesPanel.this);
 						Link<Void> requestLink = new BookmarkablePageLink<Void>("link", PullRequestActivitiesPage.class, 
@@ -302,7 +312,7 @@ public abstract class FieldValuesPanel extends Panel implements EditContext, Pro
 						valueContainer.add(new Label("value", "<i>Not Found</i>").setEscapeModelStrings(false));
 					}
 				} else if (getField().getType().equals(FieldSpec.ITERATION)) {
-					Iteration iteration = OneDev.getInstance(IterationService.class).findInHierarchy(getIssue().getProject(), value);
+					Iteration iteration = iterationService.findInHierarchy(getIssue().getProject(), value);
 					if (iteration != null) {
 						Fragment linkFrag = new Fragment("value", "linkFrag", FieldValuesPanel.this);
 						Link<Void> iterationLink = new BookmarkablePageLink<Void>("link", IterationIssuesPage.class, 
@@ -340,7 +350,7 @@ public abstract class FieldValuesPanel extends Panel implements EditContext, Pro
 					
 					if (fieldSpec != null && fieldSpec instanceof ChoiceField) {
 						ChoiceProvider choiceProvider = ((ChoiceField)fieldSpec).getChoiceProvider();
-						ComponentContext.push(new ComponentContext(this));
+						HierarchicalContext.push(new HierarchicalContext(new ComponentHierarchical(this)));
 						try {
 							String backgroundColor = choiceProvider.getChoices(false).get(value);
 							if (backgroundColor == null)
@@ -352,7 +362,7 @@ public abstract class FieldValuesPanel extends Panel implements EditContext, Pro
 							label.add(AttributeAppender.append("style", style));
 							label.add(AttributeAppender.append("class", "badge"));
 						} finally {
-							ComponentContext.pop();
+							HierarchicalContext.pop();
 						}
 					} 
 					valueContainer.add(label);

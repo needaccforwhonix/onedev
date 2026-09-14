@@ -12,17 +12,21 @@ import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.From;
 import javax.persistence.criteria.Predicate;
 
+import org.hibernate.criterion.Restrictions;
+
 import com.google.common.base.Preconditions;
 
 import io.onedev.server.event.ListenerRegistry;
 import io.onedev.server.event.project.issue.IssueCommentCreated;
 import io.onedev.server.event.project.issue.IssueCommentEdited;
+import io.onedev.server.model.Issue;
 import io.onedev.server.model.IssueChange;
 import io.onedev.server.model.IssueComment;
 import io.onedev.server.model.User;
 import io.onedev.server.model.support.issue.changedata.IssueCommentRemoveData;
 import io.onedev.server.persistence.annotation.Sessional;
 import io.onedev.server.persistence.annotation.Transactional;
+import io.onedev.server.persistence.dao.EntityCriteria;
 import io.onedev.server.service.IssueChangeService;
 import io.onedev.server.service.IssueCommentService;
 
@@ -59,14 +63,33 @@ public class DefaultIssueCommentService extends BaseEntityService<IssueComment> 
 	public void create(IssueComment comment) {
 		create(comment, new ArrayList<>());
 	}
+
+	@Transactional
+	@Override
+	public void create(User user, Issue issue, String content) {
+        var comment = new IssueComment();
+        comment.setIssue(issue);
+        comment.setContent(content);
+        comment.setUser(user);
+        comment.setDate(new Date());
+        create(comment);
+	}
 	
 	@Transactional
 	@Override
-	public void create(IssueComment comment, Collection<String> notifiedEmailAddresses) {
+	public void create(IssueComment comment, Collection<String> listeningEmailAddresses) {
 		Preconditions.checkState(comment.isNew());
 		dao.persist(comment);
 		comment.getIssue().setCommentCount(comment.getIssue().getCommentCount()+1);
-		listenerRegistry.post(new IssueCommentCreated(comment, notifiedEmailAddresses));
+		listenerRegistry.post(new IssueCommentCreated(comment, listeningEmailAddresses));
+	}
+
+	@Override
+	public IssueComment findByMessageId(String messageId) {
+		EntityCriteria<IssueComment> criteria = newCriteria();
+		criteria.add(Restrictions.eq(IssueComment.PROP_MESSAGE_ID, messageId));
+		criteria.setCacheable(true);
+		return find(criteria);
 	}
 
 	@Sessional

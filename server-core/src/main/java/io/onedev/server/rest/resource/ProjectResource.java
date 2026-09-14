@@ -43,7 +43,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.data.migration.VersionedXmlDoc;
-import io.onedev.server.git.GitContribution;
 import io.onedev.server.git.GitContributor;
 import io.onedev.server.model.BaseAuthorization;
 import io.onedev.server.model.GroupAuthorization;
@@ -62,6 +61,8 @@ import io.onedev.server.model.support.code.TagProtection;
 import io.onedev.server.model.support.issue.ProjectIssueSetting;
 import io.onedev.server.model.support.pack.ProjectPackSetting;
 import io.onedev.server.model.support.pullrequest.ProjectPullRequestSetting;
+import io.onedev.server.model.support.wiki.WikiSetting;
+import io.onedev.server.model.support.workspace.ProjectWorkspaceSetting;
 import io.onedev.server.persistence.dao.EntityCriteria;
 import io.onedev.server.rest.annotation.Api;
 import io.onedev.server.rest.annotation.EntityCreate;
@@ -152,11 +153,11 @@ public class ProjectResource {
 	@Api(order=300)
 	@Path("/{projectId}/forks")
     @GET
-    public Collection<Project> getForks(@PathParam("projectId") Long projectId) {
+    public Collection<ProjectData> getForks(@PathParam("projectId") Long projectId) {
     	Project project = projectService.load(projectId);
     	if (!SecurityUtils.canAccessProject(project)) 
 			throw new UnauthorizedException();
-    	return project.getForks();
+    	return project.getForks().stream().map(ProjectData::from).collect(Collectors.toList());
     }
 
 	@Api(order=350, description = "A base authorization corresponds to a default role. It can be added/removed via <a href='/~help/api/io.onedev.server.rest.resource.BaseAuthorizationResource'>base authorizations resource</a>")
@@ -210,12 +211,7 @@ public class ProjectResource {
 		if (!SecurityUtils.isAdministrator(subject) && count > RestConstants.MAX_PAGE_SIZE)
     		throw new NotAcceptableException("Count should not be greater than " + RestConstants.MAX_PAGE_SIZE);
 
-    	ProjectQuery parsedQuery;
-		try {
-			parsedQuery = ProjectQuery.parse(query);
-		} catch (Exception e) {
-			throw new NotAcceptableException("Error parsing query", e);
-		}
+		var parsedQuery = ProjectQuery.parse(query);
     	
     	return projectService.query(subject, parsedQuery, false, offset, count).stream()
     			.map(ProjectData::from)
@@ -261,7 +257,6 @@ public class ProjectResource {
 	@Path("/{projectId}/top-contributors")
 	@GET
     public List<GitContributor> getTopContributors(@PathParam("projectId") Long projectId, 
-    		@QueryParam("type") @NotNull GitContribution.Type type, 
     		@QueryParam("sinceDate") @NotEmpty @Api(description="Since date of format <i>yyyy-MM-dd</i>") String since, 
     		@QueryParam("untilDate") @NotEmpty @Api(description="Until date of format <i>yyyy-MM-dd</i>") String until, 
     		@QueryParam("count") int count) {
@@ -275,7 +270,7 @@ public class ProjectResource {
     	int sinceDay = (int) LocalDate.parse(since).toEpochDay();
     	int untilDay = (int) LocalDate.parse(until).toEpochDay();
     	
-    	return commitInfoService.getTopContributors(project.getId(), count, type, sinceDay, untilDay);
+    	return commitInfoService.getTopContributors(project.getId(), count, sinceDay, untilDay);
     }
 	
 	@SuppressWarnings("unused")
@@ -295,12 +290,14 @@ public class ProjectResource {
 		checkProjectCreationPermission(subject, project.getParent());
 	
 		if (project.getParent() != null && project.isSelfOrAncestorOf(project.getParent())) 
-			throw new ExplicitException("Can not use current or descendant project as parent");
+			throw new NotAcceptableException("Cannot use current or descendant project as parent");
 		
 		checkProjectNameDuplication(project);		
 
 		if (project.getForkedFrom() != null) {
 			var forkedFrom = project.getForkedFrom();
+			if (!SecurityUtils.canReadCode(subject, forkedFrom))
+				throw new UnauthorizedException("Not authorized to read code of project '" + forkedFrom.getPath() + "'");
 			project.getBuildSetting().setBuildPreservations(forkedFrom.getBuildSetting().getBuildPreservations());
 			project.getBuildSetting().setCachePreserveDays(forkedFrom.getBuildSetting().getCachePreserveDays());
 			project.getBuildSetting().setJobProperties(forkedFrom.getBuildSetting().getJobProperties());
@@ -309,6 +306,7 @@ public class ProjectResource {
 			project.getBuildSetting().setNamedQueries(forkedFrom.getBuildSetting().getNamedQueries());
 			project.setPackSetting(forkedFrom.getPackSetting());
 			project.setPullRequestSetting(forkedFrom.getPullRequestSetting());
+			project.setWorkspaceSetting(forkedFrom.getWorkspaceSetting());
 			project.setNamedCommitQueries(forkedFrom.getNamedCommitQueries());
 			project.setIssueSetting(forkedFrom.getIssueSetting());
 			project.setNamedCodeCommentQueries(forkedFrom.getNamedCodeCommentQueries());
@@ -327,29 +325,30 @@ public class ProjectResource {
 	@Path("/{projectId}")
 	@POST
 	public Response updateProject(@PathParam("projectId") Long projectId, @NotNull @Valid ProjectData data) {
-		Project project = projectService.load(projectId);		
-		var oldAuditContent = VersionedXmlDoc.fromBean(ProjectData.from(project)).toXML();
-		data.populate(project, projectService);
-		
-		Project parent = data.getParentId() != null? projectService.load(data.getParentId()) : null;
-		Long oldParentId = Project.idOf(project.getParent());
+		Project project = projectService.load(projectId);
 
 		var subject = SecurityUtils.getSubject();
-		if (!Objects.equals(oldParentId, Project.idOf(parent))) 
+		if (!SecurityUtils.canManageProject(subject, project))
+			throw new UnauthorizedException();
+
+		Long oldParentId = Project.idOf(project.getParent());
+		var oldAuditContent = VersionedXmlDoc.fromBean(ProjectData.from(project)).toXML();
+
+		data.populate(project, projectService);
+
+		Project parent = data.getParentId() != null? projectService.load(data.getParentId()) : null;
+
+		if (!Objects.equals(oldParentId, Project.idOf(parent)))
 			checkProjectCreationPermission(subject, parent);
 
 		if (parent != null && project.isSelfOrAncestorOf(parent))
-			throw new ExplicitException("Can not use current or descendant project as parent");
+			throw new ExplicitException("Cannot use current or descendant project as parent");
 
 		checkProjectNameDuplication(project);
 
-		if (!SecurityUtils.canManageProject(subject, project)) {
-			throw new UnauthorizedException();
-		} else {
-			projectService.update(project);
-			auditService.audit(project, "changed project via RESTful API", oldAuditContent, 
-					VersionedXmlDoc.fromBean(ProjectData.from(project)).toXML());
-		}
+		projectService.update(project);
+		auditService.audit(project, "changed project via RESTful API", oldAuditContent,
+				VersionedXmlDoc.fromBean(ProjectData.from(project)).toXML());
 
 		return Response.ok().build();
 	}
@@ -474,6 +473,9 @@ public class ProjectResource {
 
 		@Api(order = 600)
 		private boolean codeManagement = true;
+
+		@Api(order = 625)
+		private boolean wikiManagement;
 	
 		@Api(order = 650)
 		private boolean packManagement = true;
@@ -558,6 +560,14 @@ public class ProjectResource {
 			this.createDate = createDate;
 		}
 
+		public boolean isWikiManagement() {
+			return wikiManagement;
+		}
+
+		public void setWikiManagement(boolean wikiManagement) {
+			this.wikiManagement = wikiManagement;
+		}
+
 		public boolean isCodeManagement() {
 			return codeManagement;
 		}
@@ -629,6 +639,7 @@ public class ProjectResource {
 			project.setKey(getKey());
 			project.setDescription(getDescription());
 			project.setCodeManagement(isCodeManagement());
+			project.setWikiManagement(isWikiManagement());
 			project.setPackManagement(isPackManagement());
 			project.setIssueManagement(isIssueManagement());
 			project.setTimeTracking(isTimeTracking());
@@ -648,6 +659,7 @@ public class ProjectResource {
 			data.setDescription(project.getDescription());
 			data.setCreateDate(project.getCreateDate());
 			data.setCodeManagement(project.isCodeManagement());
+			data.setWikiManagement(project.isWikiManagement());
 			data.setPackManagement(project.isPackManagement());
 			data.setIssueManagement(project.isIssueManagement());
 			data.setTimeTracking(project.isTimeTracking());
@@ -669,12 +681,16 @@ public class ProjectResource {
 		private ArrayList<TagProtection> tagProtections = new ArrayList<>();
 		
 		private ProjectIssueSetting issueSetting = new ProjectIssueSetting();
+
+		private WikiSetting wikiSetting = new WikiSetting();
 		
 		private ProjectBuildSetting buildSetting = new ProjectBuildSetting();
 		
 		private ProjectPackSetting packSetting = new ProjectPackSetting();
 		
 		private ProjectPullRequestSetting pullRequestSetting = new ProjectPullRequestSetting();
+
+		private ProjectWorkspaceSetting workspaceSetting = new ProjectWorkspaceSetting();
 		
 		private ArrayList<NamedCommitQuery> namedCommitQueries = new ArrayList<>();
 		
@@ -700,6 +716,16 @@ public class ProjectResource {
 
 		public void setTagProtections(ArrayList<TagProtection> tagProtections) {
 			this.tagProtections = tagProtections;
+		}
+
+		@Valid
+		@NotNull
+		public WikiSetting getWikiSetting() {
+			return wikiSetting;
+		}
+
+		public void setWikiSetting(WikiSetting wikiSetting) {
+			this.wikiSetting = wikiSetting;
 		}
 
 		@Valid
@@ -736,6 +762,15 @@ public class ProjectResource {
 
 		public void setPullRequestSetting(ProjectPullRequestSetting pullRequestSetting) {
 			this.pullRequestSetting = pullRequestSetting;
+		}
+
+		@Valid
+		public ProjectWorkspaceSetting getWorkspaceSetting() {
+			return workspaceSetting;
+		}
+
+		public void setWorkspaceSetting(ProjectWorkspaceSetting workspaceSetting) {
+			this.workspaceSetting = workspaceSetting;
 		}
 
 		@Valid
@@ -780,9 +815,11 @@ public class ProjectResource {
 			project.setBuildSetting(getBuildSetting());
 			project.setPackSetting(getPackSetting());
 			project.setIssueSetting(getIssueSetting());
+			project.setWikiSetting(getWikiSetting());
 			project.setNamedCodeCommentQueries(getNamedCodeCommentQueries());
 			project.setNamedCommitQueries(getNamedCommitQueries());
 			project.setPullRequestSetting(getPullRequestSetting());
+			project.setWorkspaceSetting(getWorkspaceSetting());
 			project.setWebHooks(getWebHooks());
 			var contributedSettings = new LinkedHashMap<String, ContributedProjectSetting>();
 			for (var contributedSetting: getContributedSettings())
@@ -797,9 +834,11 @@ public class ProjectResource {
 			setting.setBuildSetting(project.getBuildSetting());
 			setting.setPackSetting(project.getPackSetting());
 			setting.setIssueSetting(project.getIssueSetting());
+			setting.setWikiSetting(project.getWikiSetting());
 			setting.setNamedCodeCommentQueries(project.getNamedCodeCommentQueries());
 			setting.setNamedCommitQueries(project.getNamedCommitQueries());
 			setting.setPullRequestSetting(project.getPullRequestSetting());
+			setting.setWorkspaceSetting(project.getWorkspaceSetting());
 			setting.setWebHooks(project.getWebHooks());
 			setting.getContributedSettings().addAll(project.getContributedSettings().values());
 

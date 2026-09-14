@@ -16,7 +16,6 @@ import io.onedev.server.buildspec.job.trigger.BranchUpdateTrigger;
 import io.onedev.server.buildspec.job.trigger.PullRequestUpdateTrigger;
 import io.onedev.server.buildspec.step.CheckoutStep;
 import io.onedev.server.buildspec.step.CommandStep;
-import io.onedev.server.buildspec.step.GenerateChecksumStep;
 import io.onedev.server.buildspec.step.SetupCacheStep;
 import io.onedev.server.git.BlobIdent;
 import io.onedev.server.model.Build;
@@ -26,19 +25,11 @@ import io.onedev.server.plugin.report.checkstyle.PublishCheckstyleReportStep;
 import io.onedev.server.plugin.report.cobertura.PublishCoberturaReportStep;
 import io.onedev.server.plugin.report.coverage.PublishCoverageReportStep;
 import io.onedev.server.plugin.report.junit.PublishJUnitReportStep;
-import io.onedev.server.util.interpolative.VariableInterpolator;
+import io.onedev.server.util.interpolative.JobVariableInterpolator;
 
 public class GolangJobSuggestion implements JobSuggestion {
 
 	public static final String DETERMINE_GO_VERSION = "golang:determine-go-version";
-	
-	private GenerateChecksumStep newChecksumGenerateStep(String name, String files) {
-		var generateChecksum = new GenerateChecksumStep();
-		generateChecksum.setName(name);
-		generateChecksum.setFiles(files);
-		generateChecksum.setTargetFile("checksum");
-		return generateChecksum;
-	}
 	
 	private Job newJob() {
 		Job job = new Job();
@@ -90,23 +81,43 @@ public class GolangJobSuggestion implements JobSuggestion {
 		List<Job> jobs = new ArrayList<>();
 		if (project.getBlob(new BlobIdent(commitId.name(), "go.mod", FileMode.TYPE_FILE), false) != null) {
 			Job job = newJob();
-			job.getSteps().add(newChecksumGenerateStep("generate dependency checksum", "**/go.mod"));
 			var setupCache = new SetupCacheStep();
 			setupCache.setName("set up dependency cache");
-			setupCache.setKey("go_cache_@file:checksum@");
-			setupCache.setPaths(Lists.newArrayList("/root/.cache/go_build", "/root/.cache/golangci-lint", "/go/pkg/mod"));
-			setupCache.getLoadKeys().add("go_cache");
+			setupCache.setKey("go_cache");
+
+			setupCache.setChecksumFiles("**/go.mod");
+			setupCache.setPaths(Lists.newArrayList(
+				"/root/.cache/go_build", 
+				"/root/.cache/golangci-lint", 
+				"/go/pkg/mod"));
 			job.getSteps().add(setupCache);
 
 			CommandStep buildAndTest = new CommandStep();
 			buildAndTest.setName("build and test");
 			
-			buildAndTest.setImage("golang:@" + VariableInterpolator.PREFIX_SCRIPT + GroovyScript.BUILTIN_PREFIX + DETERMINE_GO_VERSION + "@");
+			buildAndTest.setImage("golang:@" + JobVariableInterpolator.PREFIX_SCRIPT + GroovyScript.BUILTIN_PREFIX + DETERMINE_GO_VERSION + "@");
 			buildAndTest.getInterpreter().setCommands("" +
 					"set -e\n" +
 					"# Use double at to avoid being interpreted as OneDev variable substitution\n" +
-					"go install github.com/axw/gocov/gocov@@latest\n" + 
-					"go install github.com/AlekSi/gocov-xml@@latest\n" +
+					"# Pin gocover-cobertura to a release installable by the Go toolchain in the image:\n" +
+					"# v1.3.0 for Go <=1.21, v1.4.0 for Go 1.22-1.24, v1.5.0 for Go >=1.25\n" +
+					"GOVERSION=$(go env GOVERSION 2>/dev/null || true)\n" +
+					"GOVERSION=${GOVERSION#go}\n" +
+					"if [ -z \"$GOVERSION\" ]; then\n" +
+					"  GOVERSION=$(go version | awk '{print $3}')\n" +
+					"  GOVERSION=${GOVERSION#go}\n" +
+					"fi\n" +
+					"GO_MAJOR=${GOVERSION%%.*}\n" +
+					"GO_MINOR=${GOVERSION#*.}\n" +
+					"GO_MINOR=${GO_MINOR%%.*}\n" +
+					"if [ \"$GO_MAJOR\" -eq 1 ] && [ \"$GO_MINOR\" -le 21 ]; then\n" +
+					"  GOCOVER_COBERTURA_VERSION=v1.3.0\n" +
+					"elif [ \"$GO_MAJOR\" -eq 1 ] && [ \"$GO_MINOR\" -le 24 ]; then\n" +
+					"  GOCOVER_COBERTURA_VERSION=v1.4.0\n" +
+					"else\n" +
+					"  GOCOVER_COBERTURA_VERSION=v1.5.0\n" +
+					"fi\n" +
+					"go install github.com/boumenot/gocover-cobertura@@${GOCOVER_COBERTURA_VERSION}\n" +
 					"go install github.com/jstemmer/go-junit-report/v2@@latest\n" +
 					"set +e\n" +
 					"# Turn off vet as the \"check and lint\" step can do this \n" +
@@ -115,14 +126,14 @@ public class GolangJobSuggestion implements JobSuggestion {
 					"go-junit-report -in test-result.out -out test-result.xml -set-exit-code\n" +
 					"if [ $? -ne 0 ]; then echo \"\\033[1;31mThere are test failures. Check test report for details\\033[0m\"; exit 1; fi\n" +
 					"if [ $TEST_STATUS -ne 0 ]; then exit 1; fi\n" +
-					"gocov convert coverage.out | gocov-xml > coverage.xml");
+					"gocover-cobertura < coverage.out > coverage.xml");
 			job.getSteps().add(buildAndTest);
 			
 			var checkAndLint = new CommandStep();
 			checkAndLint.setName("check and lint");
 			checkAndLint.setImage("golangci/golangci-lint");
 			checkAndLint.setCondition(ExecuteCondition.NEVER);
-			checkAndLint.getInterpreter().setCommands("golangci-lint run --timeout=10m --issues-exit-code=0 --out-format=checkstyle > lint-result.xml");
+			checkAndLint.getInterpreter().setCommands("golangci-lint run --timeout=10m --issues-exit-code=0 --output.checkstyle.path lint-result.xml");
 			job.getSteps().add(checkAndLint);
 			
 			addCommonJobsAndTriggers(job);

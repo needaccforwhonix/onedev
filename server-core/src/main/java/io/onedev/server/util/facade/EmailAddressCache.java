@@ -5,10 +5,9 @@ import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
 
-import org.apache.commons.lang3.StringUtils;
-import org.eclipse.jgit.lib.PersonIdent;
-
+import io.onedev.server.OneDev;
 import io.onedev.server.model.User;
+import io.onedev.server.service.UserService;
 import io.onedev.server.util.MapProxy;
 
 public class EmailAddressCache extends MapProxy<Long, EmailAddressFacade> {
@@ -27,20 +26,21 @@ public class EmailAddressCache extends MapProxy<Long, EmailAddressFacade> {
 	@Nullable
 	public EmailAddressFacade findByValue(String value) {
 		value = value.toLowerCase();
+		var loginName = User.getLoginName(value);
+		if (loginName != null) {
+			var user = OneDev.getInstance(UserService.class).findFacadeByName(loginName);
+			if (user != null)
+				return new EmailAddressFacade(null, user.getId(), value, false, null);
+			else
+				return null;
+		}
+
 		for (EmailAddressFacade facade: values()) {
 			if (facade.getValue().equals(value))
 				return facade;
 		}
 		return null;
 	}
-
-	@Nullable
-    public EmailAddressFacade findByPersonIdent(PersonIdent personIdent) {
-    	if (StringUtils.isNotBlank(personIdent.getEmailAddress()))
-    		return findByValue(personIdent.getEmailAddress());
-    	else
-    		return null;
-    }
 	
 	@Nullable
 	public EmailAddressFacade findPrimary(Long userId) {
@@ -51,21 +51,4 @@ public class EmailAddressCache extends MapProxy<Long, EmailAddressFacade> {
 		return null;
 	}
 	
-	@Nullable
-	public EmailAddressFacade findGit(User user) {
-		for (EmailAddressFacade facade: values()) {
-			if (facade.isGit() && facade.getOwnerId().equals(user.getId())) 
-				return facade;
-		}
-		return null;
-	}
-	
-	@Nullable
-	public EmailAddressFacade findPublic(User user) {
-		for (EmailAddressFacade facade: values()) {
-			if (facade.isOpen() && facade.getOwnerId().equals(user.getId())) 
-				return facade;
-		}
-		return null;
-	}
 }

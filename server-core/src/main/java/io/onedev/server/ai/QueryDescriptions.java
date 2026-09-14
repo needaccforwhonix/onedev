@@ -4,17 +4,16 @@ import static java.util.stream.Collectors.joining;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.stream.IntStream;
 
 import io.onedev.server.OneDev;
 import io.onedev.server.model.Agent;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.Issue;
-import io.onedev.server.model.LabelSpec;
 import io.onedev.server.model.Pack;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.PullRequest;
+import io.onedev.server.model.Workspace;
 import io.onedev.server.model.support.issue.field.spec.BooleanField;
 import io.onedev.server.model.support.issue.field.spec.BuildChoiceField;
 import io.onedev.server.model.support.issue.field.spec.CommitField;
@@ -33,7 +32,6 @@ import io.onedev.server.model.support.pullrequest.MergeStrategy;
 import io.onedev.server.pack.PackSupport;
 import io.onedev.server.service.AgentAttributeService;
 import io.onedev.server.service.AgentService;
-import io.onedev.server.service.LabelSpecService;
 import io.onedev.server.service.LinkSpecService;
 import io.onedev.server.service.SettingService;
 
@@ -52,8 +50,8 @@ public class QueryDescriptions {
             | '"Reaction: Confused Count"' 'is' ('greater'|'less') 'than' '"'Number'"'
             | '"Reaction: Heart Count"' 'is' ('not')? '"'Number'"'
             | '"Reaction: Heart Count"' 'is' ('greater'|'less') 'than' '"'Number'"'
-            | '"Reaction: Rocket Count"' 'is' ('not')? '"'Number'"'
-            | '"Reaction: Rocket Count"' 'is' ('greater'|'less') 'than' '"'Number'"'
+            | '"Reaction: Tick Count"' 'is' ('not')? '"'Number'"'
+            | '"Reaction: Tick Count"' 'is' ('greater'|'less') 'than' '"'Number'"'
             | '"Reaction: Eyes Count"' 'is' ('not')? '"'Number'"'
             | '"Reaction: Eyes Count"' 'is' ('greater'|'less') 'than' '"'Number'"'
         """.trim();
@@ -150,6 +148,7 @@ public class QueryDescriptions {
                     | 'fixed in current build'
                     | 'fixed in pull request' '"'EntityReference'"'
                     | 'fixed in current pull request'
+                    | 'referenced in current branch'
                     | 'fixed between' revision 'and' revision
                     | '"Submit Date"' 'is' ('until'|'since') '"'DateDescription'"' 
                     | '"Last Activity Date"' 'is' ('until'|'since') '"'DateDescription'"'
@@ -244,7 +243,7 @@ public class QueryDescriptions {
                     | 'merged'
                     | 'discarded'
                     | '"Source Branch"' 'is' ('not')? '"'BranchNameOrPattern'"'
-                    | '"Souce Project"' 'is' ('not')? '"'ProjectPathOrPattern'"'
+                    | '"Source Project"' 'is' ('not')? '"'ProjectPathOrPattern'"'
                     | '"Target Branch"' 'is' ('not')? '"'BranchNameOrPattern'"'
                     | '"Merge Strategy"' 'is' ('not')? '"'MergeStrategy'"'
                     | '"Label"' 'is' ('not')? '"'LabelName'"'
@@ -284,7 +283,7 @@ public class QueryDescriptions {
                     | '"Comment Count"' 'is' ('not')? '"'Number'"'
                     | '"Comment Count"' 'is' ('greater'|'less') 'than' '"'Number'"'
                     %s
-                    | '"Project"' 'is' ('not')? '"'ProjectPathOrPattern'"'
+                    | '"Target Project"' 'is' ('not')? '"'ProjectPathOrPattern'"'
                     | 'watched by' '"'LoginNameOfUser'"'
                     | 'watched by me'
                     | 'ignored by' '"'LoginNameOfUser'"'
@@ -319,10 +318,6 @@ public class QueryDescriptions {
                     : %s
                     ;
 
-                LabelName
-                    : %s
-                    ;
-
                 OrderField
                     : %s
                     ;
@@ -336,7 +331,6 @@ public class QueryDescriptions {
                     2. Use an empty query to list all accessible pull requests""", 
                     REACTION_CRITERIAS,
                     Arrays.stream(MergeStrategy.values()).map(it->"'" + it.name() + "'").collect(joining("\n    | ")).trim(), 
-                    getLabelSpecs().stream().map(it->"'" + it.getName() + "'").collect(joining("\n    | ")).trim(), 
                     PullRequest.SORT_FIELDS.keySet().stream().map(it->"'" + it + "'").collect(joining("\n    | ")).trim());
 
         return description;
@@ -353,7 +347,7 @@ public class QueryDescriptions {
                 criteria
                     : '"Number"' 'is' ('not')? '"'EntityReference'"'
                     | '"Number"' 'is' ('greater'|'less') 'than' '"'EntityReference'"'
-                    | 'sucessful'
+                    | 'successful'
                     | 'failed'
                     | 'cancelled'
                     | 'timed out'
@@ -374,9 +368,12 @@ public class QueryDescriptions {
                     | '"Version"' 'is' ('not')? '"'VersionNameOrPattern'"'
                     | '"Branch"' 'is' ('not')? '"'BranchNameOrPattern'"'
                     | '"Tag"' 'is' ('not')? '"'TagNameOrPattern'"'
-                    | '"Param"' 'is' ('not')? '"'ParamName'"'
                     | '"Label"' 'is' ('not')? '"'LabelName'"'
                     | '"Pull Request"' 'is' ('not')? '"'EntityReference'"'
+                    | '"Pull Request"' 'is' ('not')? 'empty'
+                    | '"Version"' 'is' ('not')? 'empty'
+                    | '"Branch"' 'is' ('not')? 'empty'
+                    | '"Tag"' 'is' ('not')? 'empty'
                     | '"Commit"' 'is' ('not')? '"'CommitReference'"'
                     | '"Submit Date"' 'is' ('until'|'since') '"'DateDescription'"'
                     | '"Pending Date"' 'is' ('until'|'since') '"'DateDescription'"'
@@ -398,10 +395,6 @@ public class QueryDescriptions {
                     : (ProjectPath':')?CommitHash
                     ;
 
-                LabelName
-                    : %s
-                    ;
-
                 OrderField
                     : %s
                     ;
@@ -413,14 +406,9 @@ public class QueryDescriptions {
                 Please note:
                     1. "LoginNameOfUser" should be retrieved via tool 'getLoginName' if available, with parameter set to user name
                     2. Use an empty query to list all accessible builds""", 
-                    getLabelSpecs().stream().map(it->"'" + it.getName() + "'").collect(joining("\n    | ")).trim(), 
                     Build.SORT_FIELDS.keySet().stream().map(it->"'" + it + "'").collect(joining("\n    | ")).trim());
 
         return description;
-    }
-
-    private static List<LabelSpec> getLabelSpecs() {
-        return OneDev.getInstance(LabelSpecService.class).query();
     }
 
     public static String getPackQueryDescription() {
@@ -460,10 +448,6 @@ public class QueryDescriptions {
                     : %s
                     ;
 
-                LabelName
-                    : %s
-                    ;
-
                 OrderField
                     : %s
                     ;
@@ -476,9 +460,60 @@ public class QueryDescriptions {
                     1. "LoginNameOfUser" should be retrieved via tool 'getLoginName' if available, with parameter set to user name
                     2. Use an empty query to list all accessible packages""", 
                     packSupports.stream().map(it->"'" + it.getPackType() + "'").collect(joining("\n    | ")).trim(), 
-                    getLabelSpecs().stream().map(it->"'" + it.getName() + "'").collect(joining("\n    | ")).trim(), 
                     Pack.SORT_FIELDS.keySet().stream().map(it->"'" + it + "'").collect(joining("\n    | ")).trim());
         
+        return description;
+    }
+
+    public static String getWorkspaceQueryDescription() {
+        var description = String.format("""
+                A structured query should conform to below ANTLR grammar:
+
+                workspaceQuery
+                    : criteria ('order by' '"'OrderField'"' ('asc'|'desc') (',' '"'OrderField'"' ('asc'|'desc'))*)?
+                    ;
+
+                criteria
+                    : 'pending'
+                    | 'active'
+                    | 'inactive'
+                    | 'created by me'
+                    | 'created by' '"'LoginNameOfUser'"'
+                    | 'ran on' '"'AgentName'"'
+                    | '"Number"' 'is' ('not')? '"'EntityReference'"'
+                    | '"Number"' 'is' ('greater'|'less') 'than' '"'EntityReference'"'
+                    | '"Project"' 'is' ('not')? '"'ProjectPathOrPattern'"'
+                    | '"Branch"' 'is' ('not')? '"'BranchNameOrPattern'"'
+                    | '"Branch"' 'is' ('not')? 'empty'
+                    | '"Commit"' 'is' ('not')? '"'CommitReference'"'
+                    | '"Spec"' 'is' ('not')? '"'WorkspaceSpecName'"'
+                    | '"Create Date"' 'is' ('until'|'since') '"'DateDescription'"'
+                    | '"Active Date"' 'is' ('until'|'since') '"'DateDescription'"'
+                    | criteria 'and' criteria
+                    | criteria 'or' criteria
+                    | 'not('criteria')'
+                    | '('criteria')'
+                    ;
+
+                EntityReference
+                    : '#'Number
+                    | ProjectPath'#'Number
+                    | ProjectKey'-'Number
+                    ;
+
+                OrderField
+                    : %s
+                    ;
+
+                WS
+                    : [ ]+ -> skip
+                    ;
+
+                Please note:
+                    1. "LoginNameOfUser" should be retrieved via tool 'getLoginName' if available, with parameter set to user name
+                    2. Use an empty query to list all accessible workspaces""",
+                Workspace.SORT_FIELDS.keySet().stream().map(it -> "'" + it + "'").collect(joining("\n    | ")).trim());
+
         return description;
     }
 
@@ -503,7 +538,7 @@ public class QueryDescriptions {
                     ;
 
                 revision
-                    : 'commit(' CommitHash ')'
+                    : 'commit(' CommitHash ')' 
                     | 'build(' '#'Number ')'
                     | 'branch(' BranchName ')'
                     | 'tag(' TagName ')'
@@ -540,7 +575,7 @@ public class QueryDescriptions {
                     | 'fork roots'
                     | '"Name"' 'is' ('not')? '"'ProjectNameOrPattern'"'
                     | '"Key"' 'is' ('not')? '"'ProjectKeyOrPattern'"'
-                    | '"Path"' 'is' ('not')? '"'ProjectPathOrPattern'"'
+                    | '"Path"' 'is' ('not')? '"'ProjectPathOrPattern'"' 
                     | '"Label"' 'is' ('not')? '"'LabelName'"'
                     | '"Description"' 'contains' '"'Text'"'
                     | '"Id"' 'is' ('not')? '"'Number'"'
@@ -551,10 +586,6 @@ public class QueryDescriptions {
                     | criteria 'or' criteria
                     | 'not('criteria')'
                     | '('criteria')'
-                    ;
-
-                LabelName
-                    : %s
                     ;
 
                 OrderField
@@ -568,7 +599,6 @@ public class QueryDescriptions {
                 Please note:
                     1. "LoginNameOfUser" should be retrieved via tool 'getLoginName' if available, with parameter set to user name
                     2. Use an empty query to list all accessible projects""", 
-                    getLabelSpecs().stream().map(it->"'" + it.getName() + "'").collect(joining("\n    | ")).trim(), 
                     Project.SORT_FIELDS.keySet().stream().map(it->"'" + it + "'").collect(joining("\n    | ")).trim());
         
         return description;

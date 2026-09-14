@@ -1,42 +1,21 @@
 package io.onedev.server.web.page.project.issues.boards;
 
-import io.onedev.commons.utils.ExplicitException;
-import io.onedev.server.OneDev;
-import io.onedev.server.buildspecmodel.inputspec.InputContext;
-import io.onedev.server.buildspecmodel.inputspec.InputSpec;
-import io.onedev.server.buildspecmodel.inputspec.choiceinput.choiceprovider.ChoiceProvider;
-import io.onedev.server.service.UserService;
-import io.onedev.server.model.Issue;
-import io.onedev.server.model.IssueSchedule;
-import io.onedev.server.model.Project;
-import io.onedev.server.model.User;
-import io.onedev.server.model.support.issue.BoardSpec;
-import io.onedev.server.model.support.issue.StateSpec;
-import io.onedev.server.model.support.issue.field.FieldUtils;
-import io.onedev.server.model.support.issue.field.spec.FieldSpec;
-import io.onedev.server.model.support.issue.field.spec.choicefield.ChoiceField;
-import io.onedev.server.model.support.issue.field.spec.userchoicefield.UserChoiceField;
-import io.onedev.server.model.support.issue.transitionspec.ManualSpec;
-import io.onedev.server.model.support.issue.transitionspec.TransitionSpec;
-import io.onedev.server.search.entity.issue.*;
-import io.onedev.server.security.SecurityUtils;
-import io.onedev.server.util.ComponentContext;
-import io.onedev.server.util.ProjectScope;
-import io.onedev.server.util.criteria.Criteria;
-import io.onedev.server.web.behavior.AbstractPostAjaxBehavior;
-import io.onedev.server.web.component.beaneditmodal.BeanEditModalPanel;
-import io.onedev.server.web.component.floating.FloatingPanel;
-import io.onedev.server.web.component.issue.create.CreateIssuePanel;
-import io.onedev.server.web.component.issue.progress.QueriedIssuesProgressPanel;
-import io.onedev.server.web.component.link.DropdownLink;
-import io.onedev.server.web.component.modal.ModalLink;
-import io.onedev.server.web.component.modal.ModalPanel;
-import io.onedev.server.web.component.user.ident.Mode;
-import io.onedev.server.web.component.user.ident.UserIdentPanel;
-import io.onedev.server.web.editable.BeanDescriptor;
-import io.onedev.server.web.page.project.issues.list.ProjectIssueListPage;
-import io.onedev.server.web.util.ProjectAware;
-import io.onedev.server.web.util.WicketUtils;
+import static io.onedev.server.search.entity.issue.IssueQueryLexer.Is;
+import static io.onedev.server.search.entity.issue.IssueQueryLexer.IsEmpty;
+import static io.onedev.server.search.entity.issue.IssueQueryLexer.IsNot;
+import static io.onedev.server.security.SecurityUtils.canManageIssues;
+import static io.onedev.server.web.translation.Translation._T;
+import static org.apache.wicket.ajax.attributes.CallbackParameter.explicit;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.apache.commons.lang3.SerializationUtils;
 import org.apache.shiro.authz.UnauthorizedException;
 import org.apache.wicket.Component;
@@ -54,17 +33,52 @@ import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.request.IRequestParameters;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
+import org.jspecify.annotations.Nullable;
 import org.unbescape.html.HtmlEscape;
 
-import org.jspecify.annotations.Nullable;
-import java.io.Serializable;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
-
-import static io.onedev.server.search.entity.issue.IssueQueryLexer.*;
-import static io.onedev.server.security.SecurityUtils.canManageIssues;
-import static io.onedev.server.web.translation.Translation._T;
-import static org.apache.wicket.ajax.attributes.CallbackParameter.explicit;
+import io.onedev.commons.utils.ExplicitException;
+import io.onedev.server.OneDev;
+import io.onedev.server.buildspecmodel.inputspec.InputContext;
+import io.onedev.server.buildspecmodel.inputspec.InputSpec;
+import io.onedev.server.buildspecmodel.inputspec.choiceinput.choiceprovider.ChoiceProvider;
+import io.onedev.server.model.Issue;
+import io.onedev.server.model.IssueSchedule;
+import io.onedev.server.model.Project;
+import io.onedev.server.model.User;
+import io.onedev.server.model.support.issue.BoardSpec;
+import io.onedev.server.model.support.issue.StateSpec;
+import io.onedev.server.model.support.issue.field.FieldUtils;
+import io.onedev.server.model.support.issue.field.spec.FieldSpec;
+import io.onedev.server.model.support.issue.field.spec.choicefield.ChoiceField;
+import io.onedev.server.model.support.issue.field.spec.userchoicefield.UserChoiceField;
+import io.onedev.server.model.support.issue.transitionspec.ManualSpec;
+import io.onedev.server.model.support.issue.transitionspec.TransitionSpec;
+import io.onedev.server.search.entity.issue.ChoiceFieldCriteria;
+import io.onedev.server.search.entity.issue.FieldOperatorCriteria;
+import io.onedev.server.search.entity.issue.IssueQuery;
+import io.onedev.server.search.entity.issue.IterationCriteria;
+import io.onedev.server.search.entity.issue.IterationEmptyCriteria;
+import io.onedev.server.search.entity.issue.StateCriteria;
+import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.UserService;
+import io.onedev.server.util.ComponentHierarchical;
+import io.onedev.server.util.HierarchicalContext;
+import io.onedev.server.util.ProjectScope;
+import io.onedev.server.util.criteria.Criteria;
+import io.onedev.server.web.behavior.AbstractPostAjaxBehavior;
+import io.onedev.server.web.component.beaneditmodal.BeanEditModalPanel;
+import io.onedev.server.web.component.floating.FloatingPanel;
+import io.onedev.server.web.component.issue.create.CreateIssuePanel;
+import io.onedev.server.web.component.issue.progress.QueriedIssuesProgressPanel;
+import io.onedev.server.web.component.link.DropdownLink;
+import io.onedev.server.web.component.modal.ModalLink;
+import io.onedev.server.web.component.modal.ModalPanel;
+import io.onedev.server.web.component.user.ident.Mode;
+import io.onedev.server.web.component.user.ident.UserIdentPanel;
+import io.onedev.server.web.editable.BeanDescriptor;
+import io.onedev.server.web.page.project.issues.list.ProjectIssueListPage;
+import io.onedev.server.web.util.ProjectAware;
+import io.onedev.server.web.util.WicketUtils;
 
 abstract class BoardColumnPanel extends AbstractColumnPanel {
 
@@ -147,7 +161,7 @@ abstract class BoardColumnPanel extends AbstractColumnPanel {
 								String identifyField = getBoard().getIdentifyField();
 								if (identifyField.equals(Issue.NAME_STATE)) {
 									var subject = SecurityUtils.getSubject();
-									for (TransitionSpec transition: getIssueSetting().getTransitionSpecs()) {
+									for (TransitionSpec transition: issue.getProject().getHierarchyTransitionSpecs()) {
 										if (transition instanceof ManualSpec && ((ManualSpec)transition).canTransit(subject, issue, getColumn())) {
 											issue = SerializationUtils.clone(issue);
 											issue.setState(getColumn());
@@ -236,11 +250,11 @@ abstract class BoardColumnPanel extends AbstractColumnPanel {
 				FieldSpec fieldSpec = getIssueSetting().getFieldSpec(identifyField);
 				if (fieldSpec instanceof ChoiceField) {
 					ChoiceProvider choiceProvider = ((ChoiceField)fieldSpec).getChoiceProvider();
-					ComponentContext.push(new ComponentContext(this));
+					HierarchicalContext.push(new HierarchicalContext(new ComponentHierarchical(BoardColumnPanel.this)));
 					try {
 						color = choiceProvider.getChoices(true).get(getColumn());
 					} finally {
-						ComponentContext.pop();
+						HierarchicalContext.pop();
 					}
 				} else if (fieldSpec instanceof UserChoiceField) {
 					user = OneDev.getInstance(UserService.class).findByName(getColumn());
@@ -368,7 +382,7 @@ abstract class BoardColumnPanel extends AbstractColumnPanel {
 						cardListPanel.onCardDropped(target, issueId, cardIndex, true);
 					} else if (fieldName.equals(Issue.NAME_STATE)) {
 						AtomicReference<ManualSpec> transitionRef = new AtomicReference<>(null);
-						for (TransitionSpec transition : getIssueSetting().getTransitionSpecs()) {
+						for (TransitionSpec transition : issue.getProject().getHierarchyTransitionSpecs()) {
 							if (transition instanceof ManualSpec && ((ManualSpec)transition).canTransit(subject, issue, getColumn())) {
 								transitionRef.set((ManualSpec) transition);
 								break;
@@ -382,9 +396,9 @@ abstract class BoardColumnPanel extends AbstractColumnPanel {
 						for (String promptField : transition.getPromptFields()) {
 							FieldSpec fieldSpec = getIssueSetting().getFieldSpec(promptField);
 							if (fieldSpec != null && SecurityUtils.canEditIssueField(getProject(), fieldSpec.getName())) {
-								Class<?> fieldBeanClass = FieldUtils.getFieldBeanClass();
-								Serializable fieldBean = issue.getFieldBean(fieldBeanClass, true);
-								if (FieldUtils.isFieldVisible(new BeanDescriptor(fieldBeanClass), fieldBean, promptField)) {
+								Class<?> fieldBeanClass = FieldUtils.getFieldBeanClass(true);
+								Serializable fieldBean = issue.getFieldBean(fieldBeanClass);
+								if (FieldUtils.isFieldVisible(getProject(), new BeanDescriptor(fieldBeanClass), fieldBean, promptField)) {
 									hasPromptFields = true;
 									break;
 								}
@@ -439,14 +453,14 @@ abstract class BoardColumnPanel extends AbstractColumnPanel {
 						if (fieldSpec == null)
 							throw new ExplicitException(_T("Undefined custom field: ") + fieldName);
 
-						Serializable fieldBean = issue.getFieldBean(FieldUtils.getFieldBeanClass(), true);
+						Serializable fieldBean = issue.getFieldBean(FieldUtils.getFieldBeanClass(true));
 						BeanDescriptor beanDescriptor = new BeanDescriptor(fieldBean.getClass());
 						beanDescriptor.getProperty(fieldName).setPropertyValue(fieldBean, getColumn());
 
 						Collection<String> dependentFields = fieldSpec.getTransitiveDependents();
 						boolean hasVisibleEditableDependents = dependentFields.stream()
 								.anyMatch(it -> SecurityUtils.canEditIssueField(issue.getProject(), it)
-										&& FieldUtils.isFieldVisible(beanDescriptor, fieldBean, it));
+										&& FieldUtils.isFieldVisible(issue.getProject(), beanDescriptor, fieldBean, it));
 
 						Map<String, Object> fieldValues = new HashMap<>();
 						fieldValues.put(fieldName, getColumn());
@@ -484,9 +498,7 @@ abstract class BoardColumnPanel extends AbstractColumnPanel {
 
 								@Override
 								protected String onSave(AjaxRequestTarget target, Serializable bean) {
-									fieldValues.putAll(FieldUtils.getFieldValues(
-											FieldUtils.newBeanComponentContext(beanDescriptor, bean),
-											bean, FieldUtils.getEditableFields(getProject(), dependentFields)));
+									fieldValues.putAll(FieldUtils.getFieldValues(getProject(), bean, FieldUtils.getEditableFields(getProject(), dependentFields)));
 									close();
 									Issue issue = getIssueService().load(issueId);
 									getIssueChangeService().changeFields(SecurityUtils.getUser(), issue, fieldValues);

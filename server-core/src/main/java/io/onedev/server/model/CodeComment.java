@@ -13,7 +13,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import org.jspecify.annotations.Nullable;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Embedded;
@@ -27,13 +26,13 @@ import javax.persistence.Table;
 
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jgit.lib.ObjectId;
+import org.jspecify.annotations.Nullable;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 import io.onedev.server.OneDev;
 import io.onedev.server.attachment.AttachmentStorageSupport;
-import io.onedev.server.service.UserService;
 import io.onedev.server.git.service.GitService;
 import io.onedev.server.model.support.CompareContext;
 import io.onedev.server.model.support.LastActivity;
@@ -41,6 +40,7 @@ import io.onedev.server.model.support.Mark;
 import io.onedev.server.model.support.ProjectBelonging;
 import io.onedev.server.search.entity.SortField;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.UserService;
 import io.onedev.server.xodus.VisitInfoService;
 
 @Entity
@@ -312,5 +312,5 @@ public class CodeComment extends ProjectBelonging implements AttachmentStorageSu
 		}
 		return new ArrayList<>(participants);
 	}
-	
+
 }

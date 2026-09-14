@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import io.onedev.commons.utils.command.Commandline;
 import io.onedev.commons.utils.command.LineConsumer;
-import io.onedev.server.git.CommandUtils;
+import io.onedev.server.git.GitUtils;
 
 public class ListNumStatsCommand {
 
@@ -31,7 +31,7 @@ public class ListNumStatsCommand {
 	}
 	
 	protected Commandline newGit() {
-		return CommandUtils.newGit();
+		return GitUtils.newGit();
 	}
 	
 	public List<FileChange> run() {
@@ -42,15 +42,14 @@ public class ListNumStatsCommand {
 		if (noRenames) {
 			git.addArgs("diff", "--numstat", "--no-renames", fromRev + ".." + toRev);
 		} else {
-			git.addArgs("-c", "diff.renameLimit=1000", "diff", "--numstat", 
-					"--find-renames", fromRev + ".." + toRev);
+			git.addArgs("diff", "--numstat", "--find-renames=100%", fromRev + ".." + toRev);
 		}
 		
 		git.execute(new LineConsumer() {
 
 			@Override
 			public void consume(String line) {
-				fileChanges.add(CommandUtils.parseNumStats(line));
+				fileChanges.add(GitUtils.parseNumStats(line));
 			}
 			
 		}, new LineConsumer() {

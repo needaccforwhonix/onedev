@@ -1,11 +1,14 @@
 package io.onedev.server.model;
 
+import io.onedev.server.model.support.wiki.WikiFolder;
+import io.onedev.server.model.support.wiki.WikiSetting;
+import io.onedev.server.model.support.wiki.SpecifiedPath;
+
 import static io.onedev.commons.utils.match.WildcardUtils.matchPath;
 import static io.onedev.server.model.Project.PROP_NAME;
 import static io.onedev.server.model.Project.PROP_PATH;
 import static io.onedev.server.search.entity.EntitySort.Direction.DESCENDING;
 import static io.onedev.server.web.translation.Translation._T;
-import static org.apache.commons.lang3.StringUtils.replace;
 
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
@@ -25,7 +28,6 @@ import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-import org.jspecify.annotations.Nullable;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -46,7 +48,9 @@ import javax.validation.constraints.Pattern;
 import org.apache.commons.collections4.map.AbstractReferenceMap.ReferenceStrength;
 import org.apache.commons.collections4.map.ReferenceMap;
 import org.apache.commons.lang3.SerializationUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.shiro.authz.Permission;
+import org.apache.shiro.subject.Subject;
 import org.apache.tika.mime.MediaType;
 import org.apache.wicket.util.encoding.UrlEncoder;
 import org.eclipse.jgit.lib.Constants;
@@ -54,9 +58,11 @@ import org.eclipse.jgit.lib.FileMode;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.revwalk.LastCommitsOfChildren;
 import org.eclipse.jgit.revwalk.RevCommit;
+import org.hibernate.ObjectNotFoundException;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.DynamicUpdate;
+import org.jspecify.annotations.Nullable;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -78,26 +84,13 @@ import io.onedev.server.annotation.ProjectKey;
 import io.onedev.server.annotation.ProjectName;
 import io.onedev.server.annotation.SubscriptionRequired;
 import io.onedev.server.buildspec.BuildSpec;
-import io.onedev.server.service.BuildService;
-import io.onedev.server.service.BuildQueryPersonalizationService;
-import io.onedev.server.service.CodeCommentQueryPersonalizationService;
-import io.onedev.server.service.CommitQueryPersonalizationService;
-import io.onedev.server.service.EmailAddressService;
-import io.onedev.server.service.IssueService;
-import io.onedev.server.service.IssueQueryPersonalizationService;
-import io.onedev.server.service.PackQueryPersonalizationService;
-import io.onedev.server.service.ProjectService;
-import io.onedev.server.service.PullRequestQueryPersonalizationService;
-import io.onedev.server.service.SettingService;
-import io.onedev.server.service.UrlService;
-import io.onedev.server.service.UserService;
+import io.onedev.server.exception.NotFoundException;
 import io.onedev.server.git.BlameBlock;
 import io.onedev.server.git.Blob;
 import io.onedev.server.git.BlobIdent;
 import io.onedev.server.git.BlobIdentFilter;
 import io.onedev.server.git.GitUtils;
 import io.onedev.server.git.LfsObject;
-import io.onedev.server.git.exception.ObjectNotFoundException;
 import io.onedev.server.git.service.CommitMessageError;
 import io.onedev.server.git.service.GitService;
 import io.onedev.server.git.service.RefFacade;
@@ -108,6 +101,7 @@ import io.onedev.server.model.support.CodeAnalysisSetting;
 import io.onedev.server.model.support.LabelSupport;
 import io.onedev.server.model.support.NamedCodeCommentQuery;
 import io.onedev.server.model.support.NamedCommitQuery;
+import io.onedev.server.model.support.ProjectAiSetting;
 import io.onedev.server.model.support.WebHook;
 import io.onedev.server.model.support.build.BuildPreservation;
 import io.onedev.server.model.support.build.DefaultFixedIssueFilter;
@@ -122,14 +116,32 @@ import io.onedev.server.model.support.issue.BoardSpec;
 import io.onedev.server.model.support.issue.NamedIssueQuery;
 import io.onedev.server.model.support.issue.ProjectIssueSetting;
 import io.onedev.server.model.support.issue.TimesheetSetting;
+import io.onedev.server.model.support.issue.transitionspec.ManualSpec;
+import io.onedev.server.model.support.issue.transitionspec.TransitionSpec;
 import io.onedev.server.model.support.pack.NamedPackQuery;
 import io.onedev.server.model.support.pack.ProjectPackSetting;
 import io.onedev.server.model.support.pullrequest.MergeStrategy;
 import io.onedev.server.model.support.pullrequest.NamedPullRequestQuery;
 import io.onedev.server.model.support.pullrequest.ProjectPullRequestSetting;
+import io.onedev.server.model.support.workspace.NamedWorkspaceQuery;
+import io.onedev.server.model.support.workspace.ProjectWorkspaceSetting;
+import io.onedev.server.model.support.workspace.spec.WorkspaceSpec;
 import io.onedev.server.search.entity.SortField;
 import io.onedev.server.security.SecurityUtils;
-import io.onedev.server.util.ComponentContext;
+import io.onedev.server.service.BuildQueryPersonalizationService;
+import io.onedev.server.service.BuildService;
+import io.onedev.server.service.CodeCommentQueryPersonalizationService;
+import io.onedev.server.service.CommitQueryPersonalizationService;
+import io.onedev.server.service.EmailAddressService;
+import io.onedev.server.service.IssueQueryPersonalizationService;
+import io.onedev.server.service.IssueService;
+import io.onedev.server.service.PackQueryPersonalizationService;
+import io.onedev.server.service.ProjectService;
+import io.onedev.server.service.PullRequestQueryPersonalizationService;
+import io.onedev.server.service.SettingService;
+import io.onedev.server.service.UrlService;
+import io.onedev.server.service.UserService;
+import io.onedev.server.util.HierarchicalContext;
 import io.onedev.server.util.StatusInfo;
 import io.onedev.server.util.diff.WhitespaceOption;
 import io.onedev.server.util.facade.ProjectFacade;
@@ -138,6 +150,7 @@ import io.onedev.server.util.usermatch.UserMatch;
 import io.onedev.server.web.page.project.setting.ContributedProjectSetting;
 import io.onedev.server.web.util.ProjectAware;
 import io.onedev.server.web.util.WicketUtils;
+import io.onedev.server.workspace.WorkspaceQueryPersonalizationService;
 import io.onedev.server.xodus.CommitInfoService;
 
 @Entity
@@ -200,6 +213,8 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	public static final String PROP_GROUP_AUTHORIZATIONS = "groupAuthorizations";
 	
 	public static final String PROP_CODE_MANAGEMENT = "codeManagement";
+
+	public static final String PROP_WIKI_MANAGEMENT = "wikiManagement";
 
 	public static final String PROP_PACK_MANAGEMENT = "packManagement";
 	
@@ -272,14 +287,15 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
     @OneToMany(mappedBy="project")
     private Collection<Build> builds = new ArrayList<>();
 
-	@OneToMany(mappedBy="project", cascade=CascadeType.REMOVE)
-	private Collection<JobCache> jobCaches = new ArrayList<>();
-	
 	@OneToMany(mappedBy= "project")
 	private Collection<PackBlob> packBlobs = new ArrayList<>();
 	
 	@OneToMany(mappedBy="project", cascade=CascadeType.REMOVE)
 	private Collection<Pack> packs = new ArrayList<>();
+
+	@OneToMany(mappedBy="project", cascade=CascadeType.REMOVE)
+	@Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
+	private Collection<GitLfsLock> gitLfsLocks = new ArrayList<>();
 		
 	@Lob
 	@Column(nullable=false, length=65535)
@@ -362,7 +378,10 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 
 	@OneToMany(mappedBy="project", cascade=CascadeType.REMOVE)
 	private Collection<PackQueryPersonalization> packQueryPersonalizations = new ArrayList<>();
-	
+
+	@OneToMany(mappedBy="project", cascade=CascadeType.REMOVE)
+	private Collection<WorkspaceQueryPersonalization> workspaceQueryPersonalizations = new ArrayList<>();
+
 	@OneToMany(mappedBy="project", cascade=CascadeType.REMOVE)
 	@Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
 	private Collection<Iteration> iterations = new ArrayList<>();
@@ -375,7 +394,17 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	@Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
 	private Collection<Audit> audits = new ArrayList<>();
 	
+	@OneToMany(mappedBy="project", cascade=CascadeType.REMOVE)
+	@Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
+	private Collection<Workspace> workspaces = new ArrayList<>();
+
+	@Lob
+	@Column(nullable=false, length=65535)
+	private ArrayList<WorkspaceSpec> workspaceSpecs = new ArrayList<>();
+	
 	private boolean codeManagement = true;
+
+	private boolean wikiManagement = true;
 	
 	private boolean packManagement = true;
 	
@@ -390,6 +419,14 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	@Lob
 	@Column(length=65535)
 	private CodeAnalysisSetting codeAnalysisSetting = new CodeAnalysisSetting();
+
+	@Lob
+	@Column(length=65535)
+	private WikiSetting wikiSetting = new WikiSetting();
+	
+	@Lob
+	@Column(length=65535)
+	private ProjectAiSetting aiSetting = new ProjectAiSetting();
 	
 	// SQL Server does not allow duplicate null values for unique column. So we use 
 	// special prefix to indicate null
@@ -411,7 +448,11 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	@Lob
 	@Column(length=65535, nullable=false)
 	private ProjectPackSetting packSetting = new ProjectPackSetting();
-	
+
+	@Lob
+	@Column(length=65535, nullable=false)
+	private ProjectWorkspaceSetting workspaceSetting = new ProjectWorkspaceSetting();
+
 	@Lob
 	@Column(length=65535)
 	private ArrayList<NamedCommitQuery> namedCommitQueries;
@@ -442,9 +483,11 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
     
     private transient Optional<CodeCommentQueryPersonalization> codeCommentQueryPersonalizationOfCurrentUserHolder;
     
-    private transient Optional<BuildQueryPersonalization> buildQueryPersonalizationOfCurrentUserHolder;
+	private transient Optional<BuildQueryPersonalization> buildQueryPersonalizationOfCurrentUserHolder;
 
 	private transient Optional<PackQueryPersonalization> packQueryPersonalizationOfCurrentUserHolder;
+
+	private transient Optional<WorkspaceQueryPersonalization> workspaceQueryPersonalizationOfCurrentUserHolder;
 	
     private transient Optional<CommitQueryPersonalization> commitQueryPersonalizationOfCurrentUserHolder;
     
@@ -456,6 +499,12 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	
 	private transient Map<ObjectId, Collection<String>> reachableBranchesCache;
 	
+	private transient List<WorkspaceSpec> hierarchyWorkspaceSpecs;
+	
+	private transient Map<Object, Boolean> canCreateWorkspaceCache;
+
+	private transient Map<Object, Boolean> canWriteCodeCache;
+
 	@Editable(order=100)
 	@ProjectName
 	@NotEmpty
@@ -769,7 +818,7 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	 * @return
 	 * 			blob of specified blob ident
 	 * @throws
-	 * 			ObjectNotFoundException if blob of specified ident can not be found in repository 
+	 * 			ObjectNotFoundException if blob of specified ident cannot be found in repository 
 	 * 			
 	 */
 	@Nullable
@@ -791,7 +840,7 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 			getBlobCache().put(blobIdent, blobOptional);
 		}
 		if (mustExist && !blobOptional.isPresent())
-			throw new ObjectNotFoundException("Unable to find blob ident: " + blobIdent);
+			throw new NotFoundException("Unable to find blob ident: " + blobIdent);
 		else 
 			return blobOptional.orNull();
 	}
@@ -823,7 +872,7 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 			objectIdCache.put(revision, optional);
 		}
 		if (mustExist && !optional.isPresent())
-			throw new ObjectNotFoundException("Unable to find revision '" + revision + "'");
+			throw new NotFoundException("Unable to find revision '" + revision + "'");
 		return optional.orNull();
 	}
 	
@@ -993,7 +1042,7 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 			commitCache.put(revId, commit);
 		}
 		if (mustExist && !commit.isPresent())
-			throw new ObjectNotFoundException("Unable to find commit associated with object id: " + revId);
+			throw new NotFoundException("Unable to find commit associated with object id: " + revId);
 		else
 			return commit.orNull();
 	}
@@ -1013,6 +1062,18 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 
 	public void setCodeManagement(boolean codeManagement) {
 		this.codeManagement = codeManagement;
+	}
+
+	@Editable(order=275, description="""
+			Whether or not to enable wiki management for the project. Wiki pages 
+			are accessible to all users with access to the project""")
+	@DependsOn(property="codeManagement")
+	public boolean isWikiManagement() {
+		return wikiManagement;
+	}
+
+	public void setWikiManagement(boolean wikiManagement) {
+		this.wikiManagement = wikiManagement;
 	}
 
 	@Editable(order=300, description="Whether or not to enable issue management for the project")
@@ -1057,6 +1118,28 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	public void setPackManagement(boolean packManagement) {
 		this.packManagement = packManagement;
 	}
+
+	public ArrayList<WorkspaceSpec> getWorkspaceSpecs() {
+		return workspaceSpecs;
+	}
+
+	public void setWorkspaceSpecs(ArrayList<WorkspaceSpec> workspaceSpecs) {
+		this.workspaceSpecs = workspaceSpecs;
+	}
+
+	public List<WorkspaceSpec> getHierarchyWorkspaceSpecs() {
+		if (hierarchyWorkspaceSpecs == null) {
+			var specMap = new LinkedHashMap<String, WorkspaceSpec>();
+			for (var spec : getWorkspaceSpecs())
+				specMap.put(spec.getName(), spec);
+			if (getParent() != null) {
+				for (var spec : getParent().getHierarchyWorkspaceSpecs())
+					specMap.putIfAbsent(spec.getName(), spec);
+			}
+			hierarchyWorkspaceSpecs = new ArrayList<>(specMap.values());
+		}
+		return hierarchyWorkspaceSpecs;
+	}
 	
 	@Editable(order=500, placeholder="Default", description="Specify an email address sharing same inbox as " +
 			"the system email address in mail setting definition. Emails sent to this address will be " +
@@ -1080,12 +1163,38 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 		this.gitPackConfig = gitPackConfig;
 	}
 
+	public WikiSetting getWikiSetting() {
+		if (wikiSetting == null)
+			wikiSetting = new WikiSetting();
+		return wikiSetting;
+	}
+
+	public void setWikiSetting(WikiSetting wikiSetting) {
+		this.wikiSetting = wikiSetting;
+	}
+
+	public WikiFolder getWikiFolder() {
+		for (Project current = this; current != null; current = current.getParent()) {
+			if (current.getWikiSetting().getFolder() != null)
+				return current.getWikiSetting().getFolder();
+		}
+		return new SpecifiedPath();
+	}
+
 	public CodeAnalysisSetting getCodeAnalysisSetting() {
 		return codeAnalysisSetting;
 	}
 
 	public void setCodeAnalysisSetting(CodeAnalysisSetting codeAnalysisSetting) {
 		this.codeAnalysisSetting = codeAnalysisSetting;
+	}
+
+	public ProjectAiSetting getAiSetting() {
+		return aiSetting;
+	}
+
+	public void setAiSetting(ProjectAiSetting aiSetting) {
+		this.aiSetting = aiSetting;
 	}
 
 	public ProjectIssueSetting getIssueSetting() {
@@ -1110,6 +1219,14 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 
 	public void setPackSetting(ProjectPackSetting packSetting) {
 		this.packSetting = packSetting;
+	}
+
+	public ProjectWorkspaceSetting getWorkspaceSetting() {
+		return workspaceSetting;
+	}
+
+	public void setWorkspaceSetting(ProjectWorkspaceSetting workspaceSetting) {
+		this.workspaceSetting = workspaceSetting;
 	}
 
 	public List<JobSecret> getHierarchyJobSecrets() {
@@ -1255,20 +1372,20 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 		this.packQueryPersonalizations = packQueryPersonalizations;
 	}
 
+	public Collection<WorkspaceQueryPersonalization> getWorkspaceQueryPersonalizations() {
+		return workspaceQueryPersonalizations;
+	}
+
+	public void setWorkspaceQueryPersonalizations(Collection<WorkspaceQueryPersonalization> workspaceQueryPersonalizations) {
+		this.workspaceQueryPersonalizations = workspaceQueryPersonalizations;
+	}
+
 	public Collection<Build> getBuilds() {
 		return builds;
 	}
 
 	public void setBuilds(Collection<Build> builds) {
 		this.builds = builds;
-	}
-
-	public Collection<JobCache> getJobCaches() {
-		return jobCaches;
-	}
-
-	public void setJobCaches(Collection<JobCache> jobCaches) {
-		this.jobCaches = jobCaches;
 	}
 
 	public Collection<PackBlob> getPackBlobs() {
@@ -1513,6 +1630,26 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 		}
 		return packQueryPersonalizationOfCurrentUserHolder.orNull();
 	}
+
+	@Nullable
+	public WorkspaceQueryPersonalization getWorkspaceQueryPersonalizationOfCurrentUser() {
+		if (workspaceQueryPersonalizationOfCurrentUserHolder == null) {
+			User user = SecurityUtils.getAuthUser();
+			if (user != null) {
+				WorkspaceQueryPersonalization personalization =
+						OneDev.getInstance(WorkspaceQueryPersonalizationService.class).find(this, user);
+				if (personalization == null) {
+					personalization = new WorkspaceQueryPersonalization();
+					personalization.setProject(this);
+					personalization.setUser(user);
+				}
+				workspaceQueryPersonalizationOfCurrentUserHolder = Optional.of(personalization);
+			} else {
+				workspaceQueryPersonalizationOfCurrentUserHolder = Optional.absent();
+			}
+		}
+		return workspaceQueryPersonalizationOfCurrentUserHolder.orNull();
+	}
 	
 	@Nullable
 	public Iteration getHierarchyIteration(@Nullable String iterationName) {
@@ -1640,9 +1777,9 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 		} else if (Build.get() != null) {
 			return Build.get().getProject();
 		} else {
-			ComponentContext componentContext = ComponentContext.get();
-			if (componentContext != null) {
-				ProjectAware projectAware = WicketUtils.findInnermost(componentContext.getComponent(), ProjectAware.class);
+			var hierarchicalContext = HierarchicalContext.get();
+			if (hierarchicalContext != null) {
+				ProjectAware projectAware = hierarchicalContext.findData(ProjectAware.class);
 				if (projectAware != null) 
 					return projectAware.getProject();
 			}
@@ -1843,6 +1980,27 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 
 		return getSettingService().getPackSetting().getNamedQueries();
 	}
+
+	public List<NamedWorkspaceQuery> getNamedWorkspaceQueries() {
+		Project current = this;
+		do {
+			List<NamedWorkspaceQuery> namedQueries = current.getWorkspaceSetting().getNamedQueries();
+			if (namedQueries != null)
+				return namedQueries;
+			current = current.getParent();
+		} while (current != null);
+
+		return getSettingService().getWorkspaceSetting().getNamedQueries();
+	}
+
+	@Nullable
+	public NamedWorkspaceQuery getNamedWorkspaceQuery(String name) {
+		for (NamedWorkspaceQuery namedQuery : getNamedWorkspaceQueries()) {
+			if (namedQuery.getName().equals(name))
+				return namedQuery;
+		}
+		return null;
+	}
 	
 	public List<NamedPullRequestQuery> getNamedPullRequestQueries() {
 		Project current = this;
@@ -1854,6 +2012,29 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 		} while (current != null); 
 		
 		return getSettingService().getPullRequestSetting().getNamedQueries();
+	}
+	
+	public List<TransitionSpec> getHierarchyTransitionSpecs() {
+		List<TransitionSpec> transitionSpecs = new ArrayList<>();
+		Project current = this;
+		do {
+			transitionSpecs.addAll(current.getIssueSetting().getTransitionSpecs());
+			current = current.getParent();
+		} while (current != null);
+		transitionSpecs.addAll(getSettingService().getIssueSetting().getTransitionSpecs());
+		return transitionSpecs;
+	}
+	
+	@Nullable
+	public ManualSpec getManualSpec(Subject subject, Issue issue, @Nullable String state) {
+		for (var transition: getHierarchyTransitionSpecs()) {
+			if (transition instanceof ManualSpec) {
+				var manualSpec = (ManualSpec) transition;
+				if (manualSpec.canTransit(subject, issue, state) && manualSpec.isAuthorized(subject, issue)) 
+					return manualSpec;
+			}
+		}
+		return null;
 	}
 	
 	public Map<String, TimesheetSetting> getHierarchyTimesheetSettings() {
@@ -1886,14 +2067,7 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	public Collection<Long> parseFixedIssueIds(String commitMessage) {
 		return OneDev.getInstance(IssueService.class).parseFixedIssueIds(this, commitMessage);
 	}
-	
-	public Collection<Project> getTree() {
-		List<Project> projects = Lists.newArrayList(this);
-		projects.addAll(getDescendants());
-		projects.addAll(getAncestors());
-		return projects;
-	}
-	
+		
 	public MediaType detectMediaType(BlobIdent blobIdent) {
 		Blob blob = getBlob(blobIdent, true);
 		if (blob.getLfsPointer() != null) {
@@ -1918,7 +2092,19 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 			return null;
 	}
 	
-	public String findCodeAnalysisPatterns() {
+	@Nullable
+	public String findExcludedAiReviewFiles() {
+		Project current = this;
+		do {
+			if (current.getAiSetting().getExcludedReviewFiles() != null)
+				return current.getAiSetting().getExcludedReviewFiles();
+			current = current.getParent();
+		} while (current != null);
+		
+		return null;
+	}
+	
+	public String findCodeAnalysisFiles() {
 		Project current = this;
 		do {
 			if (current.getCodeAnalysisSetting().getAnalyzeFiles() != null)
@@ -1927,6 +2113,18 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 		} while (current != null);
 		
 		return "**";
+	}
+
+	@Nullable
+	public String findIssueBranchPrefix() {
+		Project current = this;
+		do {
+			if (current.getIssueSetting().getBranchPrefix() != null)
+				return current.getIssueSetting().getBranchPrefix();
+			current = current.getParent();
+		} while (current != null);
+
+		return null;
 	}
 
 	public MergeStrategy findDefaultPullRequestMergeStrategy() {
@@ -2003,6 +2201,27 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	public File getDir() {
 		return OneDev.getInstance(ProjectService.class).getProjectDir(getId());
 	}
+
+	public Collection<ProjectEntitlement> getEntitlements() {
+		return entitlements;
+	}
+
+	public void setEntitlements(Collection<ProjectEntitlement> entitlements) {
+		this.entitlements = entitlements;
+	}
+
+	public Collection<Workspace> getWorkspaces() {
+		return workspaces;
+	}
+	
+	public boolean isEntitledToAi(User ai) {
+		if (ai.getAiSetting().isEntitleToAll())
+			return true;
+		var hierarchyProjects = new ArrayList<Project>();
+		hierarchyProjects.addAll(getAncestors());
+		hierarchyProjects.add(this);
+		return hierarchyProjects.stream().anyMatch(it -> it.getEntitlements().stream().anyMatch(it2 -> it2.getAi().equals(ai)));
+	}
 	
 	public static String encodePathAsRepoName(String projectPath) {
 		return projectPath.replace("/", FAKED_GITHUB_REPO_PATH_SEPARATOR);
@@ -2017,7 +2236,7 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	}
 	
 	public static String decodeFullRepoNameAsPath(String text) {
-		return decodeRepoNameAsPath(replace(text, FAKED_GITHUB_REPO_OWNER + "/", ""));
+		return decodeRepoNameAsPath(Strings.CS.replace(text, FAKED_GITHUB_REPO_OWNER + "/", ""));
 	}
 	
 	public static Collection<Project> getIndependents(Collection<Project> projects) {
@@ -2032,6 +2251,20 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 			}
 		}
 		return independents;
+	}
+	
+	public boolean canCreateWorkspace(Subject subject) {
+		if (canCreateWorkspaceCache == null)
+			canCreateWorkspaceCache = new HashMap<>();
+		return canCreateWorkspaceCache.computeIfAbsent(subject.getPrincipal(), it ->
+				SecurityUtils.canCreateWorkspaces(subject, this));
+	}
+
+	public boolean canWriteCode(Subject subject) {
+		if (canWriteCodeCache == null)
+			canWriteCodeCache = new HashMap<>();
+		return canWriteCodeCache.computeIfAbsent(subject.getPrincipal(), it ->
+				SecurityUtils.canWriteCode(subject, this));
 	}
 	
 }

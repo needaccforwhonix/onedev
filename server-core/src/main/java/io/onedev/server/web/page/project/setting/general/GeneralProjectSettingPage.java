@@ -1,6 +1,7 @@
 package io.onedev.server.web.page.project.setting.general;
 
 import static io.onedev.server.model.Project.PROP_CODE_MANAGEMENT;
+import static io.onedev.server.model.Project.PROP_WIKI_MANAGEMENT;
 import static io.onedev.server.model.Project.PROP_DESCRIPTION;
 import static io.onedev.server.model.Project.PROP_ISSUE_MANAGEMENT;
 import static io.onedev.server.model.Project.PROP_KEY;
@@ -59,7 +60,7 @@ public class GeneralProjectSettingPage extends ProjectSettingPage {
 		super.onInitialize();
 		
 		Collection<String> properties = Sets.newHashSet(PROP_NAME, PROP_KEY, 
-				PROP_DESCRIPTION, PROP_CODE_MANAGEMENT, PROP_PACK_MANAGEMENT, 
+				PROP_DESCRIPTION, PROP_CODE_MANAGEMENT, PROP_WIKI_MANAGEMENT, PROP_PACK_MANAGEMENT,
 				PROP_ISSUE_MANAGEMENT, PROP_TIME_TRACKING);
 		
 		DefaultRolesBean defaultRolesBean = new DefaultRolesBean();
@@ -125,7 +126,7 @@ public class GeneralProjectSettingPage extends ProjectSettingPage {
 						if (parent == null) 
 							parentError = _T("Parent project not found");
 						else if (project.isSelfOrAncestorOf(parent)) 
-							parentError = _T("Can not use current or descendant project as parent");
+							parentError = _T("Cannot use current or descendant project as parent");
 						else if (!SecurityUtils.canCreateChildren(parent)) 
 							parentError = _T("Not authorized to move project under this parent");
 						else
@@ -210,7 +211,7 @@ public class GeneralProjectSettingPage extends ProjectSettingPage {
 
 					@Override
 					protected String getConfirmMessage() {
-						return MessageFormat.format(_T("Everything inside this project and all child projects will be deleted and can not be recovered, "
+						return MessageFormat.format(_T("Everything inside this project and all child projects will be deleted and cannot be recovered, "
 								+ "please type project path <code>{0}</code> below to confirm deletion."), getProject().getPath());
 					}
 

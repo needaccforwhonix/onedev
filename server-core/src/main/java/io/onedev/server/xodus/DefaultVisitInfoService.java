@@ -1,25 +1,13 @@
 package io.onedev.server.xodus;
 
-import com.google.common.collect.Lists;
-import io.onedev.commons.loader.ManagedSerializedForm;
-import io.onedev.commons.utils.FileUtils;
-import io.onedev.commons.utils.TarUtils;
-import io.onedev.k8shelper.KubernetesHelper;
-import io.onedev.server.cluster.ClusterService;
-import io.onedev.server.service.ProjectService;
-import io.onedev.server.event.Listen;
-import io.onedev.server.event.entity.EntityRemoved;
-import io.onedev.server.event.project.codecomment.CodeCommentEvent;
-import io.onedev.server.event.project.issue.IssueEvent;
-import io.onedev.server.event.project.pullrequest.PullRequestCodeCommentEvent;
-import io.onedev.server.event.project.pullrequest.PullRequestEvent;
-import io.onedev.server.model.*;
-import io.onedev.server.persistence.annotation.Transactional;
-import jetbrains.exodus.env.Environment;
-import jetbrains.exodus.env.Store;
-import org.joda.time.DateTime;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static java.lang.Long.valueOf;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectStreamException;
+import java.io.Serializable;
+import java.util.Date;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -29,10 +17,33 @@ import javax.ws.rs.client.Invocation;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response;
-import java.io.*;
-import java.util.Date;
 
-import static java.lang.Long.valueOf;
+import org.joda.time.DateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.Lists;
+
+import io.onedev.commons.loader.ManagedSerializedForm;
+import io.onedev.commons.utils.FileUtils;
+import io.onedev.commons.utils.TarUtils;
+import io.onedev.k8shelper.KubernetesHelper;
+import io.onedev.server.cluster.ClusterService;
+import io.onedev.server.event.Listen;
+import io.onedev.server.event.entity.EntityRemoved;
+import io.onedev.server.event.project.codecomment.CodeCommentEvent;
+import io.onedev.server.event.project.issue.IssueEvent;
+import io.onedev.server.event.project.pullrequest.PullRequestCodeCommentEvent;
+import io.onedev.server.event.project.pullrequest.PullRequestEvent;
+import io.onedev.server.model.CodeComment;
+import io.onedev.server.model.Issue;
+import io.onedev.server.model.Project;
+import io.onedev.server.model.PullRequest;
+import io.onedev.server.model.User;
+import io.onedev.server.persistence.annotation.Transactional;
+import io.onedev.server.service.ProjectService;
+import jetbrains.exodus.env.Environment;
+import jetbrains.exodus.env.Store;
 
 /**
  * Store project visit information here as we only need to load a single database to sort projects based on user 
@@ -57,16 +68,12 @@ public class DefaultVisitInfoService extends AbstractEnvironmentService
 
 	private static final String ISSUE_STORE = "issueVisit";
 	
-	private final ProjectService projectService;
-	
-	private final ClusterService clusterService;
+	@Inject
+	private ProjectService projectService;
 	
 	@Inject
-	public DefaultVisitInfoService(ProjectService projectService, ClusterService clusterService) {
-		this.projectService = projectService;
-		this.clusterService = clusterService;
-	}
-	
+	private ClusterService clusterService;
+		
 	public Object writeReplace() throws ObjectStreamException {
 		return new ManagedSerializedForm(VisitInfoService.class);
 	}
@@ -111,7 +118,7 @@ public class DefaultVisitInfoService extends AbstractEnvironmentService
 					long time = new DateTime().plusSeconds(1).getMillis();
 					writeLong(store, txn, new LongsByteIterable(Lists.newArrayList(userId, issueId)), time);
 				});
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				logger.error("Error writing issue visit timestamp", e);
 			}
 			return null;
@@ -131,7 +138,7 @@ public class DefaultVisitInfoService extends AbstractEnvironmentService
 					long time = new DateTime().plusSeconds(1).getMillis();
 					writeLong(store, txn, new LongsByteIterable(Lists.newArrayList(userId, requestId)), time);
 				});
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				logger.error("Error writing pull request visit timestamp", e);
 			}
 			return null;
@@ -151,7 +158,7 @@ public class DefaultVisitInfoService extends AbstractEnvironmentService
 					long time = new DateTime().plusSeconds(1).getMillis();
 					writeLong(store, txn, new LongsByteIterable(Lists.newArrayList(userId, commentId)), time);
 				});
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				logger.error("Error writing code comment visit timestamp", e);
 			}
 			return null;
@@ -171,7 +178,7 @@ public class DefaultVisitInfoService extends AbstractEnvironmentService
 					long time = new DateTime().plusSeconds(1).getMillis();
 					writeLong(store, txn, new LongsByteIterable(Lists.newArrayList(userId, requestId)), time);
 				});
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				logger.error("Error writing pull request code comments visit timestamp", e);
 			}
 			return null;

@@ -51,8 +51,8 @@ public abstract class TransitionOptionPanel extends Panel implements InputContex
 	protected void onInitialize() {
 		super.onInitialize();
 		
-		Class<?> fieldBeanClass = FieldUtils.getFieldBeanClass();
-		Serializable fieldBean = getIssue().getFieldBean(fieldBeanClass, true);
+		Class<?> fieldBeanClass = FieldUtils.getFieldBeanClass(true);
+		Serializable fieldBean = getIssue().getFieldBean(fieldBeanClass);
 
 		Form<?> form = new Form<Void>("form") {
 
@@ -107,8 +107,7 @@ public abstract class TransitionOptionPanel extends Panel implements InputContex
 
 				Collection<String> editableFields = FieldUtils.getEditableFields(
 						getIssue().getProject(), getTransition().getPromptFields()); 
-				Map<String, Object> fieldValues = FieldUtils.getFieldValues(
-						editor.newComponentContext(), fieldBean, editableFields);
+				Map<String, Object> fieldValues = FieldUtils.getFieldValues(getIssue().getProject(), fieldBean, editableFields);
 				onTransit(target, fieldValues, comment);
 			}
 			

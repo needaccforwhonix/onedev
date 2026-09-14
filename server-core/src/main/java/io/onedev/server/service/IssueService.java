@@ -35,10 +35,13 @@ public interface IssueService extends EntityService<Issue> {
 
     @Nullable
     Issue find(String uuid);
-    
+
+	@Nullable
+	Issue findByMessageId(String messageId);
+
 	void open(Issue issue);
 	
-	void open(Issue issue, Collection<String> notifiedEmailAddresses);
+	void open(Issue issue, Collection<String> listeningEmailAddresses);
 	
 	void togglePin(Issue issue);
 	
@@ -48,19 +51,19 @@ public interface IssueService extends EntityService<Issue> {
 	
 	List<Issue> queryPinned(Subject subject, Project project);
 
-	Predicate[] buildPredicates(Subject subject, @Nullable ProjectScope projectScope, @Nullable Criteria<Issue> issueCriteria,
-								CriteriaQuery<?> query, CriteriaBuilder builder, From<Issue, Issue> issue);
+	Predicate[] buildPredicates(Subject subject, @Nullable ProjectScope projectScope, 
+			@Nullable Criteria<Issue> criteria, CriteriaQuery<?> query, CriteriaBuilder builder, 
+			From<Issue, Issue> issue);
 	
 	List<javax.persistence.criteria.Order> buildOrders(EntityQuery<Issue> query, CriteriaBuilder builder, 
-													   From<Issue, Issue> issue, 
-													   List<javax.persistence.criteria.Order> preferOrders);
+			From<Issue, Issue> issue, List<javax.persistence.criteria.Order> preferOrders);
 	
-	List<Issue> query(Subject subject, @Nullable ProjectScope projectScope, EntityQuery<Issue> issueQuery, 
+	List<Issue> query(Subject subject, @Nullable ProjectScope projectScope, EntityQuery<Issue> query, 
 			boolean loadExtraInfo, int firstResult, int maxResults);
 	
-	int count(Subject subject, @Nullable ProjectScope projectScope, @Nullable Criteria<Issue> issueCriteria);
+	int count(Subject subject, @Nullable ProjectScope projectScope, @Nullable Criteria<Issue> criteria);
 	
-	IssueTimes queryTimes(Subject subject, ProjectScope projectScope, @Nullable Criteria<Issue> issueCriteria);
+	IssueTimes queryTimes(Subject subject, ProjectScope projectScope, @Nullable Criteria<Issue> criteria);
 	
 	Collection<String> getUndefinedStates();
 	
@@ -102,5 +105,9 @@ public interface IssueService extends EntityService<Issue> {
 	Collection<Long> getProjectIds();
 
 	List<Issue> query(User submitter, Date fromDate, Date toDate);
+
+	String suggestBranch(Issue issue);
+	
+	String ensureBranch(Subject subject, Issue issue);
 	
 }

@@ -74,7 +74,14 @@
 }
 .board-card .primary {
 	position: relative;
+	padding-left: 20px;
 	padding-right: 20px;
+}
+.board-card .drag-handle {
+	cursor: move;
+	position: absolute;
+	left: 0;
+	top: 3px;
 }
 .board-card .primary .title {
 	word-break: break-word !important;
@@ -144,17 +151,39 @@
 .dark-mode .board-card.ui-draggable-dragging {
 	box-shadow: 0px 0px 8px 4px rgba(0, 0, 0, 0.5);	
 }
+.board-card .issue-progress {
+	vertical-align: middle;
+	position: relative;
+	top: -2px;
+}
 .board-card .issue-progress .completion-rate {
 	width: 19px !important;
 	height: 19px !important;
 }
+.board-card .avatars>.avatar:last-child .value:last-child {
+	margin-right: 0 !important;
+}
+.board-card .avatars:has(.value) + .progress-container {
+	margin-left: 0.5rem;
+}
+
 
 .board-card-detail .modal-header h5 {
 	width: 100%;
 	margin-right: 36px;
 }
 
+@media(min-width: 1199px) {
+	.board-card-detail>.modal-body>div.side-info {
+		position: static;
+		align-self: stretch;
+	}
+}
+
 .board-card-detail .issue-operations .new-issue {
 	display: none;
 }
 
+.board-card .issue-item .no-estimate {
+	display: none !important;
+}

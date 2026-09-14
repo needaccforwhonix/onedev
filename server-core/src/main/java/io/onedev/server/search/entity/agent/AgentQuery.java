@@ -15,6 +15,7 @@ import static io.onedev.server.search.entity.agent.AgentQueryParser.IsNot;
 import static io.onedev.server.search.entity.agent.AgentQueryParser.Offline;
 import static io.onedev.server.search.entity.agent.AgentQueryParser.Online;
 import static io.onedev.server.search.entity.agent.AgentQueryParser.Paused;
+import static io.onedev.server.util.QueryUtils.getValue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -68,7 +69,7 @@ public class AgentQuery extends EntityQuery<Agent> {
 		this(null);
 	}
 	
-	public static AgentQuery parse(@Nullable String queryString, boolean forExecutor) {
+	public static AgentQuery parse(@Nullable String queryString, boolean forRunner) {
 		if (queryString != null) {
 			CharStream is = CharStreams.fromString(queryString); 
 			AgentQueryLexer lexer = new AgentQueryLexer(is);
@@ -99,7 +100,7 @@ public class AgentQuery extends EntityQuery<Agent> {
 					
 					@Override
 					public Criteria<Agent> visitOperatorCriteria(OperatorCriteriaContext ctx) {
-						if (forExecutor)
+						if (forRunner)
 							throw new ExplicitException("Criteria '" + ctx.operator.getText() + "' is not supported here");
 						
 						switch (ctx.operator.getType()) {
@@ -118,7 +119,7 @@ public class AgentQuery extends EntityQuery<Agent> {
 					
 					@Override
 					public Criteria<Agent> visitOperatorValueCriteria(OperatorValueCriteriaContext ctx) {
-						if (forExecutor && ctx.HasAttribute() == null)
+						if (forRunner && ctx.HasAttribute() == null)
 							throw new ExplicitException("Criteria '" + ctx.operator.getText() + "' is not supported here");
 						
 						var criterias = new ArrayList<Criteria<Agent>>();
@@ -210,7 +211,7 @@ public class AgentQuery extends EntityQuery<Agent> {
 				var fieldName = getValue(order.Quoted().getText());
 				var sortField = SORT_FIELDS.get(fieldName);
 				if (sortField == null)
-					throw new ExplicitException("Can not order by field: " + fieldName);
+					throw new ExplicitException("Cannot order by field: " + fieldName);
 				
 				EntitySort agentSort = new EntitySort();
 				agentSort.setField(fieldName);

@@ -17,14 +17,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.jspecify.annotations.Nullable;
 import javax.validation.ConstraintValidatorContext;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotEmpty;
 
-import org.apache.wicket.Component;
 import org.eclipse.jgit.lib.ObjectId;
+import org.jspecify.annotations.Nullable;
 
 import io.onedev.commons.codeassist.InputCompletion;
 import io.onedev.commons.codeassist.InputStatus;
@@ -48,13 +47,12 @@ import io.onedev.server.buildspec.param.spec.ParamSpec;
 import io.onedev.server.buildspec.step.Step;
 import io.onedev.server.event.project.ProjectEvent;
 import io.onedev.server.git.GitUtils;
-import io.onedev.server.job.match.JobMatch;
 import io.onedev.server.job.match.JobMatchContext;
 import io.onedev.server.model.PullRequest;
 import io.onedev.server.model.support.administration.jobexecutor.JobExecutor;
 import io.onedev.server.service.SettingService;
-import io.onedev.server.util.ComponentContext;
 import io.onedev.server.util.EditContext;
+import io.onedev.server.util.HierarchicalContext;
 import io.onedev.server.util.criteria.Criteria;
 import io.onedev.server.validation.Validatable;
 import io.onedev.server.web.page.project.blob.ProjectBlobPage;
@@ -112,6 +110,10 @@ public class Job implements NamedElement, Validatable {
 	private int maxRetries = 3;
 	
 	private int retryDelay = 30;
+
+	private boolean includeUpstreamWhenRebuild;
+
+	private boolean includeDownstreamWhenRebuild;
 	
 	private transient Map<String, ParamSpec> paramSpecMap;
 	
@@ -133,7 +135,7 @@ public class Job implements NamedElement, Validatable {
 		if (buildSpec != null) {
 			List<String> candidates = new ArrayList<>(buildSpec.getJobMap().keySet());
 			buildSpec.getJobs().forEach(it->candidates.remove(it.getName()));
-			return BuildSpec.suggestOverrides(candidates, status);
+			return SuggestionUtils.suggestOverrides(candidates, status);
 		}
 		return new ArrayList<>();
 	}
@@ -175,21 +177,15 @@ public class Job implements NamedElement, Validatable {
 				branch = "main";
 			JobMatchContext context = new JobMatchContext(page.getProject(), branch, null, jobName);
 			for (JobExecutor executor: OneDev.getInstance(SettingService.class).getJobExecutors()) {
-				if (executor.isEnabled()) {
-					if (executor.getJobMatch() == null) {
-						applicableJobExecutors.add(executor.getName());
-					} else {
-						if (JobMatch.parse(executor.getJobMatch(), true, true).matches(context))
-							applicableJobExecutors.add(executor.getName());
-					}
-				}
+				if (executor.isEnabled() && executor.isApplicable(context))
+					applicableJobExecutors.add(executor.getName());
 			}
 		}
 		
 		return SuggestionUtils.suggest(applicableJobExecutors, matchWith);
 	}
 	
-	@Editable(order=200, description="Steps will be executed serially on same node, sharing the same <a href='https://docs.onedev.io/concepts#job-workspace'>job workspace</a>")
+	@Editable(order=200, description="Steps will be executed serially on same node, sharing the same <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>")
 	@Valid
 	public List<Step> getSteps() {
 		return steps;
@@ -257,8 +253,7 @@ public class Job implements NamedElement, Validatable {
 	@SuppressWarnings("unused")
 	private static List<String> getServiceChoices() {
 		List<String> choices = new ArrayList<>();
-		Component component = ComponentContext.get().getComponent();
-		BuildSpecAware buildSpecAware = WicketUtils.findInnermost(component, BuildSpecAware.class);
+		BuildSpecAware buildSpecAware = HierarchicalContext.get().findData(BuildSpecAware.class);
 		if (buildSpecAware != null) {
 			BuildSpec buildSpec = buildSpecAware.getBuildSpec();
 			if (buildSpec != null) { 
@@ -316,9 +311,27 @@ public class Job implements NamedElement, Validatable {
 	public void setRetryDelay(int retryDelay) {
 		this.retryDelay = retryDelay;
 	}
+
+	@Editable(order=9430, group="More Settings", description="Whether or not to also rebuild direct upstream jobs when rebuilding this job")
+	public boolean isIncludeUpstreamWhenRebuild() {
+		return includeUpstreamWhenRebuild;
+	}
+
+	public void setIncludeUpstreamWhenRebuild(boolean includeUpstreamWhenRebuild) {
+		this.includeUpstreamWhenRebuild = includeUpstreamWhenRebuild;
+	}
+
+	@Editable(order=9440, group="More Settings", description="Whether or not to also rebuild direct downstream jobs when rebuilding this job")
+	public boolean isIncludeDownstreamWhenRebuild() {
+		return includeDownstreamWhenRebuild;
+	}
+
+	public void setIncludeDownstreamWhenRebuild(boolean includeDownstreamWhenRebuild) {
+		this.includeDownstreamWhenRebuild = includeDownstreamWhenRebuild;
+	}
 	
 	@Editable(order=10500, group="More Settings", description="Specify timeout in seconds. It counts from " +
-			"the time when job is submitted")
+			"the time when job starts running")
 	public long getTimeout() {
 		return timeout;
 	}
@@ -449,15 +462,15 @@ public class Job implements NamedElement, Validatable {
 	
 	public static List<String> getChoices() {
 		List<String> choices = new ArrayList<>();
-		Component component = ComponentContext.get().getComponent();
-		BuildSpecAware buildSpecAware = WicketUtils.findInnermost(component, BuildSpecAware.class);
+		var hierarchicalContext = HierarchicalContext.get();
+		BuildSpecAware buildSpecAware = hierarchicalContext.findData(BuildSpecAware.class);
 		if (buildSpecAware != null) {
 			BuildSpec buildSpec = buildSpecAware.getBuildSpec();
 			if (buildSpec != null) {
 				choices.addAll(buildSpec.getJobMap().values().stream()
 						.map(it->it.getName()).collect(Collectors.toList()));
 			}
-			JobAware jobAware = WicketUtils.findInnermost(component, JobAware.class);
+			JobAware jobAware = hierarchicalContext.findData(JobAware.class);
 			if (jobAware != null) {
 				Job job = jobAware.getJob();
 				if (job != null)

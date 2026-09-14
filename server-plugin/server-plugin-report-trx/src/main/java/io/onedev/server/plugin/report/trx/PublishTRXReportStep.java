@@ -12,8 +12,8 @@ import io.onedev.server.buildspec.BuildSpec;
 import io.onedev.server.buildspec.step.StepGroup;
 import io.onedev.server.model.Build;
 import io.onedev.server.plugin.report.unittest.PublishUnitTestReportStep;
-import io.onedev.server.plugin.report.unittest.UnitTestReport;
-import io.onedev.server.plugin.report.unittest.UnitTestReport.TestCase;
+import io.onedev.server.codequality.UnitTestReport;
+import io.onedev.server.codequality.UnitTestReport.TestCase;
 import io.onedev.server.util.XmlUtils;
 import org.dom4j.DocumentException;
 import org.dom4j.io.SAXReader;
@@ -31,7 +31,7 @@ public class PublishTRXReportStep extends PublishUnitTestReportStep {
 
 	private static final long serialVersionUID = 1L;
 
-	@Editable(order=100, description="Specify .net TRX test result file relative to <a href='https://docs.onedev.io/concepts#job-workspace'>job workspace</a>, "
+	@Editable(order=100, description="Specify .net TRX test result file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, "
 			+ "for instance <tt>TestResults/*.trx</tt>. Use * or ? for pattern match")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Patterns(path=true)

@@ -3,12 +3,13 @@ package io.onedev.server.plugin.imports.url;
 import java.io.Serializable;
 import java.net.URISyntaxException;
 
-import org.jspecify.annotations.Nullable;
 import javax.validation.ConstraintValidatorContext;
 import javax.validation.constraints.NotEmpty;
 
+import org.apache.commons.lang3.Strings;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.shiro.authz.UnauthorizedException;
+import org.jspecify.annotations.Nullable;
 
 import io.onedev.commons.bootstrap.SecretMasker;
 import io.onedev.commons.utils.ExplicitException;
@@ -19,12 +20,12 @@ import io.onedev.server.annotation.ClassValidating;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Password;
 import io.onedev.server.data.migration.VersionedXmlDoc;
-import io.onedev.server.service.AuditService;
-import io.onedev.server.service.ProjectService;
 import io.onedev.server.git.command.LsRemoteCommand;
 import io.onedev.server.model.Project;
 import io.onedev.server.persistence.TransactionService;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.AuditService;
+import io.onedev.server.service.ProjectService;
 import io.onedev.server.util.EditContext;
 import io.onedev.server.validation.Validatable;
 import io.onedev.server.web.component.taskbutton.TaskResult;
@@ -92,7 +93,7 @@ public class ImportServer implements Serializable, Validatable {
 		return null;
 	}
 	
-	TaskResult importProject(boolean dryRun, TaskLogger logger) {
+	TaskResult importProject(@Nullable String parentProjectPath, boolean dryRun, TaskLogger logger) {
 		return OneDev.getInstance(TransactionService.class).call(() -> {
 			try {
 				String projectPath = getProject();
@@ -100,6 +101,9 @@ public class ImportServer implements Serializable, Validatable {
 					projectPath = deriveProjectPath(getUrl());
 				if (projectPath == null)
 					throw new ExplicitException("Invalid url: " + getUrl());
+				
+				if (parentProjectPath != null)
+					projectPath = parentProjectPath + "/" + projectPath;
 
 				logger.log("Importing from '" + getUrl() + "' to '" + projectPath + "'...");
 
@@ -119,7 +123,7 @@ public class ImportServer implements Serializable, Validatable {
 
 					SecretMasker.push(text -> {
 						if (authentication != null)
-							return StringUtils.replace(text, authentication.getPassword(), "******");
+							return Strings.CS.replace(text, authentication.getPassword(), "******");
 						else
 							return text;
 					});

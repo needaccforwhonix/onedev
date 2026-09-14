@@ -1,9 +1,21 @@
 package io.onedev.server.notification;
 
+import static io.onedev.server.notification.NotificationUtils.getEmailBody;
+import static java.util.stream.Collectors.toSet;
+
+import java.io.ObjectStreamException;
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
 import com.google.common.collect.Lists;
+
+import io.onedev.commons.loader.ManagedSerializedForm;
 import io.onedev.commons.utils.StringUtils;
-import io.onedev.server.service.CodeCommentMentionService;
-import io.onedev.server.service.UserService;
 import io.onedev.server.event.Listen;
 import io.onedev.server.event.project.codecomment.CodeCommentEdited;
 import io.onedev.server.event.project.codecomment.CodeCommentEvent;
@@ -14,19 +26,12 @@ import io.onedev.server.model.CodeCommentStatusChange;
 import io.onedev.server.model.User;
 import io.onedev.server.model.support.EntityComment;
 import io.onedev.server.persistence.annotation.Transactional;
+import io.onedev.server.service.CodeCommentMentionService;
+import io.onedev.server.service.UserService;
 import io.onedev.server.util.commenttext.MarkdownText;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
-
-import static io.onedev.server.notification.NotificationUtils.getEmailBody;
-import static java.util.stream.Collectors.toSet;
-
 @Singleton
-public class CodeCommentNotificationManager {
+public class CodeCommentNotificationManager implements Serializable {
 
 	@Inject
 	private MailService mailService;
@@ -53,16 +58,17 @@ public class CodeCommentNotificationManager {
 
 			if (markdown != null) {
 				for (String userName : new MentionParser().parseMentions(markdown.getRendered())) {
-					User user = userService.findByName(userName);
-					if (user != null) {
-						mentionService.mention(comment, user);
-						notifyUsers.add(user);
+					User mentionedUser = userService.findByName(userName);
+					if (mentionedUser != null) {
+						mentionService.mention(comment, mentionedUser);
+						notifyUsers.add(mentionedUser);
 					}
 				}
 			}
 
 			Set<String> emailAddresses = notifyUsers.stream()
-					.filter(it -> it.isOrdinary()
+					.filter(it -> it.getId() > 0
+							&& it.getType() != User.Type.AI
 							&& (!it.equals(event.getUser()) || it.isNotifyOwnEvents())
 							&& it.getPrimaryEmailAddress() != null
 							&& it.getPrimaryEmailAddress().isVerified())
@@ -92,4 +98,9 @@ public class CodeCommentNotificationManager {
 			}
 		}
 	}
+
+	public Object writeReplace() throws ObjectStreamException {
+		return new ManagedSerializedForm(CodeCommentNotificationManager.class);
+	}
+
 }

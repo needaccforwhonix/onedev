@@ -30,6 +30,7 @@ abstract class TagProtectionPanel extends Panel {
 		super.onInitialize();
 		
 		add(new Label("tags", protection.getTags()));
+		add(new Label("userMatch", "(" + protection.getUserMatch() + ")"));
 		
 		add(new AjaxLink<Void>("edit") {
 
@@ -52,6 +53,15 @@ abstract class TagProtectionPanel extends Panel {
 				target.add(editor);
 			}
 			
+		});
+
+		add(new AjaxLink<Void>("copy") {
+
+			@Override
+			public void onClick(AjaxRequestTarget target) {
+				onCopy(target);
+			}
+
 		});
 		
 		add(new AjaxLink<Void>("delete") {
@@ -96,6 +106,8 @@ abstract class TagProtectionPanel extends Panel {
 	}
 	
 	protected abstract void onDelete(AjaxRequestTarget target);
+
+	protected abstract void onCopy(AjaxRequestTarget target);
 
 	protected abstract void onSave(AjaxRequestTarget target, TagProtection protection);
 

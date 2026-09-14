@@ -31,14 +31,11 @@ import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Multiline;
 import io.onedev.server.annotation.RoleName;
 import io.onedev.server.annotation.ShowCondition;
-import io.onedev.server.service.LinkSpecService;
-import io.onedev.server.service.SettingService;
 import io.onedev.server.model.support.role.AllIssueFields;
 import io.onedev.server.model.support.role.CodePrivilege;
 import io.onedev.server.model.support.role.IssueFieldSet;
 import io.onedev.server.model.support.role.JobPrivilege;
 import io.onedev.server.model.support.role.PackPrivilege;
-import io.onedev.server.security.permission.AccessBuild;
 import io.onedev.server.security.permission.AccessBuildLog;
 import io.onedev.server.security.permission.AccessBuildPipeline;
 import io.onedev.server.security.permission.AccessBuildReports;
@@ -47,6 +44,8 @@ import io.onedev.server.security.permission.AccessProject;
 import io.onedev.server.security.permission.AccessTimeTracking;
 import io.onedev.server.security.permission.BasePermission;
 import io.onedev.server.security.permission.CreateChildren;
+import io.onedev.server.security.permission.CreateWorkspaces;
+import io.onedev.server.security.permission.EditFieldsOfOtherIssues;
 import io.onedev.server.security.permission.EditIssueField;
 import io.onedev.server.security.permission.EditIssueLink;
 import io.onedev.server.security.permission.JobPermission;
@@ -56,6 +55,7 @@ import io.onedev.server.security.permission.ManageIssues;
 import io.onedev.server.security.permission.ManageJob;
 import io.onedev.server.security.permission.ManageProject;
 import io.onedev.server.security.permission.ManagePullRequests;
+import io.onedev.server.security.permission.ManageWorkspaces;
 import io.onedev.server.security.permission.ReadCode;
 import io.onedev.server.security.permission.ReadPack;
 import io.onedev.server.security.permission.RunJob;
@@ -63,6 +63,8 @@ import io.onedev.server.security.permission.ScheduleIssues;
 import io.onedev.server.security.permission.UploadCache;
 import io.onedev.server.security.permission.WriteCode;
 import io.onedev.server.security.permission.WritePack;
+import io.onedev.server.service.LinkSpecService;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.util.EditContext;
 import io.onedev.server.util.facade.RoleFacade;
 import io.onedev.server.util.facade.UserFacade;
@@ -112,6 +114,9 @@ public class Role extends AbstractEntity implements BasePermission {
 	@Lob
 	@Column(length=65535, nullable=false)
 	private IssueFieldSet editableIssueFields = new AllIssueFields();
+
+	@Column(name="EDIT_OTHER_ISSUES")
+	private boolean canEditFieldsOfOtherIssues;
 	
 	@Transient
 	private List<String> editableIssueLinks = new ArrayList<>();
@@ -123,6 +128,10 @@ public class Role extends AbstractEntity implements BasePermission {
 	@Lob
 	@Column(length=65535, nullable=false)
 	private ArrayList<JobPrivilege> jobPrivileges = new ArrayList<>();
+
+	private boolean manageWorkspaces;
+
+	private boolean createWorkspaces;
 	
 	@OneToMany(mappedBy="role", cascade=CascadeType.REMOVE)
 	@Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
@@ -188,6 +197,24 @@ public class Role extends AbstractEntity implements BasePermission {
 		this.createChildren = createChildren;
 	}
 
+	@Editable(order=300, description="Specify the code privilege for the role. The Write permission implies CreateWorkspaces permission")
+	@DependsOn(property="managePullRequests", value="false")
+	@DependsOn(property="manageCodeComments", value="false")
+	@NotNull
+	public CodePrivilege getCodePrivilege() {
+		return codePrivilege;
+	}
+
+	public void setCodePrivilege(CodePrivilege codePrivilege) {
+		this.codePrivilege = codePrivilege;
+	}
+
+	@SuppressWarnings("unused")
+	private static boolean isCodePrivilegeVisible() {
+		return !(boolean)EditContext.get().getInputValue("managePullRequests")
+				&& !(boolean)EditContext.get().getInputValue("manageCodeComments");
+	}
+
 	@Editable(order=250, name="Pull Request Management", description="Pull request administrative permission inside a project, "
 			+ "including batch operations over multiple pull requests")
 	@DependsOn(property="manageProject", value="false")
@@ -210,24 +237,8 @@ public class Role extends AbstractEntity implements BasePermission {
 		this.manageCodeComments = manageCodeComments;
 	}
 
-	@Editable(order=300)
-	@ShowCondition("isCodePrivilegeVisible")
-	@NotNull
-	public CodePrivilege getCodePrivilege() {
-		return codePrivilege;
-	}
-
-	public void setCodePrivilege(CodePrivilege codePrivilege) {
-		this.codePrivilege = codePrivilege;
-	}
-
-	@SuppressWarnings("unused")
-	private static boolean isCodePrivilegeVisible() {
-		return !(boolean)EditContext.get().getInputValue("managePullRequests")
-				&& !(boolean)EditContext.get().getInputValue("manageCodeComments");
-	}
-
 	@Editable(order=350, name="Package Privilege")
+	@DependsOn(property="manageProject", value="false")
 	@NotNull
 	public PackPrivilege getPackPrivilege() {
 		return packPrivilege;
@@ -278,7 +289,7 @@ public class Role extends AbstractEntity implements BasePermission {
 		this.scheduleIssues = scheduleIssues;
 	}
 
-	@Editable(order=600, description="Optionally specify custom fields allowed to edit when open new issues")
+	@Editable(order=600, description="Optionally specify custom fields allowed to edit")
 	@DependsOn(property="manageIssues", value="false")
 	@NotNull
 	public IssueFieldSet getEditableIssueFields() {
@@ -287,6 +298,18 @@ public class Role extends AbstractEntity implements BasePermission {
 
 	public void setEditableIssueFields(IssueFieldSet editableIssueFields) {
 		this.editableIssueFields = editableIssueFields;
+	}
+	
+	@Editable(order=610, description="""
+		By default, users are only allowed to edit fields specified above for issues submitted by themselves. 
+		Enable this option to allow to edit fields for issues submitted by others.""")
+	@DependsOn(property="manageIssues", value="false")
+	public boolean isCanEditFieldsOfOtherIssues() {
+		return canEditFieldsOfOtherIssues;
+	}
+
+	public void setCanEditFieldsOfOtherIssues(boolean canEditFieldsOfOtherIssues) {
+		this.canEditFieldsOfOtherIssues = canEditFieldsOfOtherIssues;
 	}
 
 	@SuppressWarnings("unused")
@@ -340,7 +363,9 @@ public class Role extends AbstractEntity implements BasePermission {
 		this.uploadCache = uploadCache;
 	}
 
-	@Editable(order=700)
+	@Editable(order=700, name="Additional Job Privileges", description="""
+		By default, users can access artifacts from all jobs. To assign additional privileges to specific jobs, \
+		specify them here.""")
 	@DependsOn(property="manageBuilds", value="false")
 	public List<JobPrivilege> getJobPrivileges() {
 		return jobPrivileges;
@@ -348,6 +373,33 @@ public class Role extends AbstractEntity implements BasePermission {
 
 	public void setJobPrivileges(List<JobPrivilege> jobPrivileges) {
 		this.jobPrivileges = (ArrayList<JobPrivilege>) jobPrivileges;
+	}
+
+	@Editable(order=800, name="Workspace Management", description="""
+			Workspace administrative permission inside a project, including batch operations 
+			over multiple workspaces including batch operations over multiple workspaces. 
+			This permission implies WriteCode permission.""")
+	@DependsOn(property="manageProject", value="false")
+	public boolean isManageWorkspaces() {
+		return manageWorkspaces;
+	}	
+
+	public void setManageWorkspaces(boolean manageWorkspaces) {
+		this.manageWorkspaces = manageWorkspaces;
+	}
+
+	@Editable(order=900, name="Create Workspaces", description="""
+			Create workspaces on any commit or branch under a project. 
+			This permission implies the permission to read code.
+			""")
+	@DependsOn(property="manageWorkspaces", value="false")
+	@DependsOn(property="codePrivilege", value="WRITE", inverse=true)
+	public boolean isCreateWorkspaces() {
+		return createWorkspaces;
+	}
+
+	public void setCreateWorkspaces(boolean createWorkspaces) {
+		this.createWorkspaces = createWorkspaces;
 	}
 
 	public Collection<BaseAuthorization> getBaseAuthorizations() {
@@ -403,14 +455,19 @@ public class Role extends AbstractEntity implements BasePermission {
 		if (scheduleIssues)
 			permissions.add(new ScheduleIssues());
 		permissions.add(new EditIssueField(editableIssueFields.getIncludeFields()));
+		if (canEditFieldsOfOtherIssues)
+			permissions.add(new EditFieldsOfOtherIssues());
 		for (LinkAuthorization linkAuthorization: getLinkAuthorizations()) 
 			permissions.add(new EditIssueLink(linkAuthorization.getLink()));
 		if (manageBuilds)
 			permissions.add(new ManageBuilds());
+		if (manageWorkspaces)
+			permissions.add(new ManageWorkspaces());
+		if (createWorkspaces)
+			permissions.add(new CreateWorkspaces());
 		if (uploadCache)
 			permissions.add(new UploadCache());
 		for (var jobPrivilege: jobPrivileges) {
-			permissions.add(new JobPermission(jobPrivilege.getJobNames(), new AccessBuild()));
 			if (jobPrivilege.isManageJob()) 
 				permissions.add(new JobPermission(jobPrivilege.getJobNames(), new ManageJob()));
 			if (jobPrivilege.isRunJob()) 

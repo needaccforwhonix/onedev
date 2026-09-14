@@ -90,11 +90,13 @@ public class Translation extends TranslationResourceBundle {
 		extraKeys.add("PENDING");
 		extraKeys.add("FAILED");
 		extraKeys.add("CANCELLED");
-		extraKeys.add("TIMED_OUT");
+		extraKeys.add("TIMED_OUT");		
 		extraKeys.add("SUCCESSFUL");		
 		extraKeys.add("OPEN");
 		extraKeys.add("MERGED");
 		extraKeys.add("DISCARDED");
+		extraKeys.add("ACTIVE");
+		extraKeys.add("INACTIVE");
 		extraKeys.add("Container Image(s)");
 		extraKeys.add("Container Image");
 		extraKeys.add("RubyGems(s)");
@@ -137,7 +139,7 @@ public class Translation extends TranslationResourceBundle {
 		extraKeys.add("Filter pull requests");
 		extraKeys.add("Filter issues");
 		extraKeys.add("Add all commits from source branch to target branch with a merge commit");
-		extraKeys.add("Only create merge commit if target branch can not be fast-forwarded to source branch");
+		extraKeys.add("Only create merge commit if target branch cannot be fast-forwarded to source branch");
 		extraKeys.add("Squash all commits from source branch into a single commit in target branch");
 		extraKeys.add("Rebase all commits from source branch onto target branch");
 		extraKeys.add("Closed");

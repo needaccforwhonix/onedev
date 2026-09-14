@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.jspecify.annotations.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.validation.constraints.NotEmpty;
@@ -33,6 +32,7 @@ import org.apache.shiro.authz.UnauthorizedException;
 import org.eclipse.jgit.lib.FileMode;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.PersonIdent;
+import org.jspecify.annotations.Nullable;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,7 +40,7 @@ import com.google.common.base.Splitter;
 
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.commons.utils.StringUtils;
-import io.onedev.server.service.ProjectService;
+import io.onedev.server.exception.NotFoundException;
 import io.onedev.server.git.Blob;
 import io.onedev.server.git.BlobContent;
 import io.onedev.server.git.BlobEdits;
@@ -50,7 +50,6 @@ import io.onedev.server.git.GitUtils;
 import io.onedev.server.git.command.LogCommand;
 import io.onedev.server.git.command.LogCommit;
 import io.onedev.server.git.command.RevListOptions;
-import io.onedev.server.git.exception.ObjectNotFoundException;
 import io.onedev.server.git.service.GitService;
 import io.onedev.server.git.service.RefFacade;
 import io.onedev.server.model.Project;
@@ -60,6 +59,7 @@ import io.onedev.server.rest.resource.support.FileCreateOrUpdateRequest;
 import io.onedev.server.rest.resource.support.FileEditRequest;
 import io.onedev.server.search.commit.CommitQuery;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.ProjectService;
 import io.onedev.server.util.RevisionAndPath;
 
 @Path("/repositories")
@@ -70,19 +70,15 @@ public class RepositoryResource {
 
 	private static final int MAX_COMMITS = 10000;
 	
-	private final ProjectService projectService;
+	@Inject
+	private ProjectService projectService;
 
-	private final GitService gitService;
-	
-	private final ObjectMapper mapper;
+	@Inject
+	private GitService gitService;
 	
 	@Inject
-	public RepositoryResource(ProjectService projectService, GitService gitService, ObjectMapper mapper) {
-		this.projectService = projectService;
-		this.gitService = gitService;
-		this.mapper = mapper;
-	}
-
+	private ObjectMapper objectMapper;
+	
 	@Api(order=10, description="List all branches")
 	@Path("/{projectId}/branches")
 	@GET
@@ -115,11 +111,11 @@ public class RepositoryResource {
 	@POST
 	public Response setDefaultBranch(@PathParam("projectId") Long projectId, @NotNull String defaultBranch) {
 		Project project = projectService.load(projectId);
-		if (!SecurityUtils.canWriteCode(project))
+		if (!SecurityUtils.canManageProject(project))
 			throw new UnauthorizedException();
 
 		try {
-			project.setDefaultBranch(mapper.readValue(defaultBranch, String.class));
+			project.setDefaultBranch(objectMapper.readValue(defaultBranch, String.class));
 		} catch (JsonProcessingException e) {
 			throw new RuntimeException(e);
 		}
@@ -140,7 +136,7 @@ public class RepositoryResource {
 
 		RefFacade ref = project.getBranchRef(branchName);
 		if (ref == null)
-			throw new ObjectNotFoundException("Branch not found: " + branchName);
+			throw new NotFoundException("Branch not found: " + branchName);
 
 		RefResponse response = new RefResponse();
 		
@@ -166,7 +162,7 @@ public class RepositoryResource {
 		if (!project.isCommitSignatureRequirementSatisfied(
 				user, request.getBranchName(), 
 				project.getRevCommit(request.getRevision(), true))) {
-			throw new ExplicitException("Can not create this branch as branch protection setting "
+			throw new ExplicitException("Cannot create this branch as branch protection setting "
 					+ "requires valid signature on head commit");
 		}
 		
@@ -181,10 +177,9 @@ public class RepositoryResource {
 	public Response deleteBranch(@PathParam("projectId") Long projectId, 
 			@PathParam("branch") @Api(example="test-branch") String branchName) {
 		Project project = projectService.load(projectId);
-		if (!SecurityUtils.canDeleteBranch(project, branchName)) {
+		if (!SecurityUtils.canDeleteBranch(project, branchName)) 
 			throw new UnauthorizedException();
-		}
-
+		
 		projectService.deleteBranch(project, branchName);
 
 		return Response.ok().build();
@@ -218,7 +213,7 @@ public class RepositoryResource {
 
 		RefFacade ref = project.getTagRef(tagName);
 		if (ref == null)
-			throw new ObjectNotFoundException("Tag not found: " + tagName);
+			throw new NotFoundException("Tag not found: " + tagName);
 
 		RefResponse response = new RefResponse();
 		
@@ -280,12 +275,7 @@ public class RepositoryResource {
     	if (count > MAX_COMMITS)
     		throw new NotAcceptableException("Count should not be greater than " + MAX_COMMITS);
 
-    	CommitQuery parsedQuery;
-		try {
-			parsedQuery = CommitQuery.parse(project, query, true);
-		} catch (Exception e) {
-			throw new NotAcceptableException("Error parsing query", e);
-		}
+		var parsedQuery = CommitQuery.parse(project, query, true);
     	
 		RevListOptions options = new RevListOptions();
 		options.ignoreCase(true);
@@ -309,7 +299,7 @@ public class RepositoryResource {
 		if (!commits.isEmpty())
 			return commits.iterator().next();
 		else
-			throw new ObjectNotFoundException("Commit not found");
+			throw new NotFoundException("Commit not found");
     }
 
 	@SuppressWarnings("unused")
@@ -350,18 +340,25 @@ public class RepositoryResource {
 	}
 	
 	@Api(order=100, description="Get metadata and content of specified file")
-	@Path("/{projectId}/files/{revisionAndFile:.*}")
+	@Path("/{projectId}/files")
 	@GET
 	public FileResponse getFile(
 			@PathParam("projectId") Long projectId, 
-			@PathParam("revisionAndFile") @NotEmpty @Api(example="some-branch-or-tag/path/to/file") String revisionAndFile) {
+			@QueryParam("revision") @NotEmpty @Api(example="some-branch-or-tag") String revision,
+			@QueryParam("file") @NotEmpty @Api(example="path/to/file") String file) {
 		Project project = projectService.load(projectId);
-		if (!SecurityUtils.canReadCode(project)) {
+		file = GitUtils.normalizePath(file);
+		if (file == null)
+			throw new NotAcceptableException("File should be specified");
+		
+		if (!SecurityUtils.canReadFile(project, file)) {
 			throw new UnauthorizedException();
 		}
 
-		List<String> revisionAndPathSegments = Splitter.on('/').splitToList(revisionAndFile);
-		BlobIdent blobIdent = new BlobIdent(project, revisionAndPathSegments);
+		int mode = project.getMode(revision, file);
+		if (mode == 0)
+			throw new NotFoundException("Unable to find blob path '" + file + "' in revision '" + revision + "'");
+		BlobIdent blobIdent = new BlobIdent(revision, file, mode);
 
 		if (!blobIdent.isFile()) {
 			throw new NotAcceptableException("Specified path is not a file: " + blobIdent.path);

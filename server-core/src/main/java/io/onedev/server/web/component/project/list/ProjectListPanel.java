@@ -14,11 +14,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
-import org.jspecify.annotations.Nullable;
+import javax.inject.Inject;
 
-import io.onedev.server.web.util.WicketUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.wicket.Component;
 import org.apache.wicket.Session;
@@ -46,28 +44,22 @@ import org.apache.wicket.markup.html.link.BookmarkablePageLink;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.markup.repeater.Item;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
+import org.jspecify.annotations.Nullable;
 
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.OneDev;
 import io.onedev.server.data.migration.VersionedXmlDoc;
-import io.onedev.server.service.AuditService;
-import io.onedev.server.service.BuildService;
-import io.onedev.server.service.IssueService;
-import io.onedev.server.service.PackService;
-import io.onedev.server.service.ProjectService;
-import io.onedev.server.service.PullRequestService;
-import io.onedev.server.service.SettingService;
 import io.onedev.server.imports.ProjectImporter;
 import io.onedev.server.imports.ProjectImporterContribution;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.PullRequest;
+import io.onedev.server.model.Workspace;
 import io.onedev.server.model.support.administration.GlobalIssueSetting;
 import io.onedev.server.search.entity.EntityQuery;
 import io.onedev.server.search.entity.EntitySort;
@@ -77,13 +69,23 @@ import io.onedev.server.search.entity.project.FuzzyCriteria;
 import io.onedev.server.search.entity.project.ProjectQuery;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.security.permission.CreateChildren;
+import io.onedev.server.service.AuditService;
+import io.onedev.server.service.BuildService;
+import io.onedev.server.service.IssueService;
+import io.onedev.server.service.PackService;
+import io.onedev.server.service.ProjectService;
+import io.onedev.server.service.PullRequestService;
+import io.onedev.server.service.SettingService;
+import io.onedev.server.workspace.WorkspaceService;
 import io.onedev.server.util.ProjectBuildStatusStat;
 import io.onedev.server.util.ProjectIssueStateStat;
 import io.onedev.server.util.ProjectPackTypeStat;
 import io.onedev.server.util.ProjectPullRequestStatusStat;
+import io.onedev.server.util.ProjectWorkspaceStatusStat;
 import io.onedev.server.util.facade.ProjectFacade;
 import io.onedev.server.web.WebConstants;
 import io.onedev.server.web.WebSession;
+import io.onedev.server.web.asset.dropdowntriangleindicator.DropdownTriangleIndicatorCssResourceReference;
 import io.onedev.server.web.behavior.ProjectQueryBehavior;
 import io.onedev.server.web.component.datatable.DefaultDataTable;
 import io.onedev.server.web.component.datatable.selectioncolumn.SelectionColumn;
@@ -102,16 +104,18 @@ import io.onedev.server.web.component.project.stats.code.CodeStatsPanel;
 import io.onedev.server.web.component.project.stats.issue.IssueStatsPanel;
 import io.onedev.server.web.component.project.stats.pack.PackStatsPanel;
 import io.onedev.server.web.component.project.stats.pullrequest.PullRequestStatsPanel;
+import io.onedev.server.web.component.project.stats.workspace.WorkspaceStatsPanel;
 import io.onedev.server.web.component.savedquery.SavedQueriesClosed;
+import io.onedev.server.web.component.savedquery.SavedQueriesLink;
 import io.onedev.server.web.component.savedquery.SavedQueriesOpened;
 import io.onedev.server.web.component.sortedit.SortEditPanel;
 import io.onedev.server.web.page.base.BasePage;
 import io.onedev.server.web.page.project.NewProjectPage;
-import io.onedev.server.web.page.project.children.ProjectChildrenPage;
-import io.onedev.server.web.page.project.dashboard.ProjectDashboardPage;
 import io.onedev.server.web.page.project.imports.ProjectImportPage;
+import io.onedev.server.web.page.project.overview.ProjectOverviewPage;
 import io.onedev.server.web.util.LoadableDetachableDataProvider;
 import io.onedev.server.web.util.QuerySaveSupport;
+import io.onedev.server.web.util.WicketUtils;
 import io.onedev.server.web.util.paginghistory.PagingHistorySupport;
 
 public class ProjectListPanel extends Panel {
@@ -121,6 +125,30 @@ public class ProjectListPanel extends Panel {
 	private final IModel<String> queryStringModel;
 	
 	private final int expectedCount;
+
+	@Inject
+	private ProjectService projectService;
+
+	@Inject
+	private AuditService auditService;
+
+	@Inject
+	private IssueService issueService;
+
+	@Inject
+	private BuildService buildService;
+
+	@Inject
+	private PackService packService;
+
+	@Inject
+	private PullRequestService pullRequestService;
+
+	@Inject
+	private WorkspaceService workspaceService;
+
+	@Inject
+	private SettingService settingService;
 
 	private final IModel<ProjectQuery> queryModel = new LoadableDetachableModel<>() {
 
@@ -142,7 +170,7 @@ public class ProjectListPanel extends Panel {
 					List<Project> projects = new ArrayList<>();
 					for (Component row : (WebMarkupContainer) projectsTable.get("body").get("rows"))
 						projects.add((Project) row.getDefaultModelObject());
-					return OneDev.getInstance(IssueService.class).queryStateStats(SecurityUtils.getSubject(), projects);
+					return issueService.queryStateStats(SecurityUtils.getSubject(), projects);
 				}
 
 			}; 
@@ -155,7 +183,7 @@ public class ProjectListPanel extends Panel {
 					List<Project> projects = new ArrayList<>();
 					for (Component row : (WebMarkupContainer) projectsTable.get("body").get("rows"))
 						projects.add((Project) row.getDefaultModelObject());
-					return OneDev.getInstance(BuildService.class).queryStatusStats(projects);
+					return buildService.queryStatusStats(projects);
 				}
 
 			};
@@ -168,7 +196,7 @@ public class ProjectListPanel extends Panel {
 					List<Project> projects = new ArrayList<>();
 					for (Component row : (WebMarkupContainer) projectsTable.get("body").get("rows"))
 						projects.add((Project) row.getDefaultModelObject());
-					return OneDev.getInstance(PackService.class).queryTypeStats(projects);
+					return packService.queryTypeStats(projects);
 				}
 
 			};
@@ -181,12 +209,24 @@ public class ProjectListPanel extends Panel {
 					List<Project> projects = new ArrayList<>();
 					for (Component row : (WebMarkupContainer) projectsTable.get("body").get("rows"))
 						projects.add((Project) row.getDefaultModelObject());
-					return OneDev.getInstance(PullRequestService.class).queryStatusStats(projects);
+					return pullRequestService.queryStatusStats(projects);
 				}
 
 			}; 
-	
-	private Component countLabel;
+
+	private final IModel<List<ProjectWorkspaceStatusStat>> workspaceStatsModel =
+			new LoadableDetachableModel<>() {
+
+				@Override
+				protected List<ProjectWorkspaceStatusStat> load() {
+					List<Project> projects = new ArrayList<>();
+					for (Component row : (WebMarkupContainer) projectsTable.get("body").get("rows"))
+						projects.add((Project) row.getDefaultModelObject());
+					return workspaceService.queryStatusStats(projects);
+				}
+
+			};
+
 	
 	private DataTable<Project, Void> projectsTable;	
 	
@@ -208,17 +248,10 @@ public class ProjectListPanel extends Panel {
 		this.expectedCount = expectedCount;
 	}
 	
-	private ProjectService getProjectService() {
-		return OneDev.getInstance(ProjectService.class);
-	}
-
-	private AuditService getAuditService() {
-		return OneDev.getInstance(AuditService.class);
-	}
-	
 	@Override
 	protected void onDetach() {
 		pullRequestStatsModel.detach();
+		workspaceStatsModel.detach();
 		buildStatsModel.detach();
 		issueStatsModel.detach();
 		queryStringModel.detach();
@@ -238,7 +271,6 @@ public class ProjectListPanel extends Panel {
 
 	private void doQuery(AjaxRequestTarget target) {
 		projectsTable.setCurrentPage(0);
-		target.add(countLabel);
 		target.add(body);
 		if (selectionColumn != null)
 			selectionColumn.getSelections().clear();
@@ -251,9 +283,9 @@ public class ProjectListPanel extends Panel {
 		for (var project: Project.getIndependents(projects)) {
 			var oldAuditContent = VersionedXmlDoc.fromBean(project).toXML();
 			if (project.getParent() != null)
-				getAuditService().audit(project.getParent(), "deleted child project \"" + project.getName() + "\"", oldAuditContent, null);
+				auditService.audit(project.getParent(), "deleted child project \"" + project.getName() + "\"", oldAuditContent, null);
 			else
-				getAuditService().audit(null, "deleted root project \"" + project.getName() + "\"", oldAuditContent, null);
+				auditService.audit(null, "deleted root project \"" + project.getName() + "\"", oldAuditContent, null);
 		}
 	}
 
@@ -261,7 +293,7 @@ public class ProjectListPanel extends Panel {
 	protected void onInitialize() {
 		super.onInitialize();
 
-		add(new AjaxLink<Void>("showSavedQueries") {
+		add(new SavedQueriesLink("showSavedQueries") {
 
 			@Override
 			public void onEvent(IEvent<?> event) {
@@ -273,7 +305,7 @@ public class ProjectListPanel extends Panel {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(getQuerySaveSupport() != null && !getQuerySaveSupport().isSavedQueriesVisible());
+				setVisible(getQuerySaveSupport() != null);
 			}
 
 			@Override
@@ -302,7 +334,7 @@ public class ProjectListPanel extends Panel {
 				if (!querySubmitted)
 					tag.put("data-tippy-content", _T("Query not submitted"));
 				else if (queryModel.getObject() == null)
-					tag.put("data-tippy-content", _T("Can not save malformed query"));
+					tag.put("data-tippy-content", _T("Cannot save malformed query"));
 			}
 
 			@Override
@@ -419,10 +451,10 @@ public class ProjectListPanel extends Panel {
 												errorMessage = MessageFormat.format(_T("Project manage privilege required to move \"{0}\""), eachProject);
 												break;
 											} else if (eachProject.isSelfOrAncestorOf(project)) {
-												errorMessage = MessageFormat.format(_T("Can not move project \"{0}\" to be under itself or its descendants"), eachProject);
+												errorMessage = MessageFormat.format(_T("Cannot move project \"{0}\" to be under itself or its descendants"), eachProject);
 												break;	
 											} else {
-												Project projectWithSameName = getProjectService().find(project, eachProject.getName());
+												Project projectWithSameName = projectService.find(project, eachProject.getName());
 												if (projectWithSameName != null && !projectWithSameName.equals(eachProject)) {
 													errorMessage = MessageFormat.format(_T("A child project with name \"{0}\" already exists under \"{1}\""), eachProject.getName(), project.getPath());
 													break;
@@ -436,7 +468,7 @@ public class ProjectListPanel extends Panel {
 											new ConfirmModalPanel(target) {
 												
 												private Project getTargetProject() {
-													return getProjectService().load(projectId);
+													return projectService.load(projectId);
 												}
 												
 												@Override
@@ -448,14 +480,13 @@ public class ProjectListPanel extends Panel {
 													for (var project: projects) {
 														oldAuditContents.put(project.getId(), project.getParent()!=null? project.getParent().getPath() : null);
 													}
-													getProjectService().move(projects, getTargetProject());
+													projectService.move(projects, getTargetProject());
 													for (var project: projects) {
 														var oldAuditContent = oldAuditContents.get(project.getId());
 														var newAuditContent = project.getParent()!=null? project.getParent().getPath() : null;
 														if (!Objects.equals(oldAuditContent, newAuditContent))
-															getAuditService().audit(project, "changed parent", oldAuditContent, newAuditContent);
+															auditService.audit(project, "changed parent", oldAuditContent, newAuditContent);
 													}
-													target.add(countLabel);
 													target.add(body);
 													selectionColumn.getSelections().clear();
 													Session.get().success(_T("Projects moved"));
@@ -522,7 +553,7 @@ public class ProjectListPanel extends Panel {
 											errorMessage = MessageFormat.format(_T("Project manage privilege required to modify \"{0}\""), eachProject);
 											break;
 										} else {
-											Project projectWithSameName = getProjectService().findByPath(eachProject.getName());
+											Project projectWithSameName = projectService.findByPath(eachProject.getName());
 											if (projectWithSameName != null && !projectWithSameName.equals(eachProject)) {
 												errorMessage = MessageFormat.format(_T("A root project with name \"{0}\" already exists"), eachProject.getName());
 												break;
@@ -544,13 +575,12 @@ public class ProjectListPanel extends Panel {
 												for (var project: projects) {
 													oldAuditContents.put(project.getId(), project.getParent()!=null? project.getParent().getPath() : null);
 												}
-												getProjectService().move(projects, null);
+												projectService.move(projects, null);
 												for (var project: projects) {
 													var oldAuditContent = oldAuditContents.get(project.getId());
 													if (oldAuditContent != null)
-														getAuditService().audit(project, "changed parent", oldAuditContent, null);
+														auditService.audit(project, "changed parent", oldAuditContent, null);
 												}
-												target.add(countLabel);
 												target.add(body);
 												selectionColumn.getSelections().clear();
 												Session.get().success(_T("Projects modified"));
@@ -628,10 +658,9 @@ public class ProjectListPanel extends Panel {
 												projects.add(project);
 												observables.add(project.getDeleteChangeObservable());
 											}
-											getProjectService().delete(projects);
+											projectService.delete(projects);
 											auditDeletions(projects);
 											selectionColumn.getSelections().clear();
-											target.add(countLabel);
 											target.add(body);
 											Session.get().success(_T("Projects deleted"));
 											var page = (BasePage) getPage();
@@ -709,10 +738,10 @@ public class ProjectListPanel extends Panel {
 												errorMessage = MessageFormat.format(_T("Project manage privilege required to move \"{0}\""), eachProject);
 												break;
 											} else if (eachProject.isSelfOrAncestorOf(project)) {
-												errorMessage = MessageFormat.format(_T("Can not move project \"{0}\" to be under itself or its descendants"), eachProject);
+												errorMessage = MessageFormat.format(_T("Cannot move project \"{0}\" to be under itself or its descendants"), eachProject);
 												break;
 											} else {
-												Project projectWithSameName = getProjectService().find(project, eachProject.getName());
+												Project projectWithSameName = projectService.find(project, eachProject.getName());
 												if (projectWithSameName != null && !projectWithSameName.equals(eachProject)) {
 													errorMessage = MessageFormat.format(_T("A child project with name \"{0}\" already exists under \"{1}\""), eachProject.getName(), project.getPath());
 													break;
@@ -726,7 +755,7 @@ public class ProjectListPanel extends Panel {
 											new ConfirmModalPanel(target) {
 												
 												private Project getTargetProject() {
-													return getProjectService().load(projectId);
+													return projectService.load(projectId);
 												}
 												
 												@Override
@@ -738,15 +767,14 @@ public class ProjectListPanel extends Panel {
 													for (var project: projects) {
 														oldAuditContents.put(project.getId(), project.getParent()!=null? project.getParent().getPath() : null);
 													}	
-													getProjectService().move(projects, getTargetProject());
+													projectService.move(projects, getTargetProject());
 													for (var project: projects) {
 														var oldAuditContent = oldAuditContents.get(project.getId());
 														var newAuditContent = project.getParent()!=null? project.getParent().getPath() : null;
 														if (!Objects.equals(oldAuditContent, newAuditContent))
-															getAuditService().audit(project, "changed parent", oldAuditContent, newAuditContent);
+															auditService.audit(project, "changed parent", oldAuditContent, newAuditContent);
 													}
 													dataProvider.detach();
-													target.add(countLabel);
 													target.add(body);
 													selectionColumn.getSelections().clear();
 													Session.get().success(_T("Projects moved"));
@@ -813,7 +841,7 @@ public class ProjectListPanel extends Panel {
 											errorMessage = MessageFormat.format(_T("Project manage privilege required to modify \"{0}\""), eachProject);
 											break;
 										} else {
-											Project projectWithSameName = getProjectService().findByPath(eachProject.getName());
+											Project projectWithSameName = projectService.findByPath(eachProject.getName());
 											if (projectWithSameName != null && !projectWithSameName.equals(eachProject)) {
 												errorMessage = MessageFormat.format(_T("A root project with name \"{0}\" already exists"), eachProject.getName());
 												break;
@@ -836,15 +864,14 @@ public class ProjectListPanel extends Panel {
 												for (var project: projects) {
 													oldAuditContents.put(project.getId(), project.getParent()!=null? project.getParent().getPath() : null);
 												}
-												getProjectService().move(projects, null);
+												projectService.move(projects, null);
 												for (var project: projects) {
 													var oldAuditContent = oldAuditContents.get(project.getId());
 													if (oldAuditContent != null)
-														getAuditService().audit(project, "changed parent", oldAuditContent, null);
+														auditService.audit(project, "changed parent", oldAuditContent, null);
 												}
 
 												dataProvider.detach();
-												target.add(countLabel);
 												target.add(body);
 												selectionColumn.getSelections().clear();
 												Session.get().success(_T("Projects modified"));
@@ -925,11 +952,10 @@ public class ProjectListPanel extends Panel {
 												projects.add(project);
 												observables.add(project.getDeleteChangeObservable());
 											}
-											getProjectService().delete(projects);
+											projectService.delete(projects);
 											auditDeletions(projects);
 											dataProvider.detach();
 											selectionColumn.getSelections().clear();
-											target.add(countLabel);
 											target.add(body);
 											Session.get().success(_T("Projects deleted"));
 											var page = (BasePage) getPage();
@@ -938,12 +964,12 @@ public class ProjectListPanel extends Panel {
 										
 										@Override
 										protected String getConfirmMessage() {
-											return _T("Type <code>yes</code> below to delete all queried projects");
+											return _T("Type <code>delete ALL projects</code> below to delete all queried projects");
 										}
 										
 										@Override
 										protected String getConfirmInput() {
-											return "yes";
+											return "delete ALL projects";
 										}
 										
 									};
@@ -997,7 +1023,7 @@ public class ProjectListPanel extends Panel {
 			
 		});
 		
-		if (getParentProject() == null && canCreateProjects) {
+		if (canCreateProjects) {
 			add(new MenuLink("importProjects") {
 	
 				@Override
@@ -1028,8 +1054,9 @@ public class ProjectListPanel extends Panel {
 	
 							@Override
 							public WebMarkupContainer newLink(String id) {
+								String parentProjectPath = getParentProject() != null ? getParentProject().getPath() : null;
 								return new BookmarkablePageLink<Void>(id, ProjectImportPage.class, 
-										ProjectImportPage.paramsOf(importer.getName()));
+										ProjectImportPage.paramsOf(importer.getName(), parentProjectPath));
 							}
 							
 						});
@@ -1052,6 +1079,11 @@ public class ProjectListPanel extends Panel {
 				querySubmitted = StringUtils.trimToEmpty(queryStringModel.getObject())
 						.equals(StringUtils.trimToEmpty(inputContent));
 				target.add(saveQueryLink);
+			}
+			
+			@Override
+			protected boolean isSelectOnFocus() {
+				return true;
 			}
 			
 		});
@@ -1089,21 +1121,6 @@ public class ProjectListPanel extends Panel {
 					.setVisible(canCreateProjects));
 		}
 
-		add(countLabel = new Label("count", new AbstractReadOnlyModel<String>() {
-			@Override
-			public String getObject() {
-				if (dataProvider.size() > 1)
-					return MessageFormat.format(_T("found {0} projects"), dataProvider.size());
-				else
-					return _T("found 1 project");
-			}
-		}) {
-			@Override
-			protected void onConfigure() {
-				super.onConfigure();
-				setVisible(dataProvider.size() != 0);
-			}
-		}.setOutputMarkupPlaceholderTag(true));
 		
 		dataProvider = new LoadableDetachableDataProvider<>() {
 
@@ -1112,7 +1129,7 @@ public class ProjectListPanel extends Panel {
 				try {
 					ProjectQuery query = queryModel.getObject();
 					if (query != null)
-						return getProjectService().query(SecurityUtils.getSubject(), query, true, (int) first, (int) count).iterator();
+						return projectService.query(SecurityUtils.getSubject(), query, true, (int) first, (int) count).iterator();
 				} catch (ExplicitException e) {
 					error(e.getMessage());
 				}
@@ -1124,7 +1141,7 @@ public class ProjectListPanel extends Panel {
 				try {
 					ProjectQuery query = queryModel.getObject();
 					if (query != null)
-						return getProjectService().count(SecurityUtils.getSubject(), query.getCriteria());
+						return projectService.count(SecurityUtils.getSubject(), query.getCriteria());
 				} catch (ExplicitException e) {
 					error(e.getMessage());
 				}
@@ -1138,7 +1155,7 @@ public class ProjectListPanel extends Panel {
 
 					@Override
 					protected Project load() {
-						return getProjectService().load(projectId);
+						return projectService.load(projectId);
 					}
 
 				};
@@ -1169,7 +1186,7 @@ public class ProjectListPanel extends Panel {
 				Long projectId = project.getId();
 				
 				ActionablePageLink projectLink = new ActionablePageLink("path", 
-						ProjectDashboardPage.class, ProjectDashboardPage.paramsOf(project)) {
+						ProjectOverviewPage.class, ProjectOverviewPage.paramsOf(project)) {
 
 					@Override
 					protected void doBeforeNav(AjaxRequestTarget target) {
@@ -1215,6 +1232,25 @@ public class ProjectListPanel extends Panel {
 						fragment.add(new WebMarkupContainer("codeStats").setVisible(false));
 						fragment.add(new WebMarkupContainer("pullRequestStats").setVisible(false));
 					}
+					if (project.isCodeManagement() && SecurityUtils.canWriteCode(project) 
+							&& !project.getHierarchyWorkspaceSpecs().isEmpty()) {
+						fragment.add(new WorkspaceStatsPanel("workspaceStats", rowModel,
+								new LoadableDetachableModel<>() {
+
+									@Override
+									protected Map<Workspace.Status, Long> load() {
+										Map<Workspace.Status, Long> statusCounts = new LinkedHashMap<>();
+										for (ProjectWorkspaceStatusStat stats : workspaceStatsModel.getObject()) {
+											if (stats.getProjectId().equals(projectId))
+												statusCounts.put(stats.getWorkspaceStatus(), stats.getStatusCount());
+										}
+										return statusCounts;
+									}
+
+								}));
+					} else {
+						fragment.add(new WebMarkupContainer("workspaceStats").setVisible(false));
+					}
 					
 					if (project.isIssueManagement()) {
 						fragment.add(new IssueStatsPanel("issueStats", rowModel, new LoadableDetachableModel<>() {
@@ -1222,7 +1258,7 @@ public class ProjectListPanel extends Panel {
 							@Override
 							protected Map<Integer, Long> load() {
 								Map<Integer, Long> stateCounts = new LinkedHashMap<>();
-								GlobalIssueSetting issueSetting = OneDev.getInstance(SettingService.class).getIssueSetting();
+								GlobalIssueSetting issueSetting = settingService.getIssueSetting();
 								for (ProjectIssueStateStat stats : issueStatsModel.getObject()) {
 									if (stats.getProjectId().equals(projectId)
 											&& stats.getStateOrdinal() >= 0
@@ -1273,6 +1309,7 @@ public class ProjectListPanel extends Panel {
 					fragment.add(new WebMarkupContainer("noStorage").setVisible(false));
 				} else {
 					fragment.add(new WebMarkupContainer("codeStats").setVisible(false));
+					fragment.add(new WebMarkupContainer("workspaceStats").setVisible(false));
 					fragment.add(new WebMarkupContainer("pullRequestStats").setVisible(false));
 					fragment.add(new WebMarkupContainer("issueStats").setVisible(false));
 					fragment.add(new WebMarkupContainer("buildStats").setVisible(false));
@@ -1283,52 +1320,27 @@ public class ProjectListPanel extends Panel {
 				List<ProjectFacade> children = WicketUtils.getProjectCache().getChildren(projectId);
 				if (!children.isEmpty()) {
 					Fragment childrenFrag = new Fragment("children", "childrenFrag", ProjectListPanel.this);
-					childrenFrag.add(new AjaxLink<Void>("toggle") {
-
-						@Override
-						public void onClick(AjaxRequestTarget target) {
-							if (WebSession.get().getExpandedProjectIds().contains(projectId))
-								WebSession.get().getExpandedProjectIds().remove(projectId);
-							else
-								WebSession.get().getExpandedProjectIds().add(projectId);
-							target.add(childrenFrag);
-						}
-						
-					}.add(AttributeAppender.append("class", new LoadableDetachableModel<String>() {
-
-						@Override
-						protected String load() {
-							return WebSession.get().getExpandedProjectIds().contains(projectId)? "expanded": "collapsed";
-						}
-						
-					})));
 					
- 					childrenFrag.add(new BookmarkablePageLink<Void>("link", ProjectChildrenPage.class, 
- 							ProjectChildrenPage.paramsOf(projectId)) {
+ 					childrenFrag.add(new BookmarkablePageLink<Void>("link", ProjectOverviewPage.class, 
+ 							ProjectOverviewPage.paramsOf(projectId)) {
 
 						@Override
 						protected void onInitialize() {
 							super.onInitialize();
-		 					add(new Label("label", MessageFormat.format(_T("{0} child projects"), children.size())));
+		 					add(new Label("label", MessageFormat.format(_T("{0} child projects"), String.valueOf(children.size()))));
 						}
  						
  					});
-					
-					childrenFrag.add(new ProjectChildrenTree("tree", projectId) {
-						
-						@Override
-						protected void onConfigure() {
-							super.onConfigure();
-							setVisible(WebSession.get().getExpandedProjectIds().contains(projectId));
-						}
+
+					childrenFrag.add(new DropdownLink("treeTrigger") {
 
 						@Override
-						protected Set<Long> getExpandedProjectIds() {
-							return WebSession.get().getExpandedProjectIds();
+						protected Component newContent(String id, FloatingPanel dropdown) {
+							return new ProjectChildrenTree(id, projectId);
 						}
-						
+					
 					});
-		
+					 		
 					childrenFrag.setOutputMarkupId(true);
 					fragment.add(childrenFrag);
 				} else {
@@ -1341,7 +1353,7 @@ public class ProjectListPanel extends Panel {
 		});
 		
 		body.add(projectsTable = new DefaultDataTable<>("projects", columns, dataProvider,
-				WebConstants.PAGE_SIZE, getPagingHistorySupport()));
+				WebConstants.PAGE_SIZE, getPagingHistorySupport(), true));
 		
 		setOutputMarkupId(true);
 	}
@@ -1376,6 +1388,7 @@ public class ProjectListPanel extends Panel {
 	@Override
 	public void renderHead(IHeaderResponse response) {
 		super.renderHead(response);
+		response.render(CssHeaderItem.forReference(new DropdownTriangleIndicatorCssResourceReference()));
 		response.render(CssHeaderItem.forReference(new ProjectListCssResourceReference()));
 	}
 		

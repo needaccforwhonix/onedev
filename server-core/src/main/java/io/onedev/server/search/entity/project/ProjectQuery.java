@@ -9,6 +9,8 @@ import static io.onedev.server.search.entity.project.ProjectQueryParser.ForkRoot
 import static io.onedev.server.search.entity.project.ProjectQueryParser.ForksOf;
 import static io.onedev.server.search.entity.project.ProjectQueryParser.HasOutdatedReplicas;
 import static io.onedev.server.search.entity.project.ProjectQueryParser.Is;
+import static io.onedev.server.search.entity.project.ProjectQueryParser.IsGreaterThan;
+import static io.onedev.server.search.entity.project.ProjectQueryParser.IsLessThan;
 import static io.onedev.server.search.entity.project.ProjectQueryParser.IsNot;
 import static io.onedev.server.search.entity.project.ProjectQueryParser.IsSince;
 import static io.onedev.server.search.entity.project.ProjectQueryParser.IsUntil;
@@ -16,15 +18,16 @@ import static io.onedev.server.search.entity.project.ProjectQueryParser.Leafs;
 import static io.onedev.server.search.entity.project.ProjectQueryParser.MissingStorage;
 import static io.onedev.server.search.entity.project.ProjectQueryParser.OwnedByMe;
 import static io.onedev.server.search.entity.project.ProjectQueryParser.OwnedByNone;
-import static io.onedev.server.search.entity.project.ProjectQueryParser.IsGreaterThan;
-import static io.onedev.server.search.entity.project.ProjectQueryParser.IsLessThan;
 import static io.onedev.server.search.entity.project.ProjectQueryParser.Roots;
 import static io.onedev.server.search.entity.project.ProjectQueryParser.WithoutEnoughReplicas;
+import static io.onedev.server.util.QueryUtils.getLabelSpec;
+import static io.onedev.server.util.QueryUtils.getLongValue;
+import static io.onedev.server.util.QueryUtils.getNumber;
+import static io.onedev.server.util.QueryUtils.getUser;
+import static io.onedev.server.util.QueryUtils.getValue;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import org.jspecify.annotations.Nullable;
 
 import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.BaseErrorListener;
@@ -33,6 +36,7 @@ import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
+import org.jspecify.annotations.Nullable;
 
 import io.onedev.commons.codeassist.AntlrUtils;
 import io.onedev.commons.utils.ExplicitException;
@@ -43,6 +47,7 @@ import io.onedev.server.search.entity.project.ProjectQueryParser.AndCriteriaCont
 import io.onedev.server.search.entity.project.ProjectQueryParser.CriteriaContext;
 import io.onedev.server.search.entity.project.ProjectQueryParser.FieldOperatorValueCriteriaContext;
 import io.onedev.server.search.entity.project.ProjectQueryParser.FuzzyCriteriaContext;
+import io.onedev.server.search.entity.project.ProjectQueryParser.IdCriteriaContext;
 import io.onedev.server.search.entity.project.ProjectQueryParser.NotCriteriaContext;
 import io.onedev.server.search.entity.project.ProjectQueryParser.OperatorCriteriaContext;
 import io.onedev.server.search.entity.project.ProjectQueryParser.OperatorValueCriteriaContext;
@@ -102,6 +107,11 @@ public class ProjectQuery extends EntityQuery<Project> {
 					@Override
 					public Criteria<Project> visitFuzzyCriteria(FuzzyCriteriaContext ctx) {
 						return new FuzzyCriteria(getValue(ctx.getText()));
+					}
+					
+					@Override
+					public Criteria<Project> visitIdCriteria(IdCriteriaContext ctx) {
+						return new IdCriteria(getNumber(ctx.getText()), Is);
 					}
 					
 					@Override
@@ -228,7 +238,7 @@ public class ProjectQuery extends EntityQuery<Project> {
 				var fieldName = getValue(order.Quoted().getText());
 				var sortField = SORT_FIELDS.get(fieldName);
 				if (sortField == null)
-					throw new ExplicitException("Can not order by field: " + fieldName);
+					throw new ExplicitException("Cannot order by field: " + fieldName);
 				
 				EntitySort projectSort = new EntitySort();
 				projectSort.setField(fieldName);

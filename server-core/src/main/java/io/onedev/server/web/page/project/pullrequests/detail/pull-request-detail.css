@@ -7,6 +7,9 @@
 .pull-request-detail>.card-body>.main>.primary>.description {
 	margin-bottom: 0 !important;
 }
+.pull-request-detail>.card-body>.main>.primary>.summary {
+	border-top: 1px dashed var(--primary);
+}
 .pull-request-detail>.card-body>.main>.primary>.summary>div {
 	margin-bottom: 1rem;
 }
@@ -50,12 +53,25 @@
 	border-top-color: var(--dark-mode-dark-gray);
 }
 
-ul>li>a.code-comments.new .icon {
+ul>li>a.code-comments.new .icon,
+ul>li>a.code-comments.unresolved .icon {
 	width: 12px;
 	height: 12px;
-	fill: var(--primary);
 	flex-shrink: 0;
 	display: inline-block !important;
+}
+ul>li>a.code-comments.new .icon {
+	fill: var(--primary);
+}
+ul>li>a.code-comments.unresolved .icon {
+	fill: none;
+	stroke: none;
+	border: 1px solid var(--warning);
+	border-radius: 50%;
+}
+ul>li>a.code-comments.new.unresolved .icon {
+	fill: var(--warning);
+	border: 0;
 }
 
 .conflict-resolve-instruction {
@@ -67,29 +83,29 @@ ul>li>a.code-comments.new .icon {
 	margin-bottom: 0;
 }
 
-@media(min-width: 992px) {
-	html:not(.PullRequestChangesPage) .pull-request-detail>.card-body>.main>.primary>.summary .more-info,
-	html:not(.PullRequestChangesPage) .pull-request-detail>.card-body>.main>.primary>.summary .more-info:hover,
-	html:not(.PullRequestChangesPage) .pull-request-detail>.card-body>.main>.primary>.summary .more-info:focus {
+@media(min-width: 1200px) {
+	html:not(.PullRequestChangesPage) body.side-info-visible .pull-request-detail>.card-body>.main>.primary>.summary .more-info,
+	html:not(.PullRequestChangesPage) body.side-info-visible .pull-request-detail>.card-body>.main>.primary>.summary .more-info:hover,
+	html:not(.PullRequestChangesPage) body.side-info-visible .pull-request-detail>.card-body>.main>.primary>.summary .more-info:focus {
 		color: inherit !important;
 		cursor: inherit !important;
 	}
 }
 
-.pull-request-detail>.card-body>.more-info>.body>* {
+.pull-request-detail>.card-body>.more-info>div>.body>* {
 	margin-bottom: 1.5rem;
 	border-top: 1px dashed var(--secondary);
 	padding-top: 1.5rem;
 }
-.dark-mode .pull-request-detail>.card-body>.more-info>.body>* {
+.dark-mode .pull-request-detail>.card-body>.more-info>div>.body>* {
 	border-top-color: var(--dark-mode-dark-gray);
 }
-.pull-request-detail>.card-body>.more-info>.body>:first-child {
+.pull-request-detail>.card-body>.more-info>div>.body>:first-child {
 	border-top: none;
 	padding-top: 0;
 }
 
-.pull-request-detail>.card-body>.more-info>.body>*>.head {
+.pull-request-detail>.card-body>.more-info>div>.body>*>.head {
 	font-weight: 600;
 	margin-bottom: 0.8rem;
 }

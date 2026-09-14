@@ -13,6 +13,7 @@ import org.jspecify.annotations.Nullable;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.constraints.NotEmpty;
 
+import org.apache.http.client.utils.URIBuilder;
 import org.apache.shiro.authc.AuthenticationException;
 import org.apache.wicket.Session;
 import org.apache.wicket.request.cycle.RequestCycle;
@@ -61,6 +62,7 @@ import io.onedev.server.annotation.Password;
 import io.onedev.server.model.support.administration.sso.SsoAuthenticated;
 import io.onedev.server.model.support.administration.sso.SsoConnector;
 import io.onedev.server.security.TrustCertsSSLSocketFactory;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.util.oauth.OAuthUtils;
 import net.minidev.json.JSONArray;
 import net.minidev.json.JSONObject;
@@ -75,6 +77,8 @@ public class OpenIdConnector extends SsoConnector {
 	private static final String SESSION_ATTR_PROVIDER_METADATA = "endpoints";
 	
 	private static final String SESSION_ATTR_STATE = "state";
+
+	private static final String SESSION_ATTR_ID_TOKEN = "idToken";
 	
 	private String configurationDiscoveryUrl;
 	
@@ -223,6 +227,8 @@ public class OpenIdConnector extends SsoConnector {
 			if (claims.getExpirationTime() != null && now.toDate().after(claims.getExpirationTime()))
 				throw new AuthenticationException(_T("ID token was expired"));
 
+			Session.get().setAttribute(SESSION_ATTR_ID_TOKEN, idToken.serialize());
+
 			String subject = claims.getSubject();
 			String email = StringUtils.trimToNull(claims.getStringClaim("email"));
 
@@ -358,16 +364,39 @@ public class OpenIdConnector extends SsoConnector {
 	public void setButtonImageUrl(String buttonImageUrl) {
 		this.buttonImageUrl = buttonImageUrl;
 	}
+
+	@Nullable
+	@Override
+	public String buildLogoutUrl(String providerName) {
+		var endSessionEndpoint = getCachedProviderMetadata().getEndSessionEndpoint();
+		var idToken = (String) Session.get().getAttribute(SESSION_ATTR_ID_TOKEN);
+		if (endSessionEndpoint == null || idToken == null)
+			return null;
+
+		try {
+			var serverUrl = OneDev.getInstance(SettingService.class).getSystemSetting().getServerUrl();
+			return new URIBuilder(endSessionEndpoint)
+					.addParameter("id_token_hint", idToken)
+					.addParameter("post_logout_redirect_uri", serverUrl)
+					.build().toString();
+		} catch (URISyntaxException e) {
+			// Do not fail the login just because sign out url can not be built
+			logger.error("Error building OIDC sign out url", e);
+			return null;
+		}
+	}
 	
 	protected ProviderMetadata discoverProviderMetadata() {
 		try {
 			JsonNode json = OneDev.getInstance(ObjectMapper.class).readTree(
 					new URI(getConfigurationDiscoveryUrl()).toURL());
+			var endSessionEndpointNode = json.get("end_session_endpoint");
 			return new ProviderMetadata(
 					json.get("issuer").asText(),
 					json.get("authorization_endpoint").asText(),
 					json.get("token_endpoint").asText(), 
-					json.get("userinfo_endpoint").asText());
+					json.get("userinfo_endpoint").asText(),
+					endSessionEndpointNode != null ? endSessionEndpointNode.asText() : null);
 		} catch (IOException | URISyntaxException e) {
 			if (e.getMessage() != null) {
 				logger.error(_T("Error discovering OIDC metadata"), e);

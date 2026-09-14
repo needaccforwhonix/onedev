@@ -21,17 +21,19 @@ import org.glassfish.jersey.servlet.ServletContainer;
 import io.onedev.commons.bootstrap.Bootstrap;
 import io.onedev.server.OneDev;
 import io.onedev.server.agent.ServerSocketServlet;
+import io.onedev.server.assets.ClasspathAssetServlet;
+import io.onedev.server.assets.FileAssetServlet;
 import io.onedev.server.git.GitFilter;
 import io.onedev.server.git.GitLfsFilter;
 import io.onedev.server.git.GoGetFilter;
 import io.onedev.server.git.hook.GitPostReceiveCallback;
 import io.onedev.server.git.hook.GitPreReceiveCallback;
-import io.onedev.server.jetty.ClasspathAssetServlet;
-import io.onedev.server.jetty.FileAssetServlet;
 import io.onedev.server.jetty.ServletConfigurator;
 import io.onedev.server.security.CorsFilter;
 import io.onedev.server.security.DefaultWebEnvironment;
+import io.onedev.server.web.KeepSessionAliveServlet;
 import io.onedev.server.web.SessionListener;
+import io.onedev.server.web.asset.es6.ES6Module;
 import io.onedev.server.web.asset.icon.IconScope;
 import io.onedev.server.web.img.ImageScope;
 
@@ -57,7 +59,7 @@ public class ProductServletConfigurator implements ServletConfigurator {
 	
 	@Inject
     private GitPostReceiveCallback postReceiveServlet;
-	
+
 	@Inject
 	private WicketServlet wicketServlet;
 
@@ -87,7 +89,7 @@ public class ProductServletConfigurator implements ServletConfigurator {
 		
 		context.addServlet(new ServletHolder(preReceiveServlet), GitPreReceiveCallback.PATH + "/*");
         context.addServlet(new ServletHolder(postReceiveServlet), GitPostReceiveCallback.PATH + "/*");
-        
+
 		/*
 		 * Add wicket servlet as the default servlet which will serve all requests failed to 
 		 * match a path pattern
@@ -96,6 +98,9 @@ public class ProductServletConfigurator implements ServletConfigurator {
 		
 		context.addServlet(new ServletHolder(new ClasspathAssetServlet(ImageScope.class)), "/~img/*");
 		context.addServlet(new ServletHolder(new ClasspathAssetServlet(IconScope.class)), "/~icon/*");
+		context.addServlet(new ServletHolder(new ClasspathAssetServlet(ES6Module.class)), "/~es6/*");
+		
+		context.addServlet(new ServletHolder(new KeepSessionAliveServlet()), "/~keep-session-alive");
 		
 		context.getSessionHandler().addEventListener(new HttpSessionListener() {
 

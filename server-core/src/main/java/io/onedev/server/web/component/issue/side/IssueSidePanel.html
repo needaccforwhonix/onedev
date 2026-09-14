@@ -33,10 +33,28 @@
 				</li>
 				<wicket:enclosure>
 				<li class="add">
-					<input wicket:id="add" type="hidden" class="form-control">
+					<select wicket:id="add" class="form-control"></select>
 				</li>
 				</wicket:enclosure>
 			</ul>
+		</div>
+		<wicket:enclosure child="workspaces">
+			<div class="workspaces">
+				<div class="head"><wicket:t>Workspaces</wicket:t> (<span wicket:id="workspaceCount"></span>)</div>
+				<div class="body">
+					<a wicket:id="workspaces" class="btn btn-outline-secondary btn-sm"><wicket:svg href="workspace" class="icon mr-2"/><wicket:t>Show / Create</wicket:t> <wicket:svg href="arrow" class="icon rotate-90"/></a>
+				</div>
+			</div>
+		</wicket:enclosure>
+		<div wicket:id="branch" class="branch">
+			<div class="head"><wicket:t>Associated Branch</wicket:t></div>
+			<div class="body d-flex align-items-center">
+				<wicket:enclosure child="link">
+					<wicket:svg href="branch" class="icon mr-2 flex-shrink-0"></wicket:svg>
+					<a wicket:id="link" class="text-truncate mr-2"></a>
+				</wicket:enclosure>
+				<a wicket:id="create" class="btn btn-outline-secondary btn-sm flex-shrink-0"><wicket:svg href="plus" class="icon mr-2"></wicket:svg><wicket:t>Create</wicket:t></a>
+			</div>
 		</div>
 		<div wicket:id="votes" class="votes">
 			<div class="head">
@@ -69,7 +87,8 @@
 		</div>
 		<div wicket:id="reference"></div>
 		<wicket:enclosure child="delete">
-			<div>
+			<div class="d-flex justify-content-between">
+				<a wicket:id="move" class="btn btn-light-primary"><wicket:t>Move</wicket:t> <wicket:svg href="arrow" class="icon rotate-90"></wicket:svg></a>
 				<a wicket:id="delete" class="delete btn btn-light-danger"><wicket:t>Delete</wicket:t></a>
 			</div>
 		</wicket:enclosure>

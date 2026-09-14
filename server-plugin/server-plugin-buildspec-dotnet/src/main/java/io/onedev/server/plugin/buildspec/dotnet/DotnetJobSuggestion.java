@@ -8,7 +8,6 @@ import io.onedev.server.buildspec.job.trigger.BranchUpdateTrigger;
 import io.onedev.server.buildspec.job.trigger.PullRequestUpdateTrigger;
 import io.onedev.server.buildspec.step.CheckoutStep;
 import io.onedev.server.buildspec.step.CommandStep;
-import io.onedev.server.buildspec.step.GenerateChecksumStep;
 import io.onedev.server.buildspec.step.SetupCacheStep;
 import io.onedev.server.git.BlobIdent;
 import io.onedev.server.git.BlobIdentFilter;
@@ -37,17 +36,12 @@ public class DotnetJobSuggestion implements JobSuggestion {
 			checkout.setName("checkout code");
 			job.getSteps().add(checkout);
 
-			var generateChecksum = new GenerateChecksumStep();
-			generateChecksum.setName("generate project checksum");
-			generateChecksum.setFiles("**/*.csproj");
-			generateChecksum.setTargetFile("checksum");
-			job.getSteps().add(generateChecksum);
-
 			var setupCache = new SetupCacheStep();
 			setupCache.setName("set up nuget cache");
-			setupCache.setKey("nuget_packages_@file:checksum@");
+			setupCache.setKey("nuget_packages");
+
+			setupCache.setChecksumFiles("**/*.csproj");
 			setupCache.setPaths(Lists.newArrayList("/root/.nuget/packages"));
-			setupCache.getLoadKeys().add("nuget_packages");
 			job.getSteps().add(setupCache);
 			
 			var testAndAnalyze = new CommandStep();

@@ -15,7 +15,10 @@
 					<svg wicket:id="icon" class="icon"></svg>
 					<wicket:t>Include Disabled</wicket:t>
 				</a>
-				<span wicket:id="count" class="float-right text-gray"></span>
+				<a wicket:id="filterType" class="text-gray mb-2 d-inline-block text-nowrap">
+					<wicket:svg href="arrow" class="icon rotate-90"></wicket:svg>
+					<span wicket:id="label"></span>
+				</a>
 			</div>
 			<table wicket:id="users" class="users table table-hover"></table>
 		</div>
@@ -31,7 +34,7 @@
 	</wicket:fragment>
 	<wicket:fragment wicket:id="actionsFrag">
 		<a wicket:id="edit" class="btn btn-xs btn-icon btn-light btn-hover-primary mr-1" t:data-tippy-content="Edit"><wicket:svg href="edit" class="icon"></wicket:svg></a>
-		<a wicket:id="impersonate" t:data-tippy-content="Impersonate" class="btn btn-xs btn-icon btn-light btn-hover-primary mr-1"><wicket:svg href="user-tick" class="icon align-middle"/></a>
+		<a wicket:id="runAs" t:data-tippy-content="Run As" class="btn btn-xs btn-icon btn-light btn-hover-primary mr-1"><wicket:svg href="user-tick" class="icon align-middle"/></a>
 	</wicket:fragment>
 	<wicket:fragment wicket:id="emailFrag">
 		<span wicket:id="emailAddress"></span>

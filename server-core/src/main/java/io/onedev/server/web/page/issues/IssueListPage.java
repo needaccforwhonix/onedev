@@ -89,7 +89,7 @@ public class IssueListPage extends LayoutPage {
 
 			@Override
 			protected QueryPersonalization<NamedIssueQuery> getQueryPersonalization() {
-				return getLoginUser().getIssueQueryPersonalization();
+				return getLoginUser() != null ? getLoginUser().getIssueQueryPersonalization() : null;
 			}
 
 			@Override
@@ -215,7 +215,7 @@ public class IssueListPage extends LayoutPage {
 					@Override
 					public boolean isSavedQueriesVisible() {
 						savedQueries.configure();
-						return savedQueries.isVisible();
+						return savedQueries.isOpen();
 					}
 
 				};

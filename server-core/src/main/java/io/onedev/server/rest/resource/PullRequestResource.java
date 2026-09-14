@@ -1,15 +1,18 @@
 package io.onedev.server.rest.resource;
 
+import static io.onedev.server.model.PullRequestReview.Status.EXCLUDED;
+import static io.onedev.server.model.PullRequestReview.Status.PENDING;
+import static java.util.stream.Collectors.toList;
 import static javax.ws.rs.core.Response.Status.NOT_ACCEPTABLE;
 
 import java.io.InputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
-import org.jspecify.annotations.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.validation.constraints.NotEmpty;
@@ -27,17 +30,14 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import org.apache.shiro.authz.UnauthorizedException;
-import org.eclipse.jgit.lib.ObjectId;
-import org.joda.time.DateTime;
+import org.jspecify.annotations.Nullable;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.onedev.commons.utils.StringUtils;
 import io.onedev.server.attachment.AttachmentService;
 import io.onedev.server.data.migration.VersionedXmlDoc;
-import io.onedev.server.service.AuditService;
-import io.onedev.server.service.PullRequestChangeService;
-import io.onedev.server.service.PullRequestService;
-import io.onedev.server.service.UrlService;
-import io.onedev.server.service.UserService;
-import io.onedev.server.git.service.GitService;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.PullRequest;
 import io.onedev.server.model.PullRequestAssignment;
@@ -57,7 +57,16 @@ import io.onedev.server.rest.annotation.EntityCreate;
 import io.onedev.server.rest.resource.support.RestConstants;
 import io.onedev.server.search.entity.pullrequest.PullRequestQuery;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.AuditService;
+import io.onedev.server.service.PullRequestAssignmentService;
+import io.onedev.server.service.PullRequestChangeService;
+import io.onedev.server.service.PullRequestReviewService;
+import io.onedev.server.service.PullRequestService;
+import io.onedev.server.service.UrlService;
+import io.onedev.server.service.UserService;
 import io.onedev.server.util.ProjectAndBranch;
+import io.onedev.server.web.page.help.ApiHelpUtils;
+import io.onedev.server.web.page.help.ValueInfo;
 
 @Api(name="Pull Request", description="In most cases, pull request resource is operated with pull request id, which is different from pull request number. "
 		+ "To get pull request id of a particular pull request number, use the <a href='/~help/api/io.onedev.server.rest.PullRequestResource/queryBasicInfo'>Query Basic Info</a> operation with query for "
@@ -68,34 +77,33 @@ import io.onedev.server.util.ProjectAndBranch;
 @Singleton
 public class PullRequestResource {
 
-	private final PullRequestService pullRequestService;
-	
-	private final PullRequestChangeService pullRequestChangeService;
-	
-	private final UserService userService;
-	
-	private final GitService gitService;
-
-	private final AuditService auditService;
-
-	private final AttachmentService attachmentService;
-
-	private final UrlService urlService;
+	@Inject
+	private PullRequestService pullRequestService;
 	
 	@Inject
-	public PullRequestResource(PullRequestService pullRequestService,
-                               PullRequestChangeService pullRequestChangeService,
-                               UserService userService, GitService gitService, AuditService auditService,
-                               AttachmentService attachmentService, UrlService urlService) {
-		this.pullRequestService = pullRequestService;
-		this.pullRequestChangeService = pullRequestChangeService;
-		this.userService = userService;
-		this.gitService = gitService;
-		this.auditService = auditService;
-		this.attachmentService = attachmentService;
-		this.urlService = urlService;
-	}
+	private PullRequestChangeService pullRequestChangeService;
 
+	@Inject
+	private PullRequestReviewService pullRequestReviewService;
+
+	@Inject
+	private PullRequestAssignmentService pullRequestAssignmentService;
+	
+	@Inject
+	private UserService userService;
+
+	@Inject
+	private ObjectMapper objectMapper;
+
+	@Inject
+	private AuditService auditService;
+
+	@Inject
+	private AttachmentService attachmentService;
+
+	@Inject
+	private UrlService urlService;
+	
 	@Api(order=100)
 	@Path("/{requestId}")
     @GET
@@ -126,27 +134,58 @@ public class PullRequestResource {
     	return pullRequest.checkMergePreview();
     }
 	
-	@Api(order=300)
+	@Api(order=300, exampleProvider = "getAssignmentsExample")
 	@Path("/{requestId}/assignments")
     @GET
-    public Collection<PullRequestAssignment> getAssignments(@PathParam("requestId") Long requestId) {
+    public Collection<Map<String, Object>> getAssignments(@PathParam("requestId") Long requestId) {
 		PullRequest pullRequest = pullRequestService.load(requestId);
     	if (!SecurityUtils.canReadCode(pullRequest.getProject())) 
 			throw new UnauthorizedException();
-    	return pullRequest.getAssignments();
+
+		var typeReference = new TypeReference<HashMap<String, Object>>() {};
+    	return pullRequest.getAssignments().stream()
+				.map(it-> {
+					var map = objectMapper.convertValue(it, typeReference); 
+					map.remove("id"); 
+					return map;
+				}).collect(toList());
     }
 	
-	@Api(order=400)
+	@Api(order=400, exampleProvider = "getReviewsExample")
 	@Path("/{requestId}/reviews")
     @GET
-    public Collection<PullRequestReview> getReviews(@PathParam("requestId") Long requestId) {
+    public Collection<Map<String, Object>> getReviews(@PathParam("requestId") Long requestId) {
 		PullRequest pullRequest = pullRequestService.load(requestId);
     	if (!SecurityUtils.canReadCode(pullRequest.getProject())) 
 			throw new UnauthorizedException();
+
+        var typeReference = new TypeReference<HashMap<String, Object>>() {};
     	return pullRequest.getReviews().stream()
     			.filter(it-> it.getStatus() != Status.EXCLUDED)
-    			.collect(Collectors.toList());
+				.map(it-> {
+					var map = objectMapper.convertValue(it, typeReference); 
+					map.remove("id"); 
+					return map;
+				}).collect(toList());
     }
+
+	@SuppressWarnings("unused")
+	private static Collection<Map<String, Object>> getAssignmentsExample() {
+		var assignments = new ArrayList<Map<String, Object>>();
+		var map = ApiHelpUtils.getExampleMap(PullRequestAssignment.class, ValueInfo.Origin.READ_BODY);
+		map.remove("id");
+		assignments.add(map);
+		return assignments;
+	}
+
+	@SuppressWarnings("unused")
+	private static Collection<Map<String, Object>> getReviewsExample() {
+		var reviews = new ArrayList<Map<String, Object>>();
+		var map = ApiHelpUtils.getExampleMap(PullRequestReview.class, ValueInfo.Origin.READ_BODY);
+		map.remove("id");
+		reviews.add(map);
+		return reviews;
+	}
 	
 	@Api(order=500)
 	@Path("/{requestId}/comments")
@@ -219,12 +258,7 @@ public class PullRequestResource {
 		if (!SecurityUtils.isAdministrator(subject) && count > RestConstants.MAX_PAGE_SIZE)
     		throw new NotAcceptableException("Count should not be greater than " + RestConstants.MAX_PAGE_SIZE);
 
-    	PullRequestQuery parsedQuery;
-		try {
-			parsedQuery = PullRequestQuery.parse(null, query, true);
-		} catch (Exception e) {
-			throw new NotAcceptableException("Error parsing query", e);
-		}
+		var parsedQuery = PullRequestQuery.parse(null, query, true);
     	
     	return pullRequestService.query(subject, null, parsedQuery, false, offset, count);
     }
@@ -233,66 +267,30 @@ public class PullRequestResource {
 	@POST
     public Response createPullRequest(@NotNull PullRequestOpenData data) {
 		User user = SecurityUtils.getUser();
-		
+
 		ProjectAndBranch target = new ProjectAndBranch(data.getTargetProjectId(), data.getTargetBranch());
 		ProjectAndBranch source = new ProjectAndBranch(data.getSourceProjectId(), data.getSourceBranch());
-		
+
 		if (!SecurityUtils.canReadCode(target.getProject()) || !SecurityUtils.canReadCode(source.getProject()))
 			throw new UnauthorizedException();
-		
-		if (target.equals(source))
-			throw new NotAcceptableException("Source and target are the same");
-		
-		PullRequest request = pullRequestService.findOpen(target, source);
-		if (request != null)
-			throw new NotAcceptableException("Another pull request already opened for this change");
-		
-		request = pullRequestService.findEffective(target, source);
-		if (request != null) { 
-			if (request.isOpen())
-				throw new NotAcceptableException("Another pull request already opened for this change");
-			else
-				throw new NotAcceptableException("Change already merged");
-		}
 
-		request = new PullRequest();
-		ObjectId baseCommitId = gitService.getMergeBase(
-				target.getProject(), target.getObjectId(), 
-				source.getProject(), source.getObjectId());
-		
-		if (baseCommitId == null)
-			throw new NotAcceptableException("No common base for target and source");
-
-		request.setTitle(data.getTitle());
+		PullRequest request = new PullRequest();
+		request.setSubmitter(user);
 		request.setTarget(target);
 		request.setSource(source);
-		request.setSubmitter(user);
-		request.setBaseCommitHash(baseCommitId.name());
+		request.setTitle(data.getTitle());
 		request.setDescription(data.getDescription());
-		
 		if (data.getMergeStrategy() != null)
 			request.setMergeStrategy(data.getMergeStrategy());
-		else
-			request.setMergeStrategy(request.getProject().findDefaultPullRequestMergeStrategy());
-		
-		if (request.getBaseCommitHash().equals(source.getObjectName())) 
-			throw new NotAcceptableException("Change already merged");
 
-		PullRequestUpdate update = new PullRequestUpdate();
-		update.setDate(new DateTime(request.getSubmitDate()).plusSeconds(1).toDate());
-		update.setRequest(request);
-		update.setHeadCommitHash(source.getObjectName());
-		update.setTargetHeadCommitHash(request.getTarget().getObjectName());
-		request.getUpdates().add(update);
-
-		pullRequestService.checkReviews(request, false);
-		
 		if (data.getReviewerIds() != null) {
 			for (Long reviewerId: data.getReviewerIds()) {
 				User reviewer = userService.load(reviewerId);
-				if (reviewer.equals(request.getSubmitter())) 
-					return Response.status(NOT_ACCEPTABLE).entity("Pull request submitter can not be reviewer").build();
-				
+				if (reviewer.equals(request.getSubmitter()))
+					return Response.status(NOT_ACCEPTABLE).entity("Pull request submitter cannot be reviewer").build();
+				if (!SecurityUtils.canReadCode(request.getProject()))
+					throw new NotAcceptableException("Reviewer should have code read permission: " + reviewer.getName());
+
 				if (request.getReview(reviewer) == null) {
 					PullRequestReview review = new PullRequestReview();
 					review.setRequest(request);
@@ -306,19 +304,16 @@ public class PullRequestResource {
 			for (Long assigneeId : data.getAssigneeIds()) {
 				PullRequestAssignment assignment = new PullRequestAssignment();
 				assignment.setRequest(request);
-				assignment.setUser(userService.load(assigneeId));
-				request.getAssignments().add(assignment);
-			}
-		} else {
-			for (var assignee: target.getProject().findDefaultPullRequestAssignees()) {
-				PullRequestAssignment assignment = new PullRequestAssignment();
-				assignment.setRequest(request);
+				var assignee = userService.load(assigneeId);
+				if (!SecurityUtils.canWriteCode(request.getProject()))
+					throw new NotAcceptableException("Assignee should have code write permission: " + assignee.getName());
 				assignment.setUser(assignee);
 				request.getAssignments().add(assignment);
 			}
 		}
-				
+
 		pullRequestService.open(request);
+
 		return Response.ok(request.getId()).build();
     }
 	
@@ -347,6 +342,141 @@ public class PullRequestResource {
 		pullRequestChangeService.changeDescription(user, request, description);
 		return Response.ok().build();
     }
+
+	@Api(order=1410)
+	@Path("/{requestId}/reviewers/{userId}")
+	@POST
+	public Response addReviewer(@PathParam("requestId") Long requestId, @PathParam("userId") Long userId) {		
+		var request = pullRequestService.load(requestId);
+		var user = userService.load(userId);
+
+		var currentUser = SecurityUtils.getUser();
+		if (!SecurityUtils.canModifyPullRequest(currentUser.asSubject(), request)) 
+			throw new UnauthorizedException();
+
+		if (user.equals(request.getSubmitter()))
+			throw new NotAcceptableException("Pull request submitter cannot be reviewer");
+
+		if (!SecurityUtils.canReadCode(user.asSubject(), request.getProject()))
+			throw new NotAcceptableException("Reviewer needs to have read code permission to the project");
+			
+		var review = request.getReview(user);
+		if (review != null) {
+			if (review.getStatus() == EXCLUDED) {
+				review.setStatus(PENDING);
+				pullRequestReviewService.createOrUpdate(currentUser, review);
+			}
+		} else {
+			review = new PullRequestReview();
+			review.setRequest(request);
+			review.setUser(user);
+			review.setStatus(PENDING);
+
+			pullRequestReviewService.createOrUpdate(currentUser, review);	
+		}
+
+		return Response.ok().build();
+	}
+
+	@Api(order=1425)
+	@Path("/{requestId}/approve")
+	@POST
+	public Response approve(@PathParam("requestId") Long requestId, String note) {
+		var request = pullRequestService.load(requestId);
+		var user = SecurityUtils.getUser();
+		note = StringUtils.trimToNull(note);
+
+		if (user == null)
+			throw new UnauthorizedException();
+
+		pullRequestReviewService.review(user, request, true, note);
+
+		return Response.ok().build();
+	}
+
+	@Api(order=1450)
+	@Path("/{requestId}/request-for-changes")
+	@POST
+	public Response requestForChanges(@PathParam("requestId") Long requestId, String note) {
+		var request = pullRequestService.load(requestId);
+		var user = SecurityUtils.getUser();
+		note = StringUtils.trimToNull(note);
+
+		if (user == null)
+			throw new UnauthorizedException();
+
+		pullRequestReviewService.review(user, request, true, note);
+
+		return Response.ok().build();
+	}
+
+	@Api(order=1475)
+	@Path("/{requestId}/reviewers/{userId}")
+	@DELETE
+	public Response removeReviewer(@PathParam("requestId") Long requestId, @PathParam("userId") Long userId) {		
+		var request = pullRequestService.load(requestId);
+		var user = userService.load(userId);
+
+		var subject = SecurityUtils.getSubject();
+		
+		if (!SecurityUtils.canModifyPullRequest(subject, request))
+			throw new UnauthorizedException();
+
+		var review = request.getReview(user);
+		if (review != null) {
+			review.setStatus(EXCLUDED);
+			pullRequestService.checkReviews(request, false);
+			if (review.getStatus() != EXCLUDED) 
+				throw new NotAcceptableException("This reviewer is mandatory and cannot be removed");
+			pullRequestReviewService.createOrUpdate(user, review);
+		}
+
+		return Response.ok().build();	
+	}
+
+	@Api(order=1480)
+	@Path("/{requestId}/assignees/{userId}")
+	@POST
+	public Response addAssignee(@PathParam("requestId") Long requestId, @PathParam("userId") Long userId) {
+		var request = pullRequestService.load(requestId);
+		var user = userService.load(userId);
+
+		if (!SecurityUtils.canModifyPullRequest(request))
+			throw new UnauthorizedException();
+
+		if (!SecurityUtils.canWriteCode(user.asSubject(), request.getProject()))
+			throw new NotAcceptableException("Assignee needs to have write code permission to the project");
+
+		if (request.getAssignees().contains(user))
+			return Response.ok().build();
+
+		var assignment = new PullRequestAssignment();
+		assignment.setRequest(request);
+		assignment.setUser(user);
+		pullRequestAssignmentService.create(assignment);
+
+		return Response.ok().build();
+	}
+
+	@Api(order=1490)
+	@Path("/{requestId}/assignees/{userId}")
+	@DELETE
+	public Response removeAssignee(@PathParam("requestId") Long requestId, @PathParam("userId") Long userId) {
+		var request = pullRequestService.load(requestId);
+		var user = userService.load(userId);
+
+		if (!SecurityUtils.canModifyPullRequest(request))
+			throw new UnauthorizedException();
+
+		var assignment = request.getAssignments().stream()
+				.filter(it -> it.getUser().equals(user))
+				.findFirst()
+				.orElse(null);
+		if (assignment != null)
+			pullRequestAssignmentService.delete(assignment);
+
+		return Response.ok().build();
+	}
 	
 	@Api(order=1500)
 	@Path("/{requestId}/merge-strategy")
@@ -399,9 +529,6 @@ public class PullRequestResource {
 		var user = SecurityUtils.getUser(subject);
     	if (!SecurityUtils.canModifyPullRequest(subject, request))
 			throw new UnauthorizedException();
-    	String errorMessage = request.checkReopenCondition();
-    	if (errorMessage != null)
-    		throw new NotAcceptableException(errorMessage);
     	
 		pullRequestService.reopen(user, request, note);
 		return Response.ok().build();
@@ -416,8 +543,6 @@ public class PullRequestResource {
 		var user = SecurityUtils.getUser(subject);
     	if (!SecurityUtils.canModifyPullRequest(subject, request))
 			throw new UnauthorizedException();
-    	if (!request.isOpen())
-			throw new NotAcceptableException("Pull request already closed");
     	
 		pullRequestService.discard(user, request, note);
 		return Response.ok().build();
@@ -431,13 +556,6 @@ public class PullRequestResource {
 		var user = SecurityUtils.getUser();
     	if (!SecurityUtils.canWriteCode(user.asSubject(), request.getProject()))
 			throw new UnauthorizedException();
-    	String errorMessage = request.checkMergeCondition();
-    	if (errorMessage != null)
-			throw new NotAcceptableException(errorMessage);
-
-		errorMessage = request.checkMergeCommitMessage(user, note);
-		if (errorMessage != null)
-			throw new NotAcceptableException("Error validating merge commit message: " + errorMessage);
 		
 		pullRequestService.merge(user, request, note);
 		return Response.ok().build();
@@ -454,11 +572,7 @@ public class PullRequestResource {
 				|| !SecurityUtils.canDeleteBranch(subject, request.getSourceProject(), request.getSourceBranch())) {
 			throw new UnauthorizedException();
 		}
-		
-    	String errorMessage = request.checkDeleteSourceBranchCondition();
-    	if (errorMessage != null)
-			throw new NotAcceptableException(errorMessage); 		
-		
+				
 		pullRequestService.deleteSourceBranch(user, request, note);
 		return Response.ok().build();
     }
@@ -474,10 +588,6 @@ public class PullRequestResource {
 				!SecurityUtils.canWriteCode(subject, request.getSourceProject())) {
 			throw new UnauthorizedException();
 		}
-		
-    	String errorMessage = request.checkRestoreSourceBranchCondition();
-    	if (errorMessage != null)
-			throw new NotAcceptableException(errorMessage);
 		
 		pullRequestService.restoreSourceBranch(user, request, note);
 		return Response.ok().build();

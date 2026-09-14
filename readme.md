@@ -5,10 +5,12 @@
 </div>
 
 <div align="center">
-<h1>Git Server with CI/CD, Kanban, and Packages</h1>
+<h1>The Unified and Autonomous Development Platform</h1>
 
 <h2>
 <a href="https://docs.onedev.io">Get Started</a> 
+&nbsp;&nbsp;
+<a href="https://onedev.io/blogs/ai-teammates">AI Teammates</a> 
 </h2>
 
 <p style="margin-bottom: 20px;">
@@ -20,7 +22,7 @@
 Language aware symbol search and navigation in any commit.
 Click symbol to show occurrences in current file.
 Fast code search with regular expression. 
-[**Try It**](https://code.onedev.io/demo/dotnet-runtime)
+[**Try It**](https://code.onedev.io/demo/kubernetes)
 
 ![code search and navigation](./doc/images/code-navigation.gif)
 
@@ -148,13 +150,33 @@ query to get notified of interesting events.
 
 ![issue query](./doc/images/issue-query.gif)
 
-## 🤖 MCP server to interact with OneDev via AI agents
+## 🤖 Built-in AI for DevOps Intelligence
 
-MCP server for managing issues, pull requests, and builds. Streamline DevOps workflows, configure CI/CD jobs, 
-and investigate build failures through conversations.
-[**Tutorial**](https://docs.onedev.io/tutorials/misc/working-with-mcp)
+Query with natural language. Explain code snippets, help understand codebase, review commits and pull requests, assist with CI/CD specs, investigate build errors. 
+[**Tutorial**](https://docs.onedev.io/tutorials/ai/working-with-built-in-ai)
 
-![mcp](./doc/images/mcp.png)
+![ai-pr-review](./doc/images/ai-pr-review.png)
+
+## 🧑‍💻 Workspaces for Vibe Coding
+
+Work on any branch with preconfigured dev containers on server. Use OpenCode, Claude Code, Codex, or other terminal agents in browser without setting up local environment.
+[**Tutorial**](https://docs.onedev.io/tutorials/ai/working-with-workspaces)
+
+![workspace](./doc/images/workspace.png)
+
+## 🤹 Skills and CLI to interact with OneDev in AI agents
+
+TOD CLI to query and edit issues, pull requests, and builds, run CI/CD jobs against local changes, and check out pull requests locally. Shipped skills to drive OneDev workflows in coding agents.
+[**Skills and CLI**](https://onedev.io/blogs/onedev-cli-and-agent-skills)
+
+![mcp](./doc/images/skills-and-cli.png)
+
+## 🤖 AI for DevOps intelligence
+
+AI users work autonomously in your issue and pull request flow: implement assigned issues, review and improve pull requests, fix CI/CD failures, and resolve merge conflicts. They can also explain code, summarize long discussions, help write CI/CD specs, and answer project questions.
+[**Tutorial**](https://docs.onedev.io/category/ai)
+
+![ai integration](./doc/images/ai-pr-review.png)
 
 ## 🎛️ Dashboard for teams and users
 
@@ -180,14 +202,6 @@ Search anything and jump to it without digging through menus.
 [**Try It**](https://code.onedev.io)
 
 ![command palette](./doc/images/command-palette.gif)
-
-## 📈 SLOC trend by language
-
-Inspects git history of main branch to calculate trend of
-source lines of code by language efficiently.
-[**See It In Action**](https://code.onedev.io/onedev/server/~stats/lines)
-
-![SLOC trends](./doc/images/line-stats.png)
 
 ## 🕊️ Fast, lightweight, and reliable
 

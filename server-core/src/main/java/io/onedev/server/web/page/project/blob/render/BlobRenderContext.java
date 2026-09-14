@@ -102,6 +102,7 @@ public interface BlobRenderContext extends Serializable {
 	
 	void onAddComment(AjaxRequestTarget target, PlanarRange range);
 		
+	/** Upload to the specified repository-root-relative directory, or the root if null. */
 	ObjectId uploadFiles(FileUpload upload, @Nullable String directory, String commitMessage);
 	
 	@Nullable
@@ -135,4 +136,18 @@ public interface BlobRenderContext extends Serializable {
 	String getInitialNewPath();
 	
 	String appendRaw(String url);
+
+	static String getAutosaveKey(Project project, String path) {
+		return "project:" + project.getId() + ":" + path;
+	}
+
+	@Nullable
+	default String getEditorAutosaveKey() {
+		String path = getNewPath();
+		if (path == null)
+			path = getBlobIdent().path;
+		if (path == null)
+			return null;
+		return getAutosaveKey(getProject(), path);
+	}
 }

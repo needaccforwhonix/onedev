@@ -9,7 +9,11 @@ import io.onedev.server.annotation.Interpolative;
 import io.onedev.server.annotation.Patterns;
 import io.onedev.server.buildspec.BuildSpec;
 import io.onedev.server.buildspec.step.StepGroup;
+import io.onedev.server.codequality.Coverage;
+import io.onedev.server.codequality.CoverageStats;
 import io.onedev.server.codequality.CoverageStatus;
+import io.onedev.server.codequality.FileCoverage;
+import io.onedev.server.codequality.GroupCoverage;
 import io.onedev.server.model.Build;
 import io.onedev.server.plugin.report.coverage.*;
 import io.onedev.server.util.XmlUtils;
@@ -34,7 +38,7 @@ public class PublishCoberturaReportStep extends PublishCoverageReportStep {
 
 	private static final long serialVersionUID = 1L;
 	
-	@Editable(order=100, description="Specify cobertura coverage xml report file relative to <a href='https://docs.onedev.io/concepts#job-workspace'>job workspace</a>, "
+	@Editable(order=100, description="Specify cobertura coverage xml report file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, "
 			+ "for instance, <tt>target/site/cobertura/coverage.xml</tt>. Use * or ? for pattern match")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Patterns(path=true)

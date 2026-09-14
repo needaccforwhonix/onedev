@@ -5,12 +5,12 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-import org.jspecify.annotations.Nullable;
-
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.shiro.subject.Subject;
 import org.eclipse.jgit.lib.ObjectId;
+import org.jspecify.annotations.Nullable;
 
+import dev.langchain4j.model.chat.ChatModel;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.PullRequest;
 import io.onedev.server.model.User;
@@ -61,27 +61,45 @@ public interface PullRequestService extends EntityService<PullRequest> {
 	void checkAutoMerge(PullRequest request);
 
 	List<PullRequest> query(Subject subject, @Nullable Project targetProject, 
-            EntityQuery<PullRequest> requestQuery, boolean loadExtraInfo, 
+            EntityQuery<PullRequest> query, boolean loadExtraInfo, 
             int firstResult, int maxResults);
 
-	int count(Subject subject, @Nullable Project targetProject, 
-            @Nullable Criteria<PullRequest> requestCriteria);
+	int count(Subject subject, @Nullable Project targetProject, @Nullable Criteria<PullRequest> criteria);
 
 	void delete(Collection<PullRequest> requests, Project project);
 
 	List<ProjectPullRequestStatusStat> queryStatusStats(Collection<Project> projects);
 
-	Map<Integer, Integer> queryDurationStats(Subject subject, Project project, @Nullable Criteria<PullRequest> pullRequestCriteria, 
-            @Nullable Date startDate, @Nullable Date endDate, StatsGroup statsGroup);
+	Map<Integer, Integer> queryDurationStats(Subject subject, Project project, 
+            @Nullable Criteria<PullRequest> criteria, @Nullable Date startDate, @Nullable Date endDate, 
+            StatsGroup statsGroup);
 
 	Map<Integer, Pair<Integer, Integer>> queryFrequencyStats(Subject subject, Project project,
-            @Nullable Criteria<PullRequest> pullRequestCriteria, 
-            @Nullable Date startDate, @Nullable Date endDate, StatsGroup statsGroup);
+            @Nullable Criteria<PullRequest> criteria, @Nullable Date startDate, @Nullable Date endDate, 
+            StatsGroup statsGroup);
 
+    /**
+     * When compare oldCommitId and newCommitId in context of pull request, assume below scenario:
+     * 1. Pull request is created
+     * 2. Add some commits to target branch
+     * 3. Merge target branch into source branch
+     * When show pull request changes in this case, we compare newCommitId with the comparison base 
+     * instead of oldCommitId to exclude commits added in step 2
+     * 
+     * @param request
+     * @param oldCommitId
+     * @param newCommitId
+     * @return
+     */
 	ObjectId getComparisonBase(PullRequest request, ObjectId oldCommitId, ObjectId newCommitId);
 
 	List<PullRequest> query(User submitter, Date fromDate, Date toDate);
 
     Collection<Long> getTargetProjectIds();
-    
+
+	List<PullRequest> queryAfter(Long projectId, Long afterRequestId, int count);
+
+    Pair<String, String> suggestTitleAndDescription(PullRequest request, ChatModel chatModel, 
+            boolean suggestTitle, boolean suggestDescription);
+
 }

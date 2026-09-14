@@ -1,9 +1,28 @@
 package io.onedev.server.service.impl;
 
+import static io.onedev.commons.utils.LockUtils.read;
+import static io.onedev.commons.utils.LockUtils.write;
+import static io.onedev.server.ai.ToolUtils.getToolArguments;
 import static io.onedev.server.model.User.Type.SERVICE;
+import static io.onedev.server.util.SiteSyncUtils.syncDirectory;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectStreamException;
+import java.io.OutputStream;
+import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -16,14 +35,33 @@ import javax.persistence.criteria.Subquery;
 import org.hibernate.ReplicationMode;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.query.Query;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 import com.hazelcast.core.HazelcastInstance;
 
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.ToolExecutionResultMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.chat.request.ChatRequest;
+import io.onedev.commons.bootstrap.Bootstrap;
+import io.onedev.commons.loader.ManagedSerializedForm;
+import io.onedev.commons.utils.ExceptionUtils;
+import io.onedev.commons.utils.ExplicitException;
+import io.onedev.commons.utils.FileUtils;
+import io.onedev.commons.utils.StringUtils;
+import io.onedev.server.ai.AiTask;
+import io.onedev.server.ai.TaskTool;
+import io.onedev.server.ai.ToolUtils;
 import io.onedev.server.cluster.ClusterService;
+import io.onedev.server.cluster.ClusterTask;
 import io.onedev.server.event.Listen;
+import io.onedev.server.event.cluster.NodeStarted;
 import io.onedev.server.event.entity.EntityPersisted;
 import io.onedev.server.event.entity.EntityRemoved;
+import io.onedev.server.event.system.SystemStarted;
 import io.onedev.server.event.system.SystemStarting;
 import io.onedev.server.model.AbstractEntity;
 import io.onedev.server.model.EmailAddress;
@@ -32,22 +70,44 @@ import io.onedev.server.model.User;
 import io.onedev.server.model.support.code.BranchProtection;
 import io.onedev.server.model.support.code.TagProtection;
 import io.onedev.server.persistence.IdService;
+import io.onedev.server.persistence.SessionService;
 import io.onedev.server.persistence.TransactionService;
 import io.onedev.server.persistence.annotation.Sessional;
 import io.onedev.server.persistence.annotation.Transactional;
 import io.onedev.server.persistence.dao.EntityCriteria;
+import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.service.EmailAddressService;
 import io.onedev.server.service.IssueFieldService;
+import io.onedev.server.service.ManagedFutureService;
 import io.onedev.server.service.ProjectService;
 import io.onedev.server.service.SettingService;
 import io.onedev.server.service.UserService;
+import io.onedev.server.util.PathIndexUtils;
+import io.onedev.server.util.SiteSyncUtils;
+import io.onedev.server.util.concurrent.BatchWorkExecutionService;
+import io.onedev.server.util.concurrent.BatchWorker;
+import io.onedev.server.util.concurrent.Prioritized;
 import io.onedev.server.util.facade.UserCache;
 import io.onedev.server.util.facade.UserFacade;
 import io.onedev.server.util.usage.Usage;
 
 @Singleton
-public class DefaultUserService extends BaseEntityService<User> implements UserService {
+public class DefaultUserService extends BaseEntityService<User> implements UserService, Serializable {
 	
+	private static final Logger logger = LoggerFactory.getLogger(DefaultUserService.class);
+	
+	private static final int TIMEOUT_SECONDS = 600;
+
+	private static final int EMPTY_RESPONSE_MAX_RETRIES = 3;
+
+	private static final String EMPTY_RESPONSE_PROMPT =
+			"Your previous turn was empty. Please reply with your answer.";
+
+	private static final int SYNC_PRIORITY = 50;
+
+	@Inject
+	private BatchWorkExecutionService batchWorkExecutionService;
+
 	@Inject
     private ProjectService projectService;
     
@@ -68,8 +128,43 @@ public class DefaultUserService extends BaseEntityService<User> implements UserS
     
     @Inject
     private ClusterService clusterService;
+
+	@Inject
+	private ExecutorService executorService;
+
+	@Inject
+	private SessionService sessionService;
+
+	@Inject
+	private ManagedFutureService managedFutureService;
 	
 	private volatile UserCache cache;
+
+	private static final BatchWorker SYNC_WORKER = new BatchWorker("data-sync") {
+
+		private static final long serialVersionUID = 1L;
+
+		@Override
+		public void doWorks(List<Prioritized> works) {
+			var syncWithServer = ((SyncWork) works.get(works.size() - 1)).syncWithServer;
+			try {
+				syncDirectory(syncWithServer, "users", userId -> {
+					syncDirectory(syncWithServer, "users/" + userId, dataType -> {
+						if (dataType.equals("workspace-data")) {
+							syncDirectory(syncWithServer, "users/" + userId + "/workspace-data", encodedDataKey -> {
+								var dataKey = User.decodeWorkspaceDataKey(encodedDataKey);
+								var lockName = User.getWorkspaceDataLockName(Long.valueOf(userId), dataKey);
+								syncDirectory(syncWithServer, "users/" + userId + "/workspace-data/" + encodedDataKey,
+									false, lockName, lockName);
+							}, true);
+						}
+					}, true);
+				}, true);
+			} catch (Exception e) {
+				logger.error(String.format("Error syncing data from server '%s'", syncWithServer), e);
+			}
+		}
+	};
 
 	@Transactional
 	@Override
@@ -99,6 +194,8 @@ public class DefaultUserService extends BaseEntityService<User> implements UserS
 						protection.onRenameUser(oldName, user.getName());
 					project.getIssueSetting().onRenameUser(oldName, user.getName());
 					project.getPullRequestSetting().onRenameUser(oldName, user.getName());
+					for (var spec : project.getWorkspaceSpecs())
+						spec.onRenameUser(oldName, user.getName());
 				} catch (Exception e) {
 					throw new RuntimeException("Error checking user reference in project '" + project.getPath() + "'", e);
 				}
@@ -234,12 +331,23 @@ public class DefaultUserService extends BaseEntityService<User> implements UserS
     	query.setParameter("unknown", getUnknown());
     	query.executeUpdate();
 
+    	query = getSession().createQuery("update IssueWorkReaction set user=:unknown where user=:user");
+    	query.setParameter("user", user);
+    	query.setParameter("unknown", getUnknown());
+    	query.executeUpdate();
+
     	query = getSession().createQuery("update IssueChange set user=:unknown where user=:user");
     	query.setParameter("user", user);
     	query.setParameter("unknown", getUnknown());
     	query.executeUpdate();
 		
 		dao.remove(user);
+
+		var userId = user.getId();
+		clusterService.runOnAllServers(() -> {
+			FileUtils.deleteDir(getUserDir(userId));
+			return null;
+		});
     }
 
 	private void checkUsage(User user) {
@@ -253,6 +361,8 @@ public class DefaultUserService extends BaseEntityService<User> implements UserS
 					usageInProject.add(protection.onDeleteUser(user.getName()));
 				usageInProject.add(project.getIssueSetting().onDeleteUser(user.getName()));
 				usageInProject.add(project.getPullRequestSetting().onDeleteUser(user.getName()));
+				for (var spec : project.getWorkspaceSpecs())
+					spec.onDeleteUser(user.getName());
 				usageInProject.prefix("project '" + project.getPath() + "': settings");
 				usage.add(usageInProject);
 			} catch (Exception e) {
@@ -431,6 +541,11 @@ public class DefaultUserService extends BaseEntityService<User> implements UserS
     }
 
     @Override
+    public UserFacade findFacadeByName(String userName) {
+		return cache.findByName(userName);
+    }
+
+    @Override
     public UserFacade findFacadeById(Long userId) {
 		return cache.get(userId);
     }
@@ -465,16 +580,6 @@ public class DefaultUserService extends BaseEntityService<User> implements UserS
 	public int count() {
 		return cache.size();
 	}
-
-    @Sessional
-    @Listen
-    public void on(SystemStarting event) {
-		HazelcastInstance hazelcastInstance = clusterService.getHazelcastInstance();
-		
-        cache = new UserCache(hazelcastInstance.getReplicatedMap("userCache"));
-		for (User user: query())
-			cache.put(user.getId(), user.getFacade());
-    }
 
 	private Predicate[] getPredicates(CriteriaBuilder builder, CriteriaQuery<?> query, 
 			Root<User> root, String term) {
@@ -537,6 +642,218 @@ public class DefaultUserService extends BaseEntityService<User> implements UserS
 			return null;
 	}
 
+	@Sessional
+	@Override
+	public void execute(User ai, AiTask task) {
+		Preconditions.checkState(ai.getType() == User.Type.AI);
+		var taskId = UUID.randomUUID().toString();
+		var subject = ai.asSubject();
+		var aiSetting = ai.getAiSetting();
+		transactionService.runAfterCommit(() -> {
+			var future = executorService.submit(() -> {
+				try {
+					var chatModel = aiSetting.getModelSetting().getChatModel();
+					var messages = new ArrayList<ChatMessage>();
+					messages.add(new SystemMessage("Your name is %s".formatted(ai.getName())));
+					if (aiSetting.getSystemPrompt() != null)
+						messages.add(new SystemMessage(aiSetting.getSystemPrompt()));
+					if (task.getSystemPrompt() != null)
+						messages.add(new SystemMessage(task.getSystemPrompt()));
+					messages.add(new UserMessage(task.getUserPrompt()));
+					var tools = task.getTools();
+					var toolSpecifications = tools.stream()
+							.map(TaskTool::getSpecification)
+							.collect(Collectors.toList());
+
+					ToolUtils.filterDuplications(toolSpecifications);
+
+					var calledTools = new HashSet<String>();
+					var taskChecker = task.getTaskChecker();
+					var emptyResponseRetryCount = new AtomicInteger(0);
+					while (true) {
+						if (Thread.interrupted())
+							throw new InterruptedException();								
+						var chatRequest = ChatRequest.builder()
+							.messages(messages)
+							.toolSpecifications(toolSpecifications)
+							.build();
+						var response = chatModel.chat(chatRequest);
+						var aiMessage = response.aiMessage();
+						
+						if (!aiMessage.hasToolExecutionRequests()) {
+							if (taskChecker.isResponseRequired(calledTools)) {
+								var responseText = aiMessage.text();
+								if (StringUtils.isNotBlank(responseText)) {
+									sessionService.run(() -> {
+										task.getResponseHandler().onResponse(
+											Preconditions.checkNotNull(SecurityUtils.getUser(subject)),
+											responseText);
+									});
+									break;
+								} else if (emptyResponseRetryCount.incrementAndGet() <= EMPTY_RESPONSE_MAX_RETRIES) {
+									messages.add(new UserMessage(EMPTY_RESPONSE_PROMPT));
+									continue;
+								} else {
+									sessionService.run(() -> {
+										task.getResponseHandler().onResponse(
+											Preconditions.checkNotNull(SecurityUtils.getUser(subject)),
+											"Empty response received");
+									});
+									break;
+								}	
+							} else {
+								break;
+							}
+						}
+
+						messages.add(aiMessage);
+						sessionService.run(() -> {
+							for (var toolRequest : aiMessage.toolExecutionRequests()) {
+								if (Thread.interrupted())
+									throw new RuntimeException(new InterruptedException());
+
+								var toolName = toolRequest.name();
+								var errorMessage = taskChecker.preToolCall(toolName, calledTools);
+								if (errorMessage != null) {
+									messages.add(ToolExecutionResultMessage.from(toolRequest.id(), toolName, errorMessage));
+									continue;
+								}
+								try {        
+									var tool = tools.stream()
+										.filter(it -> it.getSpecification().name().equals(toolName))
+										.findFirst()
+										.orElseThrow(() -> new ExplicitException("Tool not found: " + toolName));     
+									tool.execute(subject, getToolArguments(toolRequest)).addToMessages(messages, toolRequest);
+									calledTools.add(toolName);
+								} catch (Throwable t) {
+									ToolUtils.handleCallException(toolName, t);
+								}
+							}
+						});
+					}
+				} catch (Throwable e) {
+					sessionService.run(() -> {
+						var user = Preconditions.checkNotNull(SecurityUtils.getUser(subject));
+						var explicitException = ExceptionUtils.find(e, ExplicitException.class);
+						if (explicitException != null) {
+							task.getResponseHandler().onResponse(user, explicitException.getMessage());
+						} else if (ExceptionUtils.find(e, InterruptedException.class) == null) {
+							logger.error("Error running AI task", e);
+							task.getResponseHandler().onResponse(user, "Error running AI task, check server log for details");
+						}
+					});
+				} finally {
+					managedFutureService.removeFuture(taskId);
+				}
+			});
+			managedFutureService.addFuture(taskId, future, TIMEOUT_SECONDS, f -> {
+				sessionService.run(() -> {
+					task.getResponseHandler().onResponse(
+						Preconditions.checkNotNull(SecurityUtils.getUser(subject)), 
+						"Timed out getting response");
+				});
+			});
+		});
+	}
+
+	@Override
+	public File getUsersDir() {
+		File usersDir = new File(Bootstrap.getSiteDir(), "users");
+		FileUtils.createDir(usersDir);
+		return usersDir;
+	}
+
+	@Override
+	public File getUserDir(Long userId) {
+		var userDir = new File(getUsersDir(), String.valueOf(userId));
+		FileUtils.createDir(userDir);
+		return userDir;
+	}
+
+	@Override
+	public File getWorkspaceDataBaseDir(Long userId) {
+		var baseDir = new File(getUserDir(userId), "workspace-data");
+		FileUtils.createDir(baseDir);
+		return baseDir;
+	}
+
+	@Override
+	public File getWorkspaceDataDir(Long userId, String dataKey, boolean createIfNotExist) {
+		var dataDir = new File(getWorkspaceDataBaseDir(userId), User.encodeWorkspaceDataKey(dataKey));
+		if (createIfNotExist)
+			FileUtils.createDir(dataDir);
+		return dataDir;
+	}
+
+	@Override
+	public boolean downloadWorkspaceData(Long userId, String dataKey, String path,
+										 Consumer<InputStream> dataStreamHandler) {
+		var dataDir = getWorkspaceDataDir(userId, dataKey, false);
+		return read(User.getWorkspaceDataLockName(userId, dataKey), () -> {
+			var pathIndexes = PathIndexUtils.read(dataDir);
+			var pathIndex = pathIndexes.get(path);
+			var pathFile = pathIndex != null ? new File(dataDir, String.valueOf(pathIndex)) : null;
+			if (pathFile != null && pathFile.isFile()) {
+				try (var is = new FileInputStream(pathFile)) {
+					dataStreamHandler.accept(is);
+					return true;
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
+			} else {
+				return false;
+			}
+		});
+	}
+
+	@Override
+	public void uploadWorkspaceData(Long userId, String dataKey, String path,
+									Consumer<OutputStream> dataStreamHandler) {
+		write(User.getWorkspaceDataLockName(userId, dataKey), () -> {
+			var dataDir = getWorkspaceDataDir(userId, dataKey, true);
+			var pathIndexes = PathIndexUtils.read(dataDir);
+			boolean isNew = !pathIndexes.containsKey(path);
+			var pathIndex = PathIndexUtils.allocate(pathIndexes, path);
+			var pathFile = new File(dataDir, String.valueOf(pathIndex));
+			try (var os = new FileOutputStream(pathFile)) {
+				dataStreamHandler.accept(os);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+			if (isNew)
+				PathIndexUtils.write(dataDir, pathIndexes);
+		});
+	}
+
+	@Override
+	public void notifyWorkspaceDataUploaded(Long userId, String dataKey) {
+		var usersDir = getUsersDir();
+		var dataDir = getWorkspaceDataDir(userId, dataKey, true);
+
+		SiteSyncUtils.bumpVersions(usersDir, dataDir);
+
+		var remoteServer = clusterService.getLocalServerAddress();
+		clusterService.submitToAllServers(new ClusterTask<Void>() {
+
+			@Override
+			public Void call() throws Exception {
+				var localServer = clusterService.getLocalServerAddress();
+				if (!localServer.equals(remoteServer)) {
+					var usersDir = getUsersDir();
+					var dataDir = getWorkspaceDataDir(userId, dataKey, true);
+					var syncPath = Bootstrap.getSiteDir().toPath()
+							.relativize(dataDir.toPath()).toString();
+					var lockName = User.getWorkspaceDataLockName(userId, dataKey);
+					SiteSyncUtils.syncDirectory(remoteServer, syncPath,
+							false, lockName, lockName);
+					SiteSyncUtils.bumpVersions(usersDir, dataDir.getParentFile());
+				}
+				return null;	
+			}
+
+		});		
+	}
+
 	@Override
 	public UserCache cloneCache() {
 		return cache.clone();
@@ -563,4 +880,44 @@ public class DefaultUserService extends BaseEntityService<User> implements UserS
 		}
 	}
 	
+	@Listen
+	public void on(NodeStarted event) {
+		requestToSync(event.getServer());
+	}
+
+    @Sessional
+    @Listen
+    public void on(SystemStarting event) {
+		HazelcastInstance hazelcastInstance = clusterService.getHazelcastInstance();
+		
+        cache = new UserCache(hazelcastInstance.getReplicatedMap("userCache"));
+		for (User user: query())
+			cache.put(user.getId(), user.getFacade());
+    }
+
+	@Listen
+	public void on(SystemStarted event) {
+		var newestServer = SiteSyncUtils.findNewestServer("users");
+		if (newestServer != null)
+			requestToSync(newestServer);
+	}
+
+	private void requestToSync(String syncWithServer) {
+		batchWorkExecutionService.submit(SYNC_WORKER, new SyncWork(SYNC_PRIORITY, syncWithServer));
+	}
+
+	public Object writeReplace() throws ObjectStreamException {
+		return new ManagedSerializedForm(UserService.class);
+	}
+
+	private static class SyncWork extends Prioritized {
+
+		final String syncWithServer;
+
+		SyncWork(int priority, String syncWithServer) {
+			super(priority);
+			this.syncWithServer = syncWithServer;
+		}
+	}
+
 }

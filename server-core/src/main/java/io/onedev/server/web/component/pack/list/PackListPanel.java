@@ -2,7 +2,6 @@ package io.onedev.server.web.component.pack.list;
 
 import static io.onedev.server.web.translation.Translation._T;
 
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -74,6 +73,7 @@ import io.onedev.server.web.component.menu.MenuItem;
 import io.onedev.server.web.component.menu.MenuLink;
 import io.onedev.server.web.component.modal.confirm.ConfirmModalPanel;
 import io.onedev.server.web.component.savedquery.SavedQueriesClosed;
+import io.onedev.server.web.component.savedquery.SavedQueriesLink;
 import io.onedev.server.web.component.savedquery.SavedQueriesOpened;
 import io.onedev.server.web.component.sortedit.SortEditPanel;
 import io.onedev.server.web.component.svg.SpriteImage;
@@ -102,7 +102,6 @@ public abstract class PackListPanel extends Panel {
 
 	};
 	
-	private Component countLabel;
 	
 	private DataTable<Pack, Void> packsTable;
 	
@@ -188,7 +187,6 @@ public abstract class PackListPanel extends Panel {
 	private void doQuery(AjaxRequestTarget target) {
 		packsTable.setCurrentPage(0);
 		target.add(helpLink);
-		target.add(countLabel);
 		target.add(body);
 		if (selectionColumn != null)
 			selectionColumn.getSelections().clear();
@@ -201,7 +199,7 @@ public abstract class PackListPanel extends Panel {
 	protected void onInitialize() {
 		super.onInitialize();
 
-		add(new AjaxLink<Void>("showSavedQueries") {
+		add(new SavedQueriesLink("showSavedQueries") {
 
 			@Override
 			public void onEvent(IEvent<?> event) {
@@ -214,7 +212,7 @@ public abstract class PackListPanel extends Panel {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(getQuerySaveSupport() != null && !getQuerySaveSupport().isSavedQueriesVisible());
+				setVisible(getQuerySaveSupport() != null);
 			}
 
 			@Override
@@ -243,7 +241,7 @@ public abstract class PackListPanel extends Panel {
 				if (!querySubmitted)
 					tag.put("data-tippy-content", _T("Query not submitted"));
 				else if (queryModel.getObject() == null)
-					tag.put("data-tippy-content", _T("Can not save malformed query"));
+					tag.put("data-tippy-content", _T("Cannot save malformed query"));
 			}
 
 			@Override
@@ -288,7 +286,6 @@ public abstract class PackListPanel extends Panel {
 												getAuditService().audit(pack.getProject(), "deleted package \"" + pack.getReference(false) + "\"", oldAuditContent, null);
 											}												
 										});
-										target.add(countLabel);
 										target.add(body);
 										selectionColumn.getSelections().clear();
 									}
@@ -360,19 +357,18 @@ public abstract class PackListPanel extends Panel {
 											}												
 										});
 										dataProvider.detach();
-										target.add(countLabel);
 										target.add(body);
 										selectionColumn.getSelections().clear();
 									}
 									
 									@Override
 									protected String getConfirmMessage() {
-										return _T("Type <code>yes</code> below to delete all queried packages");
+										return _T("Type <code>delete ALL packages</code> below to delete all queried packages");
 									}
 									
 									@Override
 									protected String getConfirmInput() {
-										return "yes";
+										return "delete ALL packages";
 									}
 									
 								};
@@ -516,6 +512,11 @@ public abstract class PackListPanel extends Panel {
 				target.add(saveQueryLink);
 			}
 			
+			@Override
+			protected boolean isSelectOnFocus() {
+				return true;
+			}
+			
 		});
 		
 		queryInput.add(new AjaxFormComponentUpdatingBehavior("clear") {
@@ -541,44 +542,31 @@ public abstract class PackListPanel extends Panel {
 		});
 		add(queryForm);
 
-		add(countLabel = new Label("count", new AbstractReadOnlyModel<String>() {
-			@Override
-			public String getObject() {
-				if (dataProvider.size() > 1)
-					return MessageFormat.format(_T("found {0} packages"), dataProvider.size());
-				else
-					return _T("found 1 package");
-			}
-		}) {
-			@Override
-			protected void onConfigure() {
-				super.onConfigure();
-				setVisible(dataProvider.size() != 0);
-			}
-		}.setOutputMarkupPlaceholderTag(true));
 		
 		dataProvider = new LoadableDetachableDataProvider<>() {
 
 			@Override
 			public Iterator<? extends Pack> iterator(long first, long count) {
 				try {
-					return getPackService().query(SecurityUtils.getSubject(), getProject(), queryModel.getObject(), 
-							true, (int) first, (int) count).iterator();
+					var query = queryModel.getObject();
+					if (query != null) {
+						return getPackService().query(SecurityUtils.getSubject(), getProject(), query, 
+								true, (int) first, (int) count).iterator();
+					}
 				} catch (ExplicitException e) {
 					error(e.getMessage());
-					return new ArrayList<Pack>().iterator();
 				}
+				return new ArrayList<Pack>().iterator();
 			}
 
 			@Override
 			public long calcSize() {
-				PackQuery query = queryModel.getObject();
-				if (query != null) {
-					try {
+				try {
+					PackQuery query = queryModel.getObject();
+					if (query != null) 
 						return getPackService().count(SecurityUtils.getSubject(), getProject(), query.getCriteria());
-					} catch (ExplicitException e) {
-						error(e.getMessage());
-					}
+				} catch (ExplicitException e) {
+					error(e.getMessage());
 				}
 				return 0;
 			}
@@ -683,7 +671,8 @@ public abstract class PackListPanel extends Panel {
 
 			@Override
 			public void populateItem(Item<ICellPopulator<Pack>> cellItem, String componentId, IModel<Pack> rowModel) {
-				cellItem.add(new Label(componentId, DateUtils.formatAge(rowModel.getObject().getPublishDate())));
+				cellItem.add(new Label(componentId, DateUtils.formatAge(rowModel.getObject().getPublishDate()))
+						.add(new AttributeAppender("data-tippy-content", DateUtils.formatDateTime(rowModel.getObject().getPublishDate()))));
 			}
 		});
 
@@ -702,7 +691,7 @@ public abstract class PackListPanel extends Panel {
 		});
 
 		body.add(packsTable = new DefaultDataTable<>("packs", columns, dataProvider,
-				WebConstants.PAGE_SIZE, getPagingHistorySupport()) {
+				WebConstants.PAGE_SIZE, getPagingHistorySupport(), true) {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();

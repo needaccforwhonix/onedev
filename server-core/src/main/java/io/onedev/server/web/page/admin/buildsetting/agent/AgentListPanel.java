@@ -9,7 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.jspecify.annotations.Nullable;
+import javax.inject.Inject;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.wicket.Component;
@@ -36,16 +36,13 @@ import org.apache.wicket.markup.html.link.Link;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.markup.repeater.Item;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.request.cycle.RequestCycle;
+import org.jspecify.annotations.Nullable;
 
 import io.onedev.commons.utils.ExplicitException;
-import io.onedev.server.OneDev;
-import io.onedev.server.service.AgentService;
-import io.onedev.server.service.AuditService;
 import io.onedev.server.model.Agent;
 import io.onedev.server.persistence.TransactionService;
 import io.onedev.server.search.entity.EntityQuery;
@@ -53,7 +50,10 @@ import io.onedev.server.search.entity.EntitySort;
 import io.onedev.server.search.entity.EntitySort.Direction;
 import io.onedev.server.search.entity.agent.AgentQuery;
 import io.onedev.server.search.entity.agent.FuzzyCriteria;
+import io.onedev.server.search.entity.workspace.RanOnCriteria;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.AgentService;
+import io.onedev.server.service.AuditService;
 import io.onedev.server.web.WebConstants;
 import io.onedev.server.web.behavior.AgentQueryBehavior;
 import io.onedev.server.web.component.AgentStatusBadge;
@@ -65,13 +65,27 @@ import io.onedev.server.web.component.menu.MenuItem;
 import io.onedev.server.web.component.menu.MenuLink;
 import io.onedev.server.web.component.modal.confirm.ConfirmModalPanel;
 import io.onedev.server.web.component.savedquery.SavedQueriesClosed;
+import io.onedev.server.web.component.savedquery.SavedQueriesLink;
 import io.onedev.server.web.component.savedquery.SavedQueriesOpened;
 import io.onedev.server.web.component.sortedit.SortEditPanel;
 import io.onedev.server.web.util.LoadableDetachableDataProvider;
 import io.onedev.server.web.util.QuerySaveSupport;
 import io.onedev.server.web.util.paginghistory.PagingHistorySupport;
+import io.onedev.server.workspace.WorkspaceService;
 
 class AgentListPanel extends Panel {
+
+	@Inject
+	private AgentService agentService;
+
+	@Inject
+	private WorkspaceService workspaceService;
+
+	@Inject
+	private AuditService auditService;
+
+	@Inject
+	private TransactionService transactionService;
 	
 	private final IModel<String> queryStringModel;
 	
@@ -95,7 +109,6 @@ class AgentListPanel extends Panel {
 		
 	};
 
-	private Component countLabel;
 	
 	private DataTable<Agent, Void> agentsTable;
 	
@@ -115,11 +128,7 @@ class AgentListPanel extends Panel {
 		super(id);
 		this.queryStringModel = queryModel;
 	}
-	
-	private AgentService getAgentService() {
-		return OneDev.getInstance(AgentService.class);
-	}
-	
+		
 	@Override
 	protected void onDetach() {
 		queryStringModel.detach();
@@ -139,7 +148,6 @@ class AgentListPanel extends Panel {
 
 	private void doQuery(AjaxRequestTarget target) {
 		agentsTable.setCurrentPage(0);
-		target.add(countLabel);
 		target.add(body);
 		selectionColumn.getSelections().clear();
 		querySubmitted = true;
@@ -151,7 +159,7 @@ class AgentListPanel extends Panel {
 	protected void onInitialize() {
 		super.onInitialize();
 
-		add(new AjaxLink<Void>("showSavedQueries") {
+		add(new SavedQueriesLink("showSavedQueries") {
 
 			@Override
 			public void onEvent(IEvent<?> event) {
@@ -163,7 +171,7 @@ class AgentListPanel extends Panel {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(getQuerySaveSupport() != null && !getQuerySaveSupport().isSavedQueriesVisible());
+				setVisible(getQuerySaveSupport() != null);
 			}
 
 			@Override
@@ -192,7 +200,7 @@ class AgentListPanel extends Panel {
 				if (!querySubmitted)
 					tag.put("data-tippy-content", _T("Query not submitted"));
 				else if (queryModel.getObject() == null)
-					tag.put("data-tippy-content", _T("Can not save malformed query"));
+					tag.put("data-tippy-content", _T("Cannot save malformed query"));
 			}
 
 			@Override
@@ -292,14 +300,13 @@ class AgentListPanel extends Panel {
 
 							@Override
 							public void onClick(AjaxRequestTarget target) {
-								getTransactionService().run(() -> {
+								transactionService.run(() -> {
 									dropdown.close();								
 									for (var model: selectionColumn.getSelections()) {
 										var agent = model.getObject();
-										getAgentService().pause(agent);	
-										getAuditService().audit(null, "paused agent \"" + agent.getName() + "\"", null, null);
+										agentService.pause(agent);	
+										auditService.audit(null, "paused agent \"" + agent.getName() + "\"", null, null);
 									}							
-									target.add(countLabel);
 									target.add(body);
 									selectionColumn.getSelections().clear();
 									Session.get().success(_T("Paused selected agents"));	
@@ -340,14 +347,13 @@ class AgentListPanel extends Panel {
 
 							@Override
 							public void onClick(AjaxRequestTarget target) {
-								getTransactionService().run(() -> {
+								transactionService.run(() -> {
 									dropdown.close();
 									for (var model: selectionColumn.getSelections()) {
 										var agent = model.getObject();
-										getAgentService().resume(agent);
-										getAuditService().audit(null, "resumed agent \"" + agent.getName() + "\"", null, null);
+										agentService.resume(agent);
+										auditService.audit(null, "resumed agent \"" + agent.getName() + "\"", null, null);
 									}
-									target.add(countLabel);
 									target.add(body);
 									selectionColumn.getSelections().clear();
 									Session.get().success(_T("Resumed selected agents"));
@@ -394,13 +400,12 @@ class AgentListPanel extends Panel {
 									
 									@Override
 									protected void onConfirm(AjaxRequestTarget target) {
-										getTransactionService().run(() -> {
+										transactionService.run(() -> {
 											for (IModel<Agent> each: selectionColumn.getSelections()) {
 												var agent = each.getObject();
-												getAgentService().restart(agent);
-												getAuditService().audit(null, "restarted agent \"" + agent.getName() + "\"", null, null);
+												agentService.restart(agent);
+												auditService.audit(null, "restarted agent \"" + agent.getName() + "\"", null, null);
 											}
-											target.add(countLabel);
 											target.add(body);
 											selectionColumn.getSelections().clear();
 											Session.get().success(_T("Restart command issued to selected agents"));
@@ -460,21 +465,19 @@ class AgentListPanel extends Panel {
 									
 									@Override
 									protected void onConfirm(AjaxRequestTarget target) {
-										getTransactionService().run(() -> {
-											for (var model: selectionColumn.getSelections()) {
-												var agent = model.getObject();
-												getAgentService().delete(agent);
-												getAuditService().audit(null, "removed agent \"" + agent.getName() + "\"", null, null);
-											}
+										transactionService.run(() -> {
+											List<Agent> agents = new ArrayList<>();
+											for (var model: selectionColumn.getSelections())
+												agents.add(model.getObject());
+											removeAgents(agents);
 											selectionColumn.getSelections().clear();
-											target.add(countLabel);
 											target.add(body);
 										});
 									}
 									
 									@Override
 									protected String getConfirmMessage() {
-										return _T("Removed selected agents. Type <code>yes</code> below to confirm");
+										return _T("Remove selected agents. Type <code>yes</code> below to confirm");
 									}
 									
 									@Override
@@ -527,15 +530,14 @@ class AgentListPanel extends Panel {
 									
 									@Override
 									protected void onConfirm(AjaxRequestTarget target) {
-										getTransactionService().run(() -> {
+										transactionService.run(() -> {
 											for (var it = (Iterator<Agent>) dataProvider.iterator(0, agentsTable.getItemCount()); it.hasNext();) {
 												var agent = it.next();
-												getAgentService().pause(agent);
-												getAuditService().audit(null, "paused agent \"" + agent.getName() + "\"", null, null);
+												agentService.pause(agent);
+												auditService.audit(null, "paused agent \"" + agent.getName() + "\"", null, null);
 											}
 											selectionColumn.getSelections().clear();
 											dataProvider.detach();
-											target.add(countLabel);
 											target.add(body);
 											Session.get().success(_T("Paused all queried agents"));
 										});
@@ -596,14 +598,13 @@ class AgentListPanel extends Panel {
 									
 									@Override
 									protected void onConfirm(AjaxRequestTarget target) {
-										getTransactionService().run(() -> {
+										transactionService.run(() -> {
 											for (var it = (Iterator<Agent>) dataProvider.iterator(0, agentsTable.getItemCount()); it.hasNext();) {
 												var agent = it.next();
-												getAgentService().resume(agent);
-												getAuditService().audit(null, "resumed agent \"" + agent.getName() + "\"", null, null);
+												agentService.resume(agent);
+												auditService.audit(null, "resumed agent \"" + agent.getName() + "\"", null, null);
 											}
 											dataProvider.detach();
-											target.add(countLabel);
 											target.add(body);
 											selectionColumn.getSelections().clear();
 											Session.get().success(_T("Resumed all queried agents"));
@@ -665,14 +666,13 @@ class AgentListPanel extends Panel {
 									
 									@Override
 									protected void onConfirm(AjaxRequestTarget target) {
-										getTransactionService().run(() -> {
+										transactionService.run(() -> {
 											for (var it = (Iterator<Agent>) dataProvider.iterator(0, agentsTable.getItemCount()); it.hasNext();) {
 												var agent = it.next();
-												getAgentService().restart(agent);
-												getAuditService().audit(null, "restarted agent \"" + agent.getName() + "\"", null, null);
+												agentService.restart(agent);
+												auditService.audit(null, "restarted agent \"" + agent.getName() + "\"", null, null);
 											}
 											dataProvider.detach();
-											target.add(countLabel);
 											target.add(body);
 											selectionColumn.getSelections().clear();
 											Session.get().success(_T("Restart command issued to all queried agents"));
@@ -734,14 +734,12 @@ class AgentListPanel extends Panel {
 									
 									@Override
 									protected void onConfirm(AjaxRequestTarget target) {
-										getTransactionService().run(() -> {
-											for (var it = (Iterator<Agent>) dataProvider.iterator(0, agentsTable.getItemCount()); it.hasNext();) {
-												var agent = it.next();
-												getAgentService().delete(agent);
-												getAuditService().audit(null, "removed agent \"" + agent.getName() + "\"", null, null);
-											}
+										transactionService.run(() -> {
+											List<Agent> agents = new ArrayList<>();
+											for (var it = (Iterator<Agent>) dataProvider.iterator(0, agentsTable.getItemCount()); it.hasNext();)
+												agents.add(it.next());
+											removeAgents(agents);
 											dataProvider.detach();
-											target.add(countLabel);
 											target.add(body);
 											selectionColumn.getSelections().clear();
 										});
@@ -749,12 +747,12 @@ class AgentListPanel extends Panel {
 									
 									@Override
 									protected String getConfirmMessage() {
-										return _T("Removed all queried agents. Type <code>yes</code> below to confirm");
+										return _T("Remove all queried agents. Type <code>remove ALL agents</code> below to confirm");
 									}
 									
 									@Override
 									protected String getConfirmInput() {
-										return "yes";
+										return "remove ALL agents";
 									}
 									
 								};
@@ -832,21 +830,6 @@ class AgentListPanel extends Panel {
 
 		});
 
-		add(countLabel = new Label("count", new AbstractReadOnlyModel<String>() {
-			@Override
-			public String getObject() {
-				if (dataProvider.size() > 1)
-					return MessageFormat.format(_T("found {0} agents"), dataProvider.size());
-				else
-					return _T("found 1 agent");
-			}
-		}) {
-			@Override
-			protected void onConfigure() {
-				super.onConfigure();
-				setVisible(dataProvider.size() != 0);
-			}
-		}.setOutputMarkupPlaceholderTag(true));
 		
 		dataProvider = new LoadableDetachableDataProvider<Agent, Void>() {
 
@@ -855,7 +838,7 @@ class AgentListPanel extends Panel {
 				try {
 					AgentQuery query = queryModel.getObject();
 					if (query != null)
-						return getAgentService().query(query, (int)first, (int)count).iterator();
+						return agentService.query(query, (int)first, (int)count).iterator();
 				} catch (ExplicitException e) {
 					error(e.getMessage());
 				}
@@ -867,7 +850,7 @@ class AgentListPanel extends Panel {
 				try {
 					AgentQuery query = queryModel.getObject();
 					if (query != null) 
-						return getAgentService().count(query.getCriteria());
+						return agentService.count(query.getCriteria());
 				} catch (ExplicitException e) {
 					error(e.getMessage());
 				}
@@ -881,7 +864,7 @@ class AgentListPanel extends Panel {
 
 					@Override
 					protected Agent load() {
-						return getAgentService().load(agentId);
+						return agentService.load(agentId);
 					}
 					
 				};
@@ -939,17 +922,22 @@ class AgentListPanel extends Panel {
 		});
 		
 		body.add(agentsTable = new DefaultDataTable<>("agents", columns, dataProvider,
-				WebConstants.PAGE_SIZE, getPagingHistorySupport()));
+				WebConstants.PAGE_SIZE, getPagingHistorySupport(), true));
 		
 		setOutputMarkupId(true);
 	}
 
-	private AuditService getAuditService() {
-		return OneDev.getInstance(AuditService.class);
-	}
-
-	private TransactionService getTransactionService() {
-		return OneDev.getInstance(TransactionService.class);
+	private void removeAgents(Iterable<Agent> agents) {
+		for (var agent: agents) {
+			if (workspaceService.count(SecurityUtils.getSubject(), null, 
+					new RanOnCriteria(agent.getName())) > 0) {
+				Session.get().warn(MessageFormat.format(
+						_T("Cannot remove agent \"{0}\" as it has workspaces"), agent.getName()));
+				break;
+			}
+			agentService.delete(agent);
+			auditService.audit(null, "removed agent \"" + agent.getName() + "\"", null, null);
+		}
 	}
 	
 }

@@ -1,32 +1,20 @@
 package io.onedev.server.web.page.project.pullrequests.detail.changes;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Sets;
-import io.onedev.commons.utils.PlanarRange;
-import io.onedev.server.OneDev;
-import io.onedev.server.codequality.*;
-import io.onedev.server.service.*;
-import io.onedev.server.git.BlobIdent;
-import io.onedev.server.git.GitUtils;
-import io.onedev.server.model.*;
-import io.onedev.server.model.support.CompareContext;
-import io.onedev.server.model.support.Mark;
-import io.onedev.server.model.support.pullrequest.changedata.PullRequestApproveData;
-import io.onedev.server.model.support.pullrequest.changedata.PullRequestRequestedForChangesData;
-import io.onedev.server.util.diff.DiffUtils;
-import io.onedev.server.util.diff.WhitespaceOption;
-import io.onedev.server.web.ajaxlistener.ConfirmLeaveListener;
-import io.onedev.server.web.behavior.AbstractPostAjaxBehavior;
-import io.onedev.server.web.behavior.ChangeObserver;
-import io.onedev.server.web.component.diff.revision.RevisionAnnotationSupport;
-import io.onedev.server.web.component.diff.revision.RevisionDiffPanel;
-import io.onedev.server.web.component.diff.revision.RevisionDiffReviewSupport;
-import io.onedev.server.web.component.floating.AlignPlacement;
-import io.onedev.server.web.component.floating.FloatingPanel;
-import io.onedev.server.web.component.link.DropdownLink;
-import io.onedev.server.web.page.project.blob.ProjectBlobPage;
-import io.onedev.server.web.page.project.pullrequests.detail.PullRequestDetailPage;
-import io.onedev.server.web.util.EditParamsAware;
+import static io.onedev.server.ai.ToolUtils.getDiffTools;
+import static io.onedev.server.ai.ToolUtils.wrapForChat;
+import static io.onedev.server.web.translation.Translation._T;
+import static org.apache.wicket.ajax.attributes.CallbackParameter.explicit;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
@@ -53,13 +41,54 @@ import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.eclipse.jgit.lib.FileMode;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.revwalk.RevCommit;
-
 import org.jspecify.annotations.Nullable;
-import java.io.Serializable;
-import java.util.*;
 
-import static io.onedev.server.web.translation.Translation._T;
-import static org.apache.wicket.ajax.attributes.CallbackParameter.explicit;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Sets;
+
+import io.onedev.commons.utils.PlanarRange;
+import io.onedev.server.OneDev;
+import io.onedev.server.ai.ChatTool;
+import io.onedev.server.codequality.BlobTarget;
+import io.onedev.server.codequality.CodeProblem;
+import io.onedev.server.codequality.CoverageStats;
+import io.onedev.server.codequality.CoverageStatus;
+import io.onedev.server.codequality.ProblemReport;
+import io.onedev.server.git.BlobIdent;
+import io.onedev.server.git.GitUtils;
+import io.onedev.server.model.Build;
+import io.onedev.server.model.CodeComment;
+import io.onedev.server.model.CodeCommentReply;
+import io.onedev.server.model.CodeCommentStatusChange;
+import io.onedev.server.model.Project;
+import io.onedev.server.model.PullRequest;
+import io.onedev.server.model.PullRequestChange;
+import io.onedev.server.model.PullRequestUpdate;
+import io.onedev.server.model.ReviewedDiff;
+import io.onedev.server.model.User;
+import io.onedev.server.model.support.CompareContext;
+import io.onedev.server.model.support.Mark;
+import io.onedev.server.model.support.pullrequest.changedata.PullRequestApproveData;
+import io.onedev.server.model.support.pullrequest.changedata.PullRequestRequestedForChangesData;
+import io.onedev.server.service.CodeCommentReplyService;
+import io.onedev.server.service.CodeCommentService;
+import io.onedev.server.service.CodeCommentStatusChangeService;
+import io.onedev.server.service.PullRequestService;
+import io.onedev.server.service.ReviewedDiffService;
+import io.onedev.server.util.diff.DiffUtils;
+import io.onedev.server.util.diff.WhitespaceOption;
+import io.onedev.server.web.ajaxlistener.ConfirmLeaveListener;
+import io.onedev.server.web.behavior.AbstractPostAjaxBehavior;
+import io.onedev.server.web.behavior.ChangeObserver;
+import io.onedev.server.web.component.diff.revision.RevisionAnnotationSupport;
+import io.onedev.server.web.component.diff.revision.RevisionDiffPanel;
+import io.onedev.server.web.component.diff.revision.RevisionDiffReviewSupport;
+import io.onedev.server.web.component.floating.AlignPlacement;
+import io.onedev.server.web.component.floating.FloatingPanel;
+import io.onedev.server.web.component.link.DropdownLink;
+import io.onedev.server.web.page.project.blob.ProjectBlobPage;
+import io.onedev.server.web.page.project.pullrequests.detail.PullRequestDetailPage;
+import io.onedev.server.web.util.EditParamsAware;
 
 public class PullRequestChangesPage extends PullRequestDetailPage implements RevisionAnnotationSupport, EditParamsAware {
 
@@ -242,15 +271,11 @@ public class PullRequestChangesPage extends PullRequestDetailPage implements Rev
 	
 	@Nullable
 	private Mark getPermanentMark(Mark mark) {
-		ObjectId oldCommitId = ObjectId.fromString(state.oldCommitHash);
-		if (mark.getCommitHash().equals(getComparisonBase().name())) {
-			return mark.mapTo(getProject(), oldCommitId);
-		} else if (mark.getCommitHash().equals(state.oldCommitHash) 
-					|| mark.getCommitHash().equals(state.newCommitHash)) {
-			return mark;
-		} else {
-			return null;
-		}
+		return mark.permanentize(
+				getProject(), 
+				ObjectId.fromString(state.oldCommitHash), 
+				ObjectId.fromString(state.newCommitHash), 
+				getComparisonBase());
 	}
 	
 	private boolean isOutdated() {
@@ -957,10 +982,43 @@ public class PullRequestChangesPage extends PullRequestDetailPage implements Rev
 		Set<CodeProblem> problems = new HashSet<>();
 		ObjectId buildCommitId = ObjectId.fromString(state.oldCommitHash);
 		for (Build build: getProject().getBuilds(buildCommitId)) {
-			for (CodeProblemContribution contribution: OneDev.getExtensions(CodeProblemContribution.class)) {
-				for (CodeProblem problem: contribution.getCodeProblems(build, blobPath, null)) {
-					if (!buildCommitId.equals(getComparisonBase())) {
-						Map<Integer, Integer> lineMapping = getLineMapping(buildCommitId, getComparisonBase(), blobPath);
+			for (CodeProblem problem: ProblemReport.getCodeProblems(build, blobPath, null)) {
+				if (!buildCommitId.equals(getComparisonBase())) {
+					Map<Integer, Integer> lineMapping = getLineMapping(buildCommitId, getComparisonBase(), blobPath);
+					if (problem.getTarget() instanceof BlobTarget) {
+						BlobTarget repoTarget = (BlobTarget) problem.getTarget();
+						if (repoTarget.getLocation() != null) {
+							PlanarRange location = DiffUtils.mapRange(lineMapping, repoTarget.getLocation());
+							if (location != null) {
+								repoTarget = new BlobTarget(repoTarget.getGroupKey().getName(), location);
+								problems.add(new CodeProblem(problem.getSeverity(), repoTarget, problem.getMessage()));
+							}
+						}
+					}
+				} else {
+					problems.add(problem);
+				}
+			}
+		}
+		return problems;
+	}
+
+	@Override
+	public Collection<CodeProblem> getNewProblems(String blobPath) {
+		PullRequest request = getPullRequest();
+		ObjectId buildCommitId;
+		if (request.getBuildCommitHash() != null)
+			buildCommitId = ObjectId.fromString(request.getBuildCommitHash());
+		else 
+			buildCommitId = ObjectId.zeroId();
+		
+		Set<CodeProblem> problems = new HashSet<>();
+		for (Build build: getProject().getBuilds(buildCommitId)) {
+			if (request.equals(build.getRequest())) {
+				for (CodeProblem problem: ProblemReport.getCodeProblems(build, blobPath, null)) {
+					if (!state.newCommitHash.equals(buildCommitId.name())) {
+						Map<Integer, Integer> lineMapping = getLineMapping(buildCommitId,
+								ObjectId.fromString(state.newCommitHash), blobPath);
 						if (problem.getTarget() instanceof BlobTarget) {
 							BlobTarget repoTarget = (BlobTarget) problem.getTarget();
 							if (repoTarget.getLocation() != null) {
@@ -981,57 +1039,18 @@ public class PullRequestChangesPage extends PullRequestDetailPage implements Rev
 	}
 
 	@Override
-	public Collection<CodeProblem> getNewProblems(String blobPath) {
-		PullRequest request = getPullRequest();
-		ObjectId buildCommitId;
-		if (request.getBuildCommitHash() != null)
-			buildCommitId = ObjectId.fromString(request.getBuildCommitHash());
-		else 
-			buildCommitId = ObjectId.zeroId();
-		
-		Set<CodeProblem> problems = new HashSet<>();
-		for (Build build: getProject().getBuilds(buildCommitId)) {
-			if (request.equals(build.getRequest())) {
-				for (CodeProblemContribution contribution: OneDev.getExtensions(CodeProblemContribution.class)) {
-					for (CodeProblem problem: contribution.getCodeProblems(build, blobPath, null)) {
-						if (!state.newCommitHash.equals(buildCommitId.name())) {
-							Map<Integer, Integer> lineMapping = getLineMapping(buildCommitId,
-									ObjectId.fromString(state.newCommitHash), blobPath);
-							if (problem.getTarget() instanceof BlobTarget) {
-								BlobTarget repoTarget = (BlobTarget) problem.getTarget();
-								if (repoTarget.getLocation() != null) {
-									PlanarRange location = DiffUtils.mapRange(lineMapping, repoTarget.getLocation());
-									if (location != null) {
-										repoTarget = new BlobTarget(repoTarget.getGroupKey().getName(), location);
-										problems.add(new CodeProblem(problem.getSeverity(), repoTarget, problem.getMessage()));
-									}
-								}
-							}
-						} else {
-							problems.add(problem);
-						}
-					}
-				}
-			}
-		}
-		return problems;
-	}
-
-	@Override
 	public Map<Integer, CoverageStatus> getOldCoverages(String blobPath) {
 		Map<Integer, CoverageStatus> coverages = new HashMap<>();
 		ObjectId buildCommitId = ObjectId.fromString(state.oldCommitHash);
 		for (Build build: getProject().getBuilds(buildCommitId)) {
-			for (LineCoverageContribution contribution: OneDev.getExtensions(LineCoverageContribution.class)) {
-				for (Map.Entry<Integer, CoverageStatus> entry: contribution.getLineCoverages(build, blobPath, null).entrySet()) {
-					if (!buildCommitId.equals(getComparisonBase())) {
-						Map<Integer, Integer> lineMapping = getLineMapping(buildCommitId, getComparisonBase(), blobPath);
-						Integer mappedLine = lineMapping.get(entry.getKey());
-						if (mappedLine != null)
-							coverages.put(mappedLine, entry.getValue());
-					} else {
-						coverages.put(entry.getKey(), entry.getValue());
-					}
+			for (Map.Entry<Integer, CoverageStatus> entry: CoverageStats.getLineCoverages(build, blobPath, null).entrySet()) {
+				if (!buildCommitId.equals(getComparisonBase())) {
+					Map<Integer, Integer> lineMapping = getLineMapping(buildCommitId, getComparisonBase(), blobPath);
+					Integer mappedLine = lineMapping.get(entry.getKey());
+					if (mappedLine != null)
+						coverages.put(mappedLine, entry.getValue());
+				} else {
+					coverages.put(entry.getKey(), entry.getValue());
 				}
 			}
 		}
@@ -1050,17 +1069,15 @@ public class PullRequestChangesPage extends PullRequestDetailPage implements Rev
 		Map<Integer, CoverageStatus> coverages = new HashMap<>();
 		for (Build build: getProject().getBuilds(buildCommitId)) {
 			if (request.equals(build.getRequest())) {
-				for (LineCoverageContribution contribution: OneDev.getExtensions(LineCoverageContribution.class)) {
-					for (Map.Entry<Integer, CoverageStatus> entry: contribution.getLineCoverages(build, blobPath, null).entrySet()) {
-						if (!state.newCommitHash.equals(buildCommitId.name())) {
-							Map<Integer, Integer> lineMapping = getLineMapping(buildCommitId,
-									ObjectId.fromString(state.newCommitHash), blobPath);
-							Integer mappedLine = lineMapping.get(entry.getKey());
-							if (mappedLine != null)
-								coverages.put(mappedLine, entry.getValue());
-						} else {
-							coverages.put(entry.getKey(), entry.getValue());
-						}
+				for (Map.Entry<Integer, CoverageStatus> entry: CoverageStats.getLineCoverages(build, blobPath, null).entrySet()) {
+					if (!state.newCommitHash.equals(buildCommitId.name())) {
+						Map<Integer, Integer> lineMapping = getLineMapping(buildCommitId,
+								ObjectId.fromString(state.newCommitHash), blobPath);
+						Integer mappedLine = lineMapping.get(entry.getKey());
+						if (mappedLine != null)
+							coverages.put(mappedLine, entry.getValue());
+					} else {
+						coverages.put(entry.getKey(), entry.getValue());
 					}
 				}
 			}
@@ -1068,4 +1085,16 @@ public class PullRequestChangesPage extends PullRequestDetailPage implements Rev
 		return coverages;
 	}
 
+	@Override
+	public List<ChatTool> getChatTools() {
+		var tools = new ArrayList<ChatTool>();
+		var projectId = getProject().getId();
+		var requestId = getPullRequest().getId();
+		var oldCommitId = ObjectId.fromString(state.oldCommitHash);
+		var newCommitId = ObjectId.fromString(state.newCommitHash);
+		tools.addAll(wrapForChat(getDiffTools(projectId, oldCommitId, newCommitId, requestId)));
+		tools.addAll(super.getChatTools());
+		return tools;
+	}
+	
 }

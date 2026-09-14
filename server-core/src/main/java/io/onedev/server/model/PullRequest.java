@@ -9,7 +9,6 @@ import static io.onedev.server.model.PullRequest.PROP_COMMENT_COUNT;
 import static io.onedev.server.model.PullRequest.PROP_CONFUSED_COUNT;
 import static io.onedev.server.model.PullRequest.PROP_EYES_COUNT;
 import static io.onedev.server.model.PullRequest.PROP_HEART_COUNT;
-import static io.onedev.server.model.PullRequest.PROP_ROCKET_COUNT;
 import static io.onedev.server.model.PullRequest.PROP_SMILE_COUNT;
 import static io.onedev.server.model.PullRequest.PROP_STATUS;
 import static io.onedev.server.model.PullRequest.PROP_SUBMIT_DATE;
@@ -19,6 +18,7 @@ import static io.onedev.server.model.PullRequest.PROP_SUBMIT_WEEK;
 import static io.onedev.server.model.PullRequest.PROP_TADA_COUNT;
 import static io.onedev.server.model.PullRequest.PROP_THUMBS_DOWN_COUNT;
 import static io.onedev.server.model.PullRequest.PROP_THUMBS_UP_COUNT;
+import static io.onedev.server.model.PullRequest.PROP_TICK_COUNT;
 import static io.onedev.server.model.PullRequest.PROP_TITLE;
 import static io.onedev.server.model.PullRequest.PROP_UUID;
 import static io.onedev.server.model.support.TimeGroups.PROP_DAY;
@@ -88,6 +88,7 @@ import io.onedev.server.model.support.ProjectBelonging;
 import io.onedev.server.model.support.TimeGroups;
 import io.onedev.server.model.support.code.BranchProtection;
 import io.onedev.server.model.support.code.BuildRequirement;
+import io.onedev.server.model.support.code.ConventionalCommitChecker;
 import io.onedev.server.model.support.pullrequest.AutoMerge;
 import io.onedev.server.model.support.pullrequest.MergePreview;
 import io.onedev.server.model.support.pullrequest.MergeStrategy;
@@ -97,12 +98,11 @@ import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.service.PullRequestService;
 import io.onedev.server.service.UserService;
 import io.onedev.server.util.BranchSemantic;
-import io.onedev.server.util.ComponentContext;
+import io.onedev.server.util.HierarchicalContext;
 import io.onedev.server.util.ProjectAndBranch;
 import io.onedev.server.web.asset.emoji.Emojis;
 import io.onedev.server.web.util.PullRequestAware;
 import io.onedev.server.web.util.TextUtils;
-import io.onedev.server.web.util.WicketUtils;
 import io.onedev.server.xodus.VisitInfoService;
 
 @Entity
@@ -119,7 +119,8 @@ import io.onedev.server.xodus.VisitInfoService;
 				@Index(columnList=PROP_THUMBS_UP_COUNT), @Index(columnList=PROP_THUMBS_DOWN_COUNT),
 				@Index(columnList=PROP_SMILE_COUNT), @Index(columnList=PROP_TADA_COUNT),
 				@Index(columnList=PROP_CONFUSED_COUNT), @Index(columnList=PROP_HEART_COUNT),
-				@Index(columnList=PROP_ROCKET_COUNT), @Index(columnList=PROP_EYES_COUNT),
+				@Index(columnList=PROP_EYES_COUNT),
+				@Index(columnList=PROP_TICK_COUNT),
 				@Index(columnList=PROP_COMMENT_COUNT), @Index(columnList="o_numberScope_id")},
 		uniqueConstraints={@UniqueConstraint(columnNames={"o_numberScope_id", PROP_NUMBER})})
 //use dynamic update in order not to overwrite other edits while background threads change update date
@@ -132,7 +133,7 @@ public class PullRequest extends ProjectBelonging
 	public static final int MAX_TITLE_LEN = 255;
 	
 	public static final int MAX_DESCRIPTION_LEN = 100000;
-	
+
 	public static final String NAME_STATUS = "Status";
 	
 	public static final String NAME_TARGET_PROJECT = "Target Project";
@@ -193,13 +194,13 @@ public class PullRequest extends ProjectBelonging
 
 	public static final String PROP_HEART_COUNT = "heartCount";
 
-	public static final String NAME_ROCKET_COUNT = "Reaction: Rocket Count";
-
-	public static final String PROP_ROCKET_COUNT = "rocketCount";
-
 	public static final String NAME_EYES_COUNT = "Reaction: Eyes Count";
 	
 	public static final String PROP_EYES_COUNT = "eyesCount";
+
+	public static final String NAME_TICK_COUNT = "Reaction: Tick Count";
+	
+	public static final String PROP_TICK_COUNT = "tickCount";
 
 	public static final String PROP_SUBMITTER = "submitter";
 	
@@ -255,8 +256,8 @@ public class PullRequest extends ProjectBelonging
 			NAME_SOURCE_PROJECT, NAME_SOURCE_BRANCH, NAME_LABEL, NAME_DESCRIPTION, 
 			NAME_COMMENT, NAME_SUBMIT_DATE, NAME_LAST_ACTIVITY_DATE, NAME_CLOSE_DATE, 
 			NAME_MERGE_STRATEGY, NAME_COMMENT_COUNT, NAME_THUMBS_UP_COUNT, NAME_THUMBS_DOWN_COUNT, 
-			NAME_SMILE_COUNT, NAME_TADA_COUNT, NAME_CONFUSED_COUNT, NAME_HEART_COUNT, 
-			NAME_ROCKET_COUNT, NAME_EYES_COUNT);
+			NAME_SMILE_COUNT, NAME_TADA_COUNT, 			NAME_CONFUSED_COUNT, NAME_HEART_COUNT, 
+			NAME_EYES_COUNT, NAME_TICK_COUNT);
 
 	public static final Map<String, SortField<PullRequest>> SORT_FIELDS = new LinkedHashMap<>();
 	static {
@@ -276,8 +277,8 @@ public class PullRequest extends ProjectBelonging
 		SORT_FIELDS.put(NAME_TADA_COUNT, new SortField<>(PROP_TADA_COUNT, DESCENDING));
 		SORT_FIELDS.put(NAME_CONFUSED_COUNT, new SortField<>(PROP_CONFUSED_COUNT, DESCENDING));
 		SORT_FIELDS.put(NAME_HEART_COUNT, new SortField<>(PROP_HEART_COUNT, DESCENDING));
-		SORT_FIELDS.put(NAME_ROCKET_COUNT, new SortField<>(PROP_ROCKET_COUNT, DESCENDING));
 		SORT_FIELDS.put(NAME_EYES_COUNT, new SortField<>(PROP_EYES_COUNT, DESCENDING));
+		SORT_FIELDS.put(NAME_TICK_COUNT, new SortField<>(PROP_TICK_COUNT, DESCENDING));
 	}
 	
 	private static ThreadLocal<Stack<PullRequest>> stack = withInitial(Stack::new);
@@ -377,10 +378,10 @@ public class PullRequest extends ProjectBelonging
 	private int confusedCount;
 	
 	private int heartCount;
-	
-	private int rocketCount;
-	
+
 	private int eyesCount;
+
+	private int tickCount;
 
 	@JsonProperty(access = READ_ONLY)
 	private int descriptionRevisionCount;
@@ -414,6 +415,9 @@ public class PullRequest extends ProjectBelonging
 	
 	@OneToMany(mappedBy="request", cascade=CascadeType.REMOVE)
 	private Collection<PullRequestComment> comments = new ArrayList<>();
+
+	@OneToMany(mappedBy="request")
+	private Collection<Workspace> workspaces = new ArrayList<>();
 
 	@OneToMany(mappedBy="request", cascade=CascadeType.REMOVE)
 	private Collection<PullRequestChange> changes = new ArrayList<>();
@@ -612,6 +616,14 @@ public class PullRequest extends ProjectBelonging
 
 	public void setChanges(Collection<PullRequestChange> changes) {
 		this.changes = changes;
+	}
+
+	public Collection<Workspace> getWorkspaces() {
+		return workspaces;
+	}
+
+	public void setWorkspaces(Collection<Workspace> workspaces) {
+		this.workspaces = workspaces;
 	}
 
 	public Collection<PullRequestReaction> getReactions() {
@@ -968,6 +980,11 @@ public class PullRequest extends ProjectBelonging
 		}
 		return null;
 	}
+
+	public boolean isReviewer(User user) {
+		var review = getReview(user);
+		return review != null && review.getStatus() != PullRequestReview.Status.EXCLUDED;
+	}
 	
 	public boolean canCommentOnCommit(String commitHash) {
 		if (commitHash.equals(baseCommitHash))
@@ -1146,10 +1163,9 @@ public class PullRequest extends ProjectBelonging
 		if (!stack.get().isEmpty()) { 
 			return stack.get().peek();
 		} else {
-			ComponentContext componentContext = ComponentContext.get();
-			if (componentContext != null) {
-				PullRequestAware pullRequestAware = WicketUtils.findInnermost(
-						componentContext.getComponent(), PullRequestAware.class);
+			var hierarchicalContext = HierarchicalContext.get();
+			if (hierarchicalContext != null) {
+				PullRequestAware pullRequestAware = hierarchicalContext.findData(PullRequestAware.class);
 				if (pullRequestAware != null) 
 					return pullRequestAware.getPullRequest();
 			}
@@ -1202,12 +1218,14 @@ public class PullRequest extends ProjectBelonging
 	
 	public String getDefaultMergeCommitMessage() {
 		if (getMergeStrategy() != SQUASH_SOURCE_BRANCH_COMMITS) {
-			return _T("Merges pull request") + " #" + getNumber() + "\n\n" + getTitle();
+			return "Merges PR #" + getNumber() + " from " + getSourceBranch()
+					+ " into " + getTargetBranch() + "\n\n" + getTitle();
 		} else {
 			var commitMessage = getTitle();
 			if (getDescription() != null)
 				commitMessage += "\n\n" + getDescription();
-			commitMessage += "\n\n" + _T("Merges pull request") + " #" + getNumber();
+			commitMessage += "\n\n" + "Merges PR #" + getNumber() + " from " + getSourceBranch()
+					+ " into " + getTargetBranch();
 			return commitMessage;
 		}
 	}
@@ -1233,8 +1251,7 @@ public class PullRequest extends ProjectBelonging
 			return _T("Source project no longer exists");
 		if (getSource().getObjectName(false) == null)
 			return _T("Source branch no longer exists");
-		PullRequestService manager = OneDev.getInstance(PullRequestService.class);
-		PullRequest request = manager.findEffective(getTarget(), getSource());
+		PullRequest request = getPullRequestService().findEffective(getTarget(), getSource());
 		if (request != null) {
 			if (request.isOpen())
 				return _T("Another pull request already open for this change");
@@ -1382,20 +1399,20 @@ public class PullRequest extends ProjectBelonging
 		this.heartCount = heartCount;
 	}
 
-	public int getRocketCount() {
-		return rocketCount;
-	}
-
-	public void setRocketCount(int rocketCount) {
-		this.rocketCount = rocketCount;
-	}
-
 	public int getEyesCount() {
 		return eyesCount;
 	}
 
 	public void setEyesCount(int eyesCount) {
 		this.eyesCount = eyesCount;
+	}
+
+	public int getTickCount() {
+		return tickCount;
+	}
+
+	public void setTickCount(int tickCount) {
+		this.tickCount = tickCount;
 	}
 	
 	public boolean isWorkInProgress() {
@@ -1424,8 +1441,9 @@ public class PullRequest extends ProjectBelonging
 		}
 		var commitTypes = CONVENTIONAL_COMMIT_TYPES;
 		var branchProtection = getProject().getBranchProtection(getTargetBranch(), getSubmitter());
-		if (branchProtection.isEnforceConventionalCommits() && !branchProtection.getCommitTypes().isEmpty()) {
-			commitTypes = branchProtection.getCommitTypes();
+		if (branchProtection.getCommitMessageChecker() instanceof ConventionalCommitChecker conventionalCommitChecker 
+				&& !conventionalCommitChecker.getCommitTypes().isEmpty()) {
+			commitTypes = conventionalCommitChecker.getCommitTypes();
 		}
 		String workType = null;
 		for (var commitType: commitTypes) {
@@ -1464,7 +1482,7 @@ public class PullRequest extends ProjectBelonging
 	public String generateTitleFromCommits() {
 		var commits = getLatestUpdate().getCommits();
 		if (commits.size() == 1) {
-			return cleanTitle(commits.get(0).getShortMessage());
+			return getTitlePrefix(getSourceBranchSemantic()) + cleanTitle(commits.get(0).getShortMessage());
 		} else {
 			return null;
 		}
@@ -1483,6 +1501,10 @@ public class PullRequest extends ProjectBelonging
 		} else {
 			return null;
 		}
+	}
+
+	private static PullRequestService getPullRequestService() {
+		return OneDev.getInstance(PullRequestService.class);
 	}
 
 }

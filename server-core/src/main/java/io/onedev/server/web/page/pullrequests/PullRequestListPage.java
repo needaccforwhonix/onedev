@@ -79,7 +79,7 @@ public class PullRequestListPage extends LayoutPage {
 
 			@Override
 			protected QueryPersonalization<NamedPullRequestQuery> getQueryPersonalization() {
-				return getLoginUser().getPullRequestQueryPersonalization();
+				return getLoginUser() != null ? getLoginUser().getPullRequestQueryPersonalization() : null;
 			}
 
 			@Override
@@ -205,7 +205,7 @@ public class PullRequestListPage extends LayoutPage {
 					@Override
 					public boolean isSavedQueriesVisible() {
 						savedQueries.configure();
-						return savedQueries.isVisible();
+						return savedQueries.isOpen();
 					}
 					
 				};

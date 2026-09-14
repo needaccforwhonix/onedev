@@ -1,5 +1,6 @@
 package io.onedev.server.web.page.project;
 
+import static io.onedev.server.ai.ToolUtils.wrapForChat;
 import static io.onedev.server.web.translation.Translation._T;
 
 import java.util.ArrayList;
@@ -10,7 +11,6 @@ import java.util.Map;
 
 import javax.inject.Inject;
 import javax.persistence.EntityNotFoundException;
-import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.wicket.Component;
@@ -21,6 +21,7 @@ import org.apache.wicket.behavior.AttributeAppender;
 import org.apache.wicket.markup.ComponentTag;
 import org.apache.wicket.markup.head.CssHeaderItem;
 import org.apache.wicket.markup.head.IHeaderResponse;
+import org.apache.wicket.markup.head.JavaScriptHeaderItem;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.link.BookmarkablePageLink;
@@ -30,9 +31,6 @@ import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.repeater.RepeatingView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
-import org.apache.wicket.request.Request;
-import org.apache.wicket.request.cycle.RequestCycle;
-import org.apache.wicket.request.flow.RedirectToUrlException;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.eclipse.jgit.lib.ObjectId;
 
@@ -40,6 +38,9 @@ import com.google.common.collect.Lists;
 
 import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.server.OneDev;
+import io.onedev.server.ai.ChatTool;
+import io.onedev.server.ai.ChatToolAware;
+import io.onedev.server.ai.tools.issue.CreateIssue;
 import io.onedev.server.model.Project;
 import io.onedev.server.search.entity.project.ProjectQuery;
 import io.onedev.server.security.SecurityUtils;
@@ -55,7 +56,6 @@ import io.onedev.server.web.component.floating.FloatingPanel;
 import io.onedev.server.web.component.link.DropdownLink;
 import io.onedev.server.web.component.project.ProjectAvatar;
 import io.onedev.server.web.component.project.childrentree.ProjectChildrenTree;
-import io.onedev.server.web.component.project.info.ProjectInfoPanel;
 import io.onedev.server.web.editable.EditableUtils;
 import io.onedev.server.web.mapper.ProjectMapperUtils;
 import io.onedev.server.web.opengraph.OpenGraphHeaderMeta;
@@ -64,11 +64,12 @@ import io.onedev.server.web.page.layout.LayoutPage;
 import io.onedev.server.web.page.layout.SidebarMenu;
 import io.onedev.server.web.page.layout.SidebarMenuItem;
 import io.onedev.server.web.page.project.blob.ProjectBlobPage;
+import io.onedev.server.web.page.project.wiki.ProjectWikiPage;
+import io.onedev.server.web.page.project.setting.wiki.WikiSettingPage;
 import io.onedev.server.web.page.project.branches.ProjectBranchesPage;
 import io.onedev.server.web.page.project.builds.ProjectBuildsPage;
 import io.onedev.server.web.page.project.builds.detail.BuildDetailPage;
 import io.onedev.server.web.page.project.builds.detail.InvalidBuildPage;
-import io.onedev.server.web.page.project.children.ProjectChildrenPage;
 import io.onedev.server.web.page.project.codecomments.ProjectCodeCommentsPage;
 import io.onedev.server.web.page.project.commits.CommitDetailPage;
 import io.onedev.server.web.page.project.commits.ProjectCommitsPage;
@@ -81,6 +82,7 @@ import io.onedev.server.web.page.project.issues.iteration.IterationEditPage;
 import io.onedev.server.web.page.project.issues.iteration.IterationListPage;
 import io.onedev.server.web.page.project.issues.iteration.NewIterationPage;
 import io.onedev.server.web.page.project.issues.list.ProjectIssueListPage;
+import io.onedev.server.web.page.project.overview.ProjectOverviewPage;
 import io.onedev.server.web.page.project.packs.ProjectPacksPage;
 import io.onedev.server.web.page.project.packs.detail.PackDetailPage;
 import io.onedev.server.web.page.project.pullrequests.InvalidPullRequestPage;
@@ -90,30 +92,34 @@ import io.onedev.server.web.page.project.pullrequests.detail.PullRequestDetailPa
 import io.onedev.server.web.page.project.setting.ContributedProjectSetting;
 import io.onedev.server.web.page.project.setting.ProjectSettingContribution;
 import io.onedev.server.web.page.project.setting.ProjectSettingPage;
+import io.onedev.server.web.page.project.setting.ai.ProjectAiSettingPage;
 import io.onedev.server.web.page.project.setting.authorization.GroupAuthorizationsPage;
 import io.onedev.server.web.page.project.setting.authorization.UserAuthorizationsPage;
 import io.onedev.server.web.page.project.setting.avatar.AvatarEditPage;
 import io.onedev.server.web.page.project.setting.build.BuildPreservationsPage;
-import io.onedev.server.web.page.project.setting.build.CacheManagementPage;
 import io.onedev.server.web.page.project.setting.build.DefaultFixedIssueFiltersPage;
 import io.onedev.server.web.page.project.setting.build.JobPropertiesPage;
 import io.onedev.server.web.page.project.setting.build.JobSecretsPage;
+import io.onedev.server.web.page.project.setting.cache.CacheManagementPage;
 import io.onedev.server.web.page.project.setting.code.analysis.CodeAnalysisSettingPage;
 import io.onedev.server.web.page.project.setting.code.branchprotection.BranchProtectionsPage;
 import io.onedev.server.web.page.project.setting.code.git.GitPackConfigPage;
 import io.onedev.server.web.page.project.setting.code.pullrequest.PullRequestSettingPage;
 import io.onedev.server.web.page.project.setting.code.tagprotection.TagProtectionsPage;
 import io.onedev.server.web.page.project.setting.general.GeneralProjectSettingPage;
+import io.onedev.server.web.page.project.setting.issuesetting.IssueBranchPrefixPage;
 import io.onedev.server.web.page.project.setting.pluginsettings.ContributedProjectSettingPage;
 import io.onedev.server.web.page.project.setting.servicedesk.ServiceDeskSettingPage;
 import io.onedev.server.web.page.project.setting.webhook.WebHooksPage;
+import io.onedev.server.web.page.project.setting.workspacespec.WorkspaceSpecsPage;
 import io.onedev.server.web.page.project.stats.code.CodeContribsPage;
-import io.onedev.server.web.page.project.stats.code.SourceLinesPage;
 import io.onedev.server.web.page.project.tags.ProjectTagsPage;
+import io.onedev.server.web.page.project.workspaces.ProjectWorkspacesPage;
+import io.onedev.server.web.page.project.workspaces.detail.WorkspaceDetailPage;
 import io.onedev.server.web.page.security.LoginPage;
 import io.onedev.server.web.util.ProjectAware;
 
-public abstract class ProjectPage extends LayoutPage implements ProjectAware {
+public abstract class ProjectPage extends LayoutPage implements ProjectAware, ChatToolAware {
 
 	protected final IModel<Project> projectModel;
 
@@ -122,22 +128,6 @@ public abstract class ProjectPage extends LayoutPage implements ProjectAware {
 	
 	public ProjectPage(PageParameters params) {
 		super(params);
-
-		Request request = RequestCycle.get().getRequest();
-		String requestUrl = request.getUrl().toString();
-		requestUrl = StringUtils.stripStart(requestUrl, "/");
-		if (requestUrl.startsWith("projects/")) {
-			requestUrl = StringUtils.stripStart(requestUrl.substring("projects/".length()), "/");
-			Long projectId = Long.valueOf(StringUtils.substringBefore(requestUrl, "/"));
-			Project project = getProjectService().load(projectId);
-			String suffix = StringUtils.substringAfter(requestUrl, "/");
-			
-			String redirectUrl = "/" + project.getPath();
-			if (StringUtils.isNotBlank(suffix)) 
-				redirectUrl += "/~" + suffix;
-			
-			throw new RedirectToUrlException(redirectUrl, HttpServletResponse.SC_MOVED_PERMANENTLY);
-		}
 	
 		String projectPath = params.get(ProjectMapperUtils.PARAM_PROJECT).toOptionalString();
 		if (projectPath == null)
@@ -174,7 +164,7 @@ public abstract class ProjectPage extends LayoutPage implements ProjectAware {
 		projectModel.setObject(project);
 		
 		if (!(this instanceof ProjectSettingPage) 
-				&& !(this instanceof ProjectChildrenPage)
+				&& !(this instanceof ProjectOverviewPage)
 				&& !(this instanceof NoProjectStoragePage) 
 				&& getProject().getActiveServer(false) == null) {
 			throw new RestartResponseException(NoProjectStoragePage.class, 
@@ -199,6 +189,9 @@ public abstract class ProjectPage extends LayoutPage implements ProjectAware {
 	@Override
 	protected List<SidebarMenu> getSidebarMenus() {
 		List<SidebarMenuItem> menuItems = new ArrayList<>();
+
+		menuItems.add(new SidebarMenuItem.Page("dashboard", _T("Overview"),
+				ProjectOverviewPage.class, ProjectOverviewPage.paramsOf(getProject())));
 		
 		if (getProject().isCodeManagement() && SecurityUtils.canReadCode(getProject())) {
 			List<SidebarMenuItem> codeMenuItems = new ArrayList<>();
@@ -237,7 +230,7 @@ public abstract class ProjectPage extends LayoutPage implements ProjectAware {
 					Lists.newArrayList(NewIterationPage.class, IterationDetailPage.class, IterationEditPage.class)));
 			if (getProject().isTimeTracking() && isSubscriptionActive() && SecurityUtils.canAccessTimeTracking(getProject())) 
 				issueMenuItems.add(OneDev.getInstance(TimeTrackingService.class).newTimesheetsMenuItem(getProject()));
-			menuItems.add(new SidebarMenuItem.SubMenu("bug", _T("Issues"), issueMenuItems));
+			menuItems.add(new SidebarMenuItem.SubMenu("issue", _T("Issues"), issueMenuItems));
 		}
 
 		if (getProject().isCodeManagement()) {
@@ -251,21 +244,30 @@ public abstract class ProjectPage extends LayoutPage implements ProjectAware {
 					ProjectPacksPage.class, ProjectPacksPage.paramsOf(getProject(), 0),
 					Lists.newArrayList(PackDetailPage.class)));
 		}
-		
+
+		if (getProject().isCodeManagement() && SecurityUtils.canCreateWorkspaces(getProject()) 
+				&& !getProject().getHierarchyWorkspaceSpecs().isEmpty()) {
+			menuItems.add(new SidebarMenuItem.Page("workspace", _T("Workspaces"),
+					ProjectWorkspacesPage.class, ProjectWorkspacesPage.paramsOf(getProject(), 0),
+					Lists.newArrayList(WorkspaceDetailPage.class)));
+		}
+
+		if (getProject().isCodeManagement() && getProject().isWikiManagement()
+				&& SecurityUtils.canAccessProject(getProject())) {
+			menuItems.add(new SidebarMenuItem.Page("wiki", _T("Wiki"),
+					ProjectWikiPage.class, ProjectWikiPage.paramsOf(getProject())));
+		}
+
 		List<SidebarMenuItem> statsMenuItems = new ArrayList<>();
 		
 		if (getProject().isCodeManagement() && SecurityUtils.canReadCode(getProject())) {
-			statsMenuItems.add(new SidebarMenuItem.Page(null, _T("Code"), 
-					CodeContribsPage.class, CodeContribsPage.paramsOf(getProject()), 
-					Lists.newArrayList(SourceLinesPage.class)));
+			statsMenuItems.add(new SidebarMenuItem.Page(null, _T("Code Contributions"), 
+					CodeContribsPage.class, CodeContribsPage.paramsOf(getProject())));
 		}
 
 		// Add the sub menu even if it is empty as we need to place stats menu in the right place.
 		// Menu items may be added to the sub menu later via contribution
 		menuItems.add(new SidebarMenuItem.SubMenu("stats", _T("Statistics"), statsMenuItems));
-		
-		menuItems.add(new SidebarMenuItem.Page("tree", _T("Child Projects"), 
-				ProjectChildrenPage.class, ProjectChildrenPage.paramsOf(getProject(), null, 0)));
 		
 		if (SecurityUtils.canManageProject(getProject())) {
 			List<SidebarMenuItem> settingMenuItems = new ArrayList<>();
@@ -296,7 +298,14 @@ public abstract class ProjectPage extends LayoutPage implements ProjectAware {
 			settingMenuItems.add(new SidebarMenuItem.SubMenu(null, _T("Code"), codeSettingMenuItems));
 			settingMenuItems.add(new SidebarMenuItem.Page(null, _T("Pull Request"),
 					PullRequestSettingPage.class, PullRequestSettingPage.paramsOf(getProject())));
-			
+
+			if (getProject().isIssueManagement()) {
+				List<SidebarMenuItem> issueSettingMenuItems = new ArrayList<>();
+				issueSettingMenuItems.add(new SidebarMenuItem.Page(null, _T("Branch Prefix"),
+						IssueBranchPrefixPage.class, IssueBranchPrefixPage.paramsOf(getProject())));
+				settingMenuItems.add(new SidebarMenuItem.SubMenu(null, _T("Issue"), issueSettingMenuItems));
+			}
+					
 			List<SidebarMenuItem> buildSettingMenuItems = new ArrayList<>();
 			
 			buildSettingMenuItems.add(new SidebarMenuItem.Page(null, _T("Job Secrets"), 
@@ -307,11 +316,17 @@ public abstract class ProjectPage extends LayoutPage implements ProjectAware {
 					BuildPreservationsPage.class, BuildPreservationsPage.paramsOf(getProject())));
 			buildSettingMenuItems.add(new SidebarMenuItem.Page(null, _T("Default Fixed Issue Filters"), 
 					DefaultFixedIssueFiltersPage.class, DefaultFixedIssueFiltersPage.paramsOf(getProject())));
-			buildSettingMenuItems.add(new SidebarMenuItem.Page(null, _T("Cache Management"),
-					CacheManagementPage.class, CacheManagementPage.paramsOf(getProject())));
 			
 			settingMenuItems.add(new SidebarMenuItem.SubMenu(null, _T("Build"), buildSettingMenuItems));
-			
+			settingMenuItems.add(new SidebarMenuItem.Page(null, _T("Workspace Specs"),
+					WorkspaceSpecsPage.class, WorkspaceSpecsPage.paramsOf(getProject())));
+
+			settingMenuItems.add(new SidebarMenuItem.Page(null, _T("Cache Management"),
+					CacheManagementPage.class, CacheManagementPage.paramsOf(getProject())));
+
+			settingMenuItems.add(new SidebarMenuItem.Page(null, _T("Wiki"),
+					WikiSettingPage.class, WikiSettingPage.paramsOf(getProject())));
+
 			if (getSettingService().getServiceDeskSetting() != null && getProject().isIssueManagement()) {
 				settingMenuItems.add(new SidebarMenuItem.Page(null, _T("Service Desk"), 
 						ServiceDeskSettingPage.class, ServiceDeskSettingPage.paramsOf(getProject())));
@@ -321,26 +336,14 @@ public abstract class ProjectPage extends LayoutPage implements ProjectAware {
 					WebHooksPage.class, WebHooksPage.paramsOf(getProject()));			
 			settingMenuItems.add(new SidebarMenuItem.SubMenu(null, _T("Notification"), Lists.newArrayList(webHooksItem)));	
 
+			settingMenuItems.add(new SidebarMenuItem.Page(null, _T("AI"),
+					ProjectAiSettingPage.class, ProjectAiSettingPage.paramsOf(getProject())));
+
 			menuItems.add(new SidebarMenuItem.SubMenu("sliders", _T("Settings"), settingMenuItems));
 		}
 		
 		String avatarUrl = OneDev.getInstance(AvatarService.class).getProjectAvatarUrl(getProject().getId());
-		SidebarMenu.Header menuHeader = new SidebarMenu.Header(avatarUrl, getProject().getName()) {
-			
-			@Override
-			protected Component newMoreInfo(String componentId, FloatingPanel dropdown) {
-				return new ProjectInfoPanel(componentId, projectModel) {
-
-					@Override
-					protected void onPromptForkOption(AjaxRequestTarget target) {
-						dropdown.close();
-					}
-					
-				};
-			}
-			
-		};
-		var menu = new SidebarMenu(menuHeader, menuItems);
+		var menu = new SidebarMenu(new SidebarMenu.Header(avatarUrl, getProject().getName()), menuItems);
 		
 		if (SecurityUtils.canManageProject(getProject())) {
 			List<Class<? extends ContributedProjectSetting>> contributedSettingClasses = new ArrayList<>();
@@ -507,7 +510,11 @@ public abstract class ProjectPage extends LayoutPage implements ProjectAware {
 			}
 			
 		});
-		
+
+		WebMarkupContainer compactProjectPath = navToProject("compactProjectPath", getProject());
+		compactProjectPath.add(new Label("label", getProject().getPath()));
+		fragment.add(compactProjectPath);
+
 		fragment.add(newProjectTitle("projectTitle"));
 		return fragment;
 	}
@@ -532,6 +539,7 @@ public abstract class ProjectPage extends LayoutPage implements ProjectAware {
 
 		response.render(CssHeaderItem.forReference(new ProjectCssResourceReference()));
 		response.render(CssHeaderItem.forReference(new DropdownTriangleIndicatorCssResourceReference()));
+		response.render(JavaScriptHeaderItem.forReference(new ProjectResourceReference()));
 	}
 
 	@Override
@@ -546,7 +554,15 @@ public abstract class ProjectPage extends LayoutPage implements ProjectAware {
 	}
 	
 	protected abstract Component newProjectTitle(String componentId);
-	
+
+	@Override
+	public List<ChatTool> getChatTools() {
+		var tools = new ArrayList<ChatTool>();
+		if (getProject().isIssueManagement()) 
+			tools.add(wrapForChat(new CreateIssue(getProject().getId())));
+		return tools;
+	}
+
 	public static PageParameters paramsOf(Long projectId) {
 		ProjectFacade project = getProjectService().findFacadeById(projectId);
 		return paramsOf(project.getPath());

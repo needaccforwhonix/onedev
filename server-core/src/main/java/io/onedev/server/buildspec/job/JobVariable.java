@@ -1,16 +1,16 @@
 package io.onedev.server.buildspec.job;
 
-import io.onedev.k8shelper.KubernetesHelper;
-import io.onedev.server.OneDev;
-import io.onedev.server.service.SettingService;
-import io.onedev.server.model.Build;
-import io.onedev.server.util.UrlUtils;
+import static io.onedev.k8shelper.KubernetesHelper.PLACEHOLDER_PREFIX;
+import static io.onedev.k8shelper.KubernetesHelper.PLACEHOLDER_SUFFIX;
 
 import java.net.MalformedURLException;
 import java.net.URL;
 
-import static io.onedev.k8shelper.KubernetesHelper.PLACEHOLDER_PREFIX;
-import static io.onedev.k8shelper.KubernetesHelper.PLACEHOLDER_SUFFIX;
+import io.onedev.k8shelper.KubernetesHelper;
+import io.onedev.server.OneDev;
+import io.onedev.server.model.Build;
+import io.onedev.server.service.SettingService;
+import io.onedev.server.util.UrlUtils;
 
 public enum JobVariable {
 
@@ -41,7 +41,7 @@ public enum JobVariable {
 	JOB_TOKEN {
 		@Override
 		public String getValue(Build build) {
-			return build.getJobToken();
+			return build.getToken();
 		}
 	},
 	REF {
@@ -141,5 +141,5 @@ public enum JobVariable {
 	};
 
 	public abstract String getValue(Build build);
-	
+
 }

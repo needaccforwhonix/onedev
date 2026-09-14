@@ -6,7 +6,6 @@ import static io.onedev.server.model.User.Type.SERVICE;
 import static io.onedev.server.web.translation.Translation._T;
 
 import java.io.Serializable;
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -45,12 +44,12 @@ import com.google.common.collect.Sets;
 
 import io.onedev.server.OneDev;
 import io.onedev.server.data.migration.VersionedXmlDoc;
-import io.onedev.server.service.EmailAddressService;
-import io.onedev.server.service.UserService;
 import io.onedev.server.model.EmailAddress;
 import io.onedev.server.model.User;
 import io.onedev.server.persistence.TransactionService;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.EmailAddressService;
+import io.onedev.server.service.UserService;
 import io.onedev.server.util.Similarities;
 import io.onedev.server.web.WebConstants;
 import io.onedev.server.web.WebSession;
@@ -68,9 +67,9 @@ import io.onedev.server.web.component.user.UserAvatar;
 import io.onedev.server.web.page.HomePage;
 import io.onedev.server.web.page.admin.AdministrationPage;
 import io.onedev.server.web.page.user.UserCssResourceReference;
-import io.onedev.server.web.page.user.basicsetting.UserBasicSettingPage;
 import io.onedev.server.web.page.user.profile.UserProfilePage;
 import io.onedev.server.web.util.LoadableDetachableDataProvider;
+import io.onedev.server.web.util.TextUtils;
 import io.onedev.server.web.util.WicketUtils;
 import io.onedev.server.web.util.paginghistory.PagingHistorySupport;
 import io.onedev.server.web.util.paginghistory.ParamPagingHistorySupport;
@@ -82,6 +81,8 @@ public class UserListPage extends AdministrationPage {
 	private static final String PARAM_QUERY = "query";
 
 	private static final String PARAM_INCLUDE_DISABLED = "includeDisabled";
+
+	private static final String PARAM_TYPE = "type";
 	
 	private final IModel<List<User>> usersModel = new LoadableDetachableModel<List<User>>() {
 
@@ -92,7 +93,11 @@ public class UserListPage extends AdministrationPage {
 			var emailAddresses = new HashMap<Long, Collection<String>>();
 			for (var emailAddress: emailAddressCache.values()) 
 				emailAddresses.computeIfAbsent(emailAddress.getOwnerId(), key -> new HashSet<>()).add(emailAddress.getValue());
-			List<User> users = new ArrayList<>(userCache.getUsers(it->state.includeDisabled?true:!it.isDisabled()));
+			List<User> users = new ArrayList<>(userCache.getUsers(it -> {
+				if (!state.includeDisabled && it.isDisabled())
+					return false;
+				return state.type == null || it.getType() == state.type;
+			}));
 			users.sort(userCache.comparingDisplayName(Sets.newHashSet()));
 			users = new Similarities<>(users) {
 
@@ -114,9 +119,9 @@ public class UserListPage extends AdministrationPage {
 	
 	private TextField<String> searchField;
 
-	private Component countLabel;
-
 	private AjaxLink<?> includeDisabledLink;
+
+	private MenuLink filterTypeLink;
 	
 	private DataTable<User, Void> usersTable;
 
@@ -133,6 +138,9 @@ public class UserListPage extends AdministrationPage {
 		
 		state.query = params.get(PARAM_QUERY).toString();
 		state.includeDisabled = params.get(PARAM_INCLUDE_DISABLED).toBoolean(false);
+		var typeString = params.get(PARAM_TYPE).toString();
+		if (typeString != null)
+			state.type = User.Type.valueOf(typeString);
 	}
 	
 	@Override
@@ -142,10 +150,14 @@ public class UserListPage extends AdministrationPage {
 		
 		getPageParameters().set(PARAM_QUERY, state.query);
 		getPageParameters().set(PARAM_INCLUDE_DISABLED, state.includeDisabled);
+		if (state.type != null)
+			getPageParameters().set(PARAM_TYPE, state.type.name());
+		else
+			getPageParameters().remove(PARAM_TYPE);
 		target.add(searchField);
-		target.add(countLabel);
 		if (WicketUtils.isSubscriptionActive())
 			target.add(includeDisabledLink);
+		target.add(filterTypeLink);
 		selectionColumn.getSelections().clear();
 		target.add(usersTable);
 	}
@@ -182,7 +194,6 @@ public class UserListPage extends AdministrationPage {
 				else
 					pushState(target, url, state);
 
-				target.add(countLabel);				
 				usersTable.setCurrentPage(0);
 				selectionColumn.getSelections().clear();
 				target.add(usersTable);
@@ -236,7 +247,6 @@ public class UserListPage extends AdministrationPage {
 										for (var user: users) {
 											auditService.audit(null, "enabled account \"" + user.getName() + "\"", null, null);
 										}
-										target.add(countLabel);
 										target.add(usersTable);
 										selectionColumn.getSelections().clear();
 										Session.get().success(_T("Users enabled successfully"));
@@ -281,10 +291,10 @@ public class UserListPage extends AdministrationPage {
 									for (var model: selectionColumn.getSelections()) {
 										var user = model.getObject();
 										if (user.isRoot()) {
-											Session.get().error(_T("Can not disable root account"));
+											Session.get().error(_T("Cannot disable root account"));
 											return;
 										} else if (user.equals(SecurityUtils.getAuthUser())) {
-											Session.get().error(_T("Can not disable yourself"));
+											Session.get().error(_T("Cannot disable yourself"));
 											return;
 										}
 									}
@@ -299,7 +309,6 @@ public class UserListPage extends AdministrationPage {
 												for (var user: users) {
 													auditService.audit(null, "disabled account \"" + user.getName() + "\"", null, null);
 												}
-												target.add(countLabel);
 												target.add(usersTable);
 												selectionColumn.getSelections().clear();
 												Session.get().success(_T("Users disabled successfully"));
@@ -359,10 +368,10 @@ public class UserListPage extends AdministrationPage {
 									for (var model: selectionColumn.getSelections()) {
 										var user = model.getObject();
 										if (user.isRoot()) {
-											Session.get().error(_T("Can not convert root user to service account"));
+											Session.get().error(_T("Cannot convert root user to service account"));
 											return;
 										} else if (user.equals(SecurityUtils.getAuthUser())) {
-											Session.get().error(_T("Can not convert yourself to service account"));
+											Session.get().error(_T("Cannot convert yourself to service account"));
 											return;
 										}
 									}
@@ -377,7 +386,6 @@ public class UserListPage extends AdministrationPage {
 												for (var user: users) {
 													auditService.audit(null, "converted \"" + user.getName() + "\" to service account", null, null);
 												}
-												target.add(countLabel);
 												target.add(usersTable);
 												selectionColumn.getSelections().clear();
 												Session.get().success(_T("Users converted to service accounts successfully"));
@@ -437,10 +445,10 @@ public class UserListPage extends AdministrationPage {
 								for (var model: selectionColumn.getSelections()) {
 									var user = model.getObject();
 									if (user.isRoot()) {
-										Session.get().error(_T("Can not delete root account"));
+										Session.get().error(_T("Cannot delete root account"));
 										return;
 									} else if (user.equals(SecurityUtils.getAuthUser())) {
-										Session.get().error(_T("Can not delete yourself"));
+										Session.get().error(_T("Cannot delete yourself"));
 										return;
 									}
 								}
@@ -456,7 +464,6 @@ public class UserListPage extends AdministrationPage {
 												var oldAuditContent = VersionedXmlDoc.fromBean(user).toXML();
 												auditService.audit(null, "deleted account \"" + user.getName() + "\"", oldAuditContent, null);
 											}
-											target.add(countLabel);
 											target.add(usersTable);
 											selectionColumn.getSelections().clear();
 											Session.get().success(_T("Users deleted successfully"));
@@ -567,10 +574,10 @@ public class UserListPage extends AdministrationPage {
 									for (@SuppressWarnings("unchecked") var it = (Iterator<User>) dataProvider.iterator(0, usersTable.getItemCount()); it.hasNext();) {
 										var user = it.next();
 										if (user.isRoot()) {
-											Session.get().error(_T("Can not disable root account"));
+											Session.get().error(_T("Cannot disable root account"));
 											return;
 										} else if (user.equals(SecurityUtils.getAuthUser())) {
-											Session.get().error(_T("Can not disable yourself"));
+											Session.get().error(_T("Cannot disable yourself"));
 											return;
 										}
 									}
@@ -648,10 +655,10 @@ public class UserListPage extends AdministrationPage {
 									for (@SuppressWarnings("unchecked") var it = (Iterator<User>) dataProvider.iterator(0, usersTable.getItemCount()); it.hasNext();) {
 										var user = it.next();
 										if (user.isRoot()) {
-											Session.get().error(_T("Can not convert root user to service account"));
+											Session.get().error(_T("Cannot convert root user to service account"));
 											return;
 										} else if (user.equals(SecurityUtils.getAuthUser())) {
-											Session.get().error(_T("Can not convert yourself to service account"));
+											Session.get().error(_T("Cannot convert yourself to service account"));
 											return;
 										}
 									}
@@ -730,10 +737,10 @@ public class UserListPage extends AdministrationPage {
 								for (@SuppressWarnings("unchecked") var it = (Iterator<User>) dataProvider.iterator(0, usersTable.getItemCount()); it.hasNext();) {
 									var user = it.next();
 									if (user.isRoot()) {
-										Session.get().error(_T("Can not delete root account"));
+										Session.get().error(_T("Cannot delete root account"));
 										return;
 									} else if (user.equals(SecurityUtils.getAuthUser())) {
-										Session.get().error(_T("Can not delete yourself"));
+										Session.get().error(_T("Cannot delete yourself"));
 										return;
 									}
 								}
@@ -762,12 +769,12 @@ public class UserListPage extends AdministrationPage {
 
 									@Override
 									protected String getConfirmMessage() {
-										return _T("Type <code>yes</code> below to confirm deleting all queried users");
+										return _T("Type <code>delete ALL users</code> below to delete all queried users");
 									}
 
 									@Override
 									protected String getConfirmInput() {
-										return "yes";
+										return "delete ALL users";
 									}
 
 								};
@@ -815,7 +822,6 @@ public class UserListPage extends AdministrationPage {
 				pushState(target, url, state);
 
 				target.add(this);
-				target.add(countLabel);
 
 				usersTable.setCurrentPage(0);
 				selectionColumn.getSelections().clear();
@@ -831,6 +837,32 @@ public class UserListPage extends AdministrationPage {
 			}
 			
 		}));
+
+		add(filterTypeLink = new MenuLink("filterType") {
+
+			@Override
+			protected void onInitialize() {
+				super.onInitialize();
+				add(new Label("label", new AbstractReadOnlyModel<String>() {
+
+					@Override
+					public String getObject() {
+						return getTypeFilterLabel();
+					}
+
+				}));
+			}
+
+			@Override
+			protected List<MenuItem> getMenuItems(FloatingPanel dropdown) {
+				List<MenuItem> menuItems = new ArrayList<>();
+				menuItems.add(newTypeFilterItem(dropdown, null));
+				for (var type: User.Type.values())
+					menuItems.add(newTypeFilterItem(dropdown, type));
+				return menuItems;
+			}
+
+		});
 		
 		List<IColumn<User, Void>> columns = new ArrayList<>();
 
@@ -925,7 +957,7 @@ public class UserListPage extends AdministrationPage {
 			public void populateItem(Item<ICellPopulator<User>> cellItem, String componentId, IModel<User> rowModel) {
 				Fragment fragment = new Fragment(componentId, "actionsFrag", UserListPage.this);
 				
-				fragment.add(new ActionablePageLink("edit", UserBasicSettingPage.class, UserBasicSettingPage.paramsOf(rowModel.getObject())) {
+				fragment.add(new ActionablePageLink("edit", UserProfilePage.class, UserProfilePage.paramsOf(rowModel.getObject())) {
 
 					@Override
 					protected void doBeforeNav(AjaxRequestTarget target) {
@@ -936,7 +968,7 @@ public class UserListPage extends AdministrationPage {
 		
 				});
 
-				fragment.add(new Link<Void>("impersonate") {
+				fragment.add(new Link<Void>("runAs") {
 
 					@Override
 					public void onClick() {
@@ -956,21 +988,6 @@ public class UserListPage extends AdministrationPage {
 			
 		});
 
-		add(countLabel = new Label("count", new AbstractReadOnlyModel<String>() {
-			@Override
-			public String getObject() {
-				if (dataProvider.size() > 1)
-					return MessageFormat.format(_T("found {0} users"), dataProvider.size());
-				else
-					return _T("found 1 user");
-			}
-		}) {
-			@Override
-			protected void onConfigure() {
-				super.onConfigure();
-				setVisible(dataProvider.size() != 0);
-			}
-		}.setOutputMarkupPlaceholderTag(true));
 		
 		dataProvider = new LoadableDetachableDataProvider<>() {
 
@@ -1017,9 +1034,58 @@ public class UserListPage extends AdministrationPage {
 		};
 		
 		add(usersTable = new DefaultDataTable<User, Void>("users", columns, dataProvider, 
-				WebConstants.PAGE_SIZE, pagingHistorySupport));
+				WebConstants.PAGE_SIZE, pagingHistorySupport, true));
 	}
 	
+	private MenuItem newTypeFilterItem(FloatingPanel dropdown, User.Type type) {
+		return new MenuItem() {
+
+			@Override
+			public String getLabel() {
+				return getTypeFilterLabel(type);
+			}
+
+			@Override
+			public boolean isSelected() {
+				return state.type == type;
+			}
+
+			@Override
+			public WebMarkupContainer newLink(String id) {
+				return new AjaxLink<Void>(id) {
+
+					@Override
+					public void onClick(AjaxRequestTarget target) {
+						dropdown.close();
+						state.type = type;
+						var params = paramsOf(state, 0);
+						var url = RequestCycle.get().urlFor(UserListPage.class, params).toString();
+						pushState(target, url, state);
+
+						target.add(filterTypeLink);
+
+						usersTable.setCurrentPage(0);
+						selectionColumn.getSelections().clear();
+						target.add(usersTable);
+					}
+
+				};
+			}
+
+		};
+	}
+
+	private String getTypeFilterLabel() {
+		return getTypeFilterLabel(state.type);
+	}
+
+	private String getTypeFilterLabel(User.Type type) {
+		if (type != null)
+			return _T(TextUtils.getDisplayValue(type));
+		else
+			return _T("All Types");
+	}
+
 	private UserService getUserService() {
 		return OneDev.getInstance(UserService.class);
 	}
@@ -1050,6 +1116,8 @@ public class UserListPage extends AdministrationPage {
 			params.add(PARAM_QUERY, state.query);
 		if (state.includeDisabled)
 			params.add(PARAM_INCLUDE_DISABLED, state.includeDisabled);
+		if (state.type != null)
+			params.add(PARAM_TYPE, state.type.name());
 		if (page != 0)
 			params.add(PARAM_PAGE, page);
 		return params;
@@ -1067,6 +1135,8 @@ public class UserListPage extends AdministrationPage {
 		public String query;
 
 		public boolean includeDisabled;
+
+		public User.Type type;
 		
 	}
 

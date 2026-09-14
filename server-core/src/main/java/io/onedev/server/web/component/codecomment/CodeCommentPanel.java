@@ -7,8 +7,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
-
-import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 
 import org.apache.wicket.AttributeModifier;
 import org.apache.wicket.Component;
@@ -39,18 +38,19 @@ import org.apache.wicket.request.cycle.AbstractRequestCycleListener;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.util.visit.IVisit;
 import org.apache.wicket.util.visit.IVisitor;
+import org.jspecify.annotations.Nullable;
 
 import com.google.common.collect.Sets;
 
 import io.onedev.server.OneDev;
+import io.onedev.server.ai.ChatTool;
+import io.onedev.server.ai.ChatToolAware;
+import io.onedev.server.ai.ToolUtils;
+import io.onedev.server.ai.tools.codecomment.GetCodeCommentReplies;
+import io.onedev.server.ai.tools.codecomment.GetCodeComment;
 import io.onedev.server.attachment.AttachmentSupport;
 import io.onedev.server.attachment.ProjectAttachmentSupport;
 import io.onedev.server.data.migration.VersionedXmlDoc;
-import io.onedev.server.service.AuditService;
-import io.onedev.server.service.CodeCommentService;
-import io.onedev.server.service.CodeCommentReplyService;
-import io.onedev.server.service.CodeCommentStatusChangeService;
-import io.onedev.server.service.UrlService;
 import io.onedev.server.model.CodeComment;
 import io.onedev.server.model.CodeCommentReply;
 import io.onedev.server.model.CodeCommentStatusChange;
@@ -59,11 +59,17 @@ import io.onedev.server.model.User;
 import io.onedev.server.model.support.CompareContext;
 import io.onedev.server.persistence.TransactionService;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.AuditService;
+import io.onedev.server.service.CodeCommentReplyService;
+import io.onedev.server.service.CodeCommentService;
+import io.onedev.server.service.CodeCommentStatusChangeService;
+import io.onedev.server.service.UrlService;
 import io.onedev.server.util.DateUtils;
 import io.onedev.server.web.ajaxlistener.ConfirmClickListener;
 import io.onedev.server.web.ajaxlistener.ConfirmLeaveListener;
 import io.onedev.server.web.behavior.ChangeObserver;
 import io.onedev.server.web.component.comment.CommentInput;
+import io.onedev.server.web.component.link.copytoclipboard.CopyToClipboardLink;
 import io.onedev.server.web.component.markdown.ContentQuoted;
 import io.onedev.server.web.component.markdown.MarkdownEditor;
 import io.onedev.server.web.component.markdown.MarkdownViewer;
@@ -73,7 +79,7 @@ import io.onedev.server.web.component.user.ident.UserIdentPanel;
 import io.onedev.server.web.page.base.BasePage;
 import io.onedev.server.xodus.VisitInfoService;
 
-public abstract class CodeCommentPanel extends Panel {
+public abstract class CodeCommentPanel extends Panel implements ChatToolAware {
 
 	private final Long commentId;
 	
@@ -119,7 +125,7 @@ public abstract class CodeCommentPanel extends Panel {
 		viewFragment.add(new Label("userName", getComment().getUser().getDisplayName()));
 		viewFragment.add(new Label("action", "commented"));
 		viewFragment.add(new Label("date", DateUtils.formatAge(getComment().getCreateDate()))
-				.add(new AttributeAppender("title", DateUtils.formatDateTime(getComment().getCreateDate()))));
+				.add(new AttributeAppender("data-tippy-content", DateUtils.formatDateTime(getComment().getCreateDate()))));
 		if (isContextDifferent(getComment().getCompareContext())) {
 			String url = OneDev.getInstance(UrlService.class).urlFor(getComment(), false);
 			viewFragment.add(new ExternalLink("context", url) {
@@ -324,7 +330,7 @@ public abstract class CodeCommentPanel extends Panel {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(!getComment().isResolved() && SecurityUtils.canWriteCode(getComment().getProject()));
+				setVisible(!getComment().isResolved() && SecurityUtils.canChangeStatus(getComment()));
 			}
 			
 		});
@@ -338,7 +344,7 @@ public abstract class CodeCommentPanel extends Panel {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(getComment().isResolved() && SecurityUtils.canWriteCode(getComment().getProject()));
+				setVisible(getComment().isResolved() && SecurityUtils.canChangeStatus(getComment()));
 			}
 			
 		});
@@ -695,7 +701,7 @@ public abstract class CodeCommentPanel extends Panel {
 			else
 				fragment.add(new Label("action", "unresolved"));
 			fragment.add(new Label("date", DateUtils.formatAge(getChange().getDate()))
-					.add(new AttributeAppender("title", DateUtils.formatDateTime(getChange().getDate()))));
+					.add(new AttributeAppender("data-tippy-content", DateUtils.formatDateTime(getChange().getDate()))));
 			if (isContextDifferent(getChange().getCompareContext())) {
 				String url = OneDev.getInstance(UrlService.class).urlFor(getChange(), false);
 				fragment.add(new ExternalLink("context", url) {
@@ -738,6 +744,13 @@ public abstract class CodeCommentPanel extends Panel {
 		}
 
 	}
+
+	@Override
+	public List<ChatTool> getChatTools() {
+		return ToolUtils.wrapForChat(List.of(
+				new GetCodeComment(Objects.requireNonNull(commentId)),
+				new GetCodeCommentReplies(Objects.requireNonNull(commentId))));
+	}
 	
 	public class CodeCommentReplyActivity implements CodeCommentActivity {
 
@@ -760,7 +773,7 @@ public abstract class CodeCommentPanel extends Panel {
 			viewFragment.add(new Label("userName", reply.getUser().getDisplayName()));
 			viewFragment.add(new Label("action", "replied"));
 			viewFragment.add(new Label("date", DateUtils.formatAge(reply.getDate()))
-					.add(new AttributeAppender("title", DateUtils.formatDateTime(reply.getDate()))));
+					.add(new AttributeAppender("data-tippy-content", DateUtils.formatDateTime(reply.getDate()))));
 			if (isContextDifferent(reply.getCompareContext())) {
 				String url = OneDev.getInstance(UrlService.class).urlFor(reply, false);
 				viewFragment.add(new ExternalLink("context", url) {
@@ -776,15 +789,9 @@ public abstract class CodeCommentPanel extends Panel {
 				viewFragment.add(new WebMarkupContainer("context").setVisible(false));
 			}
 			
-			viewFragment.add(new WebMarkupContainer("anchor") {
-
-				@Override
-				protected void onComponentTag(ComponentTag tag) {
-					super.onComponentTag(tag);
-					tag.put("href", "#" + getReply().getAnchor());
-				}
-				
-			});
+			viewFragment.add(new CopyToClipboardLink("anchor",
+					Model.of(OneDev.getInstance(UrlService.class).urlFor(getReply(), true)),
+					_T("Copy permanent link")));
 			
 			viewFragment.add(new MarkdownViewer("content", new IModel<String>() {
 

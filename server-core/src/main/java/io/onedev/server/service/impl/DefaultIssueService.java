@@ -7,17 +7,18 @@ import static java.util.stream.Collectors.toSet;
 
 import java.io.ObjectStreamException;
 import java.io.Serializable;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.jspecify.annotations.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.persistence.criteria.CriteriaBuilder;
@@ -30,11 +31,16 @@ import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import javax.persistence.criteria.Subquery;
 
+import org.apache.shiro.authz.UnauthorizedException;
 import org.apache.shiro.subject.Subject;
+import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.revwalk.RevCommit;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.query.Query;
 import org.hibernate.query.criteria.internal.path.SingularAttributePath;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,28 +48,21 @@ import com.google.common.base.Preconditions;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.IMap;
 
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
 import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.commons.loader.ManagedSerializedForm;
+import io.onedev.commons.utils.StringUtils;
 import io.onedev.server.buildspecmodel.inputspec.choiceinput.choiceprovider.SpecifiedChoices;
 import io.onedev.server.cluster.ClusterService;
 import io.onedev.server.data.migration.VersionedXmlDoc;
 import io.onedev.server.entityreference.ReferenceMigrator;
-import io.onedev.server.service.IssueAuthorizationService;
-import io.onedev.server.service.IssueFieldService;
-import io.onedev.server.service.IssueLinkService;
-import io.onedev.server.service.IssueQueryPersonalizationService;
-import io.onedev.server.service.IssueScheduleService;
-import io.onedev.server.service.IssueService;
-import io.onedev.server.service.IssueTouchService;
-import io.onedev.server.service.LinkSpecService;
-import io.onedev.server.service.ProjectService;
-import io.onedev.server.service.RoleService;
-import io.onedev.server.service.SettingService;
-import io.onedev.server.service.UserService;
 import io.onedev.server.event.Listen;
 import io.onedev.server.event.ListenerRegistry;
 import io.onedev.server.event.entity.EntityPersisted;
 import io.onedev.server.event.entity.EntityRemoved;
+import io.onedev.server.event.project.RefUpdated;
+import io.onedev.server.event.project.issue.IssueBranchCreated;
 import io.onedev.server.event.project.issue.IssueDeleted;
 import io.onedev.server.event.project.issue.IssueEvent;
 import io.onedev.server.event.project.issue.IssueOpened;
@@ -71,6 +70,9 @@ import io.onedev.server.event.project.issue.IssuesCopied;
 import io.onedev.server.event.project.issue.IssuesDeleted;
 import io.onedev.server.event.project.issue.IssuesMoved;
 import io.onedev.server.event.system.SystemStarting;
+import io.onedev.server.exception.NotAcceptableException;
+import io.onedev.server.git.GitUtils;
+import io.onedev.server.git.service.GitService;
 import io.onedev.server.model.AbstractEntity;
 import io.onedev.server.model.Issue;
 import io.onedev.server.model.IssueAuthorization;
@@ -103,10 +105,23 @@ import io.onedev.server.search.entity.issue.IssueQueryUpdater;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.security.permission.AccessConfidentialIssues;
 import io.onedev.server.security.permission.AccessProject;
+import io.onedev.server.service.IssueAuthorizationService;
+import io.onedev.server.service.IssueFieldService;
+import io.onedev.server.service.IssueLinkService;
+import io.onedev.server.service.IssueQueryPersonalizationService;
+import io.onedev.server.service.IssueScheduleService;
+import io.onedev.server.service.IssueService;
+import io.onedev.server.service.IssueTouchService;
+import io.onedev.server.service.LinkSpecService;
+import io.onedev.server.service.ProjectService;
+import io.onedev.server.service.RoleService;
+import io.onedev.server.service.SettingService;
+import io.onedev.server.service.UserService;
 import io.onedev.server.util.IssueTimes;
 import io.onedev.server.util.IterationAndIssueState;
 import io.onedev.server.util.ProjectIssueStateStat;
 import io.onedev.server.util.ProjectScope;
+import io.onedev.server.util.QueryUtils;
 import io.onedev.server.util.criteria.Criteria;
 import io.onedev.server.web.component.issue.workflowreconcile.UndefinedFieldResolution;
 import io.onedev.server.web.component.issue.workflowreconcile.UndefinedFieldValue;
@@ -118,6 +133,8 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 
 	private static final Logger logger = LoggerFactory.getLogger(DefaultIssueService.class);
     
+	private static final int MAX_BRANCH_TITLE_LENGTH = 30;
+
 	@Inject
 	private IssueFieldService fieldService;
 
@@ -159,6 +176,9 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 	
 	@Inject
 	private IssueTouchService touchService;
+
+	@Inject
+	private GitService gitService;
 	
 	private SequenceGenerator numberGenerator;
 	
@@ -213,6 +233,14 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		criteria.setCacheable(true);
 		return find(criteria);
 	}
+
+	@Override
+	public Issue findByMessageId(String messageId) {
+		EntityCriteria<Issue> criteria = newCriteria();
+		criteria.add(Restrictions.eq(Issue.PROP_MESSAGE_ID, messageId));
+		criteria.setCacheable(true);
+		return find(criteria);
+	}
 	
 	@Override
 	public void open(Issue issue) {
@@ -221,7 +249,7 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 	
 	@Transactional
 	@Override
-	public void open(Issue issue, Collection<String> notifiedEmailAddresses) {
+	public void open(Issue issue, Collection<String> listeningEmailAddresses) {
 		Preconditions.checkArgument(issue.isNew());
 		issue.setNumberScope(issue.getProject().getForkRoot());
 		issue.setNumber(getNextNumber(issue.getNumberScope()));
@@ -243,7 +271,7 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		for (IssueSchedule schedule: issue.getSchedules())
 			dao.persist(schedule);
 		
-		if (!SecurityUtils.isAdministrator(issue.getSubmitter().asSubject())) {
+		if (!SecurityUtils.canAccessConfidentialIssues(issue.getSubmitter().asSubject(), issue.getProject()) && issue.isConfidential()) {
 			IssueAuthorization authorization = new IssueAuthorization();
 			authorization.setIssue(issue);
 			authorization.setUser(issue.getSubmitter());
@@ -251,7 +279,23 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 			authorizationService.createOrUpdate(authorization);
 		}
 		
-		listenerRegistry.post(new IssueOpened(issue, notifiedEmailAddresses));
+		listenerRegistry.post(new IssueOpened(issue, listeningEmailAddresses));
+	}
+
+	@Transactional
+	@Listen
+	public void on(RefUpdated event) {
+		if (!event.getOldCommitId().equals(ObjectId.zeroId()))
+			return;
+		String branchName = GitUtils.ref2branch(event.getRefName());
+		if (branchName == null)
+			return;
+		Long issueNumber = Issue.parseNumberFromBranch(branchName);
+		if (issueNumber == null)
+			return;
+		Issue issue = find(event.getProject(), issueNumber);
+		if (issue != null)
+			listenerRegistry.post(new IssueBranchCreated(event.getUser(), issue, branchName));
 	}
 
 	@Transactional
@@ -267,9 +311,9 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 	private javax.persistence.criteria.Order getOrder(EntitySort sort, CriteriaBuilder builder, From<Issue, Issue> issue) {
 		if (Issue.SORT_FIELDS.containsKey(sort.getField())) {
 			if (sort.getDirection() == Direction.ASCENDING)
-				return builder.asc(IssueQuery.getPath(issue, Issue.SORT_FIELDS.get(sort.getField()).getProperty()));
+				return builder.asc(QueryUtils.getPath(issue, Issue.SORT_FIELDS.get(sort.getField()).getProperty()));
 			else
-				return builder.desc(IssueQuery.getPath(issue, Issue.SORT_FIELDS.get(sort.getField()).getProperty()));
+				return builder.desc(QueryUtils.getPath(issue, Issue.SORT_FIELDS.get(sort.getField()).getProperty()));
 		} else {
 			Join<Issue, IssueField> join = issue.join(Issue.PROP_FIELDS, JoinType.LEFT);
 			join.on(builder.equal(join.get(IssueField.PROP_NAME), sort.getField()));
@@ -308,7 +352,7 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 			}
 		}
 		if (!found)
-			orders.add(builder.desc(IssueQuery.getPath(issue, Issue.PROP_LAST_ACTIVITY + "." + LastActivity.PROP_DATE)));
+			orders.add(builder.desc(QueryUtils.getPath(issue, Issue.PROP_LAST_ACTIVITY + "." + LastActivity.PROP_DATE)));
 		
 		return orders;
 	}
@@ -319,23 +363,23 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 
 	@Sessional
 	@Override
-	public List<Issue> query(Subject subject, ProjectScope projectScope, EntityQuery<Issue> issueQuery, 
+	public List<Issue> query(Subject subject, ProjectScope projectScope, EntityQuery<Issue> query, 
 			boolean loadExtraInfo, int firstResult, int maxResults) {
 		CriteriaBuilder builder = getSession().getCriteriaBuilder();
 		CriteriaQuery<Issue> criteriaQuery = builder.createQuery(Issue.class);
 		Root<Issue> root = criteriaQuery.from(Issue.class);
-		
-		criteriaQuery.where(buildPredicates(subject, projectScope, issueQuery.getCriteria(), criteriaQuery, builder, root));
-		var criteria = issueQuery.getCriteria();
+
+		criteriaQuery.where(buildPredicates(subject, projectScope, query.getCriteria(), criteriaQuery, builder, root));
+		var criteria = query.getCriteria();
 		List<javax.persistence.criteria.Order> preferOrders = new ArrayList<>();
 		if (criteria != null)
 			preferOrders.addAll(criteria.getPreferOrders(builder, root));
-		criteriaQuery.orderBy(buildOrders(issueQuery, builder, root, preferOrders));
+		criteriaQuery.orderBy(buildOrders(query, builder, root, preferOrders));
 		
-		Query<Issue> query = getSession().createQuery(criteriaQuery);
-		query.setFirstResult(firstResult);
-		query.setMaxResults(maxResults);
-		List<Issue> issues = query.getResultList();
+		Query<Issue> hibernateQuery = getSession().createQuery(criteriaQuery);
+		hibernateQuery.setFirstResult(firstResult);
+		hibernateQuery.setMaxResults(maxResults);
+		List<Issue> issues = hibernateQuery.getResultList();
 		if (loadExtraInfo && !issues.isEmpty()) {
 			fieldService.populateFields(issues);
 			linkService.populateLinks(issues);
@@ -353,12 +397,12 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 	
 	@Sessional
 	@Override
-	public int count(Subject subject, ProjectScope projectScope, Criteria<Issue> issueCriteria) {
+	public int count(Subject subject, ProjectScope projectScope, Criteria<Issue> criteria) {
 		CriteriaBuilder builder = getSession().getCriteriaBuilder();
 		CriteriaQuery<Long> criteriaQuery = builder.createQuery(Long.class);
 		Root<Issue> root = criteriaQuery.from(Issue.class);
 
-		criteriaQuery.where(buildPredicates(subject, projectScope, issueCriteria, criteriaQuery, builder, root));
+		criteriaQuery.where(buildPredicates(subject, projectScope, criteria, criteriaQuery, builder, root));
 
 		criteriaQuery.select(builder.count(root));
 		return getSession().createQuery(criteriaQuery).uniqueResult().intValue();
@@ -366,12 +410,12 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 
 	@Sessional
 	@Override
-	public IssueTimes queryTimes(Subject subject, ProjectScope projectScope, Criteria<Issue> issueCriteria) {
+	public IssueTimes queryTimes(Subject subject, ProjectScope projectScope, Criteria<Issue> criteria) {
 		CriteriaBuilder builder = getSession().getCriteriaBuilder();
 		CriteriaQuery<IssueTimes> criteriaQuery = builder.createQuery(IssueTimes.class);
 		Root<Issue> root = criteriaQuery.from(Issue.class);
 
-		criteriaQuery.where(buildPredicates(subject, projectScope, issueCriteria, criteriaQuery, builder, root));
+		criteriaQuery.where(buildPredicates(subject, projectScope, criteria, criteriaQuery, builder, root));
 		
 		criteriaQuery.multiselect(
 				builder.sum(root.get(PROP_OWN_ESTIMATED_TIME)), 
@@ -380,7 +424,7 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 	}
 	
 	@Override
-	public Predicate[] buildPredicates(Subject subject, ProjectScope projectScope, Criteria<Issue> issueCriteria,
+	public Predicate[] buildPredicates(Subject subject, ProjectScope projectScope, Criteria<Issue> criteria,
 									   CriteriaQuery<?> query, CriteriaBuilder builder, From<Issue, Issue> issue) {
 		List<Predicate> predicates = new ArrayList<>();
 		if (projectScope != null) {
@@ -419,8 +463,10 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 				predicates.add(builder.disjunction());
 			}
 		}
-		if (issueCriteria != null)
-			predicates.add(issueCriteria.getPredicate(projectScope, query, issue, builder));
+		if (criteria != null)
+			predicates.add(criteria.getPredicate(projectScope, query, issue, builder));
+
+		predicates.add(builder.isNull(issue.get(Issue.PROP_MOVED_TO)));
 
 		return predicates.toArray(new Predicate[predicates.size()]);
 	}
@@ -903,8 +949,17 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 	@Transactional
 	@Override
 	public void delete(Issue issue) {
+		checkNoWorkspaces(issue, "delete");
 		dao.remove(issue);
 		listenerRegistry.post(new IssueDeleted(issue));
+	}
+
+	private void checkNoWorkspaces(Issue issue, String operation) {
+		if (issue.getWorkspaces().size() > 0) {
+			throw new NotAcceptableException(MessageFormat.format(
+					"Cannot {0} issue \"{1}\" as it has workspaces",
+					operation, issue.getReference().toString(issue.getProject())));
+		}
 	}
 	
 	private String getCacheKey(Issue issue) {
@@ -931,8 +986,7 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 	public void on(EntityRemoved event) {
 		if (event.getEntity() instanceof Issue) {
 			var cacheKey = getCacheKey((Issue) event.getEntity());
-			transactionService.runAfterCommit(() -> idCache.remove(cacheKey));
-			
+			transactionService.runAfterCommit(() -> idCache.remove(cacheKey));			
 		} else if (event.getEntity() instanceof Project) {
 			Project project = (Project) event.getEntity();
 	    	if (project.getForkRoot().equals(project))
@@ -964,6 +1018,7 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		
 		criteriaQuery.where(builder.and(
 				buildSubtreePredicate(builder, issueJoin.get(Issue.PROP_PROJECT), project),
+				builder.isNull(issueJoin.get(Issue.PROP_MOVED_TO)),
 				builder.or(iterationPredicates.toArray(new Predicate[0]))));
 		
 		return getSession().createQuery(criteriaQuery).getResultList();
@@ -1086,6 +1141,32 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		List<Issue> sortedIssues = new ArrayList<>(issues);
 		Collections.sort(sortedIssues);
 		for (Issue issue: sortedIssues) {
+			checkNoWorkspaces(issue, "move");
+			if (issue.getMovedTo() != null) {
+				throw new NotAcceptableException(MessageFormat.format(
+						"Cannot move issue \"{0}\" as it has already been moved",
+						issue.getReference().toString(issue.getProject())));
+			}
+		}
+
+		// Remember source identity so we can leave a bare stub after the move
+		Map<Long, Issue> stubInfos = new LinkedHashMap<>();
+		for (Issue issue: sortedIssues) {
+			Issue stubInfo = new Issue();
+			stubInfo.setTitle(issue.getTitle());
+			stubInfo.setState(issue.getState());
+			stubInfo.setStateOrdinal(issue.getStateOrdinal());
+			stubInfo.setProject(issue.getProject());
+			stubInfo.setNumberScope(issue.getNumberScope());
+			stubInfo.setNumber(issue.getNumber());
+			stubInfo.setSubmitter(issue.getSubmitter());
+			stubInfo.setSubmitDate(issue.getSubmitDate());
+			stubInfo.setConfidential(issue.isConfidential());
+			stubInfos.put(issue.getId(), stubInfo);
+		}
+
+		// Original move logic: relocate the issue together with its belongings
+		for (Issue issue: sortedIssues) {
 			if (issue.getDescription() != null) {
 				issue.setDescription(issue.getDescription().replace(
 						sourceProject.getId() + "/attachments/" + issue.getAttachmentGroup(), 
@@ -1133,6 +1214,31 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 			}
 			dao.persist(issue);
 		}
+		// Flush so old (numberScope, number) is freed before stub insert
+		getSession().flush();
+
+		// Leave a bare stub at the old number (issue entity only, no belongings)
+		for (Issue movedIssue: sortedIssues) {
+			Issue stubInfo = stubInfos.get(movedIssue.getId());
+			Issue stub = new Issue();
+			stub.setTitle(stubInfo.getTitle());
+			stub.setState(stubInfo.getState());
+			stub.setStateOrdinal(stubInfo.getStateOrdinal());
+			stub.setProject(stubInfo.getProject());
+			stub.setNumberScope(stubInfo.getNumberScope());
+			stub.setNumber(stubInfo.getNumber());
+			stub.setSubmitter(stubInfo.getSubmitter());
+			stub.setSubmitDate(stubInfo.getSubmitDate());
+			stub.setConfidential(stubInfo.isConfidential());
+			LastActivity stubLastActivity = new LastActivity();
+			stubLastActivity.setUser(user);
+			stubLastActivity.setDescription("moved");
+			stubLastActivity.setDate(new Date());
+			stub.setLastActivity(stubLastActivity);
+			stub.setMovedTo(movedIssue);
+			movedIssue.getMovedFrom().add(stub);
+			dao.persist(stub);
+		}
 
 		touchService.touch(sourceProject, issues.stream().map(Issue::getId).collect(toList()), false);
 		
@@ -1142,8 +1248,10 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 	@Transactional
 	@Override
 	public void delete(Collection<Issue> issues, Project project) {
-		for (Issue issue: issues)
+		for (Issue issue: issues) {
+			checkNoWorkspaces(issue, "delete");
 			dao.remove(issue);
+		}
 		listenerRegistry.post(new IssuesDeleted(project, issues));
 	}
 	
@@ -1216,7 +1324,9 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 			}
 			predicates.add(buildAuthorizationPredicate(subject, criteriaQuery, builder, root, projectIds));
 			
-			criteriaQuery.where(builder.or(predicates.toArray(new Predicate[0])));
+			criteriaQuery.where(
+					builder.or(predicates.toArray(new Predicate[0])),
+					builder.isNull(root.get(Issue.PROP_MOVED_TO)));
 			criteriaQuery.orderBy(builder.asc(root.get(Issue.PROP_STATE_ORDINAL)));
 			
 			return getSession().createQuery(criteriaQuery).getResultList();
@@ -1227,10 +1337,10 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 	public Collection<Long> parseFixedIssueIds(Project project, String commitMessage) {
 		Collection<Long> issueIds = new HashSet<>();
 		
-		for (var reference: getIssueSetting().getCommitMessageFixPatterns().parseFixedIssues(commitMessage, project)) {
-			var referenceProject = reference.getProject();
-			if (referenceProject.isSelfOrAncestorOf(project) || project.isSelfOrAncestorOf(referenceProject)) {
-				Long issueId = getIssueId(referenceProject.getId(), reference.getNumber());
+		for (var issueReference: getIssueSetting().getCommitMessageFixSetting().parseFixedIssues(commitMessage, project)) {
+			var referenceProject = issueReference.getProject();
+			if (referenceProject.equals(project)) {
+				Long issueId = getIssueId(referenceProject.getId(), issueReference.getNumber());
 				if (issueId != null)
 					issueIds.add(issueId);
 			}
@@ -1256,7 +1366,8 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		Root<Issue> root = criteriaQuery.from(Issue.class);
 		criteriaQuery.where(
 				builder.equal(root.get(Issue.PROP_PROJECT), project), 
-				builder.isNotNull(root.get(Issue.PROP_PIN_DATE)));
+				builder.isNotNull(root.get(Issue.PROP_PIN_DATE)),
+				builder.isNull(root.get(Issue.PROP_MOVED_TO)));
 		criteriaQuery.orderBy(builder.desc(root.get(Issue.PROP_PIN_DATE)));
 
 		Query<Issue> query = getSession().createQuery(criteriaQuery);
@@ -1322,4 +1433,71 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		return getSession().createQuery(criteriaQuery).getResultList();
 	}
 
+	@Sessional
+	@Override
+	public String suggestBranch(Issue issue) {
+		String prefix = issue.getProject().findIssueBranchPrefix();
+		String prefixWithSlash = prefix != null ? prefix + "/" : "";
+		var chatModel = settingService.getAiSetting().getLiteModel();
+		if (chatModel != null) {
+			var systemMessage = new SystemMessage("""
+				Convert the given title into a short slug for a git branch name. 
+				Rules: use only lowercase letters (for non-english title, translate to english first), numbers and hyphens; no spaces or other special characters;
+				replace spaces with single hyphens; output only the slug, nothing else; maximum %d characters.""".formatted(MAX_BRANCH_TITLE_LENGTH));
+			for (int attempt = 0; attempt < 3; attempt++) {
+				try {
+					var userMessage = new UserMessage(issue.getTitle());
+					var response = chatModel.chat(systemMessage, userMessage).aiMessage().text();
+					response = StringUtils.trimToNull(response);
+					if (response != null && Repository.isValidRefName(GitUtils.branch2ref(response)))
+						return prefixWithSlash + "issue-" + issue.getNumber() + "-" + response;
+				} catch (Exception e) {
+					logger.warn("Error calling AI model to get normalized title for branch: {}", e);
+					break;
+				}
+			}
+		}
+
+		var normalizedTitle = GitUtils.normalizeForBranch(issue.getTitle());
+		if (normalizedTitle != null) {
+			normalizedTitle = StringUtils.stripEnd(StringUtils.abbreviate(normalizedTitle, "", MAX_BRANCH_TITLE_LENGTH), "-");
+			return prefixWithSlash + "issue-" + issue.getNumber() + "-" + normalizedTitle;
+		} else {
+			return prefixWithSlash + "issue-" + issue.getNumber();
+		}
+	}
+
+	@Sessional
+	@Override
+	public String ensureBranch(Subject subject, Issue issue) {
+		if (issue.getBranch() != null)
+			return issue.getBranch();
+
+		Project project = issue.getProject();
+		String suggestedBranch = suggestBranch(issue);
+
+		if (!SecurityUtils.canCreateBranch(project, suggestedBranch))
+			throw new UnauthorizedException("No permission to create branch: " + suggestedBranch);
+
+		if (project.getBranchRef(suggestedBranch) != null) {
+			throw new NotAcceptableException(MessageFormat.format("Branch \"{0}\" already exists", suggestedBranch));
+		} else {
+			RevCommit commit = null;
+			if (issue.getFieldCommitId() != null)
+				commit = project.getRevCommit(issue.getFieldCommitId(), false);
+			if (commit == null) {
+				String defaultBranch = project.getDefaultBranch();
+				if (defaultBranch == null) 
+					throw new NotAcceptableException("Default branch is not available");
+				else 
+					commit = project.getRevCommit(defaultBranch, true);	
+			}		
+			if (!project.isCommitSignatureRequirementSatisfied(SecurityUtils.getUser(subject), suggestedBranch, commit)) {
+				throw new NotAcceptableException("Valid signature required for head commit of this branch per branch protection rule");
+			} else {
+				gitService.createBranch(project, suggestedBranch, commit.name());
+				return suggestedBranch;
+			}
+		}
+	}
 }

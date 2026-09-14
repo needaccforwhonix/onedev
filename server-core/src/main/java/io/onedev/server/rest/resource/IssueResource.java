@@ -31,22 +31,16 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import org.apache.shiro.authz.UnauthorizedException;
+import org.apache.shiro.subject.Subject;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.onedev.server.OneDev;
 import io.onedev.server.SubscriptionService;
 import io.onedev.server.attachment.AttachmentService;
 import io.onedev.server.data.migration.VersionedXmlDoc;
-import io.onedev.server.service.AuditService;
-import io.onedev.server.service.IssueChangeService;
-import io.onedev.server.service.IssueService;
-import io.onedev.server.service.IterationService;
-import io.onedev.server.service.ProjectService;
-import io.onedev.server.service.SettingService;
-import io.onedev.server.service.UrlService;
 import io.onedev.server.model.Issue;
+import io.onedev.server.model.IssueAuthorization;
 import io.onedev.server.model.IssueChange;
 import io.onedev.server.model.IssueComment;
 import io.onedev.server.model.IssueLink;
@@ -57,7 +51,6 @@ import io.onedev.server.model.IssueWork;
 import io.onedev.server.model.Iteration;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.PullRequest;
-import io.onedev.server.model.User;
 import io.onedev.server.model.support.issue.field.FieldUtils;
 import io.onedev.server.model.support.issue.transitionspec.ManualSpec;
 import io.onedev.server.rest.annotation.Api;
@@ -66,6 +59,13 @@ import io.onedev.server.rest.resource.support.RestConstants;
 import io.onedev.server.search.entity.issue.IssueQuery;
 import io.onedev.server.search.entity.issue.IssueQueryParseOption;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.AuditService;
+import io.onedev.server.service.IssueChangeService;
+import io.onedev.server.service.IssueService;
+import io.onedev.server.service.IterationService;
+import io.onedev.server.service.ProjectService;
+import io.onedev.server.service.SettingService;
+import io.onedev.server.service.UrlService;
 import io.onedev.server.util.ProjectScopedCommit;
 import io.onedev.server.web.page.help.ApiHelpUtils;
 import io.onedev.server.web.page.help.ValueInfo;
@@ -117,15 +117,31 @@ public class IssueResource {
 		this.subscriptionService = subscriptionService;
 	}
 
-	@Api(order=100)
+	@Api(order=100, exampleProvider = "getIssueExample")
 	@Path("/{issueId}")
     @GET
-    public Issue getIssue(@PathParam("issueId") Long issueId) {
+    public Map<String, Object> getIssue(@PathParam("issueId") Long issueId) {
 		Issue issue = issueService.load(issueId);
-    	if (!SecurityUtils.canAccessIssue(issue)) 
+		var subject = SecurityUtils.getSubject();
+    	if (!SecurityUtils.canAccessIssue(subject, issue)) 
 			throw new UnauthorizedException();
-    	return issue;
+		var issueMap = getIssueMap(subject, issue);
+		issueMap.put("branch", issue.getBranch());
+		return issueMap;
     }
+
+	private Map<String, Object> getIssueMap(Subject subject, Issue issue) {
+		var typeReference = new TypeReference<Map<String, Object>>() {};		
+		var issueMap = objectMapper.convertValue(issue, typeReference);
+		if (!SecurityUtils.canAccessTimeTracking(issue.getProject())) {
+			issueMap.remove("totalEstimatedTime");
+			issueMap.remove("totalSpentTime");
+			issueMap.remove("ownEstimatedTime");
+			issueMap.remove("ownSpentTime");
+			issueMap.remove("progress");
+		}
+		return issueMap;
+	}
 
 	@Api(order=200, exampleProvider = "getFieldsExample")
 	@Path("/{issueId}/fields")
@@ -176,7 +192,7 @@ public class IssueResource {
 	@GET
 	public Collection<IssueWork> getWorks(@PathParam("issueId") Long issueId) {
 		Issue issue = issueService.load(issueId);
-		if (!SecurityUtils.canAccessIssue(issue))
+		if (!SecurityUtils.canAccessIssue(issue) || !SecurityUtils.canAccessTimeTracking(issue.getProject()))
 			throw new UnauthorizedException();
 		return issue.getWorks();
 	}
@@ -210,6 +226,16 @@ public class IssueResource {
 			throw new UnauthorizedException();
     	return issue.getWatches();
     }
+
+	@Api(order=625)
+	@Path("/{issueId}/authorizations")
+	@GET
+	public Collection<IssueAuthorization> getAuthorizations(@PathParam("issueId") Long issueId) {
+		Issue issue = issueService.load(issueId);
+		if (!SecurityUtils.canModifyIssue(issue))
+			throw new UnauthorizedException();
+		return issue.getAuthorizations();
+	}
 
 	@Api(order=650)
 	@Path("/{issueId}/links")
@@ -261,18 +287,12 @@ public class IssueResource {
     	if (!SecurityUtils.isAdministrator(subject) && count > RestConstants.MAX_PAGE_SIZE)
     		throw new NotAcceptableException("Count should not be greater than " + RestConstants.MAX_PAGE_SIZE);
 
-    	IssueQuery parsedQuery;
-		try {
-			IssueQueryParseOption option = new IssueQueryParseOption().withCurrentUserCriteria(true);
-			parsedQuery = IssueQuery.parse(null, query, option, true);
-		} catch (Exception e) {
-			throw new NotAcceptableException("Error parsing query", e);
-		}
+		IssueQueryParseOption option = new IssueQueryParseOption().withCurrentUserCriteria(true);
+		var parsedQuery = IssueQuery.parse(null, query, option, true);
 
-		var typeReference = new TypeReference<Map<String, Object>>() {};		
 		var issues = new ArrayList<Map<String, Object>>();
 		for (var issue: issueService.query(subject, null, parsedQuery, false, offset, count)) {
-			var issueMap = objectMapper.convertValue(issue, typeReference);
+			var issueMap = getIssueMap(subject, issue);
 			if (withFields != null && withFields)
 				issueMap.put("fields", issue.getFields());
 			issues.add(issueMap);
@@ -282,17 +302,24 @@ public class IssueResource {
     }
 	
 	@SuppressWarnings("unused")
+	private static Map<String, Object> getIssueExample() {
+		var issueMap = ApiHelpUtils.getExampleMap(Issue.class, ValueInfo.Origin.READ_BODY);
+		issueMap.put("branch", "string");
+		return issueMap;
+	}
+
+	@SuppressWarnings("unused")
 	private static List<Map<String, Object>> getIssuesExample() {
 		var issues = new ArrayList<Map<String, Object>>();
-		var issue = ApiHelpUtils.getExampleValue(Issue.class, ValueInfo.Origin.READ_BODY);
-		issues.add(OneDev.getInstance(ObjectMapper.class).convertValue(issue, new TypeReference<Map<String, Object>>() {}));
+		issues.add(ApiHelpUtils.getExampleMap(Issue.class, ValueInfo.Origin.READ_BODY));
 		return issues;
 	}
-	
+
 	@Api(order=1000)
     @POST
     public Long createIssue(@NotNull @Valid IssueOpenData data) {
-    	User user = SecurityUtils.getUser();
+		var subject = SecurityUtils.getSubject();
+    	var user = SecurityUtils.getUser(subject);
     	
     	Project project = projectService.load(data.getProjectId());
     	if (!SecurityUtils.canAccessProject(project))
@@ -335,7 +362,7 @@ public class IssueResource {
 			}
 		}
 
-		issue.setFieldValues(FieldUtils.getFieldValues(project, data.fields));
+		issue.setFieldValues(FieldUtils.getFieldValues(subject, project, data.fields));
 		issueService.open(issue);
 
 		return issue.getId();
@@ -427,15 +454,12 @@ public class IssueResource {
 		Issue issue = issueService.load(issueId);
 		var subject = SecurityUtils.getSubject();
 		var user = SecurityUtils.getUser(subject);
-		var issueSetting = settingService.getIssueSetting();
-		String initialState = issueSetting.getInitialStateSpec().getName();
 		
-    	if (!SecurityUtils.canManageIssues(subject, issue.getProject()) 
-				&& !(issue.getSubmitter().equals(user) && issue.getState().equals(initialState))) {
+    	if (!SecurityUtils.canEditIssueFields(subject, issue)) {
 			throw new UnauthorizedException();
 		}
 
-		issueChangeService.changeFields(user, issue, FieldUtils.getFieldValues(issue.getProject(), fields));
+		issueChangeService.changeFields(user, issue, FieldUtils.getFieldValues(subject, issue.getProject(), fields));
 		return Response.ok().build();
     }
 
@@ -453,7 +477,7 @@ public class IssueResource {
 		Issue issue = issueService.load(issueId);
 		var subject = SecurityUtils.getSubject();
 		var user = SecurityUtils.getUser(subject);
-		ManualSpec transition = settingService.getIssueSetting().getManualSpec(subject, issue, data.getState());
+		ManualSpec transition = issue.getProject().getManualSpec(subject, issue, data.getState());
 		if (transition == null) {
 			var message = MessageFormat.format(
 				"No applicable manual transition spec found for current user (issue: {0}, from state: {1}, to state: {2})",
@@ -461,7 +485,7 @@ public class IssueResource {
 			throw new NotAcceptableException(message);
 		}
     	
-		var fieldValues = FieldUtils.getFieldValues(issue.getProject(), data.getFields());
+		var fieldValues = FieldUtils.getFieldValues(subject, issue.getProject(), data.getFields());
 		issueChangeService.changeState(user, issue, data.getState(), fieldValues, 
 				transition.getPromptFields(), transition.getRemoveFields(), data.getComment());
 		return Response.ok().build();
@@ -481,6 +505,14 @@ public class IssueResource {
 		var url = urlService.urlForAttachment(issue.getProject(), issue.getUUID(), attachmentName, false);
 		return url;
     }
+
+	@Api(order=1575)
+	@Path("/{issueId}/branch")
+	@POST
+	public String createBranch(@PathParam("issueId") Long issueId) {
+		Issue issue = issueService.load(issueId);
+		return issueService.ensureBranch(SecurityUtils.getSubject(), issue);
+	}
 	
 	@Api(order=1600)
 	@Path("/{issueId}")

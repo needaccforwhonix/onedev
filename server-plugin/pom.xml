@@ -6,7 +6,7 @@
 	<parent>
 		<groupId>io.onedev</groupId>
 		<artifactId>server</artifactId>
-		<version>13.1.7</version>
+		<version>16.6.3</version>
 	</parent>
 	<dependencies>
 		<dependency>
@@ -43,6 +43,8 @@
 		<module>server-plugin-executor-remotedocker</module>
 		<module>server-plugin-executor-servershell</module>
 		<module>server-plugin-executor-remoteshell</module>
+		<module>server-plugin-provisioner-servershell</module>
+		<module>server-plugin-provisioner-serverdocker</module>
 		<module>server-plugin-report-unittest</module>
 		<module>server-plugin-report-junit</module>
 		<module>server-plugin-report-gtest</module>
@@ -57,6 +59,7 @@
 		<module>server-plugin-report-cpd</module>
 		<module>server-plugin-report-markdown</module>
 		<module>server-plugin-report-jest</module>
+		<module>server-plugin-report-playwright</module>
 		<module>server-plugin-report-clover</module>
 		<module>server-plugin-report-cobertura</module>
 		<module>server-plugin-report-checkstyle</module>
@@ -76,5 +79,6 @@
 		<module>server-plugin-pack-nuget</module>
 		<module>server-plugin-pack-pypi</module>
 		<module>server-plugin-pack-gem</module>
+		<module>server-plugin-pack-cargo</module>
     </modules>
 </project>

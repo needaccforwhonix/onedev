@@ -32,6 +32,7 @@ import io.onedev.server.search.entity.build.BuildQueryParser;
 import io.onedev.server.service.BuildParamService;
 import io.onedev.server.service.SettingService;
 import io.onedev.server.util.DateUtils;
+import io.onedev.server.util.QueryUtils;
 import io.onedev.server.web.behavior.inputassist.ANTLRAssistBehavior;
 import io.onedev.server.web.behavior.inputassist.InputAssistBehavior;
 import io.onedev.server.web.behavior.inputassist.NaturalLanguageTranslator;
@@ -72,9 +73,7 @@ public class BuildQueryBehavior extends ANTLRAssistBehavior {
 		if (terminalExpect.getElementSpec() instanceof LexerRuleRefElementSpec) {
 			LexerRuleRefElementSpec spec = (LexerRuleRefElementSpec) terminalExpect.getElementSpec();
 			if (spec.getRuleName().equals("Number")) {
-				return SuggestionUtils.suggestNumber(
-						terminalExpect.getUnmatchedText(), 
-						_T("find build with this number"));
+				return SuggestionUtils.suggestNumber(terminalExpect.getUnmatchedText(), _T("find by number"), true);
 			} else if (spec.getRuleName().equals("Quoted")) {
 				return new FenceAware(codeAssist.getGrammar(), '"', '"') {
 
@@ -115,7 +114,7 @@ public class BuildQueryBehavior extends ANTLRAssistBehavior {
 									return SuggestionUtils.suggestPullRequests(project, matchWith, InputAssistBehavior.MAX_SUGGESTIONS);
 								}
 							} else {
-								String fieldName = BuildQuery.getValue(fieldElements.get(0).getMatchedText());
+								String fieldName = QueryUtils.getValue(fieldElements.get(0).getMatchedText());
  								try {
 									BuildQuery.checkField(project, fieldName, operator);
 									switch (fieldName) {
@@ -136,7 +135,7 @@ public class BuildQueryBehavior extends ANTLRAssistBehavior {
 											else
 												return null;
 										case Build.NAME_NUMBER:
-											return SuggestionUtils.suggestBuilds(project, matchWith, InputAssistBehavior.MAX_SUGGESTIONS);
+											return SuggestionUtils.suggestNumber(matchWith, _T("find by number"), false);
 										case Build.NAME_VERSION:
 											if (project != null && !matchWith.contains("*"))
 												return SuggestionUtils.suggestBuildVersions(project, matchWith);
@@ -214,18 +213,13 @@ public class BuildQueryBehavior extends ANTLRAssistBehavior {
 				return Optional.of(_T("add another order"));
 			else
 				return Optional.of(_T("or match another value"));
-		} else if (suggestedLiteral.equals("#")) {
-			if (getProject() != null)
-				return Optional.of(_T("find build by number"));
-			else
-				return null;
 		}
 		
 		parseExpect = parseExpect.findExpectByLabel("operator");
 		if (parseExpect != null) {
 			List<Element> fieldElements = parseExpect.getState().findMatchedElementsByLabel("criteriaField", false);
 			if (!fieldElements.isEmpty()) {
-				String fieldName = BuildQuery.getValue(fieldElements.iterator().next().getMatchedText());
+				String fieldName = QueryUtils.getValue(fieldElements.iterator().next().getMatchedText());
 				try {
 					BuildQuery.checkField(getProject(), fieldName, BuildQuery.getOperator(suggestedLiteral));
 				} catch (ExplicitException e) {
@@ -240,11 +234,11 @@ public class BuildQueryBehavior extends ANTLRAssistBehavior {
 	protected List<String> getHints(TerminalExpect terminalExpect) {
 		List<String> hints = new ArrayList<>();
 		if (terminalExpect.getElementSpec() instanceof LexerRuleRefElementSpec) {
-			LexerRuleRefElementSpec spec = (LexerRuleRefElementSpec) terminalExpect.getElementSpec();
-			if ("criteriaValue".equals(spec.getLabel())) {
-				List<Element> fieldElements = terminalExpect.getState().findMatchedElementsByLabel("criteriaField", true);
+			ParseExpect criteriaValueExpect = terminalExpect.findExpectByLabel("criteriaValue");
+			if (criteriaValueExpect != null) {
+				List<Element> fieldElements = criteriaValueExpect.getState().findMatchedElementsByLabel("criteriaField", true);
 				if (!fieldElements.isEmpty()) {
-					String fieldName = BuildQuery.getValue(fieldElements.get(0).getMatchedText());
+					String fieldName = QueryUtils.getValue(fieldElements.get(0).getMatchedText());
 					if (fieldName.equals(Build.NAME_PROJECT)) {
 						hints.add(_T("Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>"));
 					} else if (fieldName.equals(Build.NAME_VERSION) || fieldName.equals(Build.NAME_JOB)) {

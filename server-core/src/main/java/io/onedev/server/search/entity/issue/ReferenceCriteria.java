@@ -19,13 +19,13 @@ public class ReferenceCriteria extends Criteria<Issue> {
 	
 	private final int operator;
 	
-	private final String value;
+	private final Project project;
 	
 	private final IssueReference reference;
 	
 	public ReferenceCriteria(@Nullable Project project, String value, int operator) {
 		this.operator = operator;
-		this.value = value;
+		this.project = project;
 		reference = IssueReference.of(value, project);
 	}
 	
@@ -36,12 +36,8 @@ public class ReferenceCriteria extends Criteria<Issue> {
 		
 		if (operator == IssueQueryLexer.Is)
 			numberPredicate = builder.equal(attribute, reference.getNumber());
-		else if (operator == IssueQueryLexer.IsNot)
-			numberPredicate = builder.not(builder.equal(attribute, reference.getNumber()));			
-		else if (operator == IssueQueryLexer.IsGreaterThan)
-			numberPredicate = builder.greaterThan(attribute, reference.getNumber());
-		else
-			numberPredicate = builder.lessThan(attribute, reference.getNumber());
+		else 
+			numberPredicate = builder.not(builder.equal(attribute, reference.getNumber()));
 		
 		return builder.and(
 				builder.equal(from.get(Issue.PROP_PROJECT), reference.getProject()),
@@ -53,12 +49,8 @@ public class ReferenceCriteria extends Criteria<Issue> {
 		if (issue.getProject().equals(reference.getProject())) {
 			if (operator == IssueQueryLexer.Is)
 				return issue.getNumber() == reference.getNumber();
-			else if (operator == IssueQueryLexer.IsNot)
-				return issue.getNumber() != reference.getNumber();				
-			else if (operator == IssueQueryLexer.IsGreaterThan)
-				return issue.getNumber() > reference.getNumber();
-			else
-				return issue.getNumber() < reference.getNumber();
+			else 
+				return issue.getNumber() != reference.getNumber();
 		} else {
 			return false;
 		}
@@ -66,9 +58,7 @@ public class ReferenceCriteria extends Criteria<Issue> {
 
 	@Override
 	public String toStringWithoutParens() {
-		return quote(Issue.NAME_NUMBER) + " " 
-				+ IssueQuery.getRuleName(operator) + " " 
-				+ quote(value);
+		return reference.toString(project);
 	}
 
 }

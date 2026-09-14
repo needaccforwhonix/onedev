@@ -6,12 +6,14 @@ import static org.apache.wicket.ajax.attributes.CallbackParameter.explicit;
 
 import java.io.File;
 import java.io.Serializable;
+import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import javax.inject.Inject;
@@ -52,6 +54,8 @@ import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.util.visit.IVisit;
 import org.apache.wicket.util.visit.IVisitor;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.unbescape.javascript.JavaScriptEscape;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -63,11 +67,16 @@ import io.onedev.commons.bootstrap.Bootstrap;
 import io.onedev.server.OneDev;
 import io.onedev.server.ai.ChatTool;
 import io.onedev.server.ai.ChatToolAware;
+import io.onedev.server.ai.ChatToolsContribution;
+import io.onedev.server.ai.ToolExecutionResult;
 import io.onedev.server.commandhandler.Upgrade;
 import io.onedev.server.event.ListenerRegistry;
+import io.onedev.server.exception.BadRequestException;
+import io.onedev.server.jetty.JettyService;
 import io.onedev.server.model.User;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.service.AuditService;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.util.CryptoUtils;
 import io.onedev.server.web.WebSession;
 import io.onedev.server.web.asset.icon.IconScope;
@@ -82,20 +91,24 @@ import io.onedev.server.web.page.security.LoginPage;
 import io.onedev.server.web.page.serverinit.ServerInitPage;
 import io.onedev.server.web.page.simple.SimplePage;
 import io.onedev.server.web.util.WicketUtils;
-import io.onedev.server.web.websocket.ChatToolExecution;
+import io.onedev.server.web.websocket.AiToolExecution;
 import io.onedev.server.web.websocket.ObservablesChanged;
 import io.onedev.server.web.websocket.WebSocketService;
 
 public abstract class BasePage extends WebPage {
 
+	private static final Logger logger = LoggerFactory.getLogger(BasePage.class);
+
 	private static final MetaDataKey<HashSet<String>> REMOVE_AUTOSAVE_KEYS = new MetaDataKey<>() {
 	};
 	
-	private static final String COOKIE_DARK_MODE = "darkMode";
+	private static final String COOKIE_COLOR_MODE = "colorMode";
 	
 	protected static final String COOKIE_LANGUAGE = "language";
 
-	private boolean darkMode;
+	public enum ColorTheme { AUTO, LIGHT, DARK};
+
+	private ColorTheme colorTheme = ColorTheme.AUTO;
 
 	private FeedbackPanel sessionFeedback;
 
@@ -107,6 +120,9 @@ public abstract class BasePage extends WebPage {
 	protected AuditService auditService;
 
 	@Inject
+	private SettingService settingService;
+
+	@Inject
 	protected ListenerRegistry listenerRegistry;
 
 	@Inject
@@ -114,17 +130,28 @@ public abstract class BasePage extends WebPage {
 
 	@Inject
 	private ObjectMapper objectMapper;
+
+	@Inject
+	private JettyService jettyService;
+
+	@Inject
+	private Set<ChatToolsContribution> chatToolsContributions;
 	
 	public BasePage(PageParameters params) {
 		super(params);
 		checkReady();
 
 		var request = (WebRequest) RequestCycle.get().getRequest();
-		var cookie = request.getCookie(COOKIE_DARK_MODE);
-		if (cookie != null)
-			darkMode = cookie.getValue().equals("yes");
-		else
-			darkMode = false;
+		var cookie = request.getCookie(COOKIE_COLOR_MODE);
+		if (cookie != null) {
+			try {
+				colorTheme = ColorTheme.valueOf(cookie.getValue().toUpperCase());
+            }  catch (IllegalArgumentException e) {
+				colorTheme = ColorTheme.AUTO;
+			}
+		} else {
+			colorTheme = ColorTheme.AUTO;
+		}
 
 		WebRequest webRequest = (WebRequest) RequestCycle.get().getRequest();
 		Cookie languageCookie = webRequest.getCookie(COOKIE_LANGUAGE);
@@ -139,18 +166,25 @@ public abstract class BasePage extends WebPage {
 		}
 	}
 
-	public boolean isDarkMode() {
-		return darkMode;
+	public ColorTheme getColorTheme() {
+		return colorTheme;
 	}
 
-	public void toggleDarkMode() {
-		darkMode = !darkMode;
+	public Boolean isDarkMode() {
+		return colorTheme.equals(ColorTheme.DARK);
+	}
+
+	public void changeColorMode(ColorTheme colorTheme) {
+		this.colorTheme = colorTheme;
 		WebResponse response = (WebResponse) RequestCycle.get().getResponse();
 		Cookie cookie;
-		if (darkMode)
-			cookie = new Cookie(COOKIE_DARK_MODE, "yes");
+		if (colorTheme == ColorTheme.DARK)
+			cookie = new Cookie(COOKIE_COLOR_MODE, "dark");
+		else if (colorTheme == ColorTheme.LIGHT)
+			cookie = new Cookie(COOKIE_COLOR_MODE, "light");
 		else
-			cookie = new Cookie(COOKIE_DARK_MODE, "no");
+			cookie = new Cookie(COOKIE_COLOR_MODE, "auto");
+
 		cookie.setPath("/");
 		cookie.setMaxAge(Integer.MAX_VALUE);
 		response.addCookie(cookie);
@@ -161,18 +195,19 @@ public abstract class BasePage extends WebPage {
 	public void onEvent(IEvent<?> event) {		
 		super.onEvent(event);
 		if (event.getPayload() instanceof WebSocketPushPayload payload) {
-			if (payload.getMessage() instanceof ObservablesChanged observablesChanged) {
-				notifyObservablesChange(payload.getHandler(), observablesChanged.getObservables());				
-			} else if (payload.getMessage() instanceof ChatToolExecution chatToolExecution) {
+			if (payload.getMessage() instanceof ObservablesChanged changed) {
+				notifyObservablesChange(payload.getHandler(), changed.getObservables());				
+			} else if (payload.getMessage() instanceof AiToolExecution execution) {
+				var subject = SecurityUtils.getSubject();
 				for (var tool : findChatTools()) {
-					if (tool.getSpecification().name().equals(chatToolExecution.getToolName())) {
+					if (tool.getSpecification().name().equals(execution.getToolName())) {
 						try {
-							var executionFuture = tool.execute(payload.getHandler(), chatToolExecution.getToolArguments());
-							chatToolExecution.setExecutionFuture(executionFuture);
+							var future = tool.execute(payload.getHandler(), subject, execution.getToolArguments());
+							execution.setFuture(future);
 						} catch (Throwable t) {
-							var executionFuture = new CompletableFuture<ChatToolExecution.Result>();
-							executionFuture.completeExceptionally(t);
-							chatToolExecution.setExecutionFuture(executionFuture);
+							var future = new CompletableFuture<ToolExecutionResult>();
+							future.completeExceptionally(t);
+							execution.setFuture(future);
 						}
 						break;
 					}
@@ -208,6 +243,8 @@ public abstract class BasePage extends WebPage {
 			protected void respond(AjaxRequestTarget target) {
 				IRequestParameters params = RequestCycle.get().getRequest().getPostParameters();
 				String encodedData = params.getParameterValue("data").toString();
+				if (encodedData == null) 
+					throw new BadRequestException("Pop state data is missing");
 
 				byte[] bytes = Base64.decodeBase64(encodedData.getBytes());
 				Serializable data = (Serializable) SerializationUtils.deserialize(CryptoUtils.decrypt(bytes));
@@ -232,13 +269,19 @@ public abstract class BasePage extends WebPage {
 				translations.put("{0}d", _T("{0}d"));
 				translations.put("{0}s", _T("{0}s"));
 				
+				var sessionKeepAliveInterval = 0;
+				if (settingService.getSystemSetting() == null || settingService.getSystemSetting().getSessionTimeout() == null) 
+					sessionKeepAliveInterval = jettyService.getServletContextHandler().getSessionHandler().getMaxInactiveInterval() * 500;
+		
 				try {
 					response.render(OnDomReadyHeaderItem.forScript(
-						String.format("onedev.server.onDomReady('%s', '%s', %s, %s, %s);",
+						String.format("onedev.server.onDomReady('%s', '%s', %s, %s, %d, %d, %s);",
 								String.valueOf(OneDev.getInstance().getBootDate().getTime()),
 								SpriteImage.getVersionedHref(IconScope.class, null),
 								popStateBehavior.getCallbackFunction(explicit("data")).toString(), 
 								objectMapper.writeValueAsString(getRemoveAutosaveKeys()),
+								WebSocketService.KEEP_ALIVE_INTERVAL*2000,
+								sessionKeepAliveInterval,
 								objectMapper.writeValueAsString(translations))));
 				} catch (JsonProcessingException e) {
 					throw new RuntimeException(e);
@@ -301,8 +344,10 @@ public abstract class BasePage extends WebPage {
 
 				builder.append(" ").append(Joiner.on(' ').join(getCssClasses()));
 
-				if (darkMode)
+				if (colorTheme == ColorTheme.DARK)
 					builder.append(" dark-mode");
+				else if (colorTheme == ColorTheme.AUTO)
+					builder.append(" color-auto");
 
 				IVisitor<BeanEditor, BeanEditor> visitor = new IVisitor<BeanEditor, BeanEditor>() {
 
@@ -317,7 +362,12 @@ public abstract class BasePage extends WebPage {
 				if (getPage() instanceof SimplePage && getPage().visitChildren(BeanEditor.class, visitor) != null)
 					builder.append(" force-ordinary-style ");
 
-				return String.format("$('html').addClass('%s');", builder.toString());
+				return String.format(
+						"$('html').addClass('%s'); " +
+								"if ($('html').hasClass('color-auto') " +
+								"&& window.matchMedia('(prefers-color-scheme: dark)').matches) " +
+								"$('html').addClass('dark-mode');",
+                        builder);
 			}
 
 		}).setEscapeModelStrings(false));
@@ -334,7 +384,19 @@ public abstract class BasePage extends WebPage {
 
 			@Override
 			protected void respond(AjaxRequestTarget target) {
-				var zoneId = ZoneId.of(RequestCycle.get().getRequest().getRequestParameters().getParameterValue("timezone").toString());
+				ZoneId zoneId;
+				var timeZoneId = RequestCycle.get().getRequest().getRequestParameters().getParameterValue("timezone").toString();
+				if (timeZoneId == null) {
+					logger.debug("Time-zone ID is not specified, using system default");
+					zoneId = ZoneId.systemDefault();
+				} else {
+					try {
+						zoneId = ZoneId.of(timeZoneId);
+					} catch (DateTimeException e) {
+						logger.debug("Unable to parse time-zone ID: {}, using system default", timeZoneId, e);
+						zoneId = ZoneId.systemDefault();
+					}
+				}
 				WebSession.get().setZoneId(zoneId);
 				if (!zoneId.equals(ZoneId.systemDefault())) {
 					visitChildren(Component.class, (IVisitor<Component, Void>) (object, visit) -> {
@@ -422,6 +484,9 @@ public abstract class BasePage extends WebPage {
 		visitChildren(ChatToolAware.class, (IVisitor<Component, Void>) (object, visit) -> {
 			tools.addAll(((ChatToolAware) object).getChatTools());
 		});
+
+		for (var contribution : chatToolsContributions)
+			tools.addAll(contribution.getChatTools(this));
 
 		return tools;
 	}

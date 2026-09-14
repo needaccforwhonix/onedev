@@ -61,7 +61,7 @@ public class BuildResource {
     @GET
     public Build getBuild(@PathParam("buildId") Long buildId) {
 		Build build = buildService.load(buildId);
-    	if (!SecurityUtils.canAccessBuild(build)) 
+    	if (!SecurityUtils.canAccessProject(build.getProject())) 
 			throw new UnauthorizedException();
     	return build;
     }
@@ -71,7 +71,7 @@ public class BuildResource {
 	@GET
 	public Collection<BuildLabel> getLabels(@PathParam("buildId") Long buildId) {
 		Build build = buildService.load(buildId);
-		if (!SecurityUtils.canAccessBuild(build))
+		if (!SecurityUtils.canAccessProject(build.getProject()))
 			throw new UnauthorizedException();
 		return build.getLabels();
 	}
@@ -81,7 +81,7 @@ public class BuildResource {
     @GET
     public Collection<BuildParam> getParams(@PathParam("buildId") Long buildId) {
 		Build build = buildService.load(buildId);
-    	if (!SecurityUtils.canAccessBuild(build)) 
+    	if (!SecurityUtils.canAccessProject(build.getProject())) 
 			throw new UnauthorizedException();
     	
     	List<BuildParam> params = SerializationUtils.clone(new ArrayList<>(build.getParams()));
@@ -98,7 +98,7 @@ public class BuildResource {
     @GET
     public Collection<BuildDependence> getDependencies(@PathParam("buildId") Long buildId) {
 		Build build = buildService.load(buildId);
-    	if (!SecurityUtils.canAccessBuild(build)) 
+    	if (!SecurityUtils.canAccessProject(build.getProject())) 
 			throw new UnauthorizedException();
     	return build.getDependencies();
     }
@@ -108,7 +108,7 @@ public class BuildResource {
     @GET
     public Collection<BuildDependence> getDependents(@PathParam("buildId") Long buildId) {
 		Build build = buildService.load(buildId);
-    	if (!SecurityUtils.canAccessBuild(build)) 
+    	if (!SecurityUtils.canAccessProject(build.getProject())) 
 			throw new UnauthorizedException();
     	return build.getDependents();
     }
@@ -118,7 +118,7 @@ public class BuildResource {
     @GET
     public Collection<Long> getFixedIssueIds(@PathParam("buildId") Long buildId) {
 		Build build = buildService.load(buildId);
-    	if (!SecurityUtils.canAccessBuild(build)) 
+    	if (!SecurityUtils.canAccessProject(build.getProject())) 
 			throw new UnauthorizedException();
     	return build.getFixedIssueIds();
     }
@@ -134,13 +134,8 @@ public class BuildResource {
 		if (!SecurityUtils.isAdministrator(subject) && count > RestConstants.MAX_PAGE_SIZE)
     		throw new NotAcceptableException("Count should not be greater than " + RestConstants.MAX_PAGE_SIZE);
 
-    	BuildQuery parsedQuery;
-		try {
-			parsedQuery = BuildQuery.parse(null, query, true, true);
-		} catch (Exception e) {
-			throw new NotAcceptableException("Error parsing query", e);
-		}
-    	
+    	var parsedQuery = BuildQuery.parse(null, query, true, true);
+		
     	return buildService.query(subject, null, parsedQuery, false, offset, count);
     }
 

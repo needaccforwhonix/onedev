@@ -6,7 +6,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
-import org.jspecify.annotations.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
@@ -14,8 +13,10 @@ import org.hibernate.ReplicationMode;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
+import org.jspecify.annotations.Nullable;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.cp.IAtomicLong;
 
@@ -161,6 +162,8 @@ public class DefaultRoleService extends BaseEntityService<Role> implements RoleS
 		codeWriter.setScheduleIssues(true);
 		codeWriter.setAccessConfidentialIssues(true);
 		codeWriter.setEditableIssueFields(new AllIssueFields());
+		codeWriter.setEditableIssueLinks(Lists.newArrayList("Sub Issues", "Related"));
+		codeWriter.setCanEditFieldsOfOtherIssues(true);
 		
 		JobPrivilege jobPrivilege = new JobPrivilege();
 		jobPrivilege.setJobNames("*");
@@ -180,12 +183,33 @@ public class DefaultRoleService extends BaseEntityService<Role> implements RoleS
 			allfieldsExcept.getExcludeFields().add("Assignees");
 			codeReader.setEditableIssueFields(allfieldsExcept);
 		}
+		codeReader.setEditableIssueLinks(Lists.newArrayList("Related"));
 
 		jobPrivilege = new JobPrivilege();
 		jobPrivilege.setJobNames("*");
 		codeReader.getJobPrivileges().add(jobPrivilege);
 
 		create(codeReader, new ArrayList<>());
+
+		Role workspaceCreator = new Role();
+		workspaceCreator.setName("Workspace Creator");
+		workspaceCreator.setCreateWorkspaces(true);
+		workspaceCreator.setCodePrivilege(CodePrivilege.READ);
+		workspaceCreator.setPackPrivilege(PackPrivilege.READ);
+		workspaceCreator.setAccessTimeTracking(false);
+		
+		if (hasAssigneesField) {
+			ExcludeIssueFields allfieldsExcept = new ExcludeIssueFields();
+			allfieldsExcept.getExcludeFields().add("Assignees");
+			workspaceCreator.setEditableIssueFields(allfieldsExcept);
+		}
+		workspaceCreator.setEditableIssueLinks(Lists.newArrayList("Sub Issues", "Related"));
+
+		jobPrivilege = new JobPrivilege();
+		jobPrivilege.setJobNames("*");
+		workspaceCreator.getJobPrivileges().add(jobPrivilege);
+
+		create(workspaceCreator, new ArrayList<>());
 		
 		Role packWriter = new Role();
 		packWriter.setName("Package Writer");
@@ -194,6 +218,7 @@ public class DefaultRoleService extends BaseEntityService<Role> implements RoleS
 		packWriter.setScheduleIssues(true);
 		packWriter.setAccessConfidentialIssues(true);
 		packWriter.setEditableIssueFields(new AllIssueFields());
+		packWriter.setEditableIssueLinks(Lists.newArrayList("Sub Issues", "Related"));
 
 		jobPrivilege = new JobPrivilege();
 		jobPrivilege.setJobNames("*");
@@ -212,6 +237,7 @@ public class DefaultRoleService extends BaseEntityService<Role> implements RoleS
 			allfieldsExcept.getExcludeFields().add("Assignees");
 			packReader.setEditableIssueFields(allfieldsExcept);
 		}
+		packReader.setEditableIssueLinks(Lists.newArrayList("Related"));
 		
 		jobPrivilege = new JobPrivilege();
 		jobPrivilege.setJobNames("*");
@@ -241,6 +267,7 @@ public class DefaultRoleService extends BaseEntityService<Role> implements RoleS
 			allfieldsExcept.getExcludeFields().add("Assignees");
 			issueReporter.setEditableIssueFields(allfieldsExcept);
 		}
+		issueReporter.setEditableIssueLinks(Lists.newArrayList("Related"));
 		
 		jobPrivilege = new JobPrivilege();
 		jobPrivilege.setJobNames("*");

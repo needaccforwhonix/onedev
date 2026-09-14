@@ -1,17 +1,18 @@
 package io.onedev.server.git.hook;
 
-import com.google.common.base.Preconditions;
-import io.onedev.commons.utils.StringUtils;
-import io.onedev.server.service.ProjectService;
-import io.onedev.server.service.UrlService;
-import io.onedev.server.service.UserService;
-import io.onedev.server.event.ListenerRegistry;
-import io.onedev.server.event.project.RefUpdated;
-import io.onedev.server.git.GitUtils;
-import io.onedev.server.model.Project;
-import io.onedev.server.persistence.SessionService;
-import io.onedev.server.persistence.annotation.Sessional;
-import io.onedev.server.security.SecurityUtils;
+import static io.onedev.server.security.SecurityUtils.asPrincipals;
+import static io.onedev.server.security.SecurityUtils.asSubject;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
@@ -23,19 +24,21 @@ import org.eclipse.jgit.revwalk.RevWalk;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.List;
+import com.google.common.base.Preconditions;
 
-import static io.onedev.server.security.SecurityUtils.asPrincipals;
-import static io.onedev.server.security.SecurityUtils.asSubject;
+import io.onedev.commons.utils.StringUtils;
+import io.onedev.server.event.ListenerRegistry;
+import io.onedev.server.event.project.RefUpdated;
+import io.onedev.server.git.GitUtils;
+import io.onedev.server.model.Project;
+import io.onedev.server.persistence.SessionService;
+import io.onedev.server.persistence.annotation.Sessional;
+import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.ProjectService;
+import io.onedev.server.service.PullRequestService;
+import io.onedev.server.service.UrlService;
+import io.onedev.server.service.UserService;
+import io.onedev.server.util.ProjectAndBranch;
 
 @Singleton
 public class GitPostReceiveCallback extends HttpServlet {
@@ -44,33 +47,31 @@ public class GitPostReceiveCallback extends HttpServlet {
 	
     public static final String PATH = "/git-postreceive-callback";
     
-    private final ProjectService projectService;
+	@Inject
+    private ProjectService projectService;
 
-	private final UserService userService;
-    
-    private final UrlService urlService;
-
-    private final SessionService sessionService;
-    
-    private final ListenerRegistry listenerRegistry;
+	@Inject
+	private UserService userService;
     
     @Inject
-    public GitPostReceiveCallback(ProjectService projectService, UrlService urlService,
-                                  SessionService sessionService, ListenerRegistry listenerRegistry, UserService userService) {
-    	this.projectService = projectService;
-    	this.urlService = urlService;
-    	this.sessionService = sessionService;
-        this.listenerRegistry = listenerRegistry;
-        this.userService = userService;
-    }
+    private UrlService urlService;
 
+    @Inject
+    private SessionService sessionService;
+    
+    @Inject
+    private ListenerRegistry listenerRegistry;
+
+	@Inject
+	private PullRequestService pullRequestService;
+    
     @Sessional
     @Override
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         List<String> fields = StringUtils.splitAndTrim(request.getPathInfo(), "/");
         Preconditions.checkState(fields.size() == 3);
         
-        if (!fields.get(2).equals(HookUtils.HOOK_TOKEN)) {
+        if (!fields.get(2).equals(HookUtils.RECEIVE_HOOK_TOKEN)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN,
                     "Git hook callbacks can only be accessed by OneDev itself");
             return;
@@ -81,23 +82,14 @@ public class GitPostReceiveCallback extends HttpServlet {
         
         ThreadContext.bind(asSubject(asPrincipals(principal)));
 
-        String refUpdateInfo = null;
-        Enumeration<String> paramNames = request.getParameterNames();
-        while (paramNames.hasMoreElements()) {
-        	String paramName = paramNames.nextElement();
-        	if (paramName.contains(" ")) {
-        		refUpdateInfo = paramName;
-        	} 
-        }
+        String refUpdateInfo = request.getParameter(HookUtils.PARAM_REF_UPDATES);
         Preconditions.checkState(refUpdateInfo != null, "Git ref update information is not available");
 
 		Output output = new Output(response.getOutputStream());
         
         /*
-         * If multiple refs are updated, the hook stdin will put each ref update info into
-         * a separate line, however the line breaks is omitted when forward the hook stdin
-         * to curl via "@-", below logic is used to parse these info correctly even 
-         * without line breaks.  
+         * If multiple refs are updated, the hook stdin puts each ref update on a separate
+         * line. Parse correctly even if those line breaks are missing.  
          */
         refUpdateInfo = StringUtils.reverse(StringUtils.remove(refUpdateInfo, '\n'));
         
@@ -124,8 +116,12 @@ public class GitPostReceiveCallback extends HttpServlet {
         	}
 
         	if (branch != null && defaultBranch != null && !branch.equals(defaultBranch) 
-        			&& !SecurityUtils.isSystem(principal)) {
-        		showPullRequestLink(output, projectId, branch, defaultBranch);
+        			&& !SecurityUtils.isSystem(principal) && !newObjectId.equals(ObjectId.zeroId())) {
+        		var source = new ProjectAndBranch(projectId, branch);
+        		boolean hasOpenPullRequest = pullRequestService.queryOpen(source).stream()
+        				.anyMatch(it -> it.getSourceProject().getId().equals(projectId) && it.getSourceBranch().equals(branch));
+        		if (!hasOpenPullRequest)
+        			showPullRequestCreateLink(output, projectId, branch, defaultBranch);
         	}
         	
         	try (RevWalk revWalk = new RevWalk(repository)) {
@@ -145,7 +141,6 @@ public class GitPostReceiveCallback extends HttpServlet {
         }
         
 		var userId = SecurityUtils.getUser().getId();
-
         sessionService.runAsyncAfterCommit(() -> {
 			Project project = projectService.load(projectId);
 			try {
@@ -160,7 +155,7 @@ public class GitPostReceiveCallback extends HttpServlet {
 		});
 	}
 
-	private void showPullRequestLink(Output output, Long projectId, String branch, String defaultBranch) {
+	private void showPullRequestCreateLink(Output output, Long projectId, String branch, String defaultBranch) {
     	output.writeLine();
     	output.writeLine("Create a pull request for '"+ branch +"' by visiting:");
 		output.writeLine("    " + urlService.urlForProject(projectId, true) 

@@ -9,6 +9,9 @@ import static io.onedev.server.model.support.administration.SystemSetting.PROP_G
 import static io.onedev.server.model.support.administration.SystemSetting.PROP_SESSION_TIMEOUT;
 import static io.onedev.server.model.support.administration.SystemSetting.PROP_SSH_ROOT_URL;
 import static io.onedev.server.model.support.administration.SystemSetting.PROP_USE_AVATAR_SERVICE;
+import static io.onedev.server.model.support.administration.SystemSetting.PROP_DEFAULT_FORK_ROOT;
+import static io.onedev.server.model.support.administration.SystemSetting.PROP_NOREPLY_EMAIL_DOMAIN;
+
 import static io.onedev.server.persistence.PersistenceUtils.tableExists;
 import static org.unbescape.html.HtmlEscape.escapeHtml5;
 
@@ -100,6 +103,7 @@ import io.onedev.server.model.support.administration.BackupSetting;
 import io.onedev.server.model.support.administration.BrandingSetting;
 import io.onedev.server.model.support.administration.ClusterSetting;
 import io.onedev.server.model.support.administration.GlobalBuildSetting;
+import io.onedev.server.model.support.administration.GlobalWorkspaceSetting;
 import io.onedev.server.model.support.administration.GlobalIssueSetting;
 import io.onedev.server.model.support.administration.GlobalPackSetting;
 import io.onedev.server.model.support.administration.GlobalProjectSetting;
@@ -621,7 +625,6 @@ public class DefaultDataService implements DataService, Serializable {
 		if (primaryEmailAddress == null) {
     		primaryEmailAddress = new EmailAddress();
     		primaryEmailAddress.setPrimary(true);
-    		primaryEmailAddress.setGit(true);
     		primaryEmailAddress.setVerificationCode(null);
     		primaryEmailAddress.setOwner(user);
 		}
@@ -722,7 +725,7 @@ public class DefaultDataService implements DataService, Serializable {
 		}
 		
 		if (systemSetting != null) {
-			Collection<String> excludedProps = Sets.newHashSet(PROP_SSH_ROOT_URL, PROP_DISABLE_AUTO_UPDATE_CHECK, PROP_USE_AVATAR_SERVICE, PROP_SESSION_TIMEOUT);
+			Collection<String> excludedProps = Sets.newHashSet(PROP_SSH_ROOT_URL, PROP_DISABLE_AUTO_UPDATE_CHECK, PROP_USE_AVATAR_SERVICE, PROP_SESSION_TIMEOUT, PROP_DEFAULT_FORK_ROOT, PROP_NOREPLY_EMAIL_DOMAIN);
 			if (Bootstrap.isInDocker()) {
 				excludedProps.add(PROP_GIT_LOCATION);
 				excludedProps.add(PROP_CURL_LOCATION);
@@ -788,6 +791,9 @@ public class DefaultDataService implements DataService, Serializable {
 		setting = settingService.findSetting(Key.JOB_EXECUTORS);
 		if (setting == null) 
 			settingService.saveJobExecutors(new ArrayList<>());
+		setting = settingService.findSetting(Key.WORKSPACE_PROVISIONERS);
+		if (setting == null) 
+			settingService.saveWorkspaceProvisioners(new ArrayList<>());
 		setting = settingService.findSetting(Key.GROOVY_SCRIPTS);
 		if (setting == null) {
 			settingService.saveGroovyScripts(Lists.newArrayList());
@@ -803,6 +809,10 @@ public class DefaultDataService implements DataService, Serializable {
 		setting = settingService.findSetting(Key.PACK);
 		if (setting == null) {
 			settingService.savePackSetting(new GlobalPackSetting());
+		}
+		setting = settingService.findSetting(Key.WORKSPACE);
+		if (setting == null) {
+			settingService.saveWorkspaceSetting(new GlobalWorkspaceSetting());
 		}
 		setting = settingService.findSetting(Key.PROJECT);
 		if (setting == null) {
@@ -960,7 +970,11 @@ public class DefaultDataService implements DataService, Serializable {
 
 							@Override
 							public Void call() throws Exception {
-								scheduleBackup(backupSetting);
+								try {
+									scheduleBackup(backupSetting);
+								} catch (Throwable t) {
+									logger.error("Error scheduling backup", t);
+								}
 								return null;
 							}
 							

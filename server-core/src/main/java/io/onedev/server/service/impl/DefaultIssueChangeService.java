@@ -12,8 +12,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
-import org.jspecify.annotations.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.persistence.criteria.CriteriaBuilder;
@@ -21,6 +21,7 @@ import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.From;
 import javax.persistence.criteria.Predicate;
 
+import org.apache.shiro.subject.Subject;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Ref;
@@ -30,6 +31,7 @@ import org.eclipse.jgit.revwalk.RevWalk;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.joda.time.DateTime;
+import org.jspecify.annotations.Nullable;
 import org.quartz.CronScheduleBuilder;
 import org.quartz.ScheduleBuilder;
 import org.slf4j.Logger;
@@ -51,11 +53,13 @@ import io.onedev.server.event.project.RefUpdated;
 import io.onedev.server.event.project.build.BuildFinished;
 import io.onedev.server.event.project.issue.IssueChanged;
 import io.onedev.server.event.project.pullrequest.PullRequestChanged;
+import io.onedev.server.event.project.pullrequest.PullRequestUpdated;
 import io.onedev.server.event.system.SystemStarted;
 import io.onedev.server.event.system.SystemStopping;
 import io.onedev.server.git.GitUtils;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.Issue;
+import io.onedev.server.model.IssueAuthorization;
 import io.onedev.server.model.IssueChange;
 import io.onedev.server.model.IssueComment;
 import io.onedev.server.model.IssueDescriptionRevision;
@@ -80,13 +84,14 @@ import io.onedev.server.model.support.issue.changedata.IssueStateChangeData;
 import io.onedev.server.model.support.issue.changedata.IssueTitleChangeData;
 import io.onedev.server.model.support.issue.changedata.IssueTotalEstimatedTimeChangeData;
 import io.onedev.server.model.support.issue.changedata.IssueTotalSpentTimeChangeData;
+import io.onedev.server.model.support.issue.transitionspec.BranchCreatedSpec;
 import io.onedev.server.model.support.issue.transitionspec.BranchUpdatedSpec;
 import io.onedev.server.model.support.issue.transitionspec.BuildSuccessfulSpec;
 import io.onedev.server.model.support.issue.transitionspec.IssueStateTransitedSpec;
 import io.onedev.server.model.support.issue.transitionspec.NoActivitySpec;
 import io.onedev.server.model.support.issue.transitionspec.PullRequestDiscardedSpec;
 import io.onedev.server.model.support.issue.transitionspec.PullRequestMergedSpec;
-import io.onedev.server.model.support.issue.transitionspec.PullRequestOpenedSpec;
+import io.onedev.server.model.support.issue.transitionspec.PullRequestOpenedOrUpdatedSpec;
 import io.onedev.server.model.support.issue.transitionspec.PullRequestSpec;
 import io.onedev.server.model.support.issue.transitionspec.TransitionSpec;
 import io.onedev.server.model.support.pullrequest.changedata.PullRequestDiscardData;
@@ -102,8 +107,8 @@ import io.onedev.server.search.entity.issue.IssueQueryParseOption;
 import io.onedev.server.search.entity.issue.LastActivityDateCriteria;
 import io.onedev.server.search.entity.issue.StateCriteria;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.IssueAuthorizationService;
 import io.onedev.server.service.IssueChangeService;
-import io.onedev.server.service.IssueDescriptionRevisionService;
 import io.onedev.server.service.IssueFieldService;
 import io.onedev.server.service.IssueLinkService;
 import io.onedev.server.service.IssueScheduleService;
@@ -113,6 +118,7 @@ import io.onedev.server.service.SettingService;
 import io.onedev.server.taskschedule.SchedulableTask;
 import io.onedev.server.taskschedule.TaskScheduler;
 import io.onedev.server.util.ProjectScope;
+import io.onedev.server.util.ProjectScopedBranch;
 import io.onedev.server.util.ProjectScopedCommit;
 import io.onedev.server.util.concurrent.BatchWorkExecutionService;
 import io.onedev.server.util.concurrent.BatchWorker;
@@ -137,9 +143,6 @@ public class DefaultIssueChangeService extends BaseEntityService<IssueChange>
 	private IssueFieldService issueFieldService;
 
 	@Inject
-	private IssueDescriptionRevisionService descriptionRevisionService;
-
-	@Inject
 	private ProjectService projectService;
 
 	@Inject
@@ -147,6 +150,9 @@ public class DefaultIssueChangeService extends BaseEntityService<IssueChange>
 
 	@Inject
 	private IssueLinkService issueLinkService;
+
+	@Inject
+	private IssueAuthorizationService authorizationService;
 
 	@Inject
 	private ListenerRegistry listenerRegistry;
@@ -295,7 +301,7 @@ public class DefaultIssueChangeService extends BaseEntityService<IssueChange>
 			revision.setUser(user);
 			revision.setOldContent(prevDescription);
 			revision.setNewContent(description);
-			descriptionRevisionService.create(revision);
+			dao.persist(revision);
 		}
 	}
 	
@@ -312,6 +318,21 @@ public class DefaultIssueChangeService extends BaseEntityService<IssueChange>
 			change.setData(new IssueConfidentialChangeData(prevConfidential, issue.isConfidential()));
 			create(change, null);
 			dao.persist(issue);
+
+			if (!SecurityUtils.canAccessIssue(user.asSubject(), issue)) {
+				IssueAuthorization authorization = new IssueAuthorization();
+				authorization.setIssue(issue);
+				authorization.setUser(user);
+				issue.getAuthorizations().add(authorization);
+				authorizationService.createOrUpdate(authorization);	
+			}
+			if (!user.equals(issue.getSubmitter()) && !SecurityUtils.canAccessIssue(issue.getSubmitter().asSubject(), issue)) {
+				IssueAuthorization authorization = new IssueAuthorization();
+				authorization.setIssue(issue);
+				authorization.setUser(issue.getSubmitter());
+				issue.getAuthorizations().add(authorization);
+				authorizationService.createOrUpdate(authorization);	
+			}
 		}
 	}
 	
@@ -450,11 +471,7 @@ public class DefaultIssueChangeService extends BaseEntityService<IssueChange>
 			}
 		}
 	}
-	
-	private List<TransitionSpec> getTransitionSpecs() {
-		return OneDev.getInstance(SettingService.class).getIssueSetting().getTransitionSpecs();
-	}
-	
+			
 	@Transactional
 	@Listen
 	public void on(IssueChanged event) {
@@ -465,31 +482,24 @@ public class DefaultIssueChangeService extends BaseEntityService<IssueChange>
 				Issue issue = event.getIssue();
 				
 				IssueQueryParseOption option = new IssueQueryParseOption().withCurrentIssueCriteria(true);
-				for (TransitionSpec transition: getTransitionSpecs()) {
+				Set<Long> transitedIssueIds = new HashSet<>();
+				for (TransitionSpec transition: issue.getProject().getHierarchyTransitionSpecs()) {
 					if (transition instanceof IssueStateTransitedSpec) {
 						Project project = issue.getProject();
 						ProjectScope projectScope = new ProjectScope(project, true, true);
 						IssueStateTransitedSpec issueStateTransitedSpec = (IssueStateTransitedSpec) transition;
-						IssueQuery query = IssueQuery.parse(project, issueStateTransitedSpec.getIssueQuery(), option, true);
-						List<Criteria<Issue>> criterias = new ArrayList<>();
-						
-						List<Criteria<Issue>> fromStateCriterias = new ArrayList<>();
-						for (String fromState: transition.getFromStates()) 
-							fromStateCriterias.add(new StateCriteria(fromState, IssueQueryLexer.Is));
-						
-						if (!fromStateCriterias.isEmpty())
-							criterias.add(Criteria.orCriterias(fromStateCriterias));
-						if (query.getCriteria() != null)
-							criterias.add(query.getCriteria());
-						query = new IssueQuery(Criteria.andCriterias(criterias), new ArrayList<>());
+						IssueQuery query = combineTransitionQuery(transition,
+								IssueQuery.parse(project, issueStateTransitedSpec.getIssueQuery(), option, true));
 						Issue.push(issue);
 						try {
 							for (Issue each: issueService.query(
 									subject, projectScope, query, true, 0, MAX_VALUE)) {
 								String message = "State changed as issue " + issue.getReference().toString(each.getProject()) 
 										+ " transited to '" + issue.getState() + "'";
-								changeState(SecurityUtils.getUser(subject), each, issueStateTransitedSpec.getToState(), 
+								if (transitedIssueIds.add(each.getId())) {
+									changeState(SecurityUtils.getUser(subject), each, issueStateTransitedSpec.getToState(), 
 										new HashMap<>(), new ArrayList<>(), transition.getRemoveFields(), message);
+								}
 							}
 						} finally {
 							Issue.pop();
@@ -512,9 +522,11 @@ public class DefaultIssueChangeService extends BaseEntityService<IssueChange>
 			Build build = event.getBuild();
 
 			IssueQueryParseOption option = new IssueQueryParseOption().withCurrentBuildCriteria(true);
-			for (TransitionSpec transition: getTransitionSpecs()) {
+			Set<Long> transitedIssueIds = new HashSet<>();
+			Project buildProject = build.getProject();
+			for (TransitionSpec transition: buildProject.getHierarchyTransitionSpecs()) {
 				if (transition instanceof BuildSuccessfulSpec) {
-					Project project = build.getProject();
+					Project project = buildProject;
 					ProjectScope projectScope = new ProjectScope(project, true, true);
 					BuildSuccessfulSpec buildSuccessfulSpec = (BuildSuccessfulSpec) transition;
 					String branches = buildSuccessfulSpec.getBranches();
@@ -522,24 +534,16 @@ public class DefaultIssueChangeService extends BaseEntityService<IssueChange>
 					if ((buildSuccessfulSpec.getJobNames() == null || PatternSet.parse(buildSuccessfulSpec.getJobNames()).matches(new StringMatcher(), build.getJobName())) 
 							&& build.getStatus() == Build.Status.SUCCESSFUL
 							&& (branches == null || project.isCommitOnBranches(commitId, PatternSet.parse(branches)))) {
-						IssueQuery query = IssueQuery.parse(project, buildSuccessfulSpec.getIssueQuery(), option, true);
-						List<Criteria<Issue>> criterias = new ArrayList<>();
-						
-						List<Criteria<Issue>> fromStateCriterias = new ArrayList<>();
-						for (String fromState: transition.getFromStates()) 
-							fromStateCriterias.add(new StateCriteria(fromState, IssueQueryLexer.Is));
-						
-						if (!fromStateCriterias.isEmpty())
-							criterias.add(Criteria.orCriterias(fromStateCriterias));
-						if (query.getCriteria() != null)
-							criterias.add(query.getCriteria());
-						query = new IssueQuery(Criteria.andCriterias(criterias), new ArrayList<>());
+						IssueQuery query = combineTransitionQuery(transition,
+								IssueQuery.parse(project, buildSuccessfulSpec.getIssueQuery(), option, true));
 						Build.push(build);
 						try {
 							for (Issue issue: issueService.query(subject, projectScope, query, true, 0, MAX_VALUE)) {
 								String message = "State changed as build " + build.getReference().toString(issue.getProject()) + " is successful";
-								changeState(user, issue, buildSuccessfulSpec.getToState(), 
+								if (transitedIssueIds.add(issue.getId())) {
+									changeState(user, issue, buildSuccessfulSpec.getToState(), 
 										new HashMap<>(), new ArrayList<>(), transition.getRemoveFields(), message);
+								}
 							}
 						} finally {
 							Build.pop();
@@ -551,6 +555,18 @@ public class DefaultIssueChangeService extends BaseEntityService<IssueChange>
 			logger.error("Error changing issue state", e);
 		}
 	}
+
+	private IssueQuery combineTransitionQuery(TransitionSpec transition, IssueQuery query) {
+		List<Criteria<Issue>> criterias = new ArrayList<>();
+		List<Criteria<Issue>> fromStateCriterias = new ArrayList<>();
+		for (String fromState : transition.getFromStates())
+			fromStateCriterias.add(new StateCriteria(fromState, IssueQueryLexer.Is));
+		if (!fromStateCriterias.isEmpty())
+			criterias.add(Criteria.orCriterias(fromStateCriterias));
+		if (query.getCriteria() != null)
+			criterias.add(query.getCriteria());
+		return new IssueQuery(Criteria.andCriterias(criterias), new ArrayList<>());
+	}
 	
 	private void on(PullRequest request, Class<? extends PullRequestSpec> specClass) {
 		try {
@@ -561,29 +577,22 @@ public class DefaultIssueChangeService extends BaseEntityService<IssueChange>
 			Project project = request.getTargetProject();
 			ProjectScope projectScope = new ProjectScope(project, true, true);
 			IssueQueryParseOption option = new IssueQueryParseOption().withCurrentPullRequestCriteria(true);
-			for (TransitionSpec transition: getTransitionSpecs()) {
+			Set<Long> transitedIssueIds = new HashSet<>();
+			for (TransitionSpec transition: project.getHierarchyTransitionSpecs()) {
 				if (transition.getClass() == specClass) {
 					PullRequestSpec pullRequestSpec = (PullRequestSpec) transition;
 					if (pullRequestSpec.getBranches() == null || PatternSet.parse(pullRequestSpec.getBranches()).matches(matcher, request.getTargetBranch())) {
-						IssueQuery query = IssueQuery.parse(project, pullRequestSpec.getIssueQuery(), option, true);
-						List<Criteria<Issue>> criterias = new ArrayList<>();
-						
-						List<Criteria<Issue>> fromStateCriterias = new ArrayList<>();
-						for (String fromState: transition.getFromStates()) 
-							fromStateCriterias.add(new StateCriteria(fromState, IssueQueryLexer.Is));
-						
-						if (!fromStateCriterias.isEmpty())
-							criterias.add(Criteria.orCriterias(fromStateCriterias));
-						if (query.getCriteria() != null)
-							criterias.add(query.getCriteria());
-						query = new IssueQuery(Criteria.andCriterias(criterias), new ArrayList<>());
+						IssueQuery query = combineTransitionQuery(transition,
+								IssueQuery.parse(project, pullRequestSpec.getIssueQuery(), option, true));
 						PullRequest.push(request);
 						try {
 							for (Issue issue: issueService.query(subject, projectScope, query, true, 0, MAX_VALUE)) {
 								String statusName = request.getStatus().toString().toLowerCase();
-								changeState(user, issue, pullRequestSpec.getToState(), 
+								if (transitedIssueIds.add(issue.getId())) {
+									changeState(user, issue, pullRequestSpec.getToState(), 
 										new HashMap<>(), new ArrayList<>(), transition.getRemoveFields(), 
 										"State changed as pull request " + request.getReference().toString(issue.getProject()) + " is " + statusName);
+								}
 							}
 						} finally {
 							PullRequest.pop();
@@ -604,13 +613,19 @@ public class DefaultIssueChangeService extends BaseEntityService<IssueChange>
 		else if (event.getChange().getData() instanceof PullRequestDiscardData) 
 			on(event.getRequest(), PullRequestDiscardedSpec.class);
 		else if (event.getChange().getData() instanceof PullRequestReopenData) 
-			on(event.getRequest(), PullRequestOpenedSpec.class);
+			on(event.getRequest(), PullRequestOpenedOrUpdatedSpec.class);
 	}
 	
 	@Transactional
 	@Listen
 	public void on(io.onedev.server.event.project.pullrequest.PullRequestOpened event) {
-		on(event.getRequest(), PullRequestOpenedSpec.class);
+		on(event.getRequest(), PullRequestOpenedOrUpdatedSpec.class);
+	}
+
+	@Transactional
+	@Listen
+	public void on(PullRequestUpdated event) {
+		on(event.getRequest(), PullRequestOpenedOrUpdatedSpec.class);
 	}
 	
 	@Transactional
@@ -665,7 +680,9 @@ public class DefaultIssueChangeService extends BaseEntityService<IssueChange>
 				} 
 				
 				var option = new IssueQueryParseOption().withCurrentCommitCriteria(true);
-				for (var transition: getTransitionSpecs()) {
+				Set<Long> transitedIssueIds = new HashSet<>();
+
+				for (var transition: project.getHierarchyTransitionSpecs()) {
 					if (transition instanceof BranchUpdatedSpec) {
 						var branchUpdatedSpec = (BranchUpdatedSpec) transition;
 						var branches = branchUpdatedSpec.getBranches();
@@ -674,18 +691,8 @@ public class DefaultIssueChangeService extends BaseEntityService<IssueChange>
 						var commitMessagesMatcher = new StringMatcher();
 						if ((branches == null || PatternSet.parse(branches).matches(branchMatcher, branchName))
 								&& (commitMessages == null || PatternSet.parse(commitMessages).matches(commitMessagesMatcher, commitMessage))) {
-							IssueQuery query = IssueQuery.parse(project, branchUpdatedSpec.getIssueQuery(), option, true);
-							List<Criteria<Issue>> criterias = new ArrayList<>();
-							
-							List<Criteria<Issue>> fromStateCriterias = new ArrayList<>();
-							for (String fromState: transition.getFromStates()) 
-								fromStateCriterias.add(new StateCriteria(fromState, IssueQueryLexer.Is));
-							
-							if (!fromStateCriterias.isEmpty())
-								criterias.add(Criteria.orCriterias(fromStateCriterias));
-							if (query.getCriteria() != null)
-								criterias.add(query.getCriteria());
-							query = new IssueQuery(Criteria.andCriterias(criterias), new ArrayList<>());
+							IssueQuery query = combineTransitionQuery(transition,
+									IssueQuery.parse(project, branchUpdatedSpec.getIssueQuery(), option, true));
 							ProjectScopedCommit.push(new ProjectScopedCommit(project, newCommitId) {
 
 								@Override
@@ -701,23 +708,76 @@ public class DefaultIssueChangeService extends BaseEntityService<IssueChange>
 										String commitFQN = commit.name();
 										if (!project.equals(issue.getProject()))
 											commitFQN = project.getPath() + ":" + commitFQN;
-										changeState(user, issue, branchUpdatedSpec.getToState(), 
-												new HashMap<>(), new ArrayList<>(), transition.getRemoveFields(),
-												"State changed as code fixing the issue is committed (" + commitFQN + ")");
+										if (transitedIssueIds.add(issue.getId())) {
+											changeState(user, issue, branchUpdatedSpec.getToState(), 
+													new HashMap<>(), new ArrayList<>(), transition.getRemoveFields(),
+													"State changed as code fixing the issue is committed (" + commitFQN + ")");
+										}
 									}
 								}
 							} finally {
 								ProjectScopedCommit.pop();
 							}
 						}
+					} else if (transition instanceof BranchCreatedSpec) {
+						if (oldCommitId.equals(ObjectId.zeroId())) {
+							var branchOption = new IssueQueryParseOption().withCurrentBranchCriteria(true);
+							var branchCreatedSpec = (BranchCreatedSpec) transition;
+							var branches = branchCreatedSpec.getBranches();
+							var branchMatcher = new PathMatcher();
+							if (branches == null || PatternSet.parse(branches).matches(branchMatcher, branchName)) {
+								IssueQuery query = combineTransitionQuery(transition,
+										IssueQuery.parse(project, branchCreatedSpec.getIssueQuery(), branchOption, true));
+								ProjectScopedBranch.push(new ProjectScopedBranch(project, branchName));
+								try {
+									for (Issue issue: issueService.query(subject, projectScope, query, true, 0, MAX_VALUE)) {
+										if (transitedIssueIds.add(issue.getId())) {
+											changeState(user, issue, branchCreatedSpec.getToState(), 
+													new HashMap<>(), new ArrayList<>(), transition.getRemoveFields(),
+													"State changed as branch '" + branchName + "' is created");
+										}
+									}
+								} finally {
+									ProjectScopedBranch.pop();
+								}
+							}
+						}
 					}
-				}
+				}				
 			} catch (Exception e) {
 				logger.error("Error changing issue state", e);
 			}
 		}
 	}
 
+	private void processNoActivitySpecs(Subject subject, User user, 
+			List<TransitionSpec> transitions, @Nullable ProjectScope projectScope, 
+			Set<Long> transitedIssueIds) {
+		IssueQueryParseOption option = new IssueQueryParseOption();
+		Project parseProject = projectScope != null ? projectScope.getProject() : null;
+		for (TransitionSpec transition: transitions) {
+			if (transition instanceof NoActivitySpec) {
+				NoActivitySpec noActivitySpec = (NoActivitySpec) transition;
+				IssueQuery query = combineTransitionQuery(transition,
+						IssueQuery.parse(parseProject, noActivitySpec.getIssueQuery(), option, parseProject != null));
+				List<Criteria<Issue>> criterias = new ArrayList<>();
+				if (query.getCriteria() != null)
+					criterias.add(query.getCriteria());
+				criterias.add(new LastActivityDateCriteria(
+						new DateTime().minusDays(noActivitySpec.getDays()).toDate(), 
+						IssueQueryLexer.IsUntil));
+				query = new IssueQuery(Criteria.andCriterias(criterias), new ArrayList<>());
+				
+				for (Issue issue: issueService.query(subject, projectScope, query, true, 0, MAX_VALUE)) {
+					if (transitedIssueIds.add(issue.getId())) {
+						changeState(user, issue, noActivitySpec.getToState(), new HashMap<>(), new ArrayList<>(), 
+								transition.getRemoveFields(), null);
+					}
+				}
+			}
+		}
+	}
+	
 	@Override
 	public void execute() {
 		batchWorkExecutionService.submit(new BatchWorker("no-activity-issue-transition") {
@@ -728,32 +788,17 @@ public class DefaultIssueChangeService extends BaseEntityService<IssueChange>
 					if (clusterService.isLeaderServer()) {
 						var subject = SecurityUtils.getSubject();
 						var user = SecurityUtils.getUser(subject);
-						IssueQueryParseOption option = new IssueQueryParseOption();
-						for (TransitionSpec transition: getTransitionSpecs()) {
-							if (transition instanceof NoActivitySpec) {
-								NoActivitySpec noActivitySpec = (NoActivitySpec) transition;
-								IssueQuery query = IssueQuery.parse(null, noActivitySpec.getIssueQuery(), option, false);
-								List<Criteria<Issue>> criterias = new ArrayList<>();
-								
-								List<Criteria<Issue>> fromStateCriterias = new ArrayList<>();
-								for (String fromState: transition.getFromStates()) 
-									fromStateCriterias.add(new StateCriteria(fromState, IssueQueryLexer.Is));
-								
-								if (!fromStateCriterias.isEmpty())
-									criterias.add(Criteria.orCriterias(fromStateCriterias));
-								if (query.getCriteria() != null)
-									criterias.add(query.getCriteria());
-								
-								criterias.add(new LastActivityDateCriteria(
-										new DateTime().minusDays(noActivitySpec.getDays()).toDate(), 
-										IssueQueryLexer.IsUntil));
-								
-								query = new IssueQuery(Criteria.andCriterias(criterias), new ArrayList<>());
-								
-								for (Issue issue: issueService.query(subject, null, query, true, 0, MAX_VALUE)) {
-									changeState(user, issue, noActivitySpec.getToState(), new HashMap<>(), new ArrayList<>(), 
-											transition.getRemoveFields(), null);
-								}
+						Set<Long> transitedIssueIds = new HashSet<>();
+						
+						processNoActivitySpecs(subject, user, 
+								OneDev.getInstance(SettingService.class).getIssueSetting().getTransitionSpecs(), 
+								null, transitedIssueIds);
+						
+						for (Project project: projectService.query()) {
+							List<TransitionSpec> projectSpecs = project.getIssueSetting().getTransitionSpecs();
+							if (!projectSpecs.isEmpty()) {
+								ProjectScope projectScope = new ProjectScope(project, false, true);
+								processNoActivitySpecs(subject, user, projectSpecs, projectScope, transitedIssueIds);
 							}
 						}
 					}									
@@ -761,7 +806,6 @@ public class DefaultIssueChangeService extends BaseEntityService<IssueChange>
 			}
 			
 		}, new Prioritized(NO_ACTIVITY_TRANSITION_PRIORITY));
-
 	}
 	
 	@Sessional

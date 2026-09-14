@@ -1,6 +1,19 @@
 package io.onedev.server.web.component.commit.info;
 
-import io.onedev.server.git.BlobIdent;
+import org.apache.wicket.markup.head.CssHeaderItem;
+import org.apache.wicket.markup.head.IHeaderResponse;
+import org.apache.wicket.markup.html.basic.Label;
+import org.apache.wicket.markup.html.link.BookmarkablePageLink;
+import org.apache.wicket.markup.html.link.Link;
+import org.apache.wicket.markup.html.panel.GenericPanel;
+import org.apache.wicket.model.IModel;
+import org.apache.wicket.model.LoadableDetachableModel;
+import org.apache.wicket.model.Model;
+import org.apache.wicket.request.mapper.parameter.PageParameters;
+import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevObject;
+
 import io.onedev.server.git.GitUtils;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.PullRequest;
@@ -12,22 +25,8 @@ import io.onedev.server.web.component.gitsignature.SignatureStatusPanel;
 import io.onedev.server.web.component.link.ViewStateAwarePageLink;
 import io.onedev.server.web.component.link.copytoclipboard.CopyToClipboardLink;
 import io.onedev.server.web.component.user.contributoravatars.ContributorAvatars;
-import io.onedev.server.web.page.project.blob.ProjectBlobPage;
 import io.onedev.server.web.page.project.commits.CommitDetailPage;
-import io.onedev.server.web.page.project.dashboard.ProjectDashboardPage;
-import org.apache.wicket.markup.head.CssHeaderItem;
-import org.apache.wicket.markup.head.IHeaderResponse;
-import org.apache.wicket.markup.html.basic.Label;
-import org.apache.wicket.markup.html.link.BookmarkablePageLink;
-import org.apache.wicket.markup.html.link.Link;
-import org.apache.wicket.markup.html.panel.GenericPanel;
-import org.apache.wicket.model.IModel;
-import org.apache.wicket.model.LoadableDetachableModel;
-import org.apache.wicket.model.Model;
-import org.apache.wicket.request.mapper.parameter.PageParameters;
-import org.eclipse.jgit.lib.FileMode;
-import org.eclipse.jgit.revwalk.RevCommit;
-import org.eclipse.jgit.revwalk.RevObject;
+import io.onedev.server.web.page.project.overview.ProjectOverviewPage;
 
 public abstract class CommitInfoPanel extends GenericPanel<ProjectScopedCommit> {
 	
@@ -64,8 +63,8 @@ public abstract class CommitInfoPanel extends GenericPanel<ProjectScopedCommit> 
 		add(new ContributorPanel("contribution", revCommit.getAuthorIdent(),
 				revCommit.getCommitterIdent()));
 
-		add(new BookmarkablePageLink<Void>("project", ProjectDashboardPage.class,
-				ProjectDashboardPage.paramsOf(project)) {
+		add(new BookmarkablePageLink<Void>("project", ProjectOverviewPage.class,
+				ProjectOverviewPage.paramsOf(project)) {
 
 			@Override
 			public IModel<?> getBody() {
@@ -101,6 +100,11 @@ public abstract class CommitInfoPanel extends GenericPanel<ProjectScopedCommit> 
 				return null;
 			}
 
+			@Override
+			protected ObjectId getSeenBranchTip(String branch) {
+				return null;
+			}
+
 		});
 
 		CommitDetailPage.State commitState = new CommitDetailPage.State();
@@ -110,11 +114,6 @@ public abstract class CommitInfoPanel extends GenericPanel<ProjectScopedCommit> 
 		add(hashLink);
 		hashLink.add(new Label("hash", GitUtils.abbreviateSHA(commitHash)));
 		add(new CopyToClipboardLink("copyHash", Model.of(commitHash)));
-
-		BlobIdent blobIdent = new BlobIdent(commitHash, null, FileMode.TYPE_TREE);
-		ProjectBlobPage.State browseState = new ProjectBlobPage.State(blobIdent);
-		params = ProjectBlobPage.paramsOf(project, browseState);
-		add(new ViewStateAwarePageLink<Void>("browseCode", ProjectBlobPage.class, params));		
 	}
 
 	@Override

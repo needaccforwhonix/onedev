@@ -81,13 +81,14 @@ import io.onedev.server.cluster.ClusterTask;
 import io.onedev.server.event.ListenerRegistry;
 import io.onedev.server.event.project.DefaultBranchChanged;
 import io.onedev.server.event.project.RefUpdated;
+import io.onedev.server.exception.BadRequestException;
+import io.onedev.server.exception.NotFoundException;
 import io.onedev.server.git.BlameBlock;
 import io.onedev.server.git.Blob;
 import io.onedev.server.git.BlobContent;
 import io.onedev.server.git.BlobEdits;
 import io.onedev.server.git.BlobIdent;
 import io.onedev.server.git.BlobIdentFilter;
-import io.onedev.server.git.CommandUtils;
 import io.onedev.server.git.GitTask;
 import io.onedev.server.git.GitUtils;
 import io.onedev.server.git.Submodule;
@@ -99,10 +100,8 @@ import io.onedev.server.git.command.LogCommand;
 import io.onedev.server.git.command.LogCommit;
 import io.onedev.server.git.command.RevListCommand;
 import io.onedev.server.git.command.RevListOptions;
-import io.onedev.server.git.exception.NotFileException;
 import io.onedev.server.git.exception.NotTreeException;
 import io.onedev.server.git.exception.ObjectAlreadyExistsException;
-import io.onedev.server.git.exception.ObjectNotFoundException;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.support.code.BranchProtection;
 import io.onedev.server.persistence.SessionService;
@@ -454,10 +453,10 @@ public class DefaultGitService implements GitService, Serializable {
 			String sourceProjectPath, String... refSpecs) {
 		String sourceActiveServer = projectService.getActiveServer(sourceProjectId, true);
 		if (sourceActiveServer.equals(clusterService.getLocalServerAddress())) {
-			Commandline git = CommandUtils.newGit();
+			Commandline git = GitUtils.newGit();
 			fetch(git, targetProjectId, getGitDir(sourceProjectId).getAbsolutePath(), refSpecs);
 		} else {
-			CommandUtils.callWithClusterCredential(git -> {
+			GitUtils.callWithClusterCredential(git -> {
 				String remoteUrl = clusterService.getServerUrl(sourceActiveServer) 
 						+ "/" + sourceProjectPath;
 				fetch(git, targetProjectId, remoteUrl, refSpecs);
@@ -468,7 +467,7 @@ public class DefaultGitService implements GitService, Serializable {
 	
 	private void fetch(Commandline git, Long projectId, String remoteUrl, String... refSpecs) {
 		git.workingDir(getGitDir(projectId));
-		git.addArgs("fetch", "--quiet", remoteUrl);
+		git.args("fetch", "--quiet", remoteUrl);
 		git.addArgs(refSpecs);
 		git.execute(newInfoLogger(), newErrorLogger()).checkReturnCode();
 	}
@@ -486,9 +485,9 @@ public class DefaultGitService implements GitService, Serializable {
 			
 			// Do not optimize to push to local directory when source and target are on same host, as otherwise
 			// environments in git pre/post receive hooks will not be set
-			CommandUtils.callWithClusterCredential(git -> {
+			GitUtils.callWithClusterCredential(git -> {
 				git.workingDir(getGitDir(sourceProjectId));
-				git.addArgs("push", "--quiet", clusterService.getServerUrl(targetActiveServer) + "/" + targetProjectPath);
+				git.args("push", "--quiet", clusterService.getServerUrl(targetActiveServer) + "/" + targetProjectPath);
 				git.addArgs(sourceRev + ":" + targetRev);
 				git.execute(newInfoLogger(), newErrorLogger()).checkReturnCode();
 				return null;
@@ -509,12 +508,12 @@ public class DefaultGitService implements GitService, Serializable {
 		runOnProjectServer(sourceProjectId, () -> {
 			String targetActiveServer = projectService.getActiveServer(targetProjectId, true);
 
-			CommandUtils.callWithClusterCredential((GitTask<Void>) git -> {
+			GitUtils.callWithClusterCredential((GitTask<Void>) git -> {
 				git.workingDir(getGitDir(sourceProjectId));
 				
 				String remoteUrl = clusterService.getServerUrl(targetActiveServer) + "/" + targetProjectPath;						
 				AtomicReference<String> remoteCommitId = new AtomicReference<>(null);
-				git.addArgs("ls-remote", remoteUrl, "HEAD", targetRef);
+				git.args("ls-remote", remoteUrl, "HEAD", targetRef);
 				git.execute(new LineConsumer() {
 
 					@Override
@@ -749,7 +748,7 @@ public class DefaultGitService implements GitService, Serializable {
 						String nonExistPath = currentOldPaths.iterator().next();
 						if (parentPath != null)
 							nonExistPath = parentPath + "/" + nonExistPath;
-						throw new ObjectNotFoundException("Unable to find path " + nonExistPath);
+						throw new NotFoundException("Unable to find path " + nonExistPath);
 					}
 
 					if (!currentNewBlobs.isEmpty()) {
@@ -937,16 +936,10 @@ public class DefaultGitService implements GitService, Serializable {
 							ObjectId blobId = treeWalk.getObjectId(0);
 							if (blobIdent.isGitLink()) {
 								String url = getSubmodules().get(blobIdent.path);
-								if (url == null) {
-									logger.error("Unable to find submodule (revision: {}, path: {})",
-											revId.name(), path);
-									blob = new Blob(blobIdent, blobId, treeWalk.getObjectReader());
-								} else {
-									String hash = blobId.name();
-									blob = new Blob(blobIdent, blobId, new Submodule(url, hash).toString().getBytes());
-								}
+								String hash = blobId.name();
+								blob = new Blob(blobIdent, blobId, new Submodule(url, hash).toString().getBytes());
 							} else if (blobIdent.isTree()) {
-								throw new NotFileException("Path '" + blobIdent.path + "' is a tree");
+								throw new BadRequestException("Path '" + blobIdent.path + "' is a tree");
 							} else {
 								blob = new Blob(blobIdent, blobId, treeWalk.getObjectReader());
 							}
@@ -1317,11 +1310,16 @@ public class DefaultGitService implements GitService, Serializable {
 
 	@Override
 	public String getPatch(Project project, AnyObjectId oldRevId, AnyObjectId newRevId) {
+		return getPatch(project, oldRevId, newRevId, null);
+	}
+
+	@Override
+	public String getPatch(Project project, AnyObjectId oldRevId, AnyObjectId newRevId, String excludedFiles) {
 		Long projectId = project.getId();
 		return runOnProjectServer(projectId, () -> {
 			var repository = getRepository(projectId);
 			var baos = new ByteArrayOutputStream();
-			GitUtils.diff(repository, oldRevId, newRevId, baos);
+			GitUtils.diff(repository, oldRevId, newRevId, excludedFiles, baos);
 			return baos.toString(StandardCharsets.UTF_8);
 		});
 	}
@@ -1434,7 +1432,7 @@ public class DefaultGitService implements GitService, Serializable {
 												  ObjectId oldId, ObjectId newId,
 												  Map<String, String> envs) {
 		Long projectId = project.getId();
-		if (protection.getMaxCommitMessageLineLength() != null || protection.isEnforceConventionalCommits()) {
+		if (protection.getMaxCommitMessageLineLength() != null || protection.getCommitMessageChecker() != null) {
 			return runOnProjectServer(projectId, () -> {
 				Map<ObjectId, String> commitMessages = new LinkedHashMap<>();
 				Set<ObjectId> mergeCommits = new HashSet<>();

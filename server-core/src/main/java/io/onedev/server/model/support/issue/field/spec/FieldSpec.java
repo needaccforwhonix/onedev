@@ -9,8 +9,6 @@ import java.util.Set;
 import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 
-import org.apache.wicket.MarkupContainer;
-
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.commons.utils.match.PathMatcher;
 import io.onedev.server.OneDev;
@@ -25,11 +23,12 @@ import io.onedev.server.buildspecmodel.inputspec.choiceinput.choiceprovider.Spec
 import io.onedev.server.buildspecmodel.inputspec.showcondition.ShowCondition;
 import io.onedev.server.buildspecmodel.inputspec.showcondition.ValueIsNotAnyOf;
 import io.onedev.server.buildspecmodel.inputspec.showcondition.ValueIsOneOf;
-import io.onedev.server.service.SettingService;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.support.administration.GlobalIssueSetting;
-import io.onedev.server.util.ComponentContext;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.util.EditContext;
+import io.onedev.server.util.Hierarchical;
+import io.onedev.server.util.HierarchicalContext;
 import io.onedev.server.util.patternset.PatternSet;
 import io.onedev.server.util.usage.Usage;
 import io.onedev.server.web.component.issue.workflowreconcile.UndefinedFieldResolution;
@@ -47,11 +46,7 @@ public abstract class FieldSpec extends InputSpec {
 	private boolean promptUponIssueOpen = true;
 	
 	private String applicableProjects;
-	
-	private transient Collection<String> dependencies;
-	
-	private transient Collection<String> dependents;
-	
+		
 	@Editable(order=10)
 	@FieldName
 	@NotEmpty
@@ -260,44 +255,60 @@ public abstract class FieldSpec extends InputSpec {
 		return new Usage();
 	}
 	
-	public Collection<String> getDependencies() {
-		if (dependencies == null) {
-			dependencies = new HashSet<>();
-			if (getShowCondition() != null)
-				dependencies.add(getShowCondition().getInputName());
-			
-			class PropertyComponent extends MarkupContainer implements InputContext, EditContext {
+	private Collection<String> getDependencies() {
+		var dependencies = new HashSet<String>();
+		if (getShowCondition() != null)
+			dependencies.add(getShowCondition().getInputName());
+		
+		var parentContext = HierarchicalContext.get();
+		class PropertyHierarchical implements Hierarchical {
 
-				private static final long serialVersionUID = 1L;
+			@Override
+			public Hierarchical getParent() {
+				if (parentContext != null)
+					return parentContext.getHierarchical();
+				else
+					return null;
+			}
 
-				public PropertyComponent() {
-					super("component");
-				}
+			@Override
+			public <T> T getData(Class<T> clazz) {
+				if (clazz == InputContext.class) {
+					return clazz.cast(new InputContext() {
+						
+						@Override
+						public List<String> getInputNames() {
+							return getIssueSetting().getFieldNames();
+						}
+		
+						@Override
+						public InputSpec getInputSpec(String inputName) {
+							return getIssueSetting().getFieldSpec(inputName);
+						}
+		
+					});
+				} else if (clazz == EditContext.class) {	
+					return clazz.cast(new EditContext() {
 
-				@Override
-				public List<String> getInputNames() {
-					return getIssueSetting().getFieldNames();
-				}
+						@Override
+						public Object getInputValue(String name) {
+							dependencies.add(name);
+							return null;
+						}
 
-				@Override
-				public InputSpec getInputSpec(String inputName) {
-					return getIssueSetting().getFieldSpec(inputName);
-				}
-
-				@Override
-				public Object getInputValue(String name) {
-					dependencies.add(name);
+					});
+				} else {
 					return null;
 				}
-
-			}	
-			
-			ComponentContext.push(new ComponentContext(new PropertyComponent()));
-			try {
-				runScripts();
-			} finally {
-				ComponentContext.pop();
 			}
+
+		}	
+
+		HierarchicalContext.push(new HierarchicalContext(new PropertyHierarchical()));
+		try {
+			runScripts();
+		} finally {
+			HierarchicalContext.pop();
 		}
 		return dependencies;
 	}
@@ -320,13 +331,11 @@ public abstract class FieldSpec extends InputSpec {
 		return transitiveDependencies;
 	}
 	
-	public Collection<String> getDependents() {
-		if (dependents == null) {
-			dependents = new HashSet<>();
-			for (FieldSpec field: getIssueSetting().getFieldSpecs()) {
-				if (field.getDependencies().contains(getName()))
-					dependents.add(field.getName());
-			}
+	private Collection<String> getDependents() {
+		var dependents = new HashSet<String>();
+		for (FieldSpec field: getIssueSetting().getFieldSpecs()) {
+			if (field.getDependencies().contains(getName()))
+				dependents.add(field.getName());
 		}
 		return dependents;
 	}

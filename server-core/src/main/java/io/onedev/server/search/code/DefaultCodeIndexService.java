@@ -250,6 +250,7 @@ public class DefaultCodeIndexService implements CodeIndexService, Serializable {
 			SymbolExtractor<Symbol> extractor, ObjectId blobId, String blobPath) throws IOException {
 		Document document = new Document();
 		
+		logger.trace("Indexing blob '{}'...", blobPath);
 		document.add(new StoredField(BLOB_INDEX_VERSION.name(), getIndexVersion(extractor)));
 		document.add(new StringField(BLOB_HASH.name(), blobId.name(), Store.NO));
 		document.add(new StringField(BLOB_PATH.name(), blobPath, Store.NO));
@@ -274,7 +275,7 @@ public class DefaultCodeIndexService implements CodeIndexService, Serializable {
 					try {
 						symbols = extractor.extract(blobName, StringUtils.removeBOM(content));
 					} catch (Exception e) {
-						logger.trace("Can not extract symbols from blob (hash:" + blobId.name() + ", path:" + blobPath + ")", e);
+						logger.trace("Cannot extract symbols from blob (hash:" + blobId.name() + ", path:" + blobPath + ")", e);
 					}
 					if (symbols != null) {
 						for (Symbol symbol: symbols) {
@@ -302,6 +303,7 @@ public class DefaultCodeIndexService implements CodeIndexService, Serializable {
 		}
 
 		writer.addDocument(document);
+		logger.trace("Indexed blob '{}'.", blobPath);
 	}
 	
 	private BatchWorker getBatchWorker(Long projectId) {
@@ -330,7 +332,7 @@ public class DefaultCodeIndexService implements CodeIndexService, Serializable {
 			try {
 				logger.debug("Indexing commit (project: {}, commit: {})...", project.getPath(), commit.getName());
 				IndexResult indexResult = index(projectService.getRepository(project.getId()), 
-						commit, writer, searcher, PatternSet.parse(project.findCodeAnalysisPatterns()));
+						commit, writer, searcher, PatternSet.parse(project.findCodeAnalysisFiles()));
 				writer.commit();
 				logger.debug("Indexed commit (project: {}, commit: {})", project.getPath(), commit.getName());
 				return indexResult;

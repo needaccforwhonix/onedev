@@ -140,6 +140,9 @@ table {
 table>thead>tr>th, table>tbody>tr>td {
 	vertical-align: top;
 }
+table.table {
+	margin-bottom: 0;
+}
 .table>thead>tr>th {
 	border-top: none;
 }
@@ -151,7 +154,10 @@ table>thead>tr>th, table>tbody>tr>td {
 }
 
 tr.navigation>td {
-	padding: 20px;
+	padding-top: 2rem;
+	padding-bottom: 0;
+	padding-left: 0;
+	padding-right: 0;
 }
 .hidden {
 	display: none !important;
@@ -578,6 +584,10 @@ pre>.actions>a {
 	background: var(--dark-mode-dark);
 }
 
+.whitespace-pre-wrap {
+	white-space: pre-wrap;
+}
+
 .spin {
 	animation-name: spin;
 	animation-duration: 2000ms;
@@ -634,23 +644,19 @@ pre>.actions>a {
 	margin-right: 0.5rem;
 	flex: 0 0 auto;
 	max-width: 300px;
+	align-self: stretch;
+}
+.side-main>.side>* {
+	position: sticky;
+	top: 0.5rem;
+	height: fit-content;
+}
+.side-main>.side.card>.card {
+	background-color: transparent;
+	box-shadow: none;
 }
 .side-main>.main {
 	flex: 1 1 0;
-}
-
-@media(max-width: 991px) {
-	.side-main.side-main-wrap {
-		flex-wrap: wrap;
-	}
-	.side-main.side-main-wrap>* {
-		flex: 0 0 100%;
-		max-width: inherit;
-	}
-	.side-main.side-main-wrap>.side {
-		margin-right: 0;
-		margin-bottom: 2rem;
-	}
 }
 
 .card-body .card-body {
@@ -667,6 +673,60 @@ pre>.actions>a {
 .nav-tabs-line>.options {
 	margin-left: auto;
 	flex-shrink: 0;
+}
+.nav-tabs-line.nav-tabs-sticky {
+	position: sticky;
+	top: 0;
+	z-index: 990;
+	flex-wrap: wrap;
+	background: rgba(255, 255, 255, 0.88);
+	-webkit-backdrop-filter: blur(8px);
+	backdrop-filter: blur(8px);
+}
+.dark-mode .nav-tabs-line.nav-tabs-sticky {
+	background: rgba(35, 35, 45, 0.88);
+}
+html:has(.revision-diff) .nav-tabs-line.nav-tabs-sticky {
+	position: static;
+}
+
+.sticky-tabs-sentinel {
+	height: 1px;
+	margin-bottom: -1px;
+	flex-shrink: 0;
+}
+.sticky-tabs-row {
+	position: sticky;
+	top: 0;
+	z-index: 990;
+	border-bottom: 1px solid var(--secondary);
+	background: rgba(255, 255, 255, 0.88);
+	-webkit-backdrop-filter: blur(8px);
+	backdrop-filter: blur(8px);
+}
+.sticky-tabs-row>.nav-tabs-line {
+	min-width: 0;
+	flex-wrap: wrap;
+	border-bottom: 0;
+}
+.dark-mode .sticky-tabs-row {
+	border-bottom-color: var(--dark-mode-lighter-dark);
+	background: rgba(35, 35, 45, 0.88);
+}
+.sticky-tabs-row>.more-info-dock {
+	display: none;
+}
+.sticky-tabs-row.is-docked>.more-info-dock {
+	display: inline-flex;
+}
+.side-info-visible .sticky-tabs-row.is-docked>.more-info-dock {
+	display: none;
+}
+html:has(.revision-diff) .sticky-tabs-row {
+	position: static;
+}
+html:has(.revision-diff) .sticky-tabs-row.is-docked>.more-info-dock {
+	display: none;
 }
 
 tr.ui-sortable-helper {
@@ -729,20 +789,10 @@ table>thead>tr>th.minimum:last-child, table>tbody>tr>td.minimum:last-child {
 }
 
 .pressable:not(.btn):not(.input-group-addon) {
-    color: var(--gray);
     position: relative;
 }
 .dark-mode .pressable:not(.btn):not(.input-group-addon) {
-    color: var(--dark-mode-gray);
     position: relative;
-}
-.pressable:hover:not(.btn):not(.input-group-addon), 
-.pressable:active:not(.btn):not(.input-group-addon) {
-    color: var(--dark);
-}
-.dark-mode .pressable:hover:not(.btn):not(.input-group-addon), 
-.dark-mode .pressable:active:not(.btn):not(.input-group-addon) {
-    color: var(--dark-mode-light-gray);
 }
 .pressable:active:not(.btn):not(.input-group-addon) {
     left: 1px;
@@ -765,7 +815,7 @@ table>thead>tr>th.minimum:last-child, table>tbody>tr>td.minimum:last-child {
 }
 
 .dark-mode * {
-	scrollbar-color: rgb(51, 52, 75) rgb(37, 38, 55);
+	scrollbar-color: rgb(78, 82, 103) rgb(37, 38, 55);
 }
 
 .dark-mode ::-webkit-scrollbar {
@@ -776,12 +826,31 @@ table>thead>tr>th.minimum:last-child, table>tbody>tr>td.minimum:last-child {
 	background-color: rgb(37, 38, 55);
 }
 .dark-mode ::-webkit-scrollbar-thumb {
-	background-color: rgb(51, 52, 75);
+	background-color: rgb(78, 82, 103);
+}
+
+@media print {
+	.dark-mode * {
+		scrollbar-color: white white;
+	}
+	.dark-mode ::-webkit-scrollbar,
+	.dark-mode ::-webkit-scrollbar-corner,
+	.dark-mode ::-webkit-scrollbar-thumb {
+		border-color: white;
+		background-color: white;
+	}
 }
 
 .autofit-parent {
 	overflow: hidden !important;
 	min-height: inherit !important;
+}
+/* Applied dynamically for an autofit-outer boundary */
+.autofit-scroll-parent {
+	overflow: auto !important;
+}
+.autofit-overflow-parent {
+	overflow: visible !important;
 }
 span.keycap {
 	white-space: nowrap;
@@ -876,4 +945,13 @@ span.keycap {
 }
 .tippy-box a:hover, .tippy-box a:focus {
 	color: rgb(127, 196, 255) !important;
+}
+
+.warning>.close {
+	font-size: 1.3rem;
+}
+
+a.disabled[data-tippy-content] {
+	pointer-events:auto;
+	cursor:default;	
 }

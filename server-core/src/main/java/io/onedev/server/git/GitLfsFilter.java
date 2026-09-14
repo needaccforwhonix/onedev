@@ -31,7 +31,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
-import org.jspecify.annotations.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.servlet.Filter;
@@ -53,6 +52,7 @@ import javax.ws.rs.core.StreamingOutput;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.criterion.Restrictions;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,15 +63,15 @@ import com.google.common.hash.HashingInputStream;
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.k8shelper.KubernetesHelper;
 import io.onedev.server.cluster.ClusterService;
-import io.onedev.server.service.GitLfsLockService;
-import io.onedev.server.service.ProjectService;
-import io.onedev.server.service.SettingService;
 import io.onedev.server.model.GitLfsLock;
 import io.onedev.server.model.Project;
 import io.onedev.server.persistence.SessionService;
 import io.onedev.server.persistence.dao.EntityCriteria;
 import io.onedev.server.security.CodePullAuthorizationSource;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.GitLfsLockService;
+import io.onedev.server.service.ProjectService;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.util.IOUtils;
 import io.onedev.server.util.facade.ProjectFacade;
 
@@ -145,8 +145,9 @@ public class GitLfsFilter implements Filter {
 		}
 	}
 
-	private String getObjectUrl(HttpServletRequest request, String projectPath, String objectId) {
-		var serverUrl = settingService.getSystemSetting().getServerUrl();
+	private String getObjectUrl(HttpServletRequest request, String projectPath, 
+			String objectId, boolean clusterAccess) {
+		var serverUrl = clusterAccess ? clusterService.getServerUrl(clusterService.getLocalServerAddress()) : settingService.getSystemSetting().getServerUrl();
 		return String.format("%s/%s.git/lfs/objects/%s?lfs-objects=true", 
 				StringUtils.stripEnd(serverUrl, "/\\"), projectPath, objectId);
 	}
@@ -300,31 +301,22 @@ public class GitLfsFilter implements Filter {
 						}
 					}
 				}
-			}				
+			}									
 		} else if (httpRequest.getContentType() != null 
 					&& httpRequest.getContentType().startsWith(CONTENT_TYPE)
 				|| httpRequest.getHeader("Accept") != null 
 					&& httpRequest.getHeader("Accept").startsWith(CONTENT_TYPE)) {
 			String projectPath = getProjectPath(pathInfo);
-			
 			if (clusterAccess) {
 				ProjectFacade project = projectService.findFacadeByPath(projectPath);
 				if (project == null) {
 					sendBatchError(httpResponse, SC_NOT_FOUND, "Project not found: " + projectPath);
 				} else {
 					httpResponse.setContentType(CONTENT_TYPE);
-					if (pathInfo.endsWith("/batch")) {
-						processBatch(httpRequest, httpResponse, project, new BooleanSupplier() {
-							
-							@Override
-							public boolean getAsBoolean() {
-								return true;
-							}
-							
-						}, () -> true, clusterService.getCredential());
-					} else {
+					if (pathInfo.endsWith("/batch")) 
+						processBatch(httpRequest, httpResponse, project, () -> true, () -> true, clusterService.getCredential());
+					else 
 						httpResponse.setStatus(SC_NOT_IMPLEMENTED);
-					}
 				}
 			} else {
 				sessionService.openSession();
@@ -348,9 +340,10 @@ public class GitLfsFilter implements Filter {
 										lockRequestNode = objectMapper.readTree(is);
 									}
 									String path = lockRequestNode.get("path").asText();
-									GitLfsLock lock = lockService.find(path);
+									GitLfsLock lock = lockService.find(project, path);
 									if (lock == null) {
 										lock = new GitLfsLock();
+										lock.setProject(project);
 										lock.setPath(path);
 										lock.setOwner(SecurityUtils.getUser());
 										lockService.create(lock);
@@ -387,6 +380,7 @@ public class GitLfsFilter implements Filter {
 										limit = MAX_PAGE_SIZE;
 									
 									EntityCriteria<GitLfsLock> criteria = EntityCriteria.of(GitLfsLock.class);
+									criteria.add(Restrictions.eq(GitLfsLock.PROP_PROJECT, project));
 									if (path != null)
 										criteria.add(Restrictions.eq(GitLfsLock.PROP_PATH, path));
 									if (id != null)
@@ -433,6 +427,7 @@ public class GitLfsFilter implements Filter {
 									limit = MAX_PAGE_SIZE;
 								
 								EntityCriteria<GitLfsLock> criteria = EntityCriteria.of(GitLfsLock.class);
+								criteria.add(Restrictions.eq(GitLfsLock.PROP_PROJECT, project));
 								if (path != null)
 									criteria.add(Restrictions.eq(GitLfsLock.PROP_PATH, path));
 								if (id != null)
@@ -471,8 +466,10 @@ public class GitLfsFilter implements Filter {
 								if (forceNode != null)
 									force = forceNode.asBoolean();
 
-								GitLfsLock lock = lockService.load(id);
-								if (lock.getOwner().equals(SecurityUtils.getUser())) {
+								GitLfsLock lock = lockService.get(id);
+								if (lock == null || !lock.getProject().equals(project)) {
+									sendBatchError(httpResponse, SC_NOT_FOUND, "Lock not found");
+								} else if (lock.getOwner().equals(SecurityUtils.getUser())) {
 									lockService.delete(lock);
 									writeTo(httpResponse, newHashMap("lock", toMap(lock)));
 								} else if (force) {
@@ -497,15 +494,15 @@ public class GitLfsFilter implements Filter {
 				} finally {
 					sessionService.closeSession();
 				}				
-			}
+			}	
 		} else {
 			chain.doFilter(request, response);
 		}
 	}
 	
-	private void processBatch(HttpServletRequest httpRequest, HttpServletResponse httpResponse, 
-							  ProjectFacade project, BooleanSupplier readCheck, 
-							  BooleanSupplier writeCheck, @Nullable String accessToken) {
+	@Nullable
+	private JsonNode parseAndValidateBatchRequest(HttpServletRequest httpRequest, 
+												  HttpServletResponse httpResponse) {
 		JsonNode batchRequestNode;
 		try (InputStream is = httpRequest.getInputStream()) {
 			batchRequestNode = objectMapper.readTree(is);
@@ -517,7 +514,7 @@ public class GitLfsFilter implements Filter {
 		JsonNode transfersNode = batchRequestNode.get("transfers");
 		if (transfersNode != null) {
 			supportBasicTransfer = false;
-			for (JsonNode transferNode: transfersNode) {
+			for (JsonNode transferNode : transfersNode) {
 				if (transferNode.asText().equals("basic")) {
 					supportBasicTransfer = true;
 					break;
@@ -527,49 +524,61 @@ public class GitLfsFilter implements Filter {
 			supportBasicTransfer = true;
 		}
 		if (!supportBasicTransfer) {
-			sendBatchError(httpResponse, SC_NOT_ACCEPTABLE, 
+			sendBatchError(httpResponse, SC_NOT_ACCEPTABLE,
 					"This server can only accept basic transfer");
-		} else {
-			boolean supportSha256;
-			JsonNode hashAlgoNode = batchRequestNode.get("hash_algo");
-			if (hashAlgoNode != null)
-				supportSha256 = hashAlgoNode.asText().equals("sha256");
-			else
-				supportSha256 = true;
-			if (!supportSha256) {
-				sendBatchError(httpResponse, SC_NOT_ACCEPTABLE, 
-						"This server can only accept sha256 hash algorithm");
-			} else {
-				boolean upload = batchRequestNode.get("operation").asText().equals("upload");
-				boolean authorized = false;
-				if (upload) {
-					if (!writeCheck.getAsBoolean()) 
-						sendAuthorizationError(httpResponse);
-					else
-						authorized = true;
-				} else {
-					if (!readCheck.getAsBoolean())
-						sendAuthorizationError(httpResponse);
-					else
-						authorized = true;
-				}
-				if (authorized) {
-					List<Map<String, Object>> objectsResponse = new ArrayList<>();
-					for (JsonNode objectNode: batchRequestNode.get("objects")) {
-						String objectId = objectNode.get("oid").asText();
-						long objectSize = objectNode.get("size").asLong();
-						objectsResponse.add(getObjectResponse(
-								httpRequest, project, upload, objectId, objectSize, accessToken));
-					}
-					
-					Map<String, Object> batchResponse = new HashMap<>();
-					batchResponse.put("objects", objectsResponse);
-					writeTo(httpResponse, batchResponse);
-				}
-			}
-		}			
+			return null;
+		}
+
+		boolean supportSha256;
+		JsonNode hashAlgoNode = batchRequestNode.get("hash_algo");
+		if (hashAlgoNode != null)
+			supportSha256 = hashAlgoNode.asText().equals("sha256");
+		else
+			supportSha256 = true;
+		if (!supportSha256) {
+			sendBatchError(httpResponse, SC_NOT_ACCEPTABLE,
+					"This server can only accept sha256 hash algorithm");
+			return null;
+		}
+
+		return batchRequestNode;
 	}
-	
+
+	private void processBatch(HttpServletRequest httpRequest, HttpServletResponse httpResponse, 
+							  ProjectFacade project, BooleanSupplier readCheck, 
+							  BooleanSupplier writeCheck, @Nullable String accessToken) {
+		JsonNode batchRequestNode = parseAndValidateBatchRequest(httpRequest, httpResponse);
+		if (batchRequestNode == null)
+			return;
+
+		boolean upload = batchRequestNode.get("operation").asText().equals("upload");
+		boolean authorized = false;
+		if (upload) {
+			if (!writeCheck.getAsBoolean()) 
+				sendAuthorizationError(httpResponse);
+			else
+				authorized = true;
+		} else {
+			if (!readCheck.getAsBoolean())
+				sendAuthorizationError(httpResponse);
+			else
+				authorized = true;
+		}
+		if (authorized) {
+			List<Map<String, Object>> objectsResponse = new ArrayList<>();
+			for (JsonNode objectNode: batchRequestNode.get("objects")) {
+				String objectId = objectNode.get("oid").asText();
+				long objectSize = objectNode.get("size").asLong();
+				objectsResponse.add(getObjectResponse(
+						httpRequest, project, upload, objectId, objectSize, accessToken));
+			}
+			
+			Map<String, Object> batchResponse = new HashMap<>();
+			batchResponse.put("objects", objectsResponse);
+			writeTo(httpResponse, batchResponse);
+		}
+	}
+
 	private void sendAuthorizationError(HttpServletResponse response) {
 		if (SecurityUtils.getUser() != null) {
 			sendBatchError(response, SC_FORBIDDEN, "Permission denied");
@@ -599,7 +608,7 @@ public class GitLfsFilter implements Filter {
 	private Map<Object, Object> getActionResponse(HttpServletRequest request, ProjectFacade project, 
 												  String objectId, @Nullable String accessToken) {
 		Map<Object, Object> actionResponse = newHashMap(
-				"href", getObjectUrl(request, project.getPath(), objectId));
+				"href", getObjectUrl(request, project.getPath(), objectId, clusterService.getCredential().equals(accessToken)));
 		if (accessToken != null) {
 			actionResponse.put(
 					"header", newHashMap(

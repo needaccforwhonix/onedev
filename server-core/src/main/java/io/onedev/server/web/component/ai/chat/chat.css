@@ -4,8 +4,17 @@
 	bottom: 0;
 	right: 0;
 	z-index: 1040;
+	display: flex;
+	width: 400px;
 	background: white;
 	box-shadow: 0 0 12px rgba(0,0,0,0.2);	
+}
+@media (max-width: 767.98px) {
+	.chat {
+		width: 100%;
+		max-width: 100%;
+		min-width: 100%;
+	}
 }
 .dark-mode .chat {
 	background-color: var(--dark-mode-dark);	
@@ -40,6 +49,7 @@
 }
 .chat>.body>.send textarea {
 	max-height: 160px;
+	padding-right: 36px;
 }
 .chat>.body>.send a {
 	border-radius: 50px;
@@ -71,6 +81,14 @@
 .chat>.body>.messages>.response, .chat>.body>.messages>.error {
 	display: flex;
 	justify-content: flex-start;
+}
+.chat>.body>.messages>.response {
+	position: relative;
+}
+.chat>.body>.messages>.response>.copy {
+	position: absolute;
+	bottom: 0;
+	right: 0;
 }
 .chat>.body>.messages>.response>div, .chat>.body>.messages>.error>div {
 	margin-right: 3rem;

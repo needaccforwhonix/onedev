@@ -138,7 +138,10 @@ onedev.server = {
 		}
 	},
 	isDarkMode: function() {
-		return Cookies.get("darkMode") == "yes";	
+		var mode = Cookies.get("colorMode") || "auto";
+		if (mode === "dark") return true;
+		if (mode === "light") return false;
+		return window.matchMedia("(prefers-color-scheme: dark)").matches;
 	},
 	setupAutoSize: function() {
 		function doAutosize($textarea) {
@@ -229,7 +232,7 @@ onedev.server = {
 			 */
 			setTimeout(function() {
 				// do not use :visible selector directly for performance reason 
-				var focusibleSelector = "input[type=text], input[type=password], input:not([type]), textarea, .CodeMirror";
+				var focusibleSelector = "input[type=text], input[type=password], input:not([type]), textarea, .select2-selection--single, .CodeMirror";
 				var attentionSelector = ".feedbackPanelERROR";
                 var $attention = $containers.find(attentionSelector).addBack(attentionSelector).filter(":visible:first");
                 if ($attention.length == 0) {
@@ -245,7 +248,7 @@ onedev.server = {
 					var $focusable = $attention.find(focusibleSelector).addBack(focusibleSelector).filter(":visible");
 					if ($focusable.hasClass("CodeMirror") && $focusable[0].CodeMirror.options.readOnly == false) {
 						$focusable[0].CodeMirror.focus();					
-                    } else if ($focusable.length != 0 && !$focusable.hasClass("select2-input") 
+                    } else if ($focusable.length != 0 && !$focusable.hasClass("select2-search__field")
 							&& $focusable.closest(".no-autofocus").length == 0) {						
 						$focusable.focus();
 					} else {
@@ -264,7 +267,7 @@ onedev.server = {
 									if ($this.closest(".inplace-property-edit").length != 0) {
 										$this.focus();
 										focused = true;
-										$this.closest(".select2-container").next("input").select2("open");
+										$this.closest(".select2-container").prev("select").select2("open");
 									} 
 								} else {
 									$this.focus();
@@ -299,7 +302,7 @@ onedev.server = {
 
 			onedev.server.focus.doFocus($(document));
 
-			$(document).on("afterElementReplace", function(event, componentId) {
+			$(document).on("afterElementReplace", function(event, componentId) {				
 				if (onedev.server.focus.$components != null)
 					onedev.server.focus.$components = onedev.server.focus.$components.add("#" + componentId);
 			});			
@@ -345,13 +348,13 @@ onedev.server = {
 		}
 	},	
 
-	setupWebSocketHandler: function() {		
+	setupWebSocket: function(webSocketTimeout, sessionKeepAliveInterval) {		
 		var pageUnloading = false;
 		
 		$(window).on("beforeunload", function() {
 			pageUnloading = true;
 		});
-					
+
 		Wicket.Event.subscribe("/websocket/open", function(jqEvent) {
 			$(".connection-error").hide();
 		});
@@ -361,18 +364,20 @@ onedev.server = {
 				$(".connection-error").show();
 			}
 		});
-		Wicket.Event.subscribe("/websocket/error", function(jqEvent) {
-			if (!pageUnloading) {
-				$("body>.error").hide();
-				$(".connection-error").show();
-			}
-		});
+		var lastSessionKeepAliveTime = new Date().getTime();
 		Wicket.Event.subscribe("/websocket/message", function(jqEvent, message) {
 			if (message == "ErrorMessage") {
 				$("body>.error").hide();
 				$(".page-error").show();
-			} else if (message == "KeepAlive") {
-				Wicket.WebSocket.send(message);
+			} else if (message == "KeepAlive") {	
+				Wicket.WebSocket.send("KeepAlive");
+				if (sessionKeepAliveInterval > 0) {
+					var now = new Date().getTime();
+					if (now - lastSessionKeepAliveTime > sessionKeepAliveInterval) {
+						fetch('/~keep-session-alive');
+						lastSessionKeepAliveTime = now;
+					}
+				}
 			}
 		});		
 	},
@@ -587,6 +592,58 @@ onedev.server = {
 		canInput: function(element) {
 			var $element = $(element);
 			return ($element.is("input") || $element.is("textarea") || $element.is("select")) && !$element.hasClass("readonly");			
+		},
+		/*
+		 * Whether the element is an editable control that should consume the first
+		 * Escape to blur (two-tier Escape: blur first, then dismiss overlays).
+		 * Mirrors jQuery Hotkeys focus filters (text inputs / contenteditable)
+		 * plus readonly/disabled checks used by canInput.
+		 */
+		isEditable: function(element) {
+			if (!element || element === document.body || element === document.documentElement)
+				return false;
+			if (element.isContentEditable)
+				return true;
+			var $element = $(element);
+			if ($element.hasClass("readonly") || element.disabled || element.readOnly)
+				return false;
+			if ($element.is("textarea, select"))
+				return true;
+			if ($element.is("input")) {
+				// Same set as jQuery Hotkeys textAcceptingInputTypes
+				var type = (element.type || "text").toLowerCase();
+				return type === "text" || type === "password" || type === "number"
+						|| type === "email" || type === "url" || type === "search"
+						|| type === "tel" || type === "color" || type === "date"
+						|| type === "month" || type === "week" || type === "time"
+						|| type === "datetime" || type === "datetime-local"
+						|| type === "range";
+			}
+			return false;
+		},
+		/*
+		 * If an editable control has focus, blur it and return true so Escape
+		 * dismiss handlers can skip overlay close on this keypress.
+		 */
+		blurFocusedEditable: function() {
+			var element = document.activeElement;
+			if (!onedev.server.util.isEditable(element))
+				return false;
+			element.blur();
+			return true;
+		},
+		/*
+		 * Widgets that handle Escape themselves (close picker/hints/etc.).
+		 * When these are open, do not steal Escape for blur-first behavior.
+		 */
+		isEscapeConsumedByWidget: function() {
+			return $(".select2-dropdown:visible").length != 0
+					|| $(".dropdown.open").length != 0
+					|| $("body>.floating").length != 0
+					|| $(".pcr-app.visible").length != 0
+					|| $(".atwho-view:visible").length != 0
+					|| $(".CodeMirror-hints:visible").length != 0
+					|| $(".flatpickr-calendar.open").length != 0;
 		},
 		isDevice: function() {
 			var ua = navigator.userAgent.toLowerCase();
@@ -872,7 +929,7 @@ onedev.server = {
 		else
 			return translations["{0}s"].replace("{0}", "0");
 	},
-	onDomReady: function(bootTimestamp, icons, popStateCallback, removeAutosaveKeys, translations) {
+	onDomReady: function(bootTimestamp, icons, popStateCallback, removeAutosaveKeys, webSocketTimeout, sessionKeepAliveInterval, translations) {
 		onedev.server.translations = translations;
 
 		onedev.server.bootTimestamp = bootTimestamp;
@@ -907,12 +964,37 @@ onedev.server = {
 			var $parents = $autofit.css("overflow", "auto").parents().not("html").not("body");
 			$parents.addClass("autofit-parent");
 			$(".autofit-parent").not($parents).removeClass("autofit-parent");
+
+			/*
+			 * An inner autofit normally clips all ancestors so it is the only scroll container.
+			 * Each autofit-outer boundary keeps that inner sizing behavior below the boundary,
+			 * while allowing sibling overflow to propagate to its nearest outer autofit scroller.
+			 * Processing all ancestor boundaries makes this work at multiple nested scroll levels.
+			 */
+			var $outerScrollParents = $();
+			var $overflowParents = $();
+			$autofit.each(function() {
+				$(this).parents(".autofit-outer").each(function() {
+					var $boundary = $(this);
+					var $outerScrollParent = $boundary.parents(".autofit").first();
+					if ($outerScrollParent.length != 0) {
+						$outerScrollParents = $outerScrollParents.add($outerScrollParent);
+						$overflowParents = $overflowParents
+								.add($boundary)
+								.add($boundary.parentsUntil($outerScrollParent));
+					}
+				});
+			});
+			$outerScrollParents.addClass("autofit-scroll-parent");
+			$(".autofit-scroll-parent").not($outerScrollParents).removeClass("autofit-scroll-parent");
+			$overflowParents.addClass("autofit-overflow-parent");
+			$(".autofit-overflow-parent").not($overflowParents).removeClass("autofit-overflow-parent");
 			$(document).find(".resize-aware").trigger("resized");
 		});
 		
 		onedev.server.setupAjaxLoadingIndicator();
 		onedev.server.form.setupDirtyCheck();
-		onedev.server.setupWebSocketHandler();
+		onedev.server.setupWebSocket(webSocketTimeout, sessionKeepAliveInterval);
 		onedev.server.mouseState.track();
 		onedev.server.ajaxRequests.track();
 		onedev.server.setupInputClear();
@@ -926,11 +1008,6 @@ onedev.server = {
 		onedev.server.setupTippy();
 		onedev.server.history.init(popStateCallback);
 		onedev.server.perfectScrollbar.setup();
-
-		$(document).keydown(function(e) {
-			if (e.keyCode == 27) // ESC
-				e.preventDefault();
-		});
 	},
 	
 	onWindowLoad: function() {
@@ -968,3 +1045,22 @@ onedev.server = {
 	}
 	
 };
+
+/*
+ * Register Escape handling when this script loads so it runs before dismiss
+ * handlers attached later from onDomReady / component init. Two-tier Escape:
+ * blur focused editables first; only then allow overlay dismiss on a later press.
+ * Target-level handlers that already preventDefault (CodeMirror hints, Select2,
+ * etc.) take priority; isEscapeConsumedByWidget covers remaining widget UIs.
+ */
+$(document).keydown(function(e) {
+	if (e.keyCode == 27) { // ESC
+		var alreadyHandled = e.isDefaultPrevented();
+		e.preventDefault();
+		if (!alreadyHandled
+				&& !onedev.server.util.isEscapeConsumedByWidget()
+				&& onedev.server.util.blurFocusedEditable()) {
+			e.stopImmediatePropagation();
+		}
+	}
+});

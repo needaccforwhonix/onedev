@@ -33,21 +33,16 @@ public class GradleJobSuggestion implements JobSuggestion {
 			checkout.setName("checkout code");
 			job.getSteps().add(checkout);
 
-			var generateChecksum = new GenerateChecksumStep();
-			generateChecksum.setName("generate gradle checksum");
-			generateChecksum.setFiles("**/build.gradle **/build.gradle.kts");
-			generateChecksum.setTargetFile("checksum");
-			job.getSteps().add(generateChecksum);
-
 			var setupCache = new SetupCacheStep();
 			setupCache.setName("set up gradle cache");
-			setupCache.setKey("gradle_@file:checksum@");
+			setupCache.setKey("gradle");
+
+			setupCache.setChecksumFiles("**/build.gradle **/build.gradle.kts");
 			setupCache.setPaths(Lists.newArrayList(
 					"/home/gradle/.gradle/caches",
 					"/home/gradle/.gradle/jdks",
 					"/home/gradle/.gradle/native",
 					"/home/gradle/.gradle/wrapper"));
-			setupCache.getLoadKeys().add("gradle");
 			job.getSteps().add(setupCache);
 			
 			String imageName = "gradle";

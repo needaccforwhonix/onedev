@@ -102,13 +102,14 @@ import io.onedev.server.web.component.modal.confirm.ConfirmModalPanel;
 import io.onedev.server.web.component.project.selector.ProjectSelector;
 import io.onedev.server.web.component.revision.RevisionSelector;
 import io.onedev.server.web.component.savedquery.SavedQueriesClosed;
+import io.onedev.server.web.component.savedquery.SavedQueriesLink;
 import io.onedev.server.web.component.savedquery.SavedQueriesOpened;
 import io.onedev.server.web.component.sortedit.SortEditPanel;
 import io.onedev.server.web.component.stringchoice.StringMultiChoice;
 import io.onedev.server.web.page.builds.BuildListPage;
 import io.onedev.server.web.page.project.blob.ProjectBlobPage;
 import io.onedev.server.web.page.project.builds.ProjectBuildsPage;
-import io.onedev.server.web.page.project.builds.detail.dashboard.BuildDashboardPage;
+import io.onedev.server.web.page.project.builds.detail.BuildDefaultPage;
 import io.onedev.server.web.page.project.pullrequests.detail.activities.PullRequestActivitiesPage;
 import io.onedev.server.web.util.Cursor;
 import io.onedev.server.web.util.LoadableDetachableDataProvider;
@@ -134,7 +135,6 @@ public abstract class BuildListPanel extends Panel {
 		
 	};
 	
-	private Component countLabel;
 	
 	private DataTable<Build, Void> buildsTable;
 	
@@ -224,7 +224,6 @@ public abstract class BuildListPanel extends Panel {
 	
 	private void doQuery(AjaxRequestTarget target) {
 		buildsTable.setCurrentPage(0);
-		target.add(countLabel);
 		target.add(body);
 		if (selectionColumn != null)
 			selectionColumn.getSelections().clear();
@@ -237,7 +236,7 @@ public abstract class BuildListPanel extends Panel {
 	protected void onInitialize() {
 		super.onInitialize();
 
-		add(new AjaxLink<Void>("showSavedQueries") {
+		add(new SavedQueriesLink("showSavedQueries") {
 
 			@Override
 			public void onEvent(IEvent<?> event) {
@@ -250,7 +249,7 @@ public abstract class BuildListPanel extends Panel {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(getQuerySaveSupport() != null && !getQuerySaveSupport().isSavedQueriesVisible());
+				setVisible(getQuerySaveSupport() != null);
 			}
 
 			@Override
@@ -279,7 +278,7 @@ public abstract class BuildListPanel extends Panel {
 				if (!querySubmitted)
 					tag.put("data-tippy-content", _T("Query not submitted"));
 				else if (queryModel.getObject() == null)
-					tag.put("data-tippy-content", _T("Can not save malformed query"));
+					tag.put("data-tippy-content", _T("Cannot save malformed query"));
 			}
 
 			@Override
@@ -314,7 +313,7 @@ public abstract class BuildListPanel extends Panel {
 								for (IModel<Build> each: selectionColumn.getSelections()) {
 									Build build = each.getObject();
 									if (build.isFinished()) {
-										errorMessage = MessageFormat.format(_T("Build #{0} already finished"), build.getNumber());
+										errorMessage = MessageFormat.format(_T("Build #{0} already finished"), String.valueOf(build.getNumber()));
 										break;
 									} 
 								}
@@ -386,7 +385,7 @@ public abstract class BuildListPanel extends Panel {
 								for (IModel<Build> each: selectionColumn.getSelections()) {
 									Build build = each.getObject();
 									if (!build.isFinished()) {
-										errorMessage = MessageFormat.format(_T("Build #{0} not finished yet"), build.getNumber());
+										errorMessage = MessageFormat.format(_T("Build #{0} not finished yet"), String.valueOf(build.getNumber()));
 										break;
 									} 
 								}
@@ -472,7 +471,6 @@ public abstract class BuildListPanel extends Panel {
 											}												
 										});
 
-										target.add(countLabel);
 										target.add(body);
 										selectionColumn.getSelections().clear();
 									}
@@ -532,7 +530,7 @@ public abstract class BuildListPanel extends Panel {
 								for (Iterator<Build> it = (Iterator<Build>) dataProvider.iterator(0, buildsTable.getItemCount()); it.hasNext();) { 
 									Build build = it.next();
 									if (build.isFinished()) {
-										errorMessage = MessageFormat.format(_T("Build #{0} already finished"), build.getNumber());
+										errorMessage = MessageFormat.format(_T("Build #{0} already finished"), String.valueOf(build.getNumber()));
 										break;
 									}
 								}
@@ -605,7 +603,7 @@ public abstract class BuildListPanel extends Panel {
 								for (Iterator<Build> it = (Iterator<Build>) dataProvider.iterator(0, buildsTable.getItemCount()); it.hasNext();) { 
 									Build build = it.next();
 									if (!build.isFinished()) {
-										errorMessage = MessageFormat.format(_T("Build #{0} not finished yet"), build.getNumber());
+										errorMessage = MessageFormat.format(_T("Build #{0} not finished yet"), String.valueOf(build.getNumber()));
 										break;
 									}
 								}
@@ -691,19 +689,18 @@ public abstract class BuildListPanel extends Panel {
 											}												
 										});
 										dataProvider.detach();
-										target.add(countLabel);
 										target.add(body);
 										selectionColumn.getSelections().clear();
 									}
 									
 									@Override
 									protected String getConfirmMessage() {
-										return _T("Type <code>yes</code> below to delete all queried builds");
+										return _T("Type <code>delete ALL builds</code> below to delete all queried builds");
 									}
 									
 									@Override
 									protected String getConfirmInput() {
-										return "yes";
+										return "delete ALL builds";
 									}
 									
 								};
@@ -942,6 +939,11 @@ public abstract class BuildListPanel extends Panel {
 				target.add(saveQueryLink);
 			}
 			
+			@Override
+			protected boolean isSelectOnFocus() {
+				return true;
+			}
+			
 		});
 		
 		queryInput.add(new AjaxFormComponentUpdatingBehavior("clear") {
@@ -1020,46 +1022,31 @@ public abstract class BuildListPanel extends Panel {
 			});
 		}
 
-		add(countLabel = new Label("count", new AbstractReadOnlyModel<String>() {
-			@Override
-			public String getObject() {
-				if (dataProvider.size() > 1)
-					return MessageFormat.format(_T("found {0} builds"), dataProvider.size());
-				else
-					return _T("found 1 build");					
-			}
-		}) {
-			@Override
-			protected void onConfigure() {
-				super.onConfigure();
-				setVisible(dataProvider.size() != 0);
-			}
-		}.setOutputMarkupPlaceholderTag(true));
 		
 		dataProvider = new LoadableDetachableDataProvider<>() {
 
 			@Override
 			public Iterator<? extends Build> iterator(long first, long count) {
 				try {
-					var subject = SecurityUtils.getSubject();
-					return getBuildService().query(subject, getProject(), queryModel.getObject(),
-							true, (int) first, (int) count).iterator();
+					var query = queryModel.getObject();
+					if (query != null) {
+						return getBuildService().query(SecurityUtils.getSubject(), getProject(), query,
+								true, (int) first, (int) count).iterator();
+					}
 				} catch (ExplicitException e) {
 					error(e.getMessage());
-					return new ArrayList<Build>().iterator();
 				}
+				return new ArrayList<Build>().iterator();
 			}
 
 			@Override
 			public long calcSize() {
-				BuildQuery query = queryModel.getObject();
-				if (query != null) {
-					try {
-						var subject = SecurityUtils.getSubject();
-						return getBuildService().count(subject, getProject(), query.getCriteria());
-					} catch (ExplicitException e) {
-						error(e.getMessage());
-					}
+				try {
+					BuildQuery query = queryModel.getObject();
+					if (query != null) 
+						return getBuildService().count(SecurityUtils.getSubject(), getProject(), query.getCriteria());
+				} catch (ExplicitException e) {
+					error(e.getMessage());
 				}
 				return 0;
 			}
@@ -1103,7 +1090,7 @@ public abstract class BuildListPanel extends Panel {
 				Long buildId = build.getId();
 
 				WebMarkupContainer link = new ActionablePageLink("link",
-						BuildDashboardPage.class, BuildDashboardPage.paramsOf(build)) {
+						BuildDefaultPage.class, BuildDefaultPage.paramsOf(build)) {
 
 					@Override
 					protected void doBeforeNav(AjaxRequestTarget target) {
@@ -1126,15 +1113,17 @@ public abstract class BuildListPanel extends Panel {
 					}
 
 				}));
-				link.add(new Label("summary", new AbstractReadOnlyModel<String>() {
+				link.add(new Label("caption", new AbstractReadOnlyModel<String>() {
 
 					@Override
 					public String getObject() {
-						return rowModel.getObject().getSummary(getProject());
+						return rowModel.getObject().getCaption(getProject(), false);
 					}
 
 				}));
 				fragment.add(link);
+
+				fragment.add(new Label("number", rowModel.getObject().getReference().toString(getProject())));
 
 				fragment.add(new EntityLabelsPanel<>("labels", rowModel));
 
@@ -1162,7 +1151,7 @@ public abstract class BuildListPanel extends Panel {
 							Fragment fragment = new Fragment(componentId, "linkFrag", BuildListPanel.this);
 							PageParameters params = PullRequestActivitiesPage.paramsOf(build.getRequest());
 							Link<Void> link = new BookmarkablePageLink<Void>("link", PullRequestActivitiesPage.class, params);
-							link.add(new Label("label", MessageFormat.format(_T("pull request #{0}"), build.getRequest().getNumber())));
+							link.add(new Label("label", MessageFormat.format(_T("pull request #{0}"), String.valueOf(build.getRequest().getNumber()))));
 							fragment.add(link);
 							cellItem.add(fragment);
 						} else if (build.getBranch() != null) {
@@ -1194,7 +1183,7 @@ public abstract class BuildListPanel extends Panel {
 						}
 					} else {
 						if (build.getRequest() != null)
-							cellItem.add(new Label(componentId, MessageFormat.format(_T("pull request #{0}"), build.getRequest().getNumber())));
+							cellItem.add(new Label(componentId, MessageFormat.format(_T("pull request #{0}"), String.valueOf(build.getRequest().getNumber()))));
 						else if (build.getBranch() != null)
 							cellItem.add(new Label(componentId, MessageFormat.format(_T("branch {0}"), build.getBranch())));
 						else if (build.getTag() != null)
@@ -1293,7 +1282,14 @@ public abstract class BuildListPanel extends Panel {
 						return DateUtils.formatAge(rowModel.getObject().getStatusDate());
 					}
 
-				}));
+				}).add(new AttributeAppender("data-tippy-content", new LoadableDetachableModel<String>() {
+
+					@Override
+					protected String load() {
+						return DateUtils.formatDateTime(rowModel.getObject().getStatusDate());
+					}
+
+				})));
 				fragment.add(newBuildObserver(buildId));
 				fragment.setOutputMarkupId(true);
 				cellItem.add(fragment);
@@ -1301,7 +1297,7 @@ public abstract class BuildListPanel extends Panel {
 		});		
 		
 		body.add(buildsTable = new DefaultDataTable<>("builds", columns, dataProvider,
-				WebConstants.PAGE_SIZE, getPagingHistorySupport()));
+				WebConstants.PAGE_SIZE, getPagingHistorySupport(), true));
 		
 		setOutputMarkupId(true);
 	}

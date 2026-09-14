@@ -32,6 +32,7 @@ import io.onedev.server.service.AuditService;
 import io.onedev.server.service.BaseAuthorizationService;
 import io.onedev.server.service.ProjectLabelService;
 import io.onedev.server.service.ProjectService;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.util.Path;
 import io.onedev.server.util.PathNode;
 import io.onedev.server.web.editable.BeanContext;
@@ -59,6 +60,9 @@ public abstract class ForkOptionPanel extends Panel {
 
 	@Inject
 	private ProjectLabelService projectLabelService;
+
+	@Inject
+	private SettingService settingService;
 	
 	public ForkOptionPanel(String id, IModel<Project> projectModel) {
 		super(id);
@@ -76,12 +80,26 @@ public abstract class ForkOptionPanel extends Panel {
 		ParentBean parentBean = new ParentBean();
 		
 		String userName = SecurityUtils.getAuthUser().getName();
-		Project parent = projectService.findByPath(userName);
-		if (parent != null) {
-			if (SecurityUtils.canCreateChildren(parent))
-				parentBean.setParentPath(parent.getPath());
-		} else if (SecurityUtils.canCreateRootProjects()) {
-			parentBean.setParentPath(userName);
+		String defaultForkRootPath = settingService.getSystemSetting().getDefaultForkRoot();
+		String defaultParentPath;
+		if (defaultForkRootPath != null)
+			defaultParentPath = defaultForkRootPath + "/" + userName;
+		else
+			defaultParentPath = userName;
+		
+		Project defaultParent = projectService.findByPath(defaultParentPath);
+		if (defaultParent != null) {
+			if (SecurityUtils.canCreateChildren(defaultParent))
+				parentBean.setParentPath(defaultParent.getPath());
+		} else {
+			Project defaultForkRoot = null;
+			if (defaultForkRootPath != null)
+				defaultForkRoot = projectService.findByPath(defaultForkRootPath);
+			boolean canCreate = defaultForkRoot != null 
+					? SecurityUtils.canCreateChildren(defaultForkRoot) 
+					: SecurityUtils.canCreateRootProjects();
+			if (canCreate)
+				parentBean.setParentPath(defaultParentPath);
 		}
 		
 		DefaultRolesBean defaultRolesBean = new DefaultRolesBean();
@@ -130,7 +148,8 @@ public abstract class ForkOptionPanel extends Panel {
 						newProject.setKey(editProject.getKey());
 						newProject.setDescription(editProject.getDescription());
 						newProject.setPackManagement(editProject.isPackManagement());
-						newProject.setIssueManagement(editProject.isIssueManagement());
+						newProject.setIssueManagement(editProject.isIssueManagement());						
+						newProject.setWikiManagement(editProject.isWikiManagement());
 						newProject.setTimeTracking(editProject.isTimeTracking());
 						newProject.setCodeAnalysisSetting(getProject().getCodeAnalysisSetting());
 						newProject.setGitPackConfig(getProject().getGitPackConfig());
@@ -141,7 +160,10 @@ public abstract class ForkOptionPanel extends Panel {
 						newProject.getBuildSetting().setListParams(getProject().getBuildSetting().getListParams(false));
 						newProject.getBuildSetting().setNamedQueries(getProject().getBuildSetting().getNamedQueries());
 						newProject.setPackSetting(getProject().getPackSetting());
+						newProject.setWikiSetting(getProject().getWikiSetting());
 						newProject.setPullRequestSetting(getProject().getPullRequestSetting());
+						newProject.setWorkspaceSetting(getProject().getWorkspaceSetting());
+						newProject.setWorkspaceSpecs(getProject().getWorkspaceSpecs());
 						newProject.setNamedCommitQueries(getProject().getNamedCommitQueries());
 						newProject.setIssueSetting(getProject().getIssueSetting());
 						newProject.setNamedCodeCommentQueries(getProject().getNamedCodeCommentQueries());

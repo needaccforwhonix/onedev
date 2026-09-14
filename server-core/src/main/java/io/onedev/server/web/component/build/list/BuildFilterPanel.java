@@ -14,18 +14,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
 
-import org.jspecify.annotations.Nullable;
-
+import org.apache.wicket.AttributeModifier;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.form.AjaxFormComponentUpdatingBehavior;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
+import org.jspecify.annotations.Nullable;
 
 import io.onedev.server.OneDev;
-import io.onedev.server.service.AgentService;
-import io.onedev.server.service.BuildService;
-import io.onedev.server.service.LabelSpecService;
-import io.onedev.server.service.UserService;
 import io.onedev.server.model.Agent;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.Project;
@@ -46,7 +42,10 @@ import io.onedev.server.search.entity.build.SubmittedByUserCriteria;
 import io.onedev.server.search.entity.build.SuccessfulCriteria;
 import io.onedev.server.search.entity.build.TimedOutCriteria;
 import io.onedev.server.search.entity.build.WaitingCriteria;
-import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.AgentService;
+import io.onedev.server.service.BuildService;
+import io.onedev.server.service.LabelSpecService;
+import io.onedev.server.service.UserService;
 import io.onedev.server.util.DateUtils;
 import io.onedev.server.util.criteria.Criteria;
 import io.onedev.server.web.component.datepicker.DatePicker;
@@ -143,8 +142,7 @@ abstract class BuildFilterPanel extends FilterEditPanel<Build> {
 
 			@Override
 			protected List<String> load() {
-				var subject = SecurityUtils.getSubject();
-				var jobNames = new ArrayList<>(getBuildService().getAccessibleJobNames(subject, getProject()));
+				var jobNames = new ArrayList<>(getBuildService().getJobNames(getProject()));
 				Collections.sort(jobNames);
 				return jobNames;
 			}
@@ -365,7 +363,9 @@ abstract class BuildFilterPanel extends FilterEditPanel<Build> {
 			}
 			
 		});
-		add(submittedBeforePicker);			
+		add(submittedBeforePicker);		
+		
+		add(AttributeModifier.append("class", "no-autofocus"));
 	}
 	
 	@Nullable

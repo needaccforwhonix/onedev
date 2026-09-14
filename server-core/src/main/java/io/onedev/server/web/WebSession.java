@@ -2,7 +2,6 @@ package io.onedev.server.web;
 
 import java.time.ZoneId;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.servlet.http.HttpSession;
@@ -10,7 +9,6 @@ import javax.servlet.http.HttpSession;
 import org.apache.shiro.SecurityUtils;
 import org.apache.wicket.protocol.http.WicketServlet;
 import org.apache.wicket.request.Request;
-import org.apache.wicket.util.collections.ConcurrentHashSet;
 import org.jspecify.annotations.Nullable;
 
 import io.onedev.server.OneDev;
@@ -29,12 +27,12 @@ public class WebSession extends org.apache.wicket.protocol.http.WebSession {
 	
 	private volatile Cursor pullRequestCursor; 
 
+	private volatile Cursor workspaceCursor;
+
 	private volatile ZoneId zoneId;
 	
 	private Map<Class<?>, String> redirectUrlsAfterDelete = new ConcurrentHashMap<>(); 
 	
-	private Set<Long> expandedProjectIds = new ConcurrentHashSet<>();
-
 	private volatile boolean chatVisible;
 		
 	private volatile Long activeChatId;
@@ -42,6 +40,8 @@ public class WebSession extends org.apache.wicket.protocol.http.WebSession {
  	private volatile Map<Long, Chat> anonymousChats = new ConcurrentHashMap<>();
 
 	private volatile String chatInput;
+
+	private volatile String ssoLogoutUrl;
 	
 	public WebSession(Request request) {
 		super(request);
@@ -63,14 +63,24 @@ public class WebSession extends org.apache.wicket.protocol.http.WebSession {
 		buildCursor = null;
 		packCursor = null;
 		pullRequestCursor = null;
+		workspaceCursor = null;
 		zoneId = null;
 		redirectUrlsAfterDelete.clear();
-		expandedProjectIds.clear();
 		chatVisible = false;
 		activeChatId = null;
 		anonymousChats.clear();
 		chatInput = null;
+		ssoLogoutUrl = null;
 	}	
+
+	@Nullable
+	public String getSsoLogoutUrl() {
+		return ssoLogoutUrl;
+	}
+
+	public void setSsoLogoutUrl(@Nullable String ssoLogoutUrl) {
+		this.ssoLogoutUrl = ssoLogoutUrl;
+	}
 
 	@Nullable
 	public Cursor getIssueCursor() {
@@ -106,6 +116,15 @@ public class WebSession extends org.apache.wicket.protocol.http.WebSession {
 	public void setPullRequestCursor(@Nullable Cursor pullRequestCursor) {
 		this.pullRequestCursor = pullRequestCursor;
 	}
+
+	@Nullable
+	public Cursor getWorkspaceCursor() {
+		return workspaceCursor;
+	}
+
+	public void setWorkspaceCursor(@Nullable Cursor workspaceCursor) {
+		this.workspaceCursor = workspaceCursor;
+	}
 	
 	@Nullable
 	public String getRedirectUrlAfterDelete(Class<?> clazz) {
@@ -116,10 +135,6 @@ public class WebSession extends org.apache.wicket.protocol.http.WebSession {
 		redirectUrlsAfterDelete.put(clazz, redirectUrlAfterDelete);
 	}
 	
-	public Set<Long> getExpandedProjectIds() {
-		return expandedProjectIds;
-	}
-
 	@Nullable
 	public ZoneId getZoneId() {
 		return zoneId;

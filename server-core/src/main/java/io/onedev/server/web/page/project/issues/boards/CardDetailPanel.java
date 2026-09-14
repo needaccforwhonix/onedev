@@ -12,7 +12,6 @@ import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.attributes.AjaxRequestAttributes;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
 import org.apache.wicket.markup.html.panel.GenericPanel;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.request.cycle.AbstractRequestCycleListener;
@@ -44,7 +43,6 @@ import io.onedev.server.web.component.issue.commits.IssueCommitsPanel;
 import io.onedev.server.web.component.issue.editabletitle.IssueEditableTitlePanel;
 import io.onedev.server.web.component.issue.operation.IssueOperationsPanel;
 import io.onedev.server.web.component.issue.primary.IssuePrimaryPanel;
-import io.onedev.server.web.component.issue.pullrequests.IssuePullRequestsPanel;
 import io.onedev.server.web.component.issue.side.IssueSidePanel;
 import io.onedev.server.web.component.sideinfo.SideInfoLink;
 import io.onedev.server.web.component.sideinfo.SideInfoPanel;
@@ -92,16 +90,12 @@ abstract class CardDetailPanel extends GenericPanel<Issue> implements InputConte
 				return CardDetailPanel.this.getIssue();
 			}
 
-			@Override
-			protected Project getProject() {
-				return CardDetailPanel.this.getProject();
-			}
-
 		});
 		
 		add(new SideInfoLink("moreInfoTrigger"));
 		
-		add(new IssueOperationsPanel("operations") {
+		Component operationsPanel;
+		add(operationsPanel = new IssueOperationsPanel("operations") {
 
 			@Override
 			protected Issue getIssue() {
@@ -149,25 +143,6 @@ abstract class CardDetailPanel extends GenericPanel<Issue> implements InputConte
 					}
 					
 				});
-				if (!getIssue().getPullRequests().isEmpty()) {
-					tabs.add(new AjaxActionTab(Model.of(_T("Pull Requests"))) {
-
-						@Override
-						protected void onSelect(AjaxRequestTarget target, Component tabLink) {
-							Component content = new IssuePullRequestsPanel(TAB_CONTENT_ID, new AbstractReadOnlyModel<Issue>() {
-
-								@Override
-								public Issue getObject() {
-									return getIssue();
-								}
-								
-							});
-							CardDetailPanel.this.replace(content);
-							target.add(content);
-						}
-						
-					});
-				}
 			}
 			
 			tabs.add(new AjaxActionTab(Model.of(_T("Fixing Builds"))) {
@@ -223,7 +198,12 @@ abstract class CardDetailPanel extends GenericPanel<Issue> implements InputConte
 			@Override
 			protected Component newBody(String componentId) {
 				return new IssueSidePanel(componentId) {
-					
+
+					@Override
+					protected void onBranchCreated(AjaxRequestTarget target) {
+						target.add(operationsPanel);
+					}
+
 					@Override
 					protected Issue getIssue() {
 						return CardDetailPanel.this.getIssue();

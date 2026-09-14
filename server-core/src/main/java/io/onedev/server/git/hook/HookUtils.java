@@ -18,10 +18,12 @@ import java.util.Map;
 
 public class HookUtils {
 
-	public static final String HOOK_TOKEN = CryptoUtils.generateSecret(); 
+	public static final String RECEIVE_HOOK_TOKEN = CryptoUtils.generateSecret();
+
+	public static final String PARAM_REF_UPDATES = "REF_UPDATES"; 
 	
 	private static final String gitReceiveHook;
-	
+
 	static {
         try (InputStream is = HookUtils.class.getClassLoader().getResourceAsStream("git-receive-hook")) {
         	Preconditions.checkNotNull(is);
@@ -30,61 +32,55 @@ public class HookUtils {
             throw new RuntimeException(e);
         }
 	}
-	
-	public static Map<String, String> getHookEnvs(Long projectId, String principal) {
+
+	public static Map<String, String> getCommonHookEnvs(String host) {
 		ServerConfig serverConfig = OneDev.getInstance(ServerConfig.class);
 		SettingService settingService = OneDev.getInstance(SettingService.class);
-		String hookUrl = "http://localhost:" + serverConfig.getHttpPort();
+		String hookUrl = "http://" + host + "/" + serverConfig.getHttpPort();
 		String curl = settingService.getSystemSetting().getCurlLocation().getExecutable();
 		
 		Map<String, String> envs = new HashMap<>();
 		
         envs.put("ONEDEV_CURL", curl);
 		envs.put("ONEDEV_URL", hookUrl);
-		envs.put("ONEDEV_HOOK_TOKEN", HOOK_TOKEN);
+				
+		return envs;
+	}
+
+	public static Map<String, String> getReceiveHookEnvs(Long projectId, String principal) {		
+		var envs = new HashMap<String, String>();
+		ServerConfig serverConfig = OneDev.getInstance(ServerConfig.class);
+		SettingService settingService = OneDev.getInstance(SettingService.class);
+		String hookUrl = "http://localhost:" + serverConfig.getHttpPort();
+		String curl = settingService.getSystemSetting().getCurlLocation().getExecutable();
+
+		envs.put("ONEDEV_CURL", curl);
+		envs.put("ONEDEV_URL", hookUrl);
+
+		envs.put("ONEDEV_HOOK_TOKEN", RECEIVE_HOOK_TOKEN);
 		envs.put("ONEDEV_USER_ID", principal);
-		envs.put("ONEDEV_REPOSITORY_ID", projectId.toString());
-		
-        envs.put("GITPLEX_CURL", curl);
-		envs.put("GITPLEX_URL", hookUrl);
-		envs.put("GITPLEX_USER_ID", principal);
-		envs.put("GITPLEX_REPOSITORY_ID", projectId.toString());
-		
+		envs.put("ONEDEV_REPOSITORY_ID", projectId.toString());				
 		return envs;
 	}
 	
-	public static boolean isHookValid(File gitDir, String hookName) {
-        File hookFile = new File(gitDir, "hooks/" + hookName);
-        if (!hookFile.exists()) 
-        	return false;
-        
-        try {
-			String content = FileUtils.readFileToString(hookFile, Charset.defaultCharset());
-			if (!content.contains("ONEDEV_HOOK_TOKEN"))
-				return false;
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
-		
-        if (!hookFile.canExecute())
-        	return false;
-        
-        return true;
+	public static void checkReceiveHooks(File gitDir) {
+		File hooksDir = new File(gitDir, "hooks");
+		installReceiveHook(new File(hooksDir, "pre-receive"), "git-prereceive-callback");
+		installReceiveHook(new File(hooksDir, "post-receive"), "git-postreceive-callback");
 	}
-	
-	public static void checkHooks(File gitDir) {
-		if (!isHookValid(gitDir, "pre-receive") 
-				|| !isHookValid(gitDir, "post-receive")) {
-            File hooksDir = new File(gitDir, "hooks");
 
-            File gitPreReceiveHookFile = new File(hooksDir, "pre-receive");
-            FileUtils.writeFile(gitPreReceiveHookFile, String.format(gitReceiveHook, "git-prereceive-callback"));
-            gitPreReceiveHookFile.setExecutable(true);
-            
-            File gitPostReceiveHookFile = new File(hooksDir, "post-receive");
-            FileUtils.writeFile(gitPostReceiveHookFile, String.format(gitReceiveHook, "git-postreceive-callback"));
-            gitPostReceiveHookFile.setExecutable(true);
-        }
+	private static void installReceiveHook(File hookFile, String callback) {
+		String content = String.format(gitReceiveHook, callback);
+		if (hookFile.exists() && hookFile.canExecute()) {
+			try {
+				if (content.equals(FileUtils.readFileToString(hookFile, Charset.defaultCharset())))
+					return;
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		}
+		FileUtils.writeFile(hookFile, content);
+		hookFile.setExecutable(true);
 	}
 	
 }

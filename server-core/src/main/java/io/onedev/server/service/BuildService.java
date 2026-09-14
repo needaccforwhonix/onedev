@@ -1,6 +1,8 @@
 package io.onedev.server.service;
 
 import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -67,10 +69,10 @@ public interface BuildService extends EntityService<Build> {
 	
 	List<Build> query(Subject subject, Project project, String fuzzyQuery, int count);
 
-	List<Build> query(Subject subject, @Nullable Project project, EntityQuery<Build> buildQuery, 
+	List<Build> query(Subject subject, @Nullable Project project, EntityQuery<Build> query, 
 					  boolean loadLabels, int firstResult, int maxResults);
 
-	int count(Subject subject, @Nullable Project project, Criteria<Build> buildCriteria);
+	int count(Subject subject, @Nullable Project project, @Nullable Criteria<Build> criteria);
 
 	Collection<Long> getNumbers(Long projectId);
 
@@ -85,11 +87,7 @@ public interface BuildService extends EntityService<Build> {
 
 	Map<Integer, Integer> queryFrequencyStats(Subject subject, Project project, @Nullable Criteria<Build> buildCriteria, 
 			@Nullable Date startDate, @Nullable Date endDate, StatsGroup group);
-	
-	Collection<String> getAccessibleJobNames(Subject subject, Project project);
-
-	Map<Project, Collection<String>> getAccessibleJobNames(Subject subject);
-	
+		
 	void populateBuilds(Collection<PullRequest> requests);
 	
 	void delete(Collection<Build> builds);
@@ -100,6 +98,12 @@ public interface BuildService extends EntityService<Build> {
 	
 	@Nullable
 	ArtifactInfo getArtifactInfo(Build build, @Nullable String artifactPath);
+
+	@NoDBAccess
+	void downloadArtifact(Long projectId, Long buildNumber, String artifactPath, OutputStream os);
+
+	@NoDBAccess
+	void uploadArtifact(Long projectId, Long buildNumber, String artifactPath, InputStream is);
 	
 	void deleteArtifact(Build build, @Nullable String artifactPath);
 	

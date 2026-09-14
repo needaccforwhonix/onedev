@@ -31,7 +31,6 @@
 				<a wicket:id="importProjects" class="import-projects d-inline-block mb-2 mr-4 text-gray">
 					<wicket:svg href="import" class="icon"></wicket:svg> <wicket:t>Import</wicket:t>
 				</a>
-				<span wicket:id="count" class="float-right text-gray"></span>
 			</div>
 			<div wicket:id="body">
 				<div wicket:id="feedback"></div>
@@ -47,10 +46,11 @@
 			</a> 
 			<span wicket:id="labels" class="mr-2"></span>
 		</div>
-		<div wicket:id="description" class="mt-1 font-size-sm text-muted"></div>
+		<div wicket:id="description" class="mt-2 font-size-sm text-muted"></div>
 		<div class="d-flex flex-wrap project-summary">
 			<div wicket:id="codeStats" class="code-stats mt-2 d-flex align-items-center flex-wrap mr-3"></div>
 			<div wicket:id="pullRequestStats" class="pull-request-stats mt-2 d-flex align-items-center flex-wrap"></div>
+			<div wicket:id="workspaceStats" class="workspace-stats mt-2 d-flex align-items-center flex-wrap mr-3"></div>
 		</div>
 		<div class="d-flex flex-wrap project-summary">
 			<div wicket:id="issueStats" class="issue-stats mt-2 d-flex align-items-center flex-wrap mr-3"></div>
@@ -62,10 +62,9 @@
 	</wicket:fragment>
 	<wicket:fragment wicket:id="childrenFrag">
 		<div class="d-flex flex-nowrap align-items-center mt-2">
-			<wicket:svg href="project" class="icon mr-1"/>
-			<a wicket:id="toggle" class="toggle-children mr-1"><wicket:svg href="arrow" class="icon"/></a>
-			<a wicket:id="link"><span wicket:id="label"></span></a>
+			<wicket:svg href="project" class="icon mr-2"/>
+			<a wicket:id="link" class="mr-1"><span wicket:id="label"></span></a>
+			<a wicket:id="treeTrigger" class="dropdown-triangle-indicator d-flex align-items-center justify-content-center"><span></span></a>
 		</div>
-		<div wicket:id="tree" class="child-projects mt-2"></div>
 	</wicket:fragment>
 </wicket:panel>

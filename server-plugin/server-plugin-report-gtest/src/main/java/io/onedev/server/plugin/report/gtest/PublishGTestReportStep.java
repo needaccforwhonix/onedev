@@ -11,8 +11,8 @@ import io.onedev.server.buildspec.BuildSpec;
 import io.onedev.server.buildspec.step.StepGroup;
 import io.onedev.server.model.Build;
 import io.onedev.server.plugin.report.unittest.PublishUnitTestReportStep;
-import io.onedev.server.plugin.report.unittest.UnitTestReport;
-import io.onedev.server.plugin.report.unittest.UnitTestReport.TestCase;
+import io.onedev.server.codequality.UnitTestReport;
+import io.onedev.server.codequality.UnitTestReport.TestCase;
 import io.onedev.server.util.XmlUtils;
 import org.dom4j.DocumentException;
 import org.dom4j.io.SAXReader;
@@ -30,7 +30,7 @@ public class PublishGTestReportStep extends PublishUnitTestReportStep {
 
 	private static final long serialVersionUID = 1L;
 
-	@Editable(order=100, description="Specify GoogleTest XML result file relative to <a href='https://docs.onedev.io/concepts#job-workspace'>job workspace</a>. " +
+	@Editable(order=100, description="Specify GoogleTest XML result file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. " +
 			"This report can be generated with environment variable <tt>GTEST_OUTPUT</tt> when running tests, " +
 			"For instance, <code>export GTEST_OUTPUT=&quot;xml:gtest-result.xml&quot;</code>. " +
 			"Use * or ? for pattern match")

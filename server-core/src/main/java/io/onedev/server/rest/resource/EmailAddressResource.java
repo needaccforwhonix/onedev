@@ -19,6 +19,7 @@ import javax.ws.rs.core.Response;
 import org.apache.shiro.authz.UnauthorizedException;
 
 import io.onedev.commons.utils.ExplicitException;
+import io.onedev.server.exception.NotAcceptableException;
 import io.onedev.server.model.EmailAddress;
 import io.onedev.server.model.User;
 import io.onedev.server.rest.annotation.Api;
@@ -73,11 +74,13 @@ public class EmailAddressResource {
 		if (!SecurityUtils.isAdministrator() && !owner.equals(getAuthUser()))
 			throw new UnauthorizedException();
 		else if (owner.isDisabled())
-			throw new ExplicitException("Can not set email address for disabled user");
+			throw new NotAcceptableException("Cannot set email address for disabled user");
 		else if (owner.getType() != User.Type.ORDINARY)
-			throw new ExplicitException("Can not set email address for service or ai user");
+			throw new NotAcceptableException("Cannot set email address for service or ai user");
+		else if (User.getLoginName(emailAddress.getValue()) != null)
+			throw new NotAcceptableException("Email address with noreply domain is not allowed");
 		else if (emailAddressService.findByValue(emailAddress.getValue()) != null)
-			throw new ExplicitException("This email address is already used by another user");
+			throw new NotAcceptableException("This email address is already used by another user");
 		
 		if (SecurityUtils.isAdministrator()) 
 			emailAddress.setVerificationCode(null);
@@ -89,40 +92,6 @@ public class EmailAddressResource {
 		return emailAddress.getId();
 	}
 	
-	@Api(order=220, description="Set as public email address")
-	@Path("/public")
-	@POST
-	public Long setAsPublic(@NotNull Long emailAddressId) {
-		var emailAddress = emailAddressService.load(emailAddressId);
-		var owner = emailAddress.getOwner();
-		if (!SecurityUtils.isAdministrator() && !owner.equals(getAuthUser()))
-			throw new UnauthorizedException();
-				
-		emailAddressService.setAsPublic(emailAddress);
-
-		if (!getAuthUser().equals(owner)) 
-			auditService.audit(null, "set email address \"" + emailAddress.getValue() + "\" as public in account \"" + owner.getName() + "\" via RESTful API", null, null);
-		
-		return emailAddressId;
-	}
-
-	@Api(order=230, description="Set as private email address")
-	@Path("/private")
-	@POST
-	public Long setAsPrivate(@NotNull Long emailAddressId) {
-		var emailAddress = emailAddressService.load(emailAddressId);
-		var owner = emailAddress.getOwner();
-		if (!SecurityUtils.isAdministrator() && !owner.equals(getAuthUser()))
-			throw new UnauthorizedException();
-		
-		emailAddressService.setAsPrivate(emailAddress);
-
-		if (!getAuthUser().equals(owner)) 
-			auditService.audit(null, "set email address \"" + emailAddress.getValue() + "\" as private in account \"" + owner.getName() + "\" via RESTful API", null, null);
-		
-		return emailAddressId;
-	}
-
 	@Api(order=250, description="Set as primary email address")
 	@Path("/primary")
 	@POST
@@ -133,28 +102,12 @@ public class EmailAddressResource {
 			throw new UnauthorizedException();
 		
 		if (owner.getPassword() == null)
-			throw new ExplicitException("Can not set primary email address for externally authenticated user");
+			throw new ExplicitException("Cannot set primary email address for externally authenticated user");
 		
 		emailAddressService.setAsPrimary(emailAddress);
 
 		if (!getAuthUser().equals(owner)) 
 			auditService.audit(null, "set email address \"" + emailAddress.getValue() + "\" as primary in account \"" + owner.getName() + "\" via RESTful API", null, null);
-		
-		return emailAddressId;
-	}
-	
-	@Api(order=260, description="Use for git operations")
-	@Path("/git")
-	@POST
-	public Long useForGitOperations(@NotNull Long emailAddressId) {
-		var emailAddress = emailAddressService.load(emailAddressId);
-		if (!SecurityUtils.isAdministrator() && !emailAddress.getOwner().equals(getAuthUser()))
-			throw new UnauthorizedException();
-		
-		emailAddressService.useForGitOperations(emailAddress);
-		
-		if (!getAuthUser().equals(emailAddress.getOwner())) 
-			auditService.audit(null, "specified email address \"" + emailAddress.getValue() + "\" for git operations in account \"" + emailAddress.getOwner().getName() + "\" via RESTful API", null, null);
 		
 		return emailAddressId;
 	}
@@ -186,7 +139,7 @@ public class EmailAddressResource {
 			throw new UnauthorizedException();
 		
 		if (emailAddress.isPrimary() && emailAddress.getOwner().getPassword() == null) {
-			throw new ExplicitException("Can not delete primary email address of "
+			throw new ExplicitException("Cannot delete primary email address of "
 					+ "externally authenticated user");
 		}
 		if (emailAddress.getOwner().getEmailAddresses().size() == 1)

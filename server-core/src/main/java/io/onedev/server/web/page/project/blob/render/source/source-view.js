@@ -20,7 +20,8 @@ onedev.server.sourceView = {
 			matchBrackets: true,
 			scrollbarStyle: "simple",
 			highlightIdentifiers: {delay: 500},
-			gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+			gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+			specialChars: /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u200b\u200e\u200f\u2028\u2029\u202d\u202e\u2066\u2067\u2069\ufff9-\ufffc]/g
 		});
 
 		onedev.server.codemirror.setModeByFileName(cm, filePath);
@@ -81,10 +82,13 @@ onedev.server.sourceView = {
 	    
 	    $code.mouseover(function(e) {
 			var node = e.target || e.srcElement, $node = $(node);
-			if ($node.hasClass("cm-property") || $node.hasClass("cm-variable") || $node.hasClass("cm-variable-2") 
-					|| $node.hasClass("cm-variable-3") || $node.hasClass("cm-def") || $node.hasClass("cm-meta")
-					|| $node.hasClass("cm-string") || $node.hasClass("cm-tag") || $node.hasClass("cm-attribute")
-					|| $node.hasClass("cm-builtin") || $node.hasClass("cm-qualifier")) {
+			if ($node.hasClass("cm-property") || $node.hasClass("cm-variable") 
+					|| $node.hasClass("cm-variable-2") || $node.hasClass("cm-variable-3") 
+					|| $node.hasClass("cm-def") || $node.hasClass("cm-meta")
+					|| $node.hasClass("cm-string") || $node.hasClass("cm-string-2") 
+					|| $node.hasClass("cm-tag") || $node.hasClass("cm-attribute") 
+					|| $node.hasClass("cm-builtin") || $node.hasClass("cm-qualifier") 
+					|| $node.hasClass("cm-type")) {
 				document.getElementById(symbolTooltipId).onMouseOverSymbol(revision, node);
 			}
 	    });
@@ -429,7 +433,7 @@ onedev.server.sourceView = {
 
 		var explainSelectionText = onedev.server.sourceView.translations["explain-selection"];
 		if (explainSelectionText) {
-			svg = `<svg class='icon mr-1'><use xlink:href='${onedev.server.icons}#ai2'/></svg>`;
+			svg = `<svg class='icon mr-1'><use xlink:href='${onedev.server.icons}#question-circle'/></svg>`;
 			$content.append(`<a class='explain-selection'>${svg} ${explainSelectionText}</a>`);
 			$content.children("a.explain-selection").click(function() {
 				$(".selection-popover").remove();
@@ -556,7 +560,7 @@ onedev.server.sourceView = {
 		$(".comment-popover a").removeClass("active");
 		
 		/*
-		 * we can not simply select all comment triggers via jQuery 
+		 * we cannot simply select all comment triggers via jQuery 
 		 * as comment gutter may be create/destroy dynamically by 
 		 * CodeMirror 
 		 */

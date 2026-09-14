@@ -79,7 +79,7 @@ public class PackListPage extends LayoutPage {
 
 			@Override
 			protected QueryPersonalization<NamedPackQuery> getQueryPersonalization() {
-				return getLoginUser().getPackQueryPersonalization();
+				return getLoginUser() != null ? getLoginUser().getPackQueryPersonalization() : null;
 			}
 
 			@Override
@@ -203,7 +203,7 @@ public class PackListPage extends LayoutPage {
 					@Override
 					public boolean isSavedQueriesVisible() {
 						savedQueries.configure();
-						return savedQueries.isVisible();
+						return savedQueries.isOpen();
 					}
 
 				};

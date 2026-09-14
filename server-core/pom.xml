@@ -7,7 +7,7 @@
 	<parent>
 		<groupId>io.onedev</groupId>
 		<artifactId>server</artifactId>
-		<version>13.1.7</version>
+		<version>16.6.3</version>
 	</parent>
 	<build>
 		<plugins>
@@ -422,8 +422,17 @@
 			<version>9.2</version>
 		</dependency>
 		<dependency>
+			<groupId>org.jetbrains.kotlin</groupId>
+			<artifactId>kotlin-stdlib</artifactId>
+			<version>${kotlin.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>dev.langchain4j</groupId>
 			<artifactId>langchain4j-open-ai</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>dev.langchain4j</groupId>
+			<artifactId>langchain4j-http-client-jdk</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>dev.langchain4j</groupId>
@@ -431,7 +440,7 @@
 		</dependency>
 	</dependencies>
 	<properties>
-		<kotlin.version>1.9.23</kotlin.version>
+		<kotlin.version>2.1.21</kotlin.version>
 		<moduleClass>io.onedev.server.CoreModule</moduleClass>
 	</properties>
 </project>

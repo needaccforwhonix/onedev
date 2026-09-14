@@ -1,7 +1,8 @@
 package io.onedev.server.web.page.project.pullrequests.create;
 
+import static io.onedev.server.ai.ToolUtils.getDiffTools;
+import static io.onedev.server.ai.ToolUtils.wrapForChat;
 import static io.onedev.server.model.PullRequest.MAX_DESCRIPTION_LEN;
-import static io.onedev.server.model.PullRequest.MAX_TITLE_LEN;
 import static io.onedev.server.search.commit.Revision.Type.COMMIT;
 import static io.onedev.server.web.translation.Translation._T;
 import static org.apache.wicket.ajax.attributes.CallbackParameter.explicit;
@@ -18,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
@@ -59,18 +59,18 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 
-import dev.langchain4j.data.message.SystemMessage;
-import dev.langchain4j.data.message.UserMessage;
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.commons.utils.PlanarRange;
+import io.onedev.server.ai.ChatTool;
 import io.onedev.server.attachment.AttachmentSupport;
 import io.onedev.server.attachment.ProjectAttachmentSupport;
 import io.onedev.server.codequality.CodeProblem;
-import io.onedev.server.codequality.CodeProblemContribution;
+import io.onedev.server.codequality.CoverageStats;
 import io.onedev.server.codequality.CoverageStatus;
-import io.onedev.server.codequality.LineCoverageContribution;
+import io.onedev.server.codequality.ProblemReport;
 import io.onedev.server.exception.ExceptionUtils;
 import io.onedev.server.git.GitUtils;
 import io.onedev.server.git.service.GitService;
@@ -125,7 +125,7 @@ import io.onedev.server.web.editable.BeanContext;
 import io.onedev.server.web.page.project.ProjectPage;
 import io.onedev.server.web.page.project.commits.CommitDetailPage;
 import io.onedev.server.web.page.project.compare.RevisionComparePage;
-import io.onedev.server.web.page.project.dashboard.ProjectDashboardPage;
+import io.onedev.server.web.page.project.overview.ProjectOverviewPage;
 import io.onedev.server.web.page.project.pullrequests.ProjectPullRequestsPage;
 import io.onedev.server.web.page.project.pullrequests.detail.PullRequestDetailPage;
 import io.onedev.server.web.page.project.pullrequests.detail.activities.PullRequestActivitiesPage;
@@ -167,12 +167,6 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 
 	@Inject
 	private CodeCommentStatusChangeService codeCommentStatusChangeService;
-
-	@Inject
-	private Set<CodeProblemContribution> codeProblemContributions;
-
-	@Inject
-	private Set<LineCoverageContribution> lineCoverageContributions;
 
 	private ProjectAndBranch target;
 	
@@ -221,10 +215,7 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 	@Nullable
 	private String suggestSourceBranch() {
 		User user = getLoginUser();
-		Collection<String> verifiedEmailAddresses = user.getEmailAddresses().stream()
-				.filter(it->it.isVerified())
-				.map(it->it.getValue())
-				.collect(Collectors.toSet());
+		Collection<String> verifiedEmailAddresses = user.getVerifiedEmailAddresses();
 		List<Pair<String, Integer>> branchUpdates = new ArrayList<>(); 
 		for (RefFacade ref: getProject().getBranchRefs()) {
 			RevCommit commit = (RevCommit) ref.getPeeledObj();
@@ -699,89 +690,19 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 				var suggestTitle = params.getParameterValue("suggestTitle").toBoolean();
 				var suggestDescription = params.getParameterValue("suggestDescription").toBoolean();
 
+				var chatModel = Preconditions.checkNotNull(settingService.getAiSetting().getLiteModel());
+
 				String title;
 				String description;
 				try {
-					if (suggestTitle || suggestDescription) {
-						var chatModel = settingService.getAiSetting().getLiteModel();
-						var sourceBranchSemantic = getPullRequest().getSourceBranchSemantic();
-						String titleSuggestInstruction;
-						if (sourceBranchSemantic.isWorkInProgress()) {
-							if (sourceBranchSemantic.getWorkType() != null) {
-								titleSuggestInstruction = """
-									When suggesting pull request title, you should not add work in progress prefix
-									or conventional commit type prefix to the title even if commit messages 
-									indicate that.
-									""";
-							} else {
-								titleSuggestInstruction = """
-									When suggesting pull request title, you should not add work in progress prefix
-									to the title even if commit messages indicate that. 
-									""";
-							}
-						} else {
-							if (sourceBranchSemantic.getWorkType() != null) {
-								titleSuggestInstruction = """
-									When suggesting pull request title, you should not add conventional commit type prefix
-									to the title even if commit messages indicate that.
-									""";
-							} else {
-								titleSuggestInstruction = "";
-							}
-						}
-
-						var userPrompt = getPullRequest().getLatestUpdate().getCommits().stream()
-								.map(it -> it.getFullMessage())
-								.collect(Collectors.toList());
-						var userMessage = new UserMessage("A json array of commit messages:\n" + objectMapper.writeValueAsString(userPrompt));
-						if (!suggestTitle) {
-							var systemMessage = new SystemMessage(String.format("""
-								You are a helpful assistant that can suggest pull request description by 
-								summarizing multiple commit messages. Maximum %d characters allowed for 
-								the description.
-								
-								IMPORTANT: only return the description, no other text or comments.
-								""", MAX_DESCRIPTION_LEN));								
-							description = chatModel.chat(systemMessage, userMessage).aiMessage().text();
-							title = "";
-						} else if (!suggestDescription) {
-							var systemMessage = new SystemMessage(String.format("""
-								You are a helpful assistant that can suggest pull request title by summarizing 
-								multiple commit messages. %s Maximum %d characters allowed for the title. 
-
-								IMPORTANT: only return the title, no other text or comments.
-								""", titleSuggestInstruction, MAX_TITLE_LEN));			
-							title = (getPullRequest().getTitlePrefix(sourceBranchSemantic) + chatModel.chat(systemMessage, userMessage).aiMessage().text()).trim();
-							description = "";
-						} else {
-							var systemMessage = new SystemMessage(String.format("""
-								You are a helpful assistant that can suggest pull request title and description 
-								by summarizing multiple commit messages. %s Maximum %d characters allowed for the title, 
-								and %d characters allowed for the description.
-
-								IMPORTANT: only return a VALID json object with "title" property set to the title and "description" 
-								property set to the description, no other text or comments.
-								""", titleSuggestInstruction, MAX_TITLE_LEN, MAX_DESCRIPTION_LEN));								
-							var responseText = chatModel.chat(systemMessage, userMessage).aiMessage().text();
-							if (responseText.startsWith("```json"))
-								responseText = responseText.substring("```json".length());
-							if (responseText.endsWith("```"))
-								responseText = responseText.substring(0, responseText.length() - "```".length());
-							var response = objectMapper.readTree(responseText);
-							if (response.has("title")) {
-								title = (getPullRequest().getTitlePrefix(sourceBranchSemantic) + response.get("title").asText()).trim();
-							} else {
-								title = "";
-							}
-							if (response.has("description"))
-								description = response.get("description").asText();
-							else
-								description = "";
-						}
-					} else {
+					var titleAndDescription = pullRequestService.suggestTitleAndDescription(
+							getPullRequest(), chatModel, suggestTitle, suggestDescription);
+					title = titleAndDescription.getLeft();
+					description = titleAndDescription.getRight();
+					if (title == null)
 						title = "";
-						description = "";						
-					}
+					if (description == null)
+						description = "";
 				} catch (Exception e) {
 					title = "";
 					description = "";
@@ -1197,8 +1118,7 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 		Set<CodeProblem> problems = new HashSet<>();
 		ObjectId baseCommitId = ObjectId.fromString(getPullRequest().getBaseCommitHash());
 		for (Build build: target.getProject().getBuilds(baseCommitId)) {
-			for (CodeProblemContribution contribution: codeProblemContributions)
-				problems.addAll(contribution.getCodeProblems(build, blobPath, null));
+			problems.addAll(ProblemReport.getCodeProblems(build, blobPath, null));
 		}
 		return problems;
 	}
@@ -1207,8 +1127,7 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 	public Collection<CodeProblem> getNewProblems(String blobPath) {
 		Set<CodeProblem> problems = new HashSet<>();
 		for (Build build: source.getProject().getBuilds(source.getObjectId())) {
-			for (CodeProblemContribution contribution: codeProblemContributions)
-				problems.addAll(contribution.getCodeProblems(build, blobPath, null));
+			problems.addAll(ProblemReport.getCodeProblems(build, blobPath, null));
 		}
 		return problems;
 	}
@@ -1218,11 +1137,9 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 		Map<Integer, CoverageStatus> coverages = new HashMap<>();
 		ObjectId baseCommitId = ObjectId.fromString(getPullRequest().getBaseCommitHash());
 		for (Build build: target.getProject().getBuilds(baseCommitId)) {
-			for (LineCoverageContribution contribution: lineCoverageContributions) {
-				contribution.getLineCoverages(build, blobPath, null).forEach((key, value) -> {
-					coverages.merge(key, value, (v1, v2) -> v1.mergeWith(v2));
-				});
-			}
+			CoverageStats.getLineCoverages(build, blobPath, null).forEach((key, value) -> {
+				coverages.merge(key, value, (v1, v2) -> v1.mergeWith(v2));
+			});
 		}
 		return coverages;
 	}
@@ -1231,11 +1148,9 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 	public Map<Integer, CoverageStatus> getNewCoverages(String blobPath) {
 		Map<Integer, CoverageStatus> coverages = new HashMap<>();
 		for (Build build: source.getProject().getBuilds(source.getObjectId())) {
-			for (LineCoverageContribution contribution: lineCoverageContributions) {
-				contribution.getLineCoverages(build, blobPath, null).forEach((key, value) -> {
-					coverages.merge(key, value, (v1, v2) -> v1.mergeWith(v2));
-				});
-			}
+			CoverageStats.getLineCoverages(build, blobPath, null).forEach((key, value) -> {
+				coverages.merge(key, value, (v1, v2) -> v1.mergeWith(v2));
+			});
 		}
 		return coverages;
 	}
@@ -1295,7 +1210,19 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 		if (project.isCodeManagement() && SecurityUtils.canReadCode(project)) 
 			return new ViewStateAwarePageLink<Void>(componentId, ProjectPullRequestsPage.class, ProjectPullRequestsPage.paramsOf(project, 0));
 		else
-			return new ViewStateAwarePageLink<Void>(componentId, ProjectDashboardPage.class, ProjectDashboardPage.paramsOf(project.getId()));
+			return new ViewStateAwarePageLink<Void>(componentId, ProjectOverviewPage.class, ProjectOverviewPage.paramsOf(project.getId()));
+	}
+
+	@Override
+	public List<ChatTool> getChatTools() {
+		var tools = super.getChatTools();
+		if (!getPullRequest().isMerged()) {
+			var projectId = getProject().getId();
+			var oldCommitId = ObjectId.fromString(getPullRequest().getBaseCommitHash());
+			var newCommitId = ObjectId.fromString(getPullRequest().getLatestUpdate().getHeadCommitHash());
+			tools.addAll(wrapForChat(getDiffTools(projectId, oldCommitId, newCommitId, null)));
+		}
+		return tools;
 	}
 	
 }

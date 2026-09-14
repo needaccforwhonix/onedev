@@ -13,7 +13,6 @@ import static io.onedev.server.model.Issue.NAME_HEART_COUNT;
 import static io.onedev.server.model.Issue.NAME_LAST_ACTIVITY_DATE;
 import static io.onedev.server.model.Issue.NAME_PROGRESS;
 import static io.onedev.server.model.Issue.NAME_PROJECT;
-import static io.onedev.server.model.Issue.NAME_ROCKET_COUNT;
 import static io.onedev.server.model.Issue.NAME_SMILE_COUNT;
 import static io.onedev.server.model.Issue.NAME_SPENT_TIME;
 import static io.onedev.server.model.Issue.NAME_STATE;
@@ -21,11 +20,11 @@ import static io.onedev.server.model.Issue.NAME_SUBMIT_DATE;
 import static io.onedev.server.model.Issue.NAME_TADA_COUNT;
 import static io.onedev.server.model.Issue.NAME_THUMBS_DOWN_COUNT;
 import static io.onedev.server.model.Issue.NAME_THUMBS_UP_COUNT;
+import static io.onedev.server.model.Issue.NAME_TICK_COUNT;
 import static io.onedev.server.model.Issue.NAME_TITLE;
 import static io.onedev.server.model.Issue.NAME_VOTE_COUNT;
 import static io.onedev.server.model.Issue.QUERY_FIELDS;
 import static io.onedev.server.model.Issue.SORT_FIELDS;
-import static io.onedev.server.search.entity.EntityQuery.getValue;
 import static io.onedev.server.search.entity.issue.IssueQuery.checkField;
 import static io.onedev.server.search.entity.issue.IssueQuery.getOperator;
 import static io.onedev.server.search.entity.issue.IssueQuery.getRuleName;
@@ -41,12 +40,14 @@ import static io.onedev.server.search.entity.issue.IssueQueryLexer.HasAny;
 import static io.onedev.server.search.entity.issue.IssueQueryLexer.Mentioned;
 import static io.onedev.server.search.entity.issue.IssueQueryLexer.MentionedMe;
 import static io.onedev.server.search.entity.issue.IssueQueryLexer.OrderBy;
+import static io.onedev.server.search.entity.issue.IssueQueryLexer.ReferencedInCurrentBranch;
 import static io.onedev.server.search.entity.issue.IssueQueryLexer.SubmittedBy;
 import static io.onedev.server.search.entity.issue.IssueQueryLexer.SubmittedByMe;
 import static io.onedev.server.search.entity.issue.IssueQueryLexer.WatchedBy;
 import static io.onedev.server.search.entity.issue.IssueQueryLexer.WatchedByMe;
 import static io.onedev.server.search.entity.issue.IssueQueryParser.IgnoredBy;
 import static io.onedev.server.search.entity.issue.IssueQueryParser.IgnoredByMe;
+import static io.onedev.server.util.QueryUtils.getValue;
 import static io.onedev.server.web.translation.Translation._T;
 import static java.util.stream.Collectors.toList;
 
@@ -96,15 +97,15 @@ import io.onedev.server.model.support.issue.field.spec.choicefield.ChoiceField;
 import io.onedev.server.model.support.issue.field.spec.userchoicefield.UserChoiceField;
 import io.onedev.server.search.entity.issue.IssueQueryParseOption;
 import io.onedev.server.search.entity.issue.IssueQueryParser;
-import io.onedev.server.search.entity.project.ProjectQuery;
 import io.onedev.server.service.GroupService;
 import io.onedev.server.service.LinkSpecService;
 import io.onedev.server.service.SettingService;
-import io.onedev.server.util.ComponentContext;
+import io.onedev.server.util.ComponentHierarchical;
 import io.onedev.server.util.DateUtils;
-import io.onedev.server.web.behavior.inputassist.NaturalLanguageTranslator;
+import io.onedev.server.util.HierarchicalContext;
 import io.onedev.server.web.behavior.inputassist.ANTLRAssistBehavior;
 import io.onedev.server.web.behavior.inputassist.InputAssistBehavior;
+import io.onedev.server.web.behavior.inputassist.NaturalLanguageTranslator;
 import io.onedev.server.web.util.SuggestionUtils;
 import io.onedev.server.web.util.WicketUtils;
 
@@ -141,7 +142,9 @@ public class IssueQueryBehavior extends ANTLRAssistBehavior {
 		
 		if (terminalExpect.getElementSpec() instanceof LexerRuleRefElementSpec) {
 			LexerRuleRefElementSpec spec = (LexerRuleRefElementSpec) terminalExpect.getElementSpec();
-			if (spec.getRuleName().equals("Quoted")) {
+			if (spec.getRuleName().equals("Number")) {
+				return SuggestionUtils.suggestNumber(terminalExpect.getUnmatchedText(), _T("find by number"), true);
+			} else if (spec.getRuleName().equals("Quoted")) {
 				return new FenceAware(codeAssist.getGrammar(), '"', '"') {
 
 					private Map<String, String> getFieldCandidates(Collection<String> fields) {
@@ -253,13 +256,13 @@ public class IssueQueryBehavior extends ANTLRAssistBehavior {
 										} else if (fieldSpec instanceof UserChoiceField) {
 											return SuggestionUtils.suggestUsers(matchWith);
 										} else if (fieldSpec instanceof IssueChoiceField) {
-											return SuggestionUtils.suggestIssues(project, matchWith, InputAssistBehavior.MAX_SUGGESTIONS);
+											return SuggestionUtils.suggestNumber(matchWith, _T("specify issue number"), false);
 										} else if (fieldSpec instanceof BuildChoiceField) {
-											return SuggestionUtils.suggestBuilds(project, matchWith, InputAssistBehavior.MAX_SUGGESTIONS);
+											return SuggestionUtils.suggestNumber(matchWith, _T("specify build number"), false);
 										} else if (fieldSpec instanceof CommitField) {
 											return null;
 										} else if (fieldSpec instanceof PullRequestChoiceField) {
-											return SuggestionUtils.suggestPullRequests(project, matchWith, InputAssistBehavior.MAX_SUGGESTIONS);
+											return SuggestionUtils.suggestNumber(matchWith, _T("specify pull request number"), false);
 										} else if (fieldSpec instanceof BooleanField) {
 											return SuggestionUtils.suggest(newArrayList("true", "false"), matchWith);
 										} else if (fieldSpec instanceof GroupChoiceField) {
@@ -282,16 +285,16 @@ public class IssueQueryBehavior extends ANTLRAssistBehavior {
 													.collect(Collectors.toList());
 											return SuggestionUtils.suggest(candidates, matchWith);
 										} else if (fieldSpec instanceof ChoiceField) {
-											ComponentContext.push(new ComponentContext(getComponent()));
+											HierarchicalContext.push(new HierarchicalContext(new ComponentHierarchical(getComponent())));
 											try {
 												List<String> candidates = new ArrayList<>(((ChoiceField)fieldSpec)
 														.getChoiceProvider().getChoices(true).keySet());
 												return SuggestionUtils.suggest(candidates, matchWith);
 											} finally {
-												ComponentContext.pop();
+												HierarchicalContext.pop();
 											}			
 										} else if (fieldName.equals(NAME_NUMBER)) {
-											return SuggestionUtils.suggestIssues(project, matchWith, InputAssistBehavior.MAX_SUGGESTIONS);
+											return SuggestionUtils.suggestNumber(matchWith, _T("find by number"), false);
 										} else if (fieldName.equals(IssueSchedule.NAME_ITERATION)) {
 											if (project != null && !matchWith.contains("*"))
 												return SuggestionUtils.suggestIterations(project, matchWith);
@@ -318,8 +321,8 @@ public class IssueQueryBehavior extends ANTLRAssistBehavior {
 												|| fieldName.equals(NAME_TADA_COUNT) 
 												|| fieldName.equals(NAME_CONFUSED_COUNT)
 												|| fieldName.equals(NAME_HEART_COUNT) 
-												|| fieldName.equals(NAME_ROCKET_COUNT)
-												|| fieldName.equals(NAME_EYES_COUNT) 
+												|| fieldName.equals(NAME_EYES_COUNT)
+												|| fieldName.equals(NAME_TICK_COUNT)
 												|| fieldSpec instanceof IntegerField
 												|| fieldSpec instanceof TextField) {
 											return null;
@@ -364,6 +367,7 @@ public class IssueQueryBehavior extends ANTLRAssistBehavior {
 				|| !option.withCurrentBuildCriteria() && suggestedLiteral.equals(getRuleName(FixedInCurrentBuild))
 				|| !option.withCurrentPullRequestCriteria() && suggestedLiteral.equals(getRuleName(FixedInCurrentPullRequest))
 				|| !option.withCurrentCommitCriteria() && suggestedLiteral.equals(getRuleName(FixedInCurrentCommit))
+				|| !option.withCurrentBranchCriteria() && suggestedLiteral.equals(getRuleName(ReferencedInCurrentBranch))
 				|| !option.withCurrentIssueCriteria() && suggestedLiteral.equals(getRuleName(CurrentIssue))) {
 			return null;
 		} else if (suggestedLiteral.equals(",")) {
@@ -371,11 +375,6 @@ public class IssueQueryBehavior extends ANTLRAssistBehavior {
 				return Optional.of(_T("add another order"));
 			else
 				return Optional.of(_T("or match another value"));
-		} else if (suggestedLiteral.equals("#")) {
-			if (getProject() != null)
-				return Optional.of(_T("find issue by number"));
-			else 
-				return null;
 		}
 		parseExpect = parseExpect.findExpectByLabel("operator");
 		if (parseExpect != null) {
@@ -397,11 +396,11 @@ public class IssueQueryBehavior extends ANTLRAssistBehavior {
 		List<String> hints = new ArrayList<>();
 		GlobalIssueSetting issueSetting = getSettingService().getIssueSetting();
 		if (terminalExpect.getElementSpec() instanceof LexerRuleRefElementSpec) {
-			LexerRuleRefElementSpec spec = (LexerRuleRefElementSpec) terminalExpect.getElementSpec();
-			if ("criteriaValue".equals(spec.getLabel())) {
-				List<Element> fieldElements = terminalExpect.getState().findMatchedElementsByLabel("criteriaField", true);
+			ParseExpect criteriaValueExpect = terminalExpect.findExpectByLabel("criteriaValue");
+			if (criteriaValueExpect != null) {
+				List<Element> fieldElements = criteriaValueExpect.getState().findMatchedElementsByLabel("criteriaField", true);
 				if (!fieldElements.isEmpty()) {
-					String fieldName = ProjectQuery.getValue(fieldElements.get(0).getMatchedText());
+					String fieldName = getValue(fieldElements.get(0).getMatchedText());
 					var fieldSpec = issueSetting.getFieldSpec(fieldName);
 					if (fieldName.equals(Issue.NAME_PROJECT)) {
 						hints.add(_T("Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>"));
