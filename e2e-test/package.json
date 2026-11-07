@@ -16,7 +16,7 @@
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",
-    "nodemailer": "10.0.10",
+    "nodemailer": "10.1.4",
     "openid-client": "6.8.8"
   }
 }
