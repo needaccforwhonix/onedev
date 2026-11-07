@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.RandomStringUtils;
 import org.jspecify.annotations.Nullable;
 
 import org.apache.wicket.Component;
@@ -32,7 +33,8 @@ import org.apache.wicket.markup.html.link.BookmarkablePageLink;
 import org.apache.wicket.markup.html.link.Link;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.GenericPanel;
-import org.apache.wicket.markup.repeater.RepeatingView;
+import io.onedev.server.SubscriptionService;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.model.IModel;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -65,7 +67,6 @@ import io.onedev.server.model.support.pullrequest.changedata.PullRequestReopenDa
 import io.onedev.server.model.support.pullrequest.changedata.PullRequestRequestedForChangesData;
 import io.onedev.server.persistence.SessionService;
 import io.onedev.server.security.SecurityUtils;
-import io.onedev.server.util.CryptoUtils;
 import io.onedev.server.util.DateRange;
 import io.onedev.server.util.DateUtils;
 import io.onedev.server.web.component.taskbutton.TaskButton;
@@ -92,7 +93,6 @@ import io.onedev.server.web.component.user.profile.activity.UserActivity;
 import io.onedev.server.web.page.user.password.UserPasswordPage;
 import io.onedev.server.web.util.ConfirmClickModifier;
 import io.onedev.server.web.util.TextUtils;
-import io.onedev.server.web.util.WicketUtils;
 import io.onedev.server.xodus.CommitInfoService;
 
 public abstract class UserProfilePanel extends GenericPanel<User> {
@@ -258,7 +258,7 @@ public abstract class UserProfilePanel extends GenericPanel<User> {
 			var passwordResetRequestSentMessage = _T("Password reset request has been sent");
 			var noVerifiedPrimaryEmailAddressMessage = _T("No verified primary email address");
 			var mailServiceNotConfiguredMessage = _T("Unable to notify user as mail service is not configured");
-			var mailSubject = _T("[Reset Password] Please Reset Your OneDev Password");
+			var mailSubject = _T("[Reset Password] Please Reset Your ${productName} Password");
 			form.add(new TaskButton("tellUserToResetPassword") {
 
 				@Override
@@ -269,7 +269,7 @@ public abstract class UserProfilePanel extends GenericPanel<User> {
 						if (settingService.getMailConnector() != null) {
                             var user = getUser();
 							if (user.getPrimaryEmailAddress() != null && user.getPrimaryEmailAddress().isVerified()) {
-								String passwordResetCode = CryptoUtils.generateSecret();
+								String passwordResetCode = RandomStringUtils.secure().nextAlphanumeric(40);
 								user.setPasswordResetCode(passwordResetCode);
 								getUserService().update(user, null);
 
@@ -317,7 +317,7 @@ public abstract class UserProfilePanel extends GenericPanel<User> {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(SecurityUtils.isAdministrator() && getUser().isDisabled() && WicketUtils.isSubscriptionActive());
+				setVisible(SecurityUtils.isAdministrator() && getUser().isDisabled() && OneDev.getInstance(SubscriptionService.class).isSubscriptionActive());
 			}
 
 		}.add(new ConfirmClickModifier(_T("Do you really want to enable this account?"))));
@@ -338,7 +338,7 @@ public abstract class UserProfilePanel extends GenericPanel<User> {
 				setVisible(SecurityUtils.isAdministrator() 
                         && !getUser().equals(SecurityUtils.getAuthUser()) 
                         && !getUser().isDisabled() 
-                        && WicketUtils.isSubscriptionActive());
+                        && OneDev.getInstance(SubscriptionService.class).isSubscriptionActive());
 			}
 
 		}.add(new ConfirmClickModifier(_T("Disabling account will reset password, clear access tokens, "
@@ -443,7 +443,6 @@ public abstract class UserProfilePanel extends GenericPanel<User> {
         
         moreContainer.add(new AjaxLink<Void>("link") {
 
-            @SuppressWarnings("deprecation")
             @Override
             public void onClick(AjaxRequestTarget target) {
                 target.add(moreContainer);

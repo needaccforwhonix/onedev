@@ -1,23 +1,26 @@
 package io.onedev.server.model;
 
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.Index;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
+import java.io.Serial;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import io.onedev.server.model.support.EntityWatch;
 import io.onedev.server.rest.annotation.Immutable;
 
 @Entity
 @Table(
-		indexes={@Index(columnList="o_issue_id"), @Index(columnList="o_user_id")},
-		uniqueConstraints={@UniqueConstraint(columnNames={"o_issue_id", "o_user_id"})
+		indexes={@Index(columnList="issue_id"), @Index(columnList="user_id")},
+		uniqueConstraints={@UniqueConstraint(columnNames={"issue_id", "user_id"})
 })
 public class IssueWatch extends EntityWatch {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String PROP_ISSUE = "issue";

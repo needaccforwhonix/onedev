@@ -1,8 +1,9 @@
 package io.onedev.server.buildspec.step.branchnameprovider;
 
+import java.io.Serial;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.server.annotation.BranchName;
@@ -14,6 +15,7 @@ import io.onedev.server.model.Build;
 @Editable(order=200, name="Use specified branch name")
 public class SpecifiedBranchName implements BranchNameProvider {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String name;

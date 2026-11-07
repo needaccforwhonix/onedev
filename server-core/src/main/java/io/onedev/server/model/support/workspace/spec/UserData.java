@@ -1,13 +1,14 @@
 package io.onedev.server.model.support.workspace.spec;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.Size;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.k8shelper.UserDataFacade;
@@ -18,6 +19,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 @Editable
 public class UserData implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String key;
@@ -38,9 +40,8 @@ public class UserData implements Serializable {
 	}
 
 	@Editable(order=200, name="Data Entries", description = "Specify data entries to persist across workspaces")
-	@Valid
 	@Size(min=1, max=100)
-	public List<UserDataEntry> getEntries() {
+	public List<@Valid UserDataEntry> getEntries() {
 		return entries;
 	}
 

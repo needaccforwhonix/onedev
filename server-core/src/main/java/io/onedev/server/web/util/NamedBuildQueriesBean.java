@@ -1,9 +1,10 @@
 package io.onedev.server.web.util;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import io.onedev.server.model.support.build.NamedBuildQuery;
 import io.onedev.server.web.component.savedquery.NamedQueriesBean;
@@ -13,6 +14,7 @@ import io.onedev.server.annotation.OmitName;
 @Editable
 public class NamedBuildQueriesBean extends NamedQueriesBean<NamedBuildQuery> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private List<NamedBuildQuery> queries = new ArrayList<>();

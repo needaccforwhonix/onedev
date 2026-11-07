@@ -12,8 +12,8 @@ import io.onedev.server.security.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.io.File;
 import java.sql.SQLException;
 
@@ -73,7 +73,7 @@ public class RestoreDatabase extends CommandHandler {
 						ZipUtils.unzip(backupFile, dataDir);
 						doRestore(dataDir);
 					} finally {
-						FileUtils.deleteDir(dataDir);
+						FileUtils.deletePath(dataDir);
 					}
 				} else {
 					doRestore(backupFile);

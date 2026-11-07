@@ -1,6 +1,12 @@
 package io.onedev.server.persistence;
 
+import static org.hibernate.cfg.AvailableSettings.DIALECT;
+import static org.hibernate.cfg.AvailableSettings.QUERY_PLAN_CACHE_ENABLED;
+import static org.hibernate.cfg.AvailableSettings.QUERY_PLAN_CACHE_MAX_SIZE;
+import static org.hibernate.cfg.AvailableSettings.STATIC_METAMODEL_POPULATION;
+
 import java.util.Properties;
+import java.util.Set;
 
 import org.hibernate.Interceptor;
 import org.hibernate.SessionFactory;
@@ -9,7 +15,7 @@ import org.hibernate.boot.MetadataBuilder;
 import org.hibernate.boot.MetadataSources;
 import org.hibernate.boot.model.naming.PhysicalNamingStrategy;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
-import org.hibernate.service.ServiceRegistry;
+import org.hibernate.boot.registry.StandardServiceRegistry;
 
 import com.hazelcast.core.HazelcastInstance;
 
@@ -17,8 +23,8 @@ import io.onedev.commons.utils.ClassUtils;
 import io.onedev.server.cluster.ClusterService;
 import io.onedev.server.model.AbstractEntity;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
 @Singleton
 public class DefaultSessionFactoryService implements SessionFactoryService {
@@ -44,33 +50,62 @@ public class DefaultSessionFactoryService implements SessionFactoryService {
 		HazelcastInstance hazelcastInstance = clusterService.getHazelcastInstance();
 		Properties hibernateSettings = new Properties();
 		hibernateSettings.putAll(hibernateConfig);
-		if (hazelcastInstance != null) {
-			hibernateSettings.put("hibernate.cache.hazelcast.instance_name", hazelcastInstance.getName());
-		} else { 
-			hibernateSettings.put("hibernate.cache.use_second_level_cache", "false");
-			hibernateSettings.put("hibernate.cache.use_query_cache", "false");
-			hibernateSettings.put("hibernate.hikari.maximumPoolSize", "1");
+		// Cached Criteria plans can retain entities and their large object graphs.
+		// Override legacy cache sizes to avoid conflicting with the disabled cache.
+		hibernateSettings.put(QUERY_PLAN_CACHE_ENABLED, "false");
+		hibernateSettings.put(QUERY_PLAN_CACHE_MAX_SIZE, "0");
+		// We use the runtime JPA metamodel, but do not generate static metamodel classes.
+		hibernateSettings.putIfAbsent(STATIC_METAMODEL_POPULATION, "disabled");
+		// Keep the configured dialect for OneDev's upgrade/maintenance decisions,
+		// but let Hibernate detect standard dialects from JDBC metadata.
+		if (!"false".equalsIgnoreCase(hibernateSettings.getProperty("hibernate.boot.allow_jdbc_metadata_access"))
+				&& Set.of("org.hibernate.dialect.HSQLDialect", "org.hibernate.dialect.MySQLDialect",
+						"org.hibernate.dialect.MariaDBDialect")
+						.contains(hibernateSettings.getProperty(DIALECT, ""))) {
+			hibernateSettings.remove(DIALECT);
 		}
-		ServiceRegistry serviceRegistry = new StandardServiceRegistryBuilder()
-				.applySettings(hibernateSettings).build();
-		MetadataSources metadataSources = new MetadataSources(serviceRegistry);
-		for (Class<? extends AbstractEntity> each: 
-				ClassUtils.findImplementations(AbstractEntity.class, AbstractEntity.class)) {
-			metadataSources.addAnnotatedClass(each);
-		}
+		StandardServiceRegistry serviceRegistry = null;
+		try {
+			if (hazelcastInstance != null) {
+				hibernateSettings.put("hibernate.cache.hazelcast.instance_name", hazelcastInstance.getName());
+				// The cluster service owns the shared member, including its shutdown.
+				hibernateSettings.put("hibernate.cache.hazelcast.shutdown_on_session_factory_close", "false");
+			} else {
+				hibernateSettings.put("hibernate.cache.use_second_level_cache", "false");
+				hibernateSettings.put("hibernate.cache.use_query_cache", "false");
+				hibernateSettings.put("hibernate.hikari.maximumPoolSize", "1");
+			}
+			serviceRegistry = new StandardServiceRegistryBuilder()
+					.applySettings(hibernateSettings).build();
+			MetadataSources metadataSources = new MetadataSources(serviceRegistry);
+			for (Class<? extends AbstractEntity> each:
+					ClassUtils.findImplementations(AbstractEntity.class, AbstractEntity.class)) {
+				metadataSources.addAnnotatedClass(each);
+			}
 
-		MetadataBuilder builder = metadataSources.getMetadataBuilder();
-		metadata = builder.applyPhysicalNamingStrategy(physicalNamingStrategy).build();
-		sessionFactory = metadata.getSessionFactoryBuilder().applyInterceptor(interceptor).build();
+			MetadataBuilder builder = metadataSources.getMetadataBuilder();
+			metadata = builder.applyPhysicalNamingStrategy(physicalNamingStrategy).build();
+			sessionFactory = metadata.getSessionFactoryBuilder().applyInterceptor(interceptor).build();
+		} catch (RuntimeException | Error e) {
+			try {
+				if (serviceRegistry != null)
+					StandardServiceRegistryBuilder.destroy(serviceRegistry);
+			} finally {
+				stop();
+			}
+			throw e;
+		}
 	}
 
 	@Override
 	public void stop() {
-		if (sessionFactory != null) {
-			sessionFactory.close();
+		try {
+			if (sessionFactory != null)
+				sessionFactory.close();
+		} finally {
 			sessionFactory = null;
+			metadata = null;
 		}
-		metadata = null;
 	}
 	
 	@Override

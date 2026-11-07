@@ -1,11 +1,13 @@
 package io.onedev.server.model;
 
-import javax.persistence.*;
+import java.io.Serial;
+
+import jakarta.persistence.*;
 
 @Entity
 @Table(
-		indexes={@Index(columnList="o_comment_id"), @Index(columnList="o_user_id")},
-		uniqueConstraints={@UniqueConstraint(columnNames={"o_comment_id", "o_user_id"})}
+		indexes={@Index(columnList="comment_id"), @Index(columnList="user_id")},
+		uniqueConstraints={@UniqueConstraint(columnNames={"comment_id", "user_id"})}
 )
 public class CodeCommentMention extends AbstractEntity {
 
@@ -13,6 +15,7 @@ public class CodeCommentMention extends AbstractEntity {
 	
 	public static final String PROP_COMMENT = "comment";
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@ManyToOne

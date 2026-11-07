@@ -16,17 +16,19 @@ import io.onedev.server.codequality.CodeProblem;
 import io.onedev.server.model.Build;
 import io.onedev.server.plugin.report.problem.PublishProblemReportStep;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 import java.io.File;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
 @Editable(order=10000, group=StepGroup.PUBLISH, name="Pylint Report")
 public class PublishPylintReportStep extends PublishProblemReportStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
-	@Editable(order=100, description="Specify pylint json result file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. "
+	@Editable(order=100, description="Specify pylint json result file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>. "
 			+ "This file can be generated with pylint json output format option, for instance <code>--exit-zero --output-format=json:pylint-result.json</code>. "
 			+ "Note that we do not fail pylint command upon violations, as this step will fail build based on configured threshold. Use * or ? for pattern match")
 	@Interpolative(variableSuggester="suggestVariables")

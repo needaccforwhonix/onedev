@@ -1,10 +1,10 @@
 package io.onedev.server.git;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -26,7 +26,7 @@ import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.transport.PacketLineOut;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.util.io.NullOutputStream;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.Sets;
 import com.google.common.io.Resources;
@@ -53,7 +53,7 @@ public class GitUtilsTest extends AbstractGitTest {
 			assertTrue(response.contains("does not appear to be a git repository"));
 			assertTrue(response.endsWith("0000"));
 		} finally {
-			FileUtils.deleteDir(emptyDir);
+			FileUtils.deletePath(emptyDir);
 		}
 	}
 
@@ -450,7 +450,7 @@ public class GitUtilsTest extends AbstractGitTest {
 				}
 			}
 		} finally {
-			FileUtils.deleteDir(tempDir, 3);
+			FileUtils.deletePath(tempDir, 3);
 		}
 	}
 	
@@ -498,7 +498,7 @@ public class GitUtilsTest extends AbstractGitTest {
 				}
 			}
 		} finally {
-			FileUtils.deleteDir(tempDir, 3);
+			FileUtils.deletePath(tempDir, 3);
 		}	
 		
 	}	

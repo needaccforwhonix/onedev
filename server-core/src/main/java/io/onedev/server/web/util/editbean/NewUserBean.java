@@ -1,8 +1,10 @@
 package io.onedev.server.web.util.editbean;
 
-import javax.validation.constraints.Email;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
+import java.io.Serial;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 
 import io.onedev.server.annotation.DependsOn;
 import io.onedev.server.annotation.Editable;
@@ -12,6 +14,7 @@ import io.onedev.server.model.support.AiModelSetting;
 @Editable
 public class NewUserBean extends User {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String PROP_EMAIL_ADDRESS = "emailAddress";

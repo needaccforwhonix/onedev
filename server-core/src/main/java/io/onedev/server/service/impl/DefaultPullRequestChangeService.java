@@ -5,15 +5,15 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import org.hibernate.criterion.Order;
-import org.hibernate.criterion.Restrictions;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import io.onedev.server.persistence.dao.Order;
+import io.onedev.server.persistence.dao.Restrictions;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Predicate;
 
 import io.onedev.server.persistence.annotation.Sessional;
 import io.onedev.server.persistence.dao.EntityCriteria;
@@ -39,6 +39,7 @@ import io.onedev.server.model.support.pullrequest.changedata.PullRequestDescript
 import io.onedev.server.model.support.pullrequest.changedata.PullRequestMergeStrategyChangeData;
 import io.onedev.server.model.support.pullrequest.changedata.PullRequestTargetBranchChangeData;
 import io.onedev.server.model.support.pullrequest.changedata.PullRequestTitleChangeData;
+import io.onedev.server.model.support.pullrequest.changedata.PullRequestWorkInProgressChangeData;
 import io.onedev.server.persistence.annotation.Transactional;
 import io.onedev.server.service.PullRequestChangeService;
 
@@ -98,6 +99,22 @@ public class DefaultPullRequestChangeService extends BaseEntityService<PullReque
 		request.setAutoMerge(autoMerge);
 	}
 	
+	@Transactional
+	@Override
+	public void changeWorkInProgress(User user, PullRequest request, boolean workInProgress) {
+		if (request.isWorkInProgress() != workInProgress) {
+			request.setWorkInProgress(workInProgress);
+
+			PullRequestChange change = new PullRequestChange();
+			change.setDate(new Date());
+			change.setRequest(request);
+			change.setData(new PullRequestWorkInProgressChangeData(workInProgress));
+			change.setUser(user);
+			create(change, null);
+			dao.persist(request);
+		}
+	}
+
 	@Transactional
 	@Override
 	public void changeTitle(User user, PullRequest request, String title) {

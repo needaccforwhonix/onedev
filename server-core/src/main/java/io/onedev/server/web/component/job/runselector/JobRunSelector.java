@@ -1,12 +1,13 @@
 package io.onedev.server.web.component.job.runselector;
 
 import io.onedev.server.git.service.RefFacade;
+import io.onedev.server.job.JobAuthorizationContext;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.PullRequest;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.web.WebConstants;
 import io.onedev.server.web.asset.selectbytyping.SelectByTypingResourceReference;
-import io.onedev.server.web.behavior.InputChangeBehavior;
+import io.onedev.server.web.behavior.InputBehavior;
 import io.onedev.server.web.behavior.infinitescroll.InfiniteScrollBehavior;
 import io.onedev.server.web.component.job.RunJobLink;
 import org.apache.wicket.Component;
@@ -20,7 +21,7 @@ import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.TextField;
 import org.apache.wicket.markup.html.panel.Panel;
-import org.apache.wicket.markup.repeater.RepeatingView;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -38,15 +39,20 @@ public abstract class JobRunSelector extends Panel {
 		@Override
 		protected List<String> load() {
 			List<String> jobNames = new ArrayList<>();
-			var buildSpec = getProject().getBuildSpec(getCommitId());
-			if (buildSpec != null) {
-				for (var job: buildSpec.getJobs()) {
-					var jobName = job.getName();
-					if (SecurityUtils.canRunJob(getProject(), jobName) 
-							&& (searchInput == null || jobName.toLowerCase().contains(searchInput.toLowerCase()))) {
-						jobNames.add(jobName);
+			var commitId = getCommitId();
+			JobAuthorizationContext.push(new JobAuthorizationContext(getProject(), commitId, null));
+			try {
+				var buildSpec = getProject().getBuildSpec(commitId);
+				if (buildSpec != null) {
+					for (var jobName: buildSpec.getJobMap().keySet()) {
+						if (SecurityUtils.canRunJob(getProject(), jobName)
+								&& (searchInput == null || jobName.toLowerCase().contains(searchInput.toLowerCase()))) {
+							jobNames.add(jobName);
+						}
 					}
 				}
+			} finally {
+				JobAuthorizationContext.pop();
 			}
 			return jobNames;
 		}
@@ -127,10 +133,10 @@ public abstract class JobRunSelector extends Panel {
 
 		searchField = new TextField<>("search", Model.of(""));
 		add(searchField);
-		searchField.add(new InputChangeBehavior() {
+		searchField.add(new InputBehavior() {
 
 			@Override
-			protected void onInputChange(AjaxRequestTarget target) {
+			protected void onInput(AjaxRequestTarget target) {
 				searchInput = searchField.getInput();
 
 				target.add(jobsContainer);

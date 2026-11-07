@@ -1,16 +1,17 @@
 package io.onedev.server.model.support.administration;
 
 import java.io.IOException;
+import java.io.Serial;
 import java.io.Serializable;
 import java.security.GeneralSecurityException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 
-import javax.validation.ConstraintValidatorContext;
+import jakarta.validation.ConstraintValidatorContext;
 
 import org.apache.sshd.common.config.keys.KeyUtils;
 import org.apache.sshd.common.digest.BuiltinDigests;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.ssh.SshKeyUtils;
 import io.onedev.server.validation.Validatable;
@@ -23,6 +24,7 @@ import io.onedev.server.annotation.OmitName;
 @ClassValidating
 public class SshSetting implements Serializable, Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
     private String pemPrivateKey;

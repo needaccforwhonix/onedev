@@ -1,5 +1,6 @@
 package io.onedev.server.model.support.code;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -11,9 +12,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import javax.validation.Valid;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 
 import org.eclipse.jgit.lib.ObjectId;
 import org.jspecify.annotations.Nullable;
@@ -43,6 +45,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 @Editable
 public class BranchProtection implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private boolean enabled = true;
@@ -83,7 +86,7 @@ public class BranchProtection implements Serializable {
 		this.enabled = enabled;
 	}
 
-	@Editable(order=100, description="Specify space-separated branches to be protected. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
+	@Editable(order=100, description="Specify space-separated branches to be protected. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
 			+ "Prefix with '-' to exclude")
 	@Patterns(suggester = "suggestBranches", path=true)
 	@NotEmpty
@@ -192,7 +195,8 @@ public class BranchProtection implements Serializable {
 	}
 	
 	@Editable(order=410, placeholder = "No disallowed file types", description = "Optionally specify disallowed file types by extensions (hit ENTER to add value), for instance <code>exe</code>, <code>bin</code>. Leave empty to allow all file types")
-	public List<String> getDisallowedFileTypes() {
+	@NotNull
+	public List<@NotNull String> getDisallowedFileTypes() {
 		return disallowedFileTypes;
 	}
 
@@ -203,7 +207,8 @@ public class BranchProtection implements Serializable {
 	@Editable(order=500, name="Required Builds", placeholder="No any", description="Optionally choose required builds. You may also " +
 			"input jobs not listed here, and press ENTER to add them")
 	@JobChoice(tagsMode=true)
-	public List<String> getJobNames() {
+	@NotNull
+	public List<@NotNull String> getJobNames() {
 		return jobNames;
 	}
 
@@ -212,8 +217,8 @@ public class BranchProtection implements Serializable {
 	}
 	
 	@Editable(order=700, description="Optionally specify path protection rules")
-	@Valid
-	public List<FileProtection> getFileProtections() {
+	@NotNull
+	public List<@NotNull @Valid FileProtection> getFileProtections() {
 		return fileProtections;
 	}
 

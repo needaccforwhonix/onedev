@@ -5,6 +5,7 @@ import static io.onedev.server.model.User.Type.ORDINARY;
 import static io.onedev.server.model.User.Type.SERVICE;
 import static io.onedev.server.web.translation.Translation._T;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,7 +34,6 @@ import org.apache.wicket.markup.html.form.TextField;
 import org.apache.wicket.markup.html.link.Link;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.repeater.Item;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -43,6 +43,7 @@ import org.apache.wicket.request.mapper.parameter.PageParameters;
 import com.google.common.collect.Sets;
 
 import io.onedev.server.OneDev;
+import io.onedev.server.SubscriptionService;
 import io.onedev.server.data.migration.VersionedXmlDoc;
 import io.onedev.server.model.EmailAddress;
 import io.onedev.server.model.User;
@@ -70,7 +71,6 @@ import io.onedev.server.web.page.user.UserCssResourceReference;
 import io.onedev.server.web.page.user.profile.UserProfilePage;
 import io.onedev.server.web.util.LoadableDetachableDataProvider;
 import io.onedev.server.web.util.TextUtils;
-import io.onedev.server.web.util.WicketUtils;
 import io.onedev.server.web.util.paginghistory.PagingHistorySupport;
 import io.onedev.server.web.util.paginghistory.ParamPagingHistorySupport;
 
@@ -155,7 +155,7 @@ public class UserListPage extends AdministrationPage {
 		else
 			getPageParameters().remove(PARAM_TYPE);
 		target.add(searchField);
-		if (WicketUtils.isSubscriptionActive())
+		if (OneDev.getInstance(SubscriptionService.class).isSubscriptionActive())
 			target.add(includeDisabledLink);
 		target.add(filterTypeLink);
 		selectionColumn.getSelections().clear();
@@ -188,7 +188,7 @@ public class UserListPage extends AdministrationPage {
 				state.query = object;
 				var params = paramsOf(state, 0);
 				var url = RequestCycle.get().urlFor(UserListPage.class, params).toString();
-				var target = RequestCycle.get().find(AjaxRequestTarget.class);
+				var target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 				if (typing)
 					replaceState(target, url, state);
 				else
@@ -226,7 +226,7 @@ public class UserListPage extends AdministrationPage {
 			protected List<MenuItem> getMenuItems(FloatingPanel dropdown) {
 				List<MenuItem> menuItems = new ArrayList<>();
 				
-				if (WicketUtils.isSubscriptionActive()) {
+				if (OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()) {
 					menuItems.add(new MenuItem() {
 
 						@Override
@@ -504,7 +504,7 @@ public class UserListPage extends AdministrationPage {
 
 				});
 				
-				if (WicketUtils.isSubscriptionActive()) {
+				if (OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()) {
 					menuItems.add(new MenuItem() {
 
 						@Override
@@ -811,7 +811,7 @@ public class UserListPage extends AdministrationPage {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(WicketUtils.isSubscriptionActive());
+				setVisible(OneDev.getInstance(SubscriptionService.class).isSubscriptionActive());
 			}
 
 			@Override
@@ -829,7 +829,7 @@ public class UserListPage extends AdministrationPage {
 			}
 
 		});
-		includeDisabledLink.add(new SpriteImage("icon", new AbstractReadOnlyModel<String>() {
+		includeDisabledLink.add(new SpriteImage("icon", new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -843,7 +843,7 @@ public class UserListPage extends AdministrationPage {
 			@Override
 			protected void onInitialize() {
 				super.onInitialize();
-				add(new Label("label", new AbstractReadOnlyModel<String>() {
+				add(new Label("label", new IModel<String>() {
 
 					@Override
 					public String getObject() {
@@ -889,7 +889,7 @@ public class UserListPage extends AdministrationPage {
 				link.add(new Label("name", user.getName()));
 				link.add(new WebMarkupContainer("service").setVisible(user.getType() == SERVICE));
 				link.add(new WebMarkupContainer("ai").setVisible(user.getType() == AI));
-				link.add(new WebMarkupContainer("disabled").setVisible(user.isDisabled() && WicketUtils.isSubscriptionActive()));
+				link.add(new WebMarkupContainer("disabled").setVisible(user.isDisabled() && OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()));
 				fragment.add(link);
 				cellItem.add(fragment);
 			}
@@ -1130,6 +1130,7 @@ public class UserListPage extends AdministrationPage {
 
 	public static class State implements Serializable {
 		
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		public String query;

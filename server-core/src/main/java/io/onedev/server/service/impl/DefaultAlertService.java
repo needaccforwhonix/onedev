@@ -1,5 +1,6 @@
 package io.onedev.server.service.impl;
 
+import static io.onedev.server.oem.OemUtils.interpolate;
 import static io.onedev.server.model.Alert.PROP_SUBJECT;
 
 import java.util.ArrayList;
@@ -7,10 +8,10 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
-import org.hibernate.criterion.Restrictions;
+import io.onedev.server.persistence.dao.Restrictions;
 
 import com.google.common.collect.Sets;
 
@@ -80,7 +81,7 @@ public class DefaultAlertService extends BaseEntityService<Alert> implements Ale
 		if (clusterService.isLeaderServer() && event.isAbnormal()) {
 			var server = event.getServer() + " (" + clusterService.getServerName(event.getServer()) + ")";
 			alert("Server '" + server + "' cannot be reached", 
-					"Server '" + server + "' is part of OneDev cluster, but cannot be reached for some reason", 
+					"Server '" + server + interpolate("' is part of ${productName} cluster, but cannot be reached for some reason"),
 					false);
 		}
 	}
@@ -145,7 +146,7 @@ public class DefaultAlertService extends BaseEntityService<Alert> implements Ale
 	@Transactional
 	@Override
 	public void clear() {
-		var query = getSession().createQuery("delete from Alert");
+		var query = getSession().createMutationQuery("delete from Alert");
 		query.executeUpdate();
 		webSocketService.notifyObservablesChange(Sets.newHashSet(Alert.getChangeObservable()), WicketUtils.getPageKey());		
 	}

@@ -1,18 +1,17 @@
 package io.onedev.server.buildspec.step;
 
 import java.io.File;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import java.io.Serial;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.Pattern;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
 
 import org.jspecify.annotations.Nullable;
 
 import com.google.common.base.Preconditions;
+import com.google.common.net.PercentEscaper;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.commons.utils.FileUtils;
@@ -29,7 +28,10 @@ import io.onedev.server.model.Project;
 @Editable
 public abstract class SyncRepository extends ServerSideStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
+
+	private static final PercentEscaper CREDENTIAL_ESCAPER = new PercentEscaper("-._~", false);
 
 	private String remoteUrl;
 	
@@ -63,6 +65,7 @@ public abstract class SyncRepository extends ServerSideStep {
 	
 	@Editable(order=300, description="Optionally specify user name to access remote repository")
 	@Interpolative(variableSuggester="suggestVariables")
+	@NotEmpty
 	public String getUserName() {
 		return userName;
 	}
@@ -72,7 +75,7 @@ public abstract class SyncRepository extends ServerSideStep {
 	}
 
 	@Editable(order=400, name="Password or Access Token for Remote Repository", 
-			description="Specify a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as password or access token to access remote repository")
+			description="Specify a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as password or access token to access remote repository")
 	@ChoiceProvider("getSecretChoices")
 	public String getPasswordSecret() {
 		return passwordSecret;
@@ -121,14 +124,11 @@ public abstract class SyncRepository extends ServerSideStep {
 	}
 	
 	public String getRemoteUrlWithCredential(Build build) {
+		String encodedUserName = getUserName() != null ? CREDENTIAL_ESCAPER.escape(getUserName()) : null;
 		String encodedPassword = null;
 		if (getPasswordSecret() != null) {
-			try {
-				String password = build.getJobAuthorizationContext().getSecretValue(getPasswordSecret());
-				encodedPassword = URLEncoder.encode(password, StandardCharsets.UTF_8.name());
-			} catch (UnsupportedEncodingException e) {
-				throw new RuntimeException(e);
-			}
+			String password = build.getJobAuthorizationContext().getSecretValue(getPasswordSecret());
+			encodedPassword = CREDENTIAL_ESCAPER.escape(password);
 		}
 
 		String protocol = StringUtils.substringBefore(getRemoteUrl(), "//");
@@ -140,10 +140,10 @@ public abstract class SyncRepository extends ServerSideStep {
 		
 		String remoteUrlWithCredentials = protocol + "//";
 		
-		if (getUserName() != null && encodedPassword != null)
-			remoteUrlWithCredentials += getUserName() + ":" + encodedPassword + "@" + hostAndPath;
-		else if (getUserName() != null)
-			remoteUrlWithCredentials += getUserName() + "@" + hostAndPath;
+		if (encodedUserName != null && encodedPassword != null)
+			remoteUrlWithCredentials += encodedUserName + ":" + encodedPassword + "@" + hostAndPath;
+		else if (encodedUserName != null)
+			remoteUrlWithCredentials += encodedUserName + "@" + hostAndPath;
 		else if (encodedPassword != null)
 			remoteUrlWithCredentials += encodedPassword + "@" + hostAndPath;
 		else

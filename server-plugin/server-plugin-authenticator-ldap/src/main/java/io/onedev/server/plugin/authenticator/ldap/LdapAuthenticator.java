@@ -1,5 +1,6 @@
 package io.onedev.server.plugin.authenticator.ldap;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -19,9 +20,9 @@ import javax.naming.directory.DirContext;
 import javax.naming.directory.InitialDirContext;
 import javax.naming.directory.SearchControls;
 import javax.naming.directory.SearchResult;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import org.apache.commons.lang3.Strings;
 import org.apache.shiro.authc.IncorrectCredentialsException;
@@ -43,6 +44,7 @@ import io.onedev.server.security.TrustCertsSSLSocketFactory;
 @Editable(name="Generic LDAP", order=200)
 public class LdapAuthenticator extends Authenticator {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	protected static final String PROP_AUTHENTICATION_REQUIRED = "authenticationRequired";
@@ -72,7 +74,7 @@ public class LdapAuthenticator extends Authenticator {
     @Editable(order=100, name="LDAP URL", description="" +
 			"Specifies LDAP URL, for example: <i>ldap://localhost</i>, or <i>ldaps://localhost</i>. In case" +
 			"your ldap server is using a self-signed certificate for ldaps connection, you will need " +
-			"to <a href='https://docs.onedev.io/administration-guide/trust-self-signed-certificates' target='_blank'>configure OneDev to trust the certificate</a>")
+			"to <a href='${docsite}/administration-guide/trust-self-signed-certificates' target='_blank'>configure ${productName} to trust the certificate</a>")
     @NotEmpty
 	public String getLdapUrl() {
 		return ldapUrl;
@@ -82,7 +84,7 @@ public class LdapAuthenticator extends Authenticator {
 		this.ldapUrl = ldapUrl;
 	}
 
-	@Editable(order=200, description="OneDev needs to search and determine user DN, as well as searching user group "
+	@Editable(order=200, description="${productName} needs to search and determine user DN, as well as searching user group "
 			+ "information if group retrieval is enabled. Tick this option and specify 'manager' DN and password if "
 			+ "these operations needs to be authenticated")
 	public boolean isAuthenticationRequired() {
@@ -93,7 +95,7 @@ public class LdapAuthenticator extends Authenticator {
 		this.authenticationRequired = authenticationRequired;
 	}
 	
-	@Editable(order=300, description="Specify manager DN to authenticate OneDev itself to LDAP server")
+	@Editable(order=300, description="Specify manager DN to authenticate ${productName} itself to LDAP server")
 	@DependsOn(property=PROP_AUTHENTICATION_REQUIRED)
 	@NotEmpty
 	public String getManagerDN() {
@@ -175,9 +177,9 @@ public class LdapAuthenticator extends Authenticator {
 	}
 
 	@Editable(order=900, description="Specify the strategy to retrieve group membership information. "
-			+ "To give appropriate permissions to a LDAP group, a OneDev group with same name should "
+			+ "To give appropriate permissions to a LDAP group, a ${productName} group with same name should "
 			+ "be defined. Use strategy <tt>Do Not Retrieve Groups</tt> if you want to manage group "
-			+ "memberships at OneDev side")
+			+ "memberships at ${productName} side")
 	@NotNull(message="may not be empty")
 	public GroupRetrieval getGroupRetrieval() {
 		return groupRetrieval;

@@ -1,15 +1,18 @@
 package io.onedev.server.search.entity.issue;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Path;
-import javax.persistence.criteria.Predicate;
+import java.io.Serial;
+
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
 
 import io.onedev.server.model.Issue;
 import io.onedev.server.model.IssueField;
 
 public class StringFieldCriteria extends FieldCriteria {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final String value;

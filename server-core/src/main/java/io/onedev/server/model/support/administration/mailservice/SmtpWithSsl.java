@@ -1,23 +1,25 @@
 package io.onedev.server.model.support.administration.mailservice;
 
-import com.sun.mail.util.MailSSLSocketFactory;
+import org.eclipse.angus.mail.util.MailSSLSocketFactory;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.security.TrustCertsSSLSocketFactory;
 
+import java.io.Serial;
 import java.security.GeneralSecurityException;
 import java.util.Properties;
 
 @Editable
 public abstract class SmtpWithSsl implements SmtpSslSetting {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private boolean trustAll;
 
 	@Editable(order=1000, name="Bypass Certificate Check", description = "In case SMTP host certificate is self-signed or its CA root is not accepted, " +
-			"you may tell OneDev to bypass certificate check. <b class='text-danger'>WARNING: </b> In " +
-			"an untrusted network, this may lead to man-in-the-middle attack, and you should <a href='https://docs.onedev.io/administration-guide/trust-self-signed-certificates#trust-self-signed-certificates-on-server' target='_blank'>import the " +
-			"certificate into OneDev</a> instead")
+			"you may tell ${productName} to bypass certificate check. <b class='text-danger'>WARNING: </b> In " +
+			"an untrusted network, this may lead to man-in-the-middle attack, and you should <a href='${docsite}/administration-guide/trust-self-signed-certificates#trust-self-signed-certificates-on-server' target='_blank'>import the " +
+			"certificate into ${productName}</a> instead")
 	public boolean isTrustAll() {
 		return trustAll;
 	}

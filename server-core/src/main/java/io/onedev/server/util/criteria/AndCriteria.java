@@ -1,5 +1,6 @@
 package io.onedev.server.util.criteria;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -11,11 +12,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Order;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Order;
+import jakarta.persistence.criteria.Predicate;
 
 import io.onedev.server.util.ProjectScope;
 import io.onedev.server.web.component.issue.workflowreconcile.UndefinedFieldResolution;
@@ -25,6 +26,7 @@ import io.onedev.server.web.component.issue.workflowreconcile.UndefinedStateReso
 
 public class AndCriteria<T> extends Criteria<T> {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	protected final List<Criteria<T>> criterias;

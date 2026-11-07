@@ -4,6 +4,7 @@ import static io.onedev.server.ai.ToolUtils.wrapForChat;
 import static io.onedev.server.web.translation.Translation._T;
 import static org.apache.wicket.ajax.attributes.CallbackParameter.explicit;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.net.URISyntaxException;
 import java.text.MessageFormat;
@@ -16,7 +17,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.apache.commons.lang3.SerializationUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -39,7 +40,6 @@ import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.link.BookmarkablePageLink;
 import org.apache.wicket.markup.html.link.ResourceLink;
 import org.apache.wicket.markup.html.panel.Fragment;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.request.IRequestParameters;
@@ -140,6 +140,7 @@ import io.onedev.server.web.resource.RawBlobResource;
 import io.onedev.server.web.resource.RawBlobResourceReference;
 import io.onedev.server.web.upload.FileUpload;
 import io.onedev.server.web.util.EditParamsAware;
+import io.onedev.server.web.util.WicketUtils;
 
 public class ProjectBlobPage extends ProjectPage implements BlobRenderContext, 
 		EditParamsAware, JobAuthorizationContextAware, ProjectScopedCommitAware {
@@ -283,7 +284,8 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 			protected void onConfigure() {
 				super.onConfigure();
 
-				if (resolvedRevision != null) {
+				if (resolvedRevision != null && !WicketUtils.isBot()
+						&& (!getProject().findRequireLoginForAutoIndexing() || SecurityUtils.getAuthUser() != null)) {
 					RevCommit commit = getProject().getRevCommit(resolvedRevision, true);
 					if (!codeIndexService.isIndexed(getProject().getId(), commit)) {
 						codeIndexService.indexAsync(getProject().getId(), commit);
@@ -709,7 +711,7 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 	}
 
 	private QuickSearchPanel newQuickSearchPanel(String id, ModalPanel modal) {
-		return new QuickSearchPanel(id, projectModel, new AbstractReadOnlyModel<String>() {
+		return new QuickSearchPanel(id, projectModel, new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -751,7 +753,7 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 		 */
 		advancedSearchPanelModal = modal;
 		if (advancedSearchPanel == null) {
-			advancedSearchPanel = new AdvancedSearchPanel(id, projectModel, new AbstractReadOnlyModel<String>() {
+			advancedSearchPanel = new AdvancedSearchPanel(id, projectModel, new IModel<String>() {
 	
 				@Override
 				public String getObject() {
@@ -1426,6 +1428,7 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 	
 	public static class State implements Serializable {
 		
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		public BlobIdent blobIdent;
@@ -1504,7 +1507,7 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 		}
 		String branch = state.blobIdent.revision;
 		
-		getProject().cacheObjectId(branch, commitId);
+		project.cacheObjectId(branch, commitId);
 		
 		if (target != null) {
 			if (state.urlAfterEdit != null) {
@@ -1519,7 +1522,7 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 				BlobIdent newBlobIdent;
 				if (state.mode == Mode.DELETE) {
 					String parentPath = gitService.getClosestPath(
-							getProject(), commitId, StringUtils.substringBeforeLast(state.blobIdent.path, "/"));
+							project, commitId, StringUtils.substringBeforeLast(state.blobIdent.path, "/"));
 					newBlobIdent = new BlobIdent(branch, parentPath, FileMode.TREE.getBits());
 				} else if (state.mode == Mode.ADD) {
 					newBlobIdent = new BlobIdent(branch, getNewPath(), FileMode.REGULAR_FILE.getBits());
@@ -1643,7 +1646,7 @@ public class ProjectBlobPage extends ProjectPage implements BlobRenderContext,
 			else if (getProject().isCommitSignatureRequiredButNoSigningKey(user, blobIdent.revision)) 
 				signRequired = true;
 			
-			BlobContent blobContent = new BlobContent(item.get(), FileMode.REGULAR_FILE.getBits());
+			BlobContent blobContent = new BlobContent(FileUpload.readBytes(item), FileMode.REGULAR_FILE.getBits());
 			newBlobs.put(blobPath, blobContent);
 		}
 

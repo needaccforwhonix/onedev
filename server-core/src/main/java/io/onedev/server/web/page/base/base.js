@@ -348,7 +348,7 @@ onedev.server = {
 		}
 	},	
 
-	setupWebSocket: function(webSocketTimeout, sessionKeepAliveInterval) {		
+	setupWebSocket: function(sessionKeepAliveInterval) {		
 		var pageUnloading = false;
 		
 		$(window).on("beforeunload", function() {
@@ -359,7 +359,7 @@ onedev.server = {
 			$(".connection-error").hide();
 		});
 		Wicket.Event.subscribe("/websocket/closed", function(jqEvent) {
-			if (!pageUnloading) {
+			if (!pageUnloading && !onedev.server.util.isDevice()) {
 				$("body>.error").hide();
 				$(".connection-error").show();
 			}
@@ -595,7 +595,7 @@ onedev.server = {
 		},
 		/*
 		 * Whether the element is an editable control that should consume the first
-		 * Escape to blur (two-tier Escape: blur first, then dismiss overlays).
+		 * Escape to blur when no dismissible overlay is open.
 		 * Mirrors jQuery Hotkeys focus filters (text inputs / contenteditable)
 		 * plus readonly/disabled checks used by canInput.
 		 */
@@ -622,8 +622,8 @@ onedev.server = {
 			return false;
 		},
 		/*
-		 * If an editable control has focus, blur it and return true so Escape
-		 * dismiss handlers can skip overlay close on this keypress.
+		 * If an editable control has focus, blur it and return true so other
+		 * Escape handlers can skip this keypress.
 		 */
 		blurFocusedEditable: function() {
 			var element = document.activeElement;
@@ -633,17 +633,22 @@ onedev.server = {
 			return true;
 		},
 		/*
-		 * Widgets that handle Escape themselves (close picker/hints/etc.).
-		 * When these are open, do not steal Escape for blur-first behavior.
+		 * Let open overlays handle Escape before blurring the focused field.
+		 * Pinned side info is part of the page and should not prevent blurring.
 		 */
-		isEscapeConsumedByWidget: function() {
-			return $(".select2-dropdown:visible").length != 0
+		isEscapeConsumedByOverlay: function() {
+			return $(".modal:visible").length != 0
+					|| $(".sidebar.sidebar-docked:visible").length != 0
+					|| $(".select2-dropdown:visible").length != 0
 					|| $(".dropdown.open").length != 0
 					|| $("body>.floating").length != 0
 					|| $(".pcr-app.visible").length != 0
 					|| $(".atwho-view:visible").length != 0
 					|| $(".CodeMirror-hints:visible").length != 0
-					|| $(".flatpickr-calendar.open").length != 0;
+					|| $(".flatpickr-calendar.open").length != 0
+					|| $(".side-info:not(.closed):visible").filter(function() {
+						return onedev.server.sideInfo && onedev.server.sideInfo.isOverlayMode($(this));
+					}).length != 0;
 		},
 		isDevice: function() {
 			var ua = navigator.userAgent.toLowerCase();
@@ -778,6 +783,39 @@ onedev.server = {
 		doSetup($(document));
 	},
 	
+	setupStickyTabs: function() {
+		function setup($container) {
+			$container.find(".nav-tabs-sticky").addBack(".nav-tabs-sticky").each(function() {
+				var $tabs = $(this);
+				if ($tabs.data("stickyTabsObserver"))
+					return;
+				var $sentinel = $('<div class="sticky-tabs-sentinel" aria-hidden="true"></div>').insertBefore($tabs);
+				var observer = new IntersectionObserver(function(entries) {
+					var entry = entries[0];
+					var aboveScrollport = entry.rootBounds
+						&& entry.boundingClientRect.bottom <= entry.rootBounds.top;
+					$tabs.toggleClass("is-docked", !entry.isIntersecting && aboveScrollport);
+				}, {root: $tabs.closest(".autofit")[0] || null, threshold: 0});
+				observer.observe($sentinel[0]);
+				$tabs.data("stickyTabsObserver", observer).data("stickyTabsSentinel", $sentinel);
+			});
+		}
+		$(document).on("beforeElementReplace", function(event, componentId) {
+			$("#" + componentId).find(".nav-tabs-sticky").addBack(".nav-tabs-sticky").each(function() {
+				var $tabs = $(this);
+				var observer = $tabs.data("stickyTabsObserver");
+				if (observer) {
+					observer.disconnect();
+					$tabs.data("stickyTabsSentinel").remove();
+				}
+			});
+		});
+		$(document).on("afterElementReplace", function(event, componentId) {
+			setup($("#" + componentId));
+		});
+		setup($(document));
+	},
+
 	setupRadio: function() {
 		function doSetup($container) {
 			$container.find(".radio").addBack(".radio").each(function() {
@@ -810,10 +848,17 @@ onedev.server = {
 	},
 
 	setupTippy: function() {
+		tippy.setDefaultProps({
+			touch: false,
+			onCreate: function(instance) {
+				if (instance.props.touch === true && instance.props.trigger === "mouseenter focus")
+					instance.setProps({trigger: "mouseenter focus click"});
+			}
+		});
 		function doSetup(container) {
 			setTimeout(function() {
 				if (container === document || document.body.contains(container)) {
-					tippy(container.querySelectorAll('[data-tippy-content]'), {
+					tippy($(container).find('[data-tippy-content]').addBack('[data-tippy-content]').toArray(), {
 						delay: [500, 0],
 						placement: 'auto'
 					});
@@ -929,7 +974,7 @@ onedev.server = {
 		else
 			return translations["{0}s"].replace("{0}", "0");
 	},
-	onDomReady: function(bootTimestamp, icons, popStateCallback, removeAutosaveKeys, webSocketTimeout, sessionKeepAliveInterval, translations) {
+	onDomReady: function(bootTimestamp, icons, popStateCallback, removeAutosaveKeys, sessionKeepAliveInterval, translations) {
 		onedev.server.translations = translations;
 
 		onedev.server.bootTimestamp = bootTimestamp;
@@ -994,7 +1039,7 @@ onedev.server = {
 		
 		onedev.server.setupAjaxLoadingIndicator();
 		onedev.server.form.setupDirtyCheck();
-		onedev.server.setupWebSocket(webSocketTimeout, sessionKeepAliveInterval);
+		onedev.server.setupWebSocket(sessionKeepAliveInterval);
 		onedev.server.mouseState.track();
 		onedev.server.ajaxRequests.track();
 		onedev.server.setupInputClear();
@@ -1004,6 +1049,7 @@ onedev.server = {
 		onedev.server.setupCheckbox();
 		onedev.server.setupRadio();
 		onedev.server.setupSwitch();
+		onedev.server.setupStickyTabs();
 		onedev.server.setupTable();
 		onedev.server.setupTippy();
 		onedev.server.history.init(popStateCallback);
@@ -1048,17 +1094,17 @@ onedev.server = {
 
 /*
  * Register Escape handling when this script loads so it runs before dismiss
- * handlers attached later from onDomReady / component init. Two-tier Escape:
- * blur focused editables first; only then allow overlay dismiss on a later press.
+ * handlers attached later from onDomReady / component init. Blur focused
+ * editables only when no overlay needs to handle Escape.
  * Target-level handlers that already preventDefault (CodeMirror hints, Select2,
- * etc.) take priority; isEscapeConsumedByWidget covers remaining widget UIs.
+ * etc.) take priority; isEscapeConsumedByOverlay covers remaining overlay UIs.
  */
 $(document).keydown(function(e) {
 	if (e.keyCode == 27) { // ESC
 		var alreadyHandled = e.isDefaultPrevented();
 		e.preventDefault();
 		if (!alreadyHandled
-				&& !onedev.server.util.isEscapeConsumedByWidget()
+				&& !onedev.server.util.isEscapeConsumedByOverlay()
 				&& onedev.server.util.blurFocusedEditable()) {
 			e.stopImmediatePropagation();
 		}

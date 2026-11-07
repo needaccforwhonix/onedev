@@ -120,7 +120,7 @@ public class ProjectListPage extends LayoutPage {
 				params.set(PARAM_QUERY, query);
 				params.remove(PARAM_PAGE);
 				CharSequence url = RequestCycle.get().urlFor(ProjectListPage.class, params);
-				pushState(RequestCycle.get().find(AjaxRequestTarget.class), url.toString(), query);
+				pushState(RequestCycle.get().find(AjaxRequestTarget.class).orElse(null), url.toString(), query);
 			}
 			
 		}, expectedCount) {
@@ -235,7 +235,7 @@ public class ProjectListPage extends LayoutPage {
 
 	@Override
 	protected String getPageTitle() {
-		return _T("Projects") + " - " + OneDev.getInstance(SettingService.class).getBrandingSetting().getName();
+		return _T("Projects") + " - " + OneDev.getInstance(SettingService.class).getBrandingSetting().getEffectiveName();
 	}
 	
 	@Override

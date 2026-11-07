@@ -4,10 +4,12 @@ import static java.util.stream.Collectors.toSet;
 
 import java.util.List;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
-import org.hibernate.criterion.Restrictions;
+import io.onedev.server.event.Listen;
+import io.onedev.server.event.system.SystemStarted;
+import io.onedev.server.persistence.dao.Restrictions;
 
 import io.onedev.server.model.Agent;
 import io.onedev.server.model.AgentToken;
@@ -22,6 +24,21 @@ public class DefaultAgentTokenService extends BaseEntityService<AgentToken> impl
 
 	@Inject
 	private AgentService agentService;
+
+	@Transactional
+	@Listen
+	public void on(SystemStarted event) {
+		var tokenValues = System.getenv("agent_tokens");
+		if (tokenValues != null) {
+			for (var value: tokenValues.split("\n")) {
+				if (!value.isEmpty() && find(value) == null) {
+					var token = new AgentToken();
+					token.setValue(value);
+					createOrUpdate(token);
+				}
+			}
+		}
+	}
 
 	@Transactional
 	@Override

@@ -1,13 +1,14 @@
 package io.onedev.server.web.resource;
 
 import java.io.IOException;
+import java.io.Serial;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.persistence.EntityNotFoundException;
+import jakarta.persistence.EntityNotFoundException;
 
 import org.apache.shiro.authz.UnauthorizedException;
 import org.apache.tika.mime.MimeTypes;
@@ -30,6 +31,7 @@ import io.onedev.server.web.util.MimeUtils;
 
 public class ArtifactResource extends AbstractResource {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private static final String PARAM_PROJECT = "project";

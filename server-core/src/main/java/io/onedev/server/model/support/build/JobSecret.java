@@ -1,9 +1,10 @@
 package io.onedev.server.model.support.build;
 
+import java.io.Serial;
 import java.io.Serializable;
 
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.Pattern;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
 
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.JobMatch;
@@ -13,6 +14,7 @@ import io.onedev.server.job.match.OnBranchCriteria;
 @Editable
 public class JobSecret implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String name;

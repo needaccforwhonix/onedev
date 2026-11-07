@@ -2,18 +2,17 @@ package io.onedev.server.model;
 
 import static com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
-import javax.persistence.MappedSuperclass;
+import jakarta.persistence.Id;
+import jakarta.persistence.MappedSuperclass;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.proxy.HibernateProxy;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -22,11 +21,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.onedev.server.data.migration.VersionedXmlDoc;
 import io.onedev.server.model.support.EntityWatch;
 import io.onedev.server.rest.annotation.Api;
+import io.onedev.server.persistence.annotation.EntityId;
 
 @MappedSuperclass
 @JsonIgnoreProperties("handler")
 public abstract class AbstractEntity implements Serializable, Comparable<AbstractEntity> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static final String PROP_ID = "id";
@@ -43,8 +44,7 @@ public abstract class AbstractEntity implements Serializable, Comparable<Abstrac
 	
 	@Api(order=1)
 	@Id
-	@GenericGenerator(name="entity_id", strategy="io.onedev.server.persistence.IdGenerator")
-	@GeneratedValue(generator="entity_id")
+	@EntityId
 	@JsonProperty(access = READ_ONLY)
 	private Long id;
 	

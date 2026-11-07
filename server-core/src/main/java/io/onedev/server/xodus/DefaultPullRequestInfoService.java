@@ -4,14 +4,15 @@ import static java.lang.Long.valueOf;
 
 import java.io.File;
 import java.io.ObjectStreamException;
+import java.io.Serial;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
 import org.eclipse.jgit.lib.ObjectId;
 import org.slf4j.Logger;
@@ -213,6 +214,7 @@ public class DefaultPullRequestInfoService extends AbstractEnvironmentService
 		
 		return projectService.runOnActiveServer(projectId, new ClusterTask<Collection<Long>>() {
 
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -232,6 +234,7 @@ public class DefaultPullRequestInfoService extends AbstractEnvironmentService
 		
 		return projectService.runOnActiveServer(projectId, new ClusterTask<Collection<Long>>() {
 
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -275,7 +278,6 @@ public class DefaultPullRequestInfoService extends AbstractEnvironmentService
 		}
 	}
 	
-	@Sessional
 	@Listen
 	public void on(ActiveServerChanged event) {
 		for (var projectId: event.getProjectIds()) {
@@ -304,6 +306,7 @@ public class DefaultPullRequestInfoService extends AbstractEnvironmentService
 		
 		return projectService.runOnActiveServer(targetProjectId, new ClusterTask<ObjectId>() {
 
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -340,6 +343,7 @@ public class DefaultPullRequestInfoService extends AbstractEnvironmentService
 		
 		projectService.runOnActiveServer(targetProjectId, new ClusterTask<Void>() {
 
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override

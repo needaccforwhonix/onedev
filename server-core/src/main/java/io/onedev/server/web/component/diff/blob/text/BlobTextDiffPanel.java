@@ -1,5 +1,7 @@
 package io.onedev.server.web.component.diff.blob.text;
 
+import java.util.Date;
+
 import static io.onedev.server.codequality.BlobTarget.groupByLine;
 import static io.onedev.server.util.diff.DiffRenderer.toHtml;
 import static io.onedev.server.web.translation.Translation._T;
@@ -14,7 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.apache.commons.lang3.Strings;
 import org.apache.wicket.Component;
@@ -28,7 +30,6 @@ import org.apache.wicket.markup.head.OnDomReadyHeaderItem;
 import org.apache.wicket.markup.head.OnLoadHeaderItem;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.panel.Panel;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.request.IRequestParameters;
@@ -47,6 +48,7 @@ import io.onedev.commons.jsymbol.SymbolExtractorRegistry;
 import io.onedev.commons.utils.LinearRange;
 import io.onedev.commons.utils.PlanarRange;
 import io.onedev.server.ai.ChatTool;
+import io.onedev.server.oem.OemService;
 import io.onedev.server.ai.ChatToolAware;
 import io.onedev.server.ai.ToolUtils;
 import io.onedev.server.ai.tools.code.GetHighlightedText;
@@ -135,6 +137,9 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 
 	@Inject
 	private ObjectMapper objectMapper;
+
+	@Inject
+	private OemService oemService;
 
 	@Inject
 	private GitService gitService;
@@ -356,11 +361,12 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 						script = String.format("onedev.server.blobTextDiff.openSelectionPopover('%s', %s, %s, %s, '%s', %s);", 
 								getMarkupId(), jsonOfPosition, convertToJson(commentRange), markUrl, 
 								escapeJavaScript(getMarkedText(commentRange)),
-								SecurityUtils.getAuthUser()!=null);
+								SecurityUtils.getAuthUser()!=null && SecurityUtils.canWorkOnProject(change.getProject()));
 						target.appendJavaScript(script);
 						break;
 					case "addComment":
 						Preconditions.checkNotNull(SecurityUtils.getAuthUser());
+						SecurityUtils.checkWorkOnProject(change.getProject());
 						
 						commentRange = getRange(params, "param1", "param2", "param3", "param4", "param5");
 						getAnnotationSupport().onAddComment(target, commentRange);
@@ -481,7 +487,7 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 		};
 		add(symbolTooltip);
 		
-		add(AttributeAppender.append("class", new AbstractReadOnlyModel<String>() {
+		add(AttributeAppender.append("class", new IModel<String>() {
 			
 			@Override
 			public String getObject() {
@@ -559,7 +565,7 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 		translations.put("add-problem-comment", _T("Add comment"));
 
 		var jsonOfMarkRange = convertToJson(markRange);
-		String script = String.format("onedev.server.blobTextDiff.onDomReady('%s', '%s', '%s', '%s', '%s', '%s', %s, %s, %s, %s, %s, %s, %s, %s);",
+		String script = String.format("onedev.server.blobTextDiff.onDomReady('%s', '%s', '%s', '%s', '%s', '%s', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);",
 				getMarkupId(), symbolTooltip.getMarkupId(), 
 				change.getOldBlobIdent().revision, 
 				change.getNewBlobIdent().revision,
@@ -569,13 +575,14 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 				jsonOfMarkRange, convertToJson(openCommentInfo), 
 				convertToJson(annotationInfoModel.getObject()), 
 				commentContainerId, convertToJson(translations),
-				getSymbolContextJson());
+				getSymbolContextJson(), convertToJson(oemService.getDocsite()),
+				getAnnotationSupport() != null && SecurityUtils.getAuthUser() != null && SecurityUtils.canWorkOnProject(change.getProject()));
 		
 		response.render(OnDomReadyHeaderItem.forScript(script));
 
 		script = String.format("onedev.server.blobTextDiff.onLoad('%s', %s);", 
 				getMarkupId(), 
-				RequestCycle.get().find(AjaxRequestTarget.class) == null? jsonOfMarkRange: "null");
+				RequestCycle.get().find(AjaxRequestTarget.class).orElse(null) == null? jsonOfMarkRange: "null");
 		response.render(OnLoadHeaderItem.forScript(script));
 	}
 	
@@ -749,7 +756,7 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 				if (diffMode == DiffViewMode.UNIFIED) {
 					builder.append(String.format("<td class='blame noselect'><a class='hash' href='%s' onclick='onedev.server.viewState.getFromViewAndSetToHistory();' data-hash='%s'>%s</a><span class='date'>%s</span><span class='author'>%s</span></td>",
 							url, commit.getHash(), GitUtils.abbreviateSHA(commit.getHash()),
-							DateUtils.formatDate(commit.getCommitter().getWhen()),
+							DateUtils.formatDate(Date.from(commit.getCommitter().getWhenAsInstant())),
 							HtmlEscape.escapeHtml5(commit.getAuthor().getName())));
 				} else {
 					builder.append(String.format("<td class='abbr blame noselect'><a class='hash' href='%s' onclick='onedev.server.viewState.getFromViewAndSetToHistory();' data-hash='%s'>%s</a></td>",
@@ -1011,10 +1018,10 @@ public class BlobTextDiffPanel extends Panel implements ChatToolAware {
 	
 	private String expanderLink(String cssClass, String tooltip, String svg, int blockIndex,
 			String direction) {
-		String script = String.format("javascript:$('#%s').data('callback')('expand', %d, '%s');",
-				getMarkupId(), blockIndex, direction);
+		String script = String.format("$('#%s').data('callback')('expand', %d, '%s'); return false;",
+		        getMarkupId(), blockIndex, direction);
 		return "<a class='" + cssClass + "' aria-label='" + tooltip
-				+ "' data-tippy-content='" + tooltip + "' href=\"" + script + "\">" + svg + "</a>";
+		        + "' data-tippy-content='" + tooltip + "' href='#' onclick=\"" + script + "\">" + svg + "</a>";
 	}
 
 	private void appendExpander(StringBuilder builder, int blockIndex, int skippedLines,

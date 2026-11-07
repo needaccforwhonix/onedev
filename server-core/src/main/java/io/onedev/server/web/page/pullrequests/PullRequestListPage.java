@@ -116,7 +116,7 @@ public class PullRequestListPage extends LayoutPage {
 				params.set(PARAM_QUERY, query);
 				params.remove(PARAM_PAGE);
 				CharSequence url = RequestCycle.get().urlFor(PullRequestListPage.class, params);
-				pushState(RequestCycle.get().find(AjaxRequestTarget.class), url.toString(), query);
+				pushState(RequestCycle.get().find(AjaxRequestTarget.class).orElse(null), url.toString(), query);
 			}
 			
 		}) {
@@ -237,7 +237,7 @@ public class PullRequestListPage extends LayoutPage {
 	
 	@Override
 	protected String getPageTitle() {
-		return _T("Pull Requests") + " - " + OneDev.getInstance(SettingService.class).getBrandingSetting().getName();
+		return _T("Pull Requests") + " - " + OneDev.getInstance(SettingService.class).getBrandingSetting().getEffectiveName();
 	}
 	
 	public static PageParameters paramsOf(int page) {

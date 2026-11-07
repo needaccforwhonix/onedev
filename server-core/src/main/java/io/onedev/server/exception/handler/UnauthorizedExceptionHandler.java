@@ -1,17 +1,20 @@
 package io.onedev.server.exception.handler;
 
+import java.io.Serial;
+
 import io.onedev.server.exception.HttpResponse;
 import io.onedev.server.exception.HttpResponseBody;
 import io.onedev.server.security.SecurityUtils;
 import org.apache.shiro.authz.UnauthorizedException;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.core.MultivaluedHashMap;
-import javax.ws.rs.core.MultivaluedMap;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.ws.rs.core.MultivaluedHashMap;
+import jakarta.ws.rs.core.MultivaluedMap;
 
 public class UnauthorizedExceptionHandler extends AbstractExceptionHandler<UnauthorizedException> {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	@Override

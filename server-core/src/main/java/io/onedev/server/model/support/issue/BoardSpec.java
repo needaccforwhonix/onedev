@@ -1,5 +1,6 @@
 package io.onedev.server.model.support.issue;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -11,8 +12,8 @@ import java.util.Map;
 import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 
 import org.unbescape.html.HtmlEscape;
 
@@ -48,6 +49,7 @@ import io.onedev.server.web.component.stringchoice.StringChoiceProvider;
 @Editable
 public class BoardSpec implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String NULL_COLUMN = StringChoiceProvider.SPECIAL_CHOICE_PREFIX + "Null";
@@ -155,7 +157,7 @@ public class BoardSpec implements Serializable {
 		return displayColumns;
 	}
 
-	@Editable(order=450, description = "If specified, OneDev will only display iterations with this prefix")
+	@Editable(order=450, description = "If specified, ${productName} will only display iterations with this prefix")
 	public String getIterationPrefix() {
 		return iterationPrefix;
 	}

@@ -1,6 +1,8 @@
 package io.onedev.server.model.support;
 
-import javax.validation.constraints.NotEmpty;
+import java.io.Serial;
+
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.ProjectQuery;
@@ -8,6 +10,7 @@ import io.onedev.server.annotation.ProjectQuery;
 @Editable
 public class NamedProjectQuery implements NamedQuery {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String name;

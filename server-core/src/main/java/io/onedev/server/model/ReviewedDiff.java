@@ -1,6 +1,7 @@
 package io.onedev.server.model;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
+import java.io.Serial;
 import java.util.Date;
 
 import static io.onedev.server.model.ReviewedDiff.*;
@@ -11,11 +12,12 @@ import static io.onedev.server.model.ReviewedDiff.*;
 				@Index(columnList= PROP_OLD_COMMIT_HASH), @Index(columnList= PROP_NEW_COMMIT_HASH),
 				@Index(columnList= PROP_BLOB_PATH), @Index(columnList = PROP_DATE)
 		}, uniqueConstraints = {
-				@UniqueConstraint(columnNames={"o_user_id", PROP_OLD_COMMIT_HASH, PROP_NEW_COMMIT_HASH, PROP_BLOB_PATH})
+				@UniqueConstraint(columnNames={"user_id", PROP_OLD_COMMIT_HASH, PROP_NEW_COMMIT_HASH, PROP_BLOB_PATH})
 		}
 )
 public class ReviewedDiff extends AbstractEntity {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static final String PROP_USER = "user";

@@ -5,7 +5,8 @@ import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.annotation.*;
 import io.onedev.server.buildspec.BuildSpec;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
+import java.io.Serial;
 import java.util.List;
 
 import static io.onedev.server.buildspec.step.StepGroup.DOCKER_IMAGE;
@@ -14,6 +15,7 @@ import static io.onedev.server.buildspec.step.StepGroup.DOCKER_IMAGE;
 		"This step needs to be executed by server docker executor, remote docker executor, or Kubernetes executor")
 public class PullImageStep extends CraneStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String srcImage;
@@ -38,7 +40,7 @@ public class PullImageStep extends CraneStep {
 		this.srcImage = srcImage;
 	}
 
-	@Editable(order=200, name="OCI Layout Directory", description = "Specify directory relative to <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a> to store OCI layout")
+	@Editable(order=200, name="OCI Layout Directory", description = "Specify directory relative to <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a> to store OCI layout")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Path(Path.Type.RELATIVE)
 	@NoSpace

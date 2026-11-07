@@ -2,20 +2,21 @@ package io.onedev.server.model;
 
 import static io.onedev.server.model.Dashboard.PROP_NAME;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collection;
 
-import javax.persistence.CascadeType;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.Index;
-import javax.persistence.JoinColumn;
-import javax.persistence.Lob;
-import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
-import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
@@ -24,10 +25,11 @@ import io.onedev.server.model.support.widget.Widget;
 
 @Entity
 @Table(
-		indexes={@Index(columnList="o_owner_id"), @Index(columnList=PROP_NAME)}, 
-		uniqueConstraints={@UniqueConstraint(columnNames={"o_owner_id", PROP_NAME})})
+		indexes={@Index(columnList="owner_id"), @Index(columnList=PROP_NAME)},
+		uniqueConstraints={@UniqueConstraint(columnNames={"owner_id", PROP_NAME})})
 public class Dashboard extends AbstractEntity {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String PROP_OWNER = "owner";

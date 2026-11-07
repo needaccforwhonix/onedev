@@ -1,13 +1,15 @@
 package io.onedev.server.exception.handler;
 
 import java.io.FileNotFoundException;
+import java.io.Serial;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.onedev.server.exception.HttpResponse;
 
 public class FileNotFoundExceptionHandler extends AbstractExceptionHandler<FileNotFoundException> {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@Override

@@ -41,8 +41,7 @@ import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.markup.repeater.Item;
 import org.apache.wicket.markup.repeater.OddEvenItem;
-import org.apache.wicket.markup.repeater.RepeatingView;
-import org.apache.wicket.model.AbstractReadOnlyModel;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -266,7 +265,8 @@ public abstract class BuildListPanel extends Panel {
 			protected void onConfigure() {
 				super.onConfigure();
 				setEnabled(querySubmitted && queryModel.getObject() != null);
-				setVisible(SecurityUtils.getAuthUser() != null && getQuerySaveSupport() != null);
+				setVisible(SecurityUtils.getAuthUser() != null && getQuerySaveSupport() != null
+						&& (getProject() == null || SecurityUtils.canWorkOnProject(getProject())));
 			}
 
 			@Override
@@ -734,7 +734,8 @@ public abstract class BuildListPanel extends Panel {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(getProject() != null && SecurityUtils.canManageBuilds(getProject()));
+				setVisible(getProject() != null && SecurityUtils.canWorkOnProject(getProject())
+						&& SecurityUtils.canManageBuilds(getProject()));
 			}
 			
 		});
@@ -787,8 +788,8 @@ public abstract class BuildListPanel extends Panel {
 				form.add(new AjaxButton("save") {
 
 					@Override
-					protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-						super.onSubmit(target, form);
+					protected void onSubmit(AjaxRequestTarget target) {
+						super.onSubmit(target);
 						if (getProject() != null) {
 							var oldAuditContent = VersionedXmlDoc.fromBean(getProject().getBuildSetting().getListParams(true)).toXML();
 							getProject().getBuildSetting().setListParams(listParams);
@@ -861,7 +862,7 @@ public abstract class BuildListPanel extends Panel {
 					public void setObject(EntityQuery<Build> object) {
 						BuildListPanel.this.getFeedbackMessages().clear();
 						queryStringModel.setObject(object.toString());
-						var target = RequestCycle.get().find(AjaxRequestTarget.class);
+						var target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 						target.add(queryInput);
 						doQuery(target);
 					}
@@ -906,7 +907,7 @@ public abstract class BuildListPanel extends Panel {
 							query = new BuildQuery();
 						query.setSorts(object);
 						queryStringModel.setObject(query.toString());
-						AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class);
+						AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 						target.add(queryInput);
 						doQuery(target);
 					}
@@ -922,7 +923,7 @@ public abstract class BuildListPanel extends Panel {
 			extraActionsView.add(renderer.render(extraActionsView.newChildId()));
 		
 		queryInput = new TextField<String>("input", queryStringModel);
-		queryInput.add(new BuildQueryBehavior(new AbstractReadOnlyModel<Project>() {
+		queryInput.add(new BuildQueryBehavior(new IModel<Project>() {
 
 			@Override
 			public Project getObject() {
@@ -960,8 +961,8 @@ public abstract class BuildListPanel extends Panel {
 		queryForm.add(new AjaxButton("submit") {
 
 			@Override
-			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-				super.onSubmit(target, form);
+			protected void onSubmit(AjaxRequestTarget target) {
+				super.onSubmit(target);
 				BuildListPanel.this.getFeedbackMessages().clear();
 				doQuery(target);
 			}
@@ -1016,7 +1017,8 @@ public abstract class BuildListPanel extends Panel {
 				@Override
 				protected void onConfigure() {
 					super.onConfigure();
-					setVisible(SecurityUtils.getAuthUser() != null && getPage() instanceof ProjectBuildsPage);
+					setVisible(SecurityUtils.getAuthUser() != null && getPage() instanceof ProjectBuildsPage
+							&& SecurityUtils.canWorkOnProject(getProject()));
 				}
 				
 			});
@@ -1113,7 +1115,7 @@ public abstract class BuildListPanel extends Panel {
 					}
 
 				}));
-				link.add(new Label("caption", new AbstractReadOnlyModel<String>() {
+				link.add(new Label("caption", new IModel<String>() {
 
 					@Override
 					public String getObject() {
@@ -1258,7 +1260,7 @@ public abstract class BuildListPanel extends Panel {
 				Long buildId = build.getId();
 
 				Fragment fragment = new Fragment(componentId, "dateFrag", BuildListPanel.this);
-				fragment.add(new Label("name", new AbstractReadOnlyModel<String>() {
+				fragment.add(new Label("name", new IModel<String>() {
 
 					@Override
 					public String getObject() {

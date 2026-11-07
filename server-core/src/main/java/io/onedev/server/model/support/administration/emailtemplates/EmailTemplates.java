@@ -4,10 +4,13 @@ import com.google.common.io.Resources;
 import io.onedev.server.annotation.Code;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.OmitName;
+import io.onedev.server.oem.OemUtils;
 import io.onedev.server.util.GroovyUtils;
+import org.unbescape.html.HtmlEscape;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 import java.io.IOException;
+import java.io.Serial;
 import java.io.Serializable;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -17,6 +20,7 @@ import java.util.Map;
 @Editable
 public class EmailTemplates implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String DEFAULT_SIMPLE_NOTIFICATION;
@@ -40,6 +44,8 @@ public class EmailTemplates implements Serializable {
 	public static final String DEFAULT_STOPWATCH_OVERDUE;
 	
 	public static final String DEFAULT_ALERT;
+
+	private static final Map<String, String> LEGACY_DEFAULT_TEMPLATES;
 	
 	public static final String PROP_ISSUE_NOTIFICATION = "issueNotification";
 	
@@ -105,6 +111,14 @@ public class EmailTemplates implements Serializable {
 			
 			url = Resources.getResource(EmailTemplates.class, "default-alert.tpl");
 			DEFAULT_ALERT = Resources.toString(url, StandardCharsets.UTF_8);
+
+			// Upgrade only unchanged defaults saved before the product name binding was introduced.
+			// Custom templates may contain class names, URLs, or deliberately literal product names.
+			LEGACY_DEFAULT_TEMPLATES = Map.of(
+					DEFAULT_USER_INVITATION.replace("${productName}", "OneDev"), DEFAULT_USER_INVITATION,
+					DEFAULT_EMAIL_VERIFICATION.replace("${productName}", "OneDev"), DEFAULT_EMAIL_VERIFICATION,
+					DEFAULT_STOPWATCH_OVERDUE.replace("${productName}", "OneDev"), DEFAULT_STOPWATCH_OVERDUE,
+					DEFAULT_ALERT.replace("${productName}", "OneDev"), DEFAULT_ALERT);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -265,7 +279,7 @@ public class EmailTemplates implements Serializable {
 	@OmitName
 	@NotEmpty
 	public String getUserInvitation() {
-		return userInvitation;
+		return useProductNameVariable(userInvitation);
 	}
 
 	public void setUserInvitation(String userInvitation) {
@@ -277,7 +291,7 @@ public class EmailTemplates implements Serializable {
 	@OmitName
 	@NotEmpty
 	public String getEmailVerification() {
-		return emailVerification;
+		return useProductNameVariable(emailVerification);
 	}
 
 	public void setEmailVerification(String emailVerification) {
@@ -301,7 +315,7 @@ public class EmailTemplates implements Serializable {
 	@OmitName
 	@NotEmpty
 	public String getStopwatchOverdue() {
-		return stopwatchOverdue;
+		return useProductNameVariable(stopwatchOverdue);
 	}
 
 	public void setStopwatchOverdue(String stopwatchOverdue) {
@@ -313,17 +327,23 @@ public class EmailTemplates implements Serializable {
 	@OmitName
 	@NotEmpty
 	public String getAlert() {
-		return alert;
+		return useProductNameVariable(alert);
 	}
 
 	public void setAlert(String alert) {
 		this.alert = alert;
 	}
 	
+	private static String useProductNameVariable(String template) {
+		return template != null ? LEGACY_DEFAULT_TEMPLATES.getOrDefault(template, template) : null;
+	}
+
 	public static String evalTemplate(boolean htmlVersion, String template, Map<String, Object> bindings) {
-		var currentBindins = new HashMap<String, Object>(bindings);	
-		currentBindins.put("htmlVersion", htmlVersion);
-		return GroovyUtils.evalTemplate(template, currentBindins);
+		var currentBindings = new HashMap<String, Object>(bindings);
+		currentBindings.put("htmlVersion", htmlVersion);
+		var productName = OemUtils.getProductName();
+		currentBindings.put("productName", htmlVersion ? HtmlEscape.escapeHtml5(productName) : productName);
+		return GroovyUtils.evalTemplate(useProductNameVariable(template), currentBindings);
 	}
 	
 }

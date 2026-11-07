@@ -12,7 +12,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.apache.wicket.Session;
 import org.apache.wicket.ajax.AjaxRequestTarget;
@@ -149,7 +149,7 @@ public class WorkspaceDataPanel extends Panel {
 						clusterService.runOnAllServers(() -> {
 							write(lockName, () -> {
 								var dataDir = userService.getWorkspaceDataDir(userId, key, false);
-								FileUtils.deleteDir(dataDir);
+								FileUtils.deletePath(dataDir);
 							});
 							return null;
 						});

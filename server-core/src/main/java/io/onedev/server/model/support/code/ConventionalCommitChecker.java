@@ -3,11 +3,12 @@ package io.onedev.server.model.support.code;
 import static java.util.regex.Pattern.CASE_INSENSITIVE;
 import static java.util.regex.Pattern.UNICODE_CHARACTER_CLASS;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -19,6 +20,7 @@ import io.onedev.server.annotation.RegExp;
 @Editable(order=100, name="Conventional Commit")
 public class ConventionalCommitChecker implements CommitMessageChecker {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private static final Pattern CONVENTIONAL_COMMIT_SUBJECT = Pattern.compile(

@@ -1,30 +1,35 @@
 package io.onedev.server.rest.resource;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.NotAcceptableException;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.validation.Valid;
+import jakarta.validation.Validator;
+import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotAcceptableException;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import org.apache.shiro.authz.UnauthorizedException;
 
+import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.OneDev;
 import io.onedev.server.data.migration.VersionedXmlDoc;
-import io.onedev.server.service.AuditService;
-import io.onedev.server.service.SettingService;
+import io.onedev.server.model.BaseAuthorization;
+import io.onedev.server.model.GroupAuthorization;
+import io.onedev.server.model.Project;
+import io.onedev.server.model.UserAuthorization;
 import io.onedev.server.model.support.administration.BackupSetting;
 import io.onedev.server.model.support.administration.GlobalBuildSetting;
 import io.onedev.server.model.support.administration.GlobalWorkspaceSetting;
@@ -40,8 +45,14 @@ import io.onedev.server.model.support.administration.authenticator.Authenticator
 import io.onedev.server.model.support.administration.emailtemplates.EmailTemplates;
 import io.onedev.server.model.support.administration.jobexecutor.JobExecutor;
 import io.onedev.server.model.support.administration.mailservice.MailConnector;
+import io.onedev.server.persistence.TransactionService;
+import io.onedev.server.rest.RestProjectUtils;
 import io.onedev.server.rest.annotation.Api;
+import io.onedev.server.rest.resource.support.ProjectDefaults;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.service.AuditService;
+import io.onedev.server.service.ProjectService;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.web.page.layout.ContributedAdministrationSetting;
 
 @Path("/settings")
@@ -53,11 +64,20 @@ public class SettingResource {
 	private final SettingService settingService;
 
 	private final AuditService auditService;
+
+	private final Validator validator;
+
+	@Inject
+	private ProjectService projectService;
+
+	@Inject
+	private TransactionService transactionService;
 	
 	@Inject
-	public SettingResource(SettingService settingService, AuditService auditService) {
+	public SettingResource(SettingService settingService, AuditService auditService, Validator validator) {
 		this.settingService = settingService;
 		this.auditService = auditService;
+		this.validator = validator;
 	}
 
 	@Api(order=100)
@@ -263,7 +283,7 @@ public class SettingResource {
 	@Api(order=1900)
 	@Path("/groovy-scripts")
 	@POST
-    public Response setGroovyScripts(@NotNull @Valid List<GroovyScript> groovyScripts) {
+    public Response setGroovyScripts(@NotNull List<@Valid GroovyScript> groovyScripts) {
     	if (!SecurityUtils.isAdministrator()) 
 			throw new UnauthorizedException();
 		var oldAuditContent = VersionedXmlDoc.fromBean(settingService.getGroovyScripts()).toXML();
@@ -276,9 +296,20 @@ public class SettingResource {
 	@Api(order=2000)
 	@Path("/issue")
 	@POST
-    public Response setIssueSetting(@NotNull @Valid GlobalIssueSetting issueSetting) {
-    	if (!SecurityUtils.isAdministrator()) 
+    public Response setIssueSetting(@NotNull GlobalIssueSetting issueSetting) {
+		if (!SecurityUtils.isAdministrator())
 			throw new UnauthorizedException();
+		// Validate manually after populating editColumns: this JSON-ignored UI field has a
+		// minimum-size constraint, so @Valid would reject valid boards before entering this method.
+		if (issueSetting.getBoardSpecs() != null) {
+			for (var boardSpec: issueSetting.getBoardSpecs())
+				boardSpec.populateEditColumns();
+		}
+		var violations = validator.validate(issueSetting);
+		if (!violations.isEmpty()) {
+			var violation = violations.iterator().next();
+			throw new ExplicitException(violation.getPropertyPath() + ": " + violation.getMessage());
+		}
 		var oldAuditContent = VersionedXmlDoc.fromBean(settingService.getIssueSetting()).toXML();
     	issueSetting.setReconciled(false);
     	settingService.saveIssueSetting(issueSetting);
@@ -290,7 +321,7 @@ public class SettingResource {
 	@Api(order=2100)
 	@Path("/job-executors")
 	@POST
-    public Response setJobExecutors(@NotNull @Valid List<JobExecutor> jobExecutors) {
+    public Response setJobExecutors(@NotNull List<@Valid JobExecutor> jobExecutors) {
     	if (!SecurityUtils.isAdministrator()) 
 			throw new UnauthorizedException();
 		var oldAuditContent = VersionedXmlDoc.fromBean(settingService.getJobExecutors()).toXML();
@@ -415,7 +446,7 @@ public class SettingResource {
 	@Api(order=2800)
 	@Path("/contributed-settings")
 	@POST
-    public Response setContributedSettings(@NotNull @Valid List<ContributedAdministrationSetting> contributedSettings) {
+    public Response setContributedSettings(@NotNull List<@Valid ContributedAdministrationSetting> contributedSettings) {
     	if (!SecurityUtils.isAdministrator()) 
 			throw new UnauthorizedException();
 		var oldAuditContent = getAuditContent(settingService.getContributedSettings());
@@ -428,4 +459,57 @@ public class SettingResource {
     	return Response.ok().build();
     }
 	
+	private Project getDefaultsProject() {
+		RestProjectUtils.checkProjectDefaultsPermission();
+		return projectService.load(Project.DEFAULT_ID);
+	}
+
+	@Api(order=2900, description="Get shared project defaults. Requires an active subscription")
+	@Path("/project-defaults")
+	@GET
+	public ProjectDefaults getProjectDefaults() {
+		return ProjectDefaults.from(getDefaultsProject());
+	}
+
+	@Api(order=3000, description="Replace shared project defaults. Requires an active subscription")
+	@Path("/project-defaults")
+	@POST
+	public Response setProjectDefaults(@NotNull ProjectDefaults defaults) {
+		var project = getDefaultsProject();
+		var violations = validator.validate(defaults);
+		if (!violations.isEmpty()) {
+			var violation = violations.iterator().next();
+			throw new ExplicitException(violation.getPropertyPath() + ": " + violation.getMessage());
+		}
+		transactionService.run(() -> {
+			var oldAuditContent = VersionedXmlDoc.fromBean(ProjectDefaults.from(project)).toXML();
+			defaults.populate(project);
+			projectService.update(project);
+			auditService.audit(project, "changed project defaults via RESTful API",
+					oldAuditContent, VersionedXmlDoc.fromBean(ProjectDefaults.from(project)).toXML());
+		});
+		return Response.ok().build();
+	}
+
+	@Api(order=3300, description="Get project default user authorizations. Use user-authorizations resource to add or remove entries")
+	@Path("/project-defaults/user-authorizations")
+	@GET
+	public Collection<UserAuthorization> getProjectDefaultUserAuthorizations() {
+		return getDefaultsProject().getUserAuthorizations();
+	}
+
+	@Api(order=3400, description="Get project default group authorizations. Use group-authorizations resource to add or remove entries")
+	@Path("/project-defaults/group-authorizations")
+	@GET
+	public Collection<GroupAuthorization> getProjectDefaultGroupAuthorizations() {
+		return getDefaultsProject().getGroupAuthorizations();
+	}
+
+	@Api(order=3500, description="Get project default base authorizations. Use base-authorizations resource to add or remove entries")
+	@Path("/project-defaults/base-authorizations")
+	@GET
+	public Collection<BaseAuthorization> getProjectDefaultBaseAuthorizations() {
+		return getDefaultsProject().getBaseAuthorizations();
+	}
+
 }

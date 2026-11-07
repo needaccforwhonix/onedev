@@ -1,11 +1,12 @@
 package io.onedev.server.model.support.administration.jobexecutor;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.Valid;
-import javax.validation.constraints.Size;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 
 import io.onedev.commons.utils.match.Matcher;
 import io.onedev.commons.utils.match.PathMatcher;
@@ -17,6 +18,7 @@ import io.onedev.server.util.patternset.PatternSet;
 @Editable
 public class ServiceLocator implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String serviceNames;
@@ -40,7 +42,7 @@ public class ServiceLocator implements Serializable {
 	
 	@Editable(order=200, name="Applicable Images", placeholder="All", description=""
 			+ "Optionally specify space-separated service images applicable for this locator. "
-			+ "Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
+			+ "Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
 			+ "Prefix with '-' to exclude. Leave empty to match all")
 	@Patterns(path=true)
 	public String getServiceImages() {
@@ -53,8 +55,7 @@ public class ServiceLocator implements Serializable {
 
 	@Editable(order=300, description="Specify node selector of this locator")
 	@Size(min=1, message="At least one entry should be specified")
-	@Valid
-	public List<NodeSelectorEntry> getNodeSelector() {
+	public List<@Valid NodeSelectorEntry> getNodeSelector() {
 		return nodeSelector;
 	}
 

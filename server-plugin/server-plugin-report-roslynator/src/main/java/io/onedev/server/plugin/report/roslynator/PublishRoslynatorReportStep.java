@@ -21,9 +21,10 @@ import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.io.SAXReader;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serial;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -34,9 +35,10 @@ import static org.unbescape.html.HtmlEscape.escapeHtml5;
 @Editable(order=10000, group=StepGroup.PUBLISH, name="Roslynator Report")
 public class PublishRoslynatorReportStep extends PublishProblemReportStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
-	@Editable(order=100, description="Specify Roslynator diagnostics output file in XML format relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. "
+	@Editable(order=100, description="Specify Roslynator diagnostics output file in XML format relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>. "
 			+ "This file can be generated with <i>-o</i> option. Use * or ? for pattern match")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Patterns(path=true)

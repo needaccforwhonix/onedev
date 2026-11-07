@@ -1,5 +1,6 @@
 package io.onedev.server.web.editable.drawcardbeanlist;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 
@@ -30,6 +31,7 @@ import io.onedev.server.web.editable.BeanEditor;
  */
 public abstract class DrawCardBeanItemEditPanel<T extends Serializable> extends Panel {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final List<T> items;
@@ -77,7 +79,7 @@ public abstract class DrawCardBeanItemEditPanel<T extends Serializable> extends 
 			@Override
 			protected void onError() {
 				super.onError();
-				RequestCycle.get().find(AjaxRequestTarget.class).add(this);
+				RequestCycle.get().find(AjaxRequestTarget.class).orElse(null).add(this);
 			}
 
 		};
@@ -110,8 +112,9 @@ public abstract class DrawCardBeanItemEditPanel<T extends Serializable> extends 
 		form.add(new AjaxButton("save") {
 
 			@Override
-			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-				super.onSubmit(target, form);
+			protected void onSubmit(AjaxRequestTarget target) {
+				Form<?> form = getForm();
+				super.onSubmit(target);
 
 				T item = extractItem(editingBean);
 				validateItem(editor, item);

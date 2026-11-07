@@ -1,13 +1,16 @@
 package io.onedev.server.web.exceptionhandler;
 
+import java.io.Serial;
+
 import io.onedev.server.exception.HttpResponse;
 import io.onedev.server.exception.handler.AbstractExceptionHandler;
 import org.apache.wicket.protocol.http.PageExpiredException;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 public class PageExpiredExceptionHandler extends AbstractExceptionHandler<PageExpiredException> {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@Override

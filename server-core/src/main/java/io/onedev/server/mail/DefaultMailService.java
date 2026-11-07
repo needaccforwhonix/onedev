@@ -33,27 +33,27 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import org.jspecify.annotations.Nullable;
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.mail.Authenticator;
-import javax.mail.Folder;
-import javax.mail.FolderClosedException;
-import javax.mail.Message;
-import javax.mail.MessagingException;
-import javax.mail.Multipart;
-import javax.mail.Part;
-import javax.mail.PasswordAuthentication;
-import javax.mail.Session;
-import javax.mail.Store;
-import javax.mail.Transport;
-import javax.mail.internet.AddressException;
-import javax.mail.internet.ContentType;
-import javax.mail.internet.InternetAddress;
-import javax.mail.internet.MimeBodyPart;
-import javax.mail.internet.MimeMessage;
-import javax.mail.internet.MimeMessage.RecipientType;
-import javax.mail.internet.MimeMultipart;
-import javax.mail.internet.MimeUtility;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.mail.Authenticator;
+import jakarta.mail.Folder;
+import jakarta.mail.FolderClosedException;
+import jakarta.mail.Message;
+import jakarta.mail.MessagingException;
+import jakarta.mail.Multipart;
+import jakarta.mail.Part;
+import jakarta.mail.PasswordAuthentication;
+import jakarta.mail.Session;
+import jakarta.mail.Store;
+import jakarta.mail.Transport;
+import jakarta.mail.internet.AddressException;
+import jakarta.mail.internet.ContentType;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeBodyPart;
+import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeMessage.RecipientType;
+import jakarta.mail.internet.MimeMultipart;
+import jakarta.mail.internet.MimeUtility;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -75,7 +75,7 @@ import com.google.common.base.Joiner;
 import com.hazelcast.cluster.MembershipEvent;
 import com.hazelcast.cluster.MembershipListener;
 import com.ibm.icu.impl.locale.XCldrStub.Splitter;
-import com.sun.mail.imap.IMAPFolder;
+import org.eclipse.angus.mail.imap.IMAPFolder;
 
 import io.onedev.commons.loader.ManagedSerializedForm;
 import io.onedev.commons.utils.ExceptionUtils;
@@ -112,6 +112,7 @@ import io.onedev.server.model.support.administration.GlobalIssueSetting;
 import io.onedev.server.model.support.administration.IssueCreationSetting;
 import io.onedev.server.model.support.administration.emailtemplates.EmailTemplates;
 import io.onedev.server.model.support.issue.field.FieldUtils;
+import io.onedev.server.oem.OemUtils;
 import io.onedev.server.persistence.TransactionService;
 import io.onedev.server.persistence.annotation.Sessional;
 import io.onedev.server.persistence.annotation.Transactional;
@@ -190,7 +191,7 @@ public class DefaultMailService implements MailService, Serializable {
 	}
 	
 	private String getQuoteMark() {
-		return "[" + settingService.getBrandingSetting().getName() + "]";
+		return "[" + settingService.getBrandingSetting().getEffectiveName() + "]";
 	}
 
 	private synchronized ThreadPoolExecutor getSendExecutor(int concurrency) {
@@ -466,7 +467,7 @@ public class DefaultMailService implements MailService, Serializable {
 					var project = findProject(systemAddress, parsedReceiverAddress);
 					if (project != null) {
 						if (isOriginatedFromOneDev(message)) {
-							logger.warn("Ignored opening issue from message as it is originated from OneDev");
+							logger.warn(OemUtils.interpolate("Ignored opening issue from message as it is originated from ${productName}"));
 						} else {
 							var serviceDeskSetting = settingService.getServiceDeskSetting();
 							if (serviceDeskSetting != null) {
@@ -546,7 +547,7 @@ public class DefaultMailService implements MailService, Serializable {
 											sendMailAsync(newArrayList(fromInternetAddress.getAddress()), newArrayList(), newArrayList(),
 													subject, htmlBody, textBody, null, null, threadingReferences);
 										} else {
-											if (!SecurityUtils.canReadCode(involvedPullRequest.getProject())) {
+											if (SecurityUtils.canReadCode(fromUser.asSubject(), involvedPullRequest.getProject())) {
 												addComment(involvedPullRequest, message, fromInternetAddress, fromUser, receiverInternetAddresses);
 											} else {
 												throw new UnauthorizedException("Code read permission required for project: %s" 
@@ -688,6 +689,8 @@ public class DefaultMailService implements MailService, Serializable {
 	
 	private void addComment(Issue issue, Message message, InternetAddress authorInternetAddress, @Nullable User author, 
 							Collection<InternetAddress> receiverInternetAddresses) {
+		if (issue.getProject().isMaintenance() && !SecurityUtils.canWorkOnProject(SecurityUtils.asSubject(author), issue.getProject()))
+			throw new UnauthorizedException("Project is in maintenance mode");
 		String messageId = getMessageId(message);
 		if (messageId != null && issueCommentService.findByMessageId(messageId) != null) {
 			logger.warn("Ignored creating issue comment from message as comment with same message id already exists");
@@ -717,6 +720,8 @@ public class DefaultMailService implements MailService, Serializable {
 	
 	private void addComment(PullRequest pullRequest, Message message, InternetAddress authorInternetAddress, 
 							User author, Collection<InternetAddress> receiverInternetAddresses) {
+		if (pullRequest.getProject().isMaintenance() && !SecurityUtils.canWorkOnProject(SecurityUtils.asSubject(author), pullRequest.getProject()))
+			throw new UnauthorizedException("Project is in maintenance mode");
 		String messageId = getMessageId(message);
 		if (messageId != null && pullRequestCommentService.findByMessageId(messageId) != null) {
 			logger.warn("Ignored creating pull request comment from message as comment with same message id already exists");
@@ -724,6 +729,7 @@ public class DefaultMailService implements MailService, Serializable {
 		}
 
 		PullRequestComment comment = new PullRequestComment();
+		comment.setRequest(pullRequest);
 		comment.setUser(author);
 		if (messageId != null)
 			comment.setMessageId(messageId);
@@ -739,6 +745,8 @@ public class DefaultMailService implements MailService, Serializable {
 	private Issue openIssue(Message message, Project project, InternetAddress submitterInternetAddress, 
 							@Nullable User submitter, ParsedEmailAddress parsedSystemAddress, 
 							Collection<InternetAddress> receiverInternetAddresses) {
+		if (project.isMaintenance() && !SecurityUtils.canWorkOnProject(SecurityUtils.asSubject(submitter), project))
+			throw new UnauthorizedException("Project is in maintenance mode");
 		String messageId = getMessageId(message);
 		if (messageId != null) {
 			var existingIssue = issueService.findByMessageId(messageId);
@@ -787,8 +795,7 @@ public class DefaultMailService implements MailService, Serializable {
 		
 		IssueCreationSetting issueCreationSetting = settingService.getServiceDeskSetting().getIssueCreationSetting(project);
 		issue.setConfidential(issueCreationSetting.isConfidential());
-		for (Map.Entry<String, Object> entry: FieldUtils.getFieldValues(project, issueCreationSetting.getIssueFields()).entrySet())
-			issue.setFieldValue(entry.getKey(), entry.getValue());
+		FieldUtils.populateFields(issue, issueCreationSetting.getIssueFields());
 
 		var notifyEmailAddresses = receiverInternetAddresses.stream().map(InternetAddress::getAddress).collect(toSet());
 		notifyEmailAddresses.add(submitterInternetAddress.getAddress());
@@ -917,7 +924,7 @@ public class DefaultMailService implements MailService, Serializable {
 								
 								var threadingReferences = getThreadingReferences(UUID.randomUUID().toString(), null);
 								sendMailAsync(newArrayList(from.getAddress()), new ArrayList<>(), 
-										new ArrayList<>(), "OneDev is unable to process your message", 
+										new ArrayList<>(), OemUtils.interpolate("${productName} is unable to process your message"),
 										htmlBody, textBody, null, null, threadingReferences);								
 							}
 						} catch (Exception e2) {
@@ -1180,7 +1187,11 @@ public class DefaultMailService implements MailService, Serializable {
 			throws IOException, MessagingException {
 		if (part.getDisposition() != null) {
 			String[] contentId = part.getHeader("Content-ID");
-			String fileName = MimeUtility.decodeText(part.getFileName());
+			String fileName = part.getFileName();
+			if (fileName != null)
+				fileName = MimeUtility.decodeText(fileName);
+			if (StringUtils.isBlank(fileName))
+				fileName = "attachment";
 			var attachmentService = OneDev.getInstance(AttachmentService.class);
 			String attachmentName = attachmentService.saveAttachment(project.getId(), attachmentGroup,
 					fileName, part.getInputStream());

@@ -1,7 +1,6 @@
 package io.onedev.server.ai;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -11,6 +10,7 @@ import io.onedev.server.OneDev;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.Project;
 import io.onedev.server.service.UrlService;
+import org.jspecify.annotations.Nullable;
 
 public class BuildHelper {
     
@@ -22,7 +22,15 @@ public class BuildHelper {
         return OneDev.getInstance(UrlService.class);
     }
 
-    public static Map<String, Object> getSummary(Project currentProject, Build build) {        
+    public static Map<String, Object> getIdentity(@Nullable Project currentProject, Build build) {
+        return Map.of(
+            "id", build.getId(),
+            "number", build.getNumber(),
+            "reference", build.getReference().toString(currentProject),
+            "link", getUrlService().urlFor(build, true));
+    }
+
+    public static Map<String, Object> getSummary(@Nullable Project currentProject, Build build) {
         var typeReference = new TypeReference<LinkedHashMap<String, Object>>() {};
         var summary = getObjectMapper().convertValue(build, typeReference);
         summary.remove("id");
@@ -52,9 +60,16 @@ public class BuildHelper {
         return summary;
     }
 
-    public static Map<String, Object> getDetail(Project currentProject, Build build) {
+    public static Map<String, Object> getDetail(@Nullable Project currentProject, Build build) {
         var data = getSummary(currentProject, build);
-        data.put("params", build.getParamMap());
+
+        Map<String, List<String>> paramMap = new HashMap<>();
+        for (var param: build.getParams())
+            paramMap.computeIfAbsent(param.getName(), it -> new ArrayList<>()).add(param.getMaskedValue());
+        for (var values: paramMap.values())
+            Collections.sort(values);
+
+        data.put("params", paramMap);
         data.put("labels", build.getLabels().stream().map(it->it.getSpec().getName()).collect(Collectors.toList()));
         data.put("link", getUrlService().urlFor(build, true));
         return data;

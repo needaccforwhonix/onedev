@@ -3,9 +3,10 @@ package io.onedev.server.buildspec.step;
 import static io.onedev.server.buildspec.step.StepGroup.PUBLISH;
 
 import java.io.File;
+import java.io.Serial;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.commons.utils.FileUtils;
@@ -28,6 +29,7 @@ import io.onedev.server.util.patternset.PatternSet;
 		"to build artifacts directory, so that they can be accessed after job is completed")
 public class PublishArtifactStep extends ServerSideStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String sourcePath;
@@ -35,7 +37,7 @@ public class PublishArtifactStep extends ServerSideStep {
 	private String artifacts;
 	
 	@Editable(order=50, name="From Directory", placeholder="Job workdir", description="Optionally specify path "
-			+ "relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> to publish "
+			+ "relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a> to publish "
 			+ "artifacts from. Leave empty to use job working directory itself")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Path(Path.Type.RELATIVE)

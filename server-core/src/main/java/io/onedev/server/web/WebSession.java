@@ -1,10 +1,11 @@
 package io.onedev.server.web;
 
+import java.io.Serial;
 import java.time.ZoneId;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpSession;
 
 import org.apache.shiro.SecurityUtils;
 import org.apache.wicket.protocol.http.WicketServlet;
@@ -17,6 +18,7 @@ import io.onedev.server.web.util.Cursor;
 
 public class WebSession extends org.apache.wicket.protocol.http.WebSession {
 
+	@Serial
 	private static final long serialVersionUID = 1L;	
 	
 	private volatile Cursor issueCursor; 

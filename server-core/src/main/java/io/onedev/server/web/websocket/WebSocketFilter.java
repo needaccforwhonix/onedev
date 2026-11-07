@@ -17,80 +17,92 @@
 package io.onedev.server.web.websocket;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.inject.Inject;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.shiro.SecurityUtils;
 import org.apache.wicket.protocol.ws.AbstractUpgradeFilter;
-import org.eclipse.jetty.websocket.api.WebSocketPolicy;
-import org.eclipse.jetty.websocket.server.WebSocketServerFactory;
-import org.eclipse.jetty.websocket.servlet.ServletUpgradeRequest;
-import org.eclipse.jetty.websocket.servlet.ServletUpgradeResponse;
-import org.eclipse.jetty.websocket.servlet.WebSocketCreator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.eclipse.jetty.ee11.websocket.server.JettyWebSocketServerContainer;
 
-/**
- * An upgrade filter that uses Jetty9's WebSocketServerFactory to decide whether
- * to upgrade or not.
- */
+import io.onedev.server.service.SettingService;
+
+/** Upgrades Wicket connections through Jetty's Jakarta Servlet WebSocket container. */
 public class WebSocketFilter extends AbstractUpgradeFilter {
 
-	public static final String SHIRO_SUBJECT = "shiro_subject"; 
-	
-	private static final Logger logger = LoggerFactory.getLogger(WebSocketFilter.class);
+    public static final String SHIRO_SUBJECT = "shiro_subject";
 
-	private WebSocketServerFactory webSocketFactory;
+    private JettyWebSocketServerContainer webSocketContainer;
 
-	private final WebSocketPolicy webSocketPolicy;
+    @Inject
+    private SettingService settingService;
 
-	public WebSocketFilter(WebSocketPolicy webSocketPolicy) {
-		this.webSocketPolicy = webSocketPolicy;
-	}
+    @Override
+    public void init(boolean isServlet, FilterConfig filterConfig) throws ServletException {
+        super.init(isServlet, filterConfig);
+        webSocketContainer = JettyWebSocketServerContainer.getContainer(filterConfig.getServletContext());
+        if (webSocketContainer == null)
+            throw new ServletException("Jetty WebSocket container is not initialized");
+    }
 
-	@Override
-	public void init(final boolean isServlet, final FilterConfig filterConfig) throws ServletException {
-		super.init(isServlet, filterConfig);
- 
-		try {
-			webSocketFactory = new WebSocketServerFactory(getApplication().getServletContext(), webSocketPolicy);
+    @Override
+    protected boolean acceptWebSocket(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        if (!super.acceptWebSocket(request, response))
+            return false;
+        if (!isOriginAllowed(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return false;
+        }
+        request.setAttribute(SHIRO_SUBJECT, SecurityUtils.getSubject());
+        return webSocketContainer.upgrade((req, resp) -> new WebSocketProcessor(req, resp, getApplication()),
+                request, response);
+    }
 
-			webSocketFactory.setCreator(new WebSocketCreator() {
-				@Override
-				public Object createWebSocket(ServletUpgradeRequest req, ServletUpgradeResponse resp) {
-					return new WebSocketProcessor(req, resp, getApplication());
-				}
+    private boolean isOriginAllowed(HttpServletRequest request) {
+        var origins = request.getHeaders("Origin");
+        if (!origins.hasMoreElements())
+            return false;
+        var originHeader = origins.nextElement();
+        if (origins.hasMoreElements())
+            return false;
+        try {
+            var origin = new URI(originHeader);
+            if ((!"http".equalsIgnoreCase(origin.getScheme()) && !"https".equalsIgnoreCase(origin.getScheme()))
+                    || origin.getHost() == null || origin.getRawUserInfo() != null
+                    || !origin.getRawPath().isEmpty() || origin.getRawQuery() != null
+                    || origin.getRawFragment() != null || origin.getPort() > 65535)
+                return false;
 
-			});
+            // Reverse proxies may replace the public scheme, host, and port with backend values.
+            var systemSetting = settingService.getSystemSetting();
+            if (systemSetting != null && systemSetting.getServerUrl() != null
+                    && isSameOrigin(origin, new URI(systemSetting.getServerUrl())))
+                return true;
 
-			webSocketFactory.start();
-		} catch (ServletException x) {
-			throw x;
-		} catch (Exception x) {
-			throw new ServletException(x);
-		}
-	}
+            // Preserve direct access via localhost, IP addresses, or alternate hostnames.
+            var requestOrigin = new URI(request.getScheme(), null, request.getServerName(),
+                    request.getServerPort(), null, null, null);
+            return isSameOrigin(origin, requestOrigin);
+        } catch (URISyntaxException e) {
+            return false;
+        }
+    }
 
-	@Override
-	protected boolean acceptWebSocket(HttpServletRequest req, HttpServletResponse resp)
-			throws ServletException, IOException {
-		req.setAttribute(SHIRO_SUBJECT, SecurityUtils.getSubject());
-		return super.acceptWebSocket(req, resp) && webSocketFactory.acceptWebSocket(req, resp);
-	}
+    private boolean isSameOrigin(URI origin, URI target) {
+        return origin.getScheme().equalsIgnoreCase(target.getScheme())
+                && origin.getHost().equalsIgnoreCase(target.getHost())
+                && getPort(origin) == getPort(target);
+    }
 
-	@Override
-	public void destroy() {
-		try {
-			if (webSocketFactory != null) {
-				webSocketFactory.stop();
-			}
-		} catch (Exception x) {
-			logger.warn("A problem occurred while stopping the web socket factory", x);
-		}
-
-		super.destroy();
-	}
+    private int getPort(URI uri) {
+        if (uri.getPort() != -1)
+            return uri.getPort();
+        return "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
+    }
 }

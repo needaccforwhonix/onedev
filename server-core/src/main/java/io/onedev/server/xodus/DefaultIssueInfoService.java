@@ -5,6 +5,7 @@ import static java.lang.Long.valueOf;
 
 import java.io.File;
 import java.io.ObjectStreamException;
+import java.io.Serial;
 import java.io.Serializable;
 import java.time.ZoneId;
 import java.util.HashSet;
@@ -12,10 +13,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
-import org.apache.commons.lang.SerializationUtils;
+import org.apache.commons.lang3.SerializationUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -264,6 +265,7 @@ public class DefaultIssueInfoService extends AbstractEnvironmentService
 		Long sourceProjectId = event.getSourceProject().getId();
 		projectService.submitToActiveServer(sourceProjectId, new ClusterTask<Void>() {
 
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -293,7 +295,6 @@ public class DefaultIssueInfoService extends AbstractEnvironmentService
 		}
 	}
 
-	@Sessional
 	@Listen
 	public void on(ActiveServerChanged event) {
 		for (var projectId: event.getProjectIds()) {
@@ -320,6 +321,7 @@ public class DefaultIssueInfoService extends AbstractEnvironmentService
 
 		return projectService.runOnActiveServer(projectId, new ClusterTask<>() {
 
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override

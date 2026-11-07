@@ -1,14 +1,15 @@
 package io.onedev.server.model.support;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.Date;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.Column;
-import javax.persistence.Embeddable;
-import javax.persistence.FetchType;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 
 import org.hibernate.annotations.OptimisticLock;
 
@@ -17,6 +18,7 @@ import io.onedev.server.model.User;
 @Embeddable
 public class LastActivity implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String COLUMN_USER = "LAST_ACTIVITY_USER";

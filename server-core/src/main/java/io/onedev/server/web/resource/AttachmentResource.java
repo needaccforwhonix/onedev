@@ -9,20 +9,22 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.Serial;
 import java.net.URLEncoder;
 
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.Invocation;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.Response;
+import jakarta.ws.rs.client.Client;
+import jakarta.ws.rs.client.ClientBuilder;
+import jakarta.ws.rs.client.Invocation;
+import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.Response;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.shiro.authz.UnauthorizedException;
 import org.apache.tika.mime.MimeTypes;
+import org.apache.wicket.request.Url;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.request.resource.AbstractResource;
@@ -31,6 +33,7 @@ import io.onedev.k8shelper.KubernetesHelper;
 import io.onedev.server.OneDev;
 import io.onedev.server.attachment.AttachmentService;
 import io.onedev.server.cluster.ClusterService;
+import io.onedev.server.crypto.CryptoService;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.Issue;
 import io.onedev.server.model.Project;
@@ -40,11 +43,11 @@ import io.onedev.server.service.CodeCommentService;
 import io.onedev.server.service.IssueService;
 import io.onedev.server.service.ProjectService;
 import io.onedev.server.service.PullRequestService;
-import io.onedev.server.util.CryptoUtils;
 import io.onedev.server.util.IOUtils;
 
 public class AttachmentResource extends AbstractResource {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private static final String PARAM_PROJECT = "project";
@@ -72,7 +75,7 @@ public class AttachmentResource extends AbstractResource {
 			
 			String authorization = params.get(PARAM_AUTHORIZATION).toOptionalString();
 			if (authorization == null 
-					|| !new String(CryptoUtils.decrypt(Base64.decodeBase64(authorization)), UTF_8).equals(attachmentGroup)) {
+					|| !new String(OneDev.getInstance(CryptoService.class).decrypt(Base64.decodeBase64(authorization)), UTF_8).equals(attachmentGroup)) {
 				Issue issue;
 				Build build;
 				if (OneDev.getInstance(PullRequestService.class).find(attachmentGroup) != null
@@ -124,12 +127,14 @@ public class AttachmentResource extends AbstractResource {
 				} else {
 	    			Client client = ClientBuilder.newClient();
 	    			try {
-	    				CharSequence path = RequestCycle.get().urlFor(
+						var pathAndQuery = Url.parse(RequestCycle.get().urlFor(
 	    						new AttachmentResourceReference(), 
-	    						AttachmentResource.paramsOf(projectId, attachmentGroup, attachment));
-	    				String activeServerUrl = clusterService.getServerUrl(activeServer) + path;
+								AttachmentResource.paramsOf(projectId, attachmentGroup, attachment)));
+						String activeServerUrl = clusterService.getServerUrl(activeServer);
 	    				
-	    				WebTarget target = client.target(activeServerUrl).path(path.toString());
+						WebTarget target = client.target(activeServerUrl).path(pathAndQuery.getPath());
+						for (var entry: pathAndQuery.getQueryParameters())
+							target = target.queryParam(entry.getName(), entry.getValue());
 	    				Invocation.Builder builder =  target.request();
 	    				builder.header(HttpHeaders.AUTHORIZATION, 
 	    						KubernetesHelper.BEARER + " " + clusterService.getCredential());
@@ -177,7 +182,7 @@ public class AttachmentResource extends AbstractResource {
 			URIBuilder builder = new URIBuilder(attachmentUrl);
 			if (builder.getPathSegments().size() >= 5) {
 				String group = builder.getPathSegments().get(4);
-				byte[] encrypted = CryptoUtils.encrypt(group.getBytes(UTF_8));
+				byte[] encrypted = OneDev.getInstance(CryptoService.class).encrypt(group.getBytes(UTF_8));
 				String base64 = Base64.encodeBase64URLSafeString(encrypted);
 				builder.addParameter(PARAM_AUTHORIZATION, base64);
 			}

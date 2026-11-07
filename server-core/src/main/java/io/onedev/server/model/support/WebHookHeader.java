@@ -1,14 +1,16 @@
 package io.onedev.server.model.support;
 
+import java.io.Serial;
 import java.io.Serializable;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.annotation.Editable;
 
 @Editable
 public class WebHookHeader implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String name;

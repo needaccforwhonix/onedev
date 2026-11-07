@@ -1,27 +1,38 @@
 package io.onedev.server.persistence;
 
-import java.io.Serializable;
-import java.util.Properties;
+import java.io.Serial;
+import java.util.EnumSet;
 
-import org.hibernate.HibernateException;
-import org.hibernate.MappingException;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
-import org.hibernate.id.Configurable;
-import org.hibernate.id.IdentifierGenerator;
-import org.hibernate.service.ServiceRegistry;
-import org.hibernate.type.Type;
+import org.hibernate.generator.BeforeExecutionGenerator;
+import org.hibernate.generator.EventType;
+import org.hibernate.generator.EventTypeSets;
 
 import io.onedev.commons.loader.AppLoader;
 
-public class IdGenerator implements IdentifierGenerator, Configurable {
+public class IdGenerator implements BeforeExecutionGenerator {
+
+	@Serial
+	private static final long serialVersionUID = 1L;
 
 	@Override
-	public void configure(Type type, Properties params, ServiceRegistry serviceRegistry) throws MappingException {
+	public Object generate(SharedSessionContractImplementor session, Object object,
+			Object currentValue, EventType eventType) {
+		var idService = AppLoader.getInstance(IdService.class);
+		if (currentValue != null) {
+			idService.useId(session, object.getClass(), (Long) currentValue);
+			return currentValue;
+		}
+		return idService.nextId(session, object.getClass());
 	}
 
 	@Override
-	public Serializable generate(SharedSessionContractImplementor session, Object object) throws HibernateException {
-		return AppLoader.getInstance(IdService.class).nextId(object.getClass());
+	public EnumSet<EventType> getEventTypes() {
+		return EventTypeSets.INSERT_ONLY;
 	}
 
+	@Override
+	public boolean allowAssignedIdentifiers() {
+		return true;
+	}
 }

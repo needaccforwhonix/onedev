@@ -1,15 +1,17 @@
 package io.onedev.server.search.buildmetric;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.Join;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 
 public class AndBuildMetricCriteria extends BuildMetricCriteria {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private final List<? extends BuildMetricCriteria> criterias;

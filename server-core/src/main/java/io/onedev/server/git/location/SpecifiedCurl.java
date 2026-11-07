@@ -1,6 +1,8 @@
 package io.onedev.server.git.location;
 
-import javax.validation.constraints.NotEmpty;
+import java.io.Serial;
+
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.OmitName;
@@ -8,6 +10,7 @@ import io.onedev.server.annotation.OmitName;
 @Editable(name="Use Specified curl", order=200)
 public class SpecifiedCurl extends CurlLocation {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String curlPath;

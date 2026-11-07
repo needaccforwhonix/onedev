@@ -1,15 +1,18 @@
 package io.onedev.server.model;
 
+import java.io.Serial;
+
 import io.onedev.server.model.support.EntityTouch;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 import static io.onedev.server.model.IssueTouch.*;
 
 @Entity
-@Table(indexes={@Index(columnList="o_project_id"), @Index(columnList= PROP_ISSUE_ID)})
+@Table(indexes={@Index(columnList="project_id"), @Index(columnList= PROP_ISSUE_ID)})
 public class IssueTouch extends EntityTouch {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static final String PROP_PROJECT = "project";

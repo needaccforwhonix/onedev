@@ -1,12 +1,14 @@
 package io.onedev.server.search.entity.agent;
 
+import java.io.Serial;
+
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
-import javax.persistence.criteria.Subquery;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 
 import io.onedev.server.model.Agent;
 import io.onedev.server.model.AgentAttribute;
@@ -15,6 +17,7 @@ import io.onedev.server.util.criteria.Criteria;
 
 public class AttributeCriteria extends Criteria<Agent> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final String name;

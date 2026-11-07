@@ -1,21 +1,29 @@
 package io.onedev.server.buildspec.step;
 
+import static io.onedev.commons.utils.FileUtils.hasSymbolLinks;
+
+import java.io.File;
+import java.io.Serial;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.commons.codeassist.InputSuggestion;
+import io.onedev.commons.utils.ExplicitException;
 import io.onedev.k8shelper.ExecuteCondition;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Interpolative;
+import io.onedev.server.annotation.Path;
 import io.onedev.server.annotation.PathSegment;
 import io.onedev.server.annotation.Patterns;
 import io.onedev.server.buildspec.BuildSpec;
 import io.onedev.server.util.patternset.PatternSet;
+import io.onedev.server.validation.validator.PathValidator;
 
 @Editable
 public abstract class PublishReportStep extends ServerSideStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String reportName;
@@ -44,7 +52,7 @@ public abstract class PublishReportStep extends ServerSideStep {
 		return PatternSet.parse(getFilePatterns());
 	}
 	
-	@Editable(order=100, description="Specify files relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> to be published. "
+	@Editable(order=100, description="Specify files relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a> to be published. "
 			+ "Use * or ? for pattern match")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Patterns(path=true)
@@ -66,6 +74,19 @@ public abstract class PublishReportStep extends ServerSideStep {
 		if (patternSet == null)
 			patternSet = PatternSet.parse(getFilePatterns());
 		return patternSet;
+	}
+
+	/**
+	 * Validate the interpolated path before accessing a report file directly.
+	 */
+	protected File getReportFile(File inputDir, String filePath) {
+		var error = PathValidator.checkPath(Path.Type.RELATIVE, filePath);
+		if (error != null)
+			throw new ExplicitException("Invalid report file path '" + filePath + "': " + error);
+		var file = new File(inputDir, filePath);
+		if (hasSymbolLinks(inputDir, file))
+			throw new ExplicitException("Report file path must not contain symbolic links: " + filePath);
+		return file;
 	}
 	
 }

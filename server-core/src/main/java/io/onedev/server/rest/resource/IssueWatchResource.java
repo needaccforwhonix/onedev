@@ -6,12 +6,12 @@ import io.onedev.server.rest.annotation.Api;
 import io.onedev.server.security.SecurityUtils;
 import org.apache.shiro.authz.UnauthorizedException;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.validation.constraints.NotNull;
-import javax.ws.rs.*;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import static io.onedev.server.security.SecurityUtils.canModifyOrDelete;
 
@@ -45,6 +45,7 @@ public class IssueWatchResource {
 				|| !SecurityUtils.isAdministrator() && !watch.getUser().equals(SecurityUtils.getAuthUser())) {
 			throw new UnauthorizedException();
 		}
+		SecurityUtils.checkWorkOnProject(watch.getIssue().getProject());
 		watchService.createOrUpdate(watch);
 		return watch.getId();
 	}

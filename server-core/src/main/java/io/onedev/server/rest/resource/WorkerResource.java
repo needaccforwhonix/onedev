@@ -16,30 +16,33 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.HEAD;
-import javax.ws.rs.NotFoundException;
-import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.client.Invocation;
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.StreamingOutput;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HEAD;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.client.Client;
+import jakarta.ws.rs.client.ClientBuilder;
+import jakarta.ws.rs.client.Entity;
+import jakarta.ws.rs.client.Invocation;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.StreamingOutput;
 
-import org.apache.commons.lang.SerializationUtils;
+import org.apache.commons.lang3.SerializationUtils;
 import org.apache.shiro.authz.UnauthorizedException;
 import org.glassfish.jersey.client.ClientProperties;
 import org.jspecify.annotations.Nullable;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.onedev.commons.utils.FileUtils;
 import io.onedev.commons.utils.StringUtils;
@@ -49,6 +52,7 @@ import io.onedev.k8shelper.CacheAvailability;
 import io.onedev.k8shelper.KubernetesHelper;
 import io.onedev.k8shelper.KubernetesJobData;
 import io.onedev.k8shelper.KubernetesWorkspaceData;
+import io.onedev.server.agent.AgentHelper;
 import io.onedev.server.cluster.ClusterService;
 import io.onedev.server.job.JobContext;
 import io.onedev.server.job.JobService;
@@ -91,11 +95,20 @@ public class WorkerResource {
 	@Inject
 	private UserService userService;
 
+	@Inject
+	private ObjectMapper objectMapper;
+
+	@Path("job-workdir")
+	@PUT
+	public void reportJobWorkDir(@QueryParam("token") @NotEmpty String token,
+			@QueryParam("workDir") @NotEmpty String workDir) {
+		jobService.reportJobWorkDir(jobService.getJobContext(token, true), workDir);
+	}
+
 	@Path("job-data")
 	@Produces(MediaType.APPLICATION_OCTET_STREAM)
 	@GET
-	public byte[] getJobData(@QueryParam("token") String token,
-			@QueryParam("workDir") @Nullable String workDir) {
+	public byte[] getJobData(@QueryParam("token") String token, @QueryParam("workDir") String workDir) {
 		JobContext jobContext = jobService.getJobContext(token, true);
 		if (StringUtils.isNotBlank(workDir))
 			jobService.reportJobWorkDir(jobContext, workDir);
@@ -110,7 +123,8 @@ public class WorkerResource {
 	@Path("run-server-step")
 	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
 	@POST
-	public StreamingOutput runServerStep(@QueryParam("token") String token, InputStream is) {
+	public StreamingOutput runServerStep(@QueryParam("token") @NotEmpty String token,
+			@QueryParam("resultFormat") String resultFormat, InputStream is) {
 		JobContext jobContext = jobService.getJobContext(token, true);
 		return os -> {
 			File filesDir = FileUtils.createTempDir();
@@ -147,13 +161,17 @@ public class WorkerResource {
 					}
 
 				});
-				byte[] bytes = SerializationUtils.serialize(result);
+				// The sandbox runner uses the same streaming protocol without a Java runtime.
+				byte[] bytes = "json".equals(resultFormat)
+						? objectMapper.writeValueAsBytes(Map.of("successful", result.isSuccessful(),
+								"outputFiles", result.getOutputFiles()))
+						: SerializationUtils.serialize(result);
 				writeInt(os, 2);
 				writeInt(os, bytes.length);
 				os.write(bytes);
 			} finally {
 				sessionService.openSession();
-				FileUtils.deleteDir(filesDir);
+				FileUtils.deletePath(filesDir);
 			}
 		};
 	}
@@ -161,7 +179,7 @@ public class WorkerResource {
 	@Path("dependencies")
 	@Produces(MediaType.APPLICATION_OCTET_STREAM)
 	@GET
-	public StreamingOutput downloadDependencies(@QueryParam("token") String token) {
+	public StreamingOutput downloadDependencies(@QueryParam("token") @NotEmpty String token) {
 		return os -> {
 			JobContext jobContext = jobService.getJobContext(token, true);
 			File tempDir = FileUtils.createTempDir();
@@ -171,7 +189,7 @@ public class WorkerResource {
 				TarUtils.tar(tempDir, os, false);
 			} finally {
 				sessionService.openSession();
-				FileUtils.deleteDir(tempDir);
+				FileUtils.deletePath(tempDir);
 			}
 		};
 	}
@@ -180,10 +198,10 @@ public class WorkerResource {
 	@Produces(MediaType.APPLICATION_OCTET_STREAM)
 	@GET
 	public StreamingOutput downloadJobCache(
-			@QueryParam("token") String token,
-			@QueryParam("key") String key,
-			@QueryParam("checksum") @Nullable String checksum,
-			@QueryParam("path") String path) {
+			@QueryParam("token") @NotEmpty String token,
+			@QueryParam("key") @NotEmpty String key,
+			@QueryParam("checksum") String checksum,
+			@QueryParam("path") @NotEmpty String path) {
 		var context = jobService.getJobContext(token, true);
 		return downloadCache(context.getProjectId(), key, checksum, path);
 	}
@@ -192,10 +210,10 @@ public class WorkerResource {
 	@Produces(MediaType.APPLICATION_OCTET_STREAM)
 	@GET
 	public StreamingOutput downloadWorkspaceCache(
-			@QueryParam("token") String token,
-			@QueryParam("key") String key,
-			@QueryParam("checksum") @Nullable String checksum,
-			@QueryParam("path") String path) {
+			@QueryParam("token") @NotEmpty String token,
+			@QueryParam("key") @NotEmpty String key,
+			@QueryParam("checksum") String checksum,
+			@QueryParam("path") @NotEmpty String path) {
 		var context = workspaceService.getWorkspaceContext(token, true);
 		return downloadCache(context.getProjectId(), key, checksum, path);
 	}
@@ -203,16 +221,16 @@ public class WorkerResource {
 	@Path("job-cache")
 	@HEAD
 	public void checkUploadJobCache(
-			@QueryParam("token") String token,
-			@QueryParam("projectPath") @Nullable String projectPath) {
+			@QueryParam("token") @NotEmpty String token,
+			@QueryParam("projectPath") String projectPath) {
 		checkUploadCache(jobService.getJobContext(token, true), projectPath);
 	}		
 
 	@Path("workspace-cache")
 	@HEAD
 	public void checkUploadWorkspaceCache(
-			@QueryParam("token") String token,
-			@QueryParam("projectPath") @Nullable String projectPath) {
+			@QueryParam("token") @NotEmpty String token,
+			@QueryParam("projectPath") String projectPath) {
 		checkUploadCache(workspaceService.getWorkspaceContext(token, true), projectPath);
 	}	
 
@@ -228,7 +246,8 @@ public class WorkerResource {
 	public Long checkUploadCache(WorkspaceContext context, @Nullable String projectPath) {
 		var project = projectService.load(context.getProjectId());
 		var uploadProject = getUploadProject(project, projectPath);
-		if (project.isSelfOrAncestorOf(uploadProject) || SecurityUtils.canUploadCache(uploadProject))
+		var user = userService.load(context.getUserId());
+		if (SecurityUtils.canUploadCache(user.asSubject(), uploadProject) || SecurityUtils.canUploadCache(uploadProject))
 			return uploadProject.getId();
 		else
 			throw new UnauthorizedException();
@@ -238,11 +257,11 @@ public class WorkerResource {
 	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
 	@POST
 	public Response uploadJobCache(
-			@QueryParam("token") String token,
-			@QueryParam("projectPath") @Nullable String projectPath,
-			@QueryParam("key") String key,
-			@QueryParam("checksum") @Nullable String checksum,
-			@QueryParam("path") String path,
+			@QueryParam("token") @NotEmpty String token,
+			@QueryParam("projectPath") String projectPath,
+			@QueryParam("key") @NotEmpty String key,
+			@QueryParam("checksum") String checksum,
+			@QueryParam("path") @NotEmpty String path,
 			InputStream is) {
 		var projectId = checkUploadCache(jobService.getJobContext(token, true), projectPath);
 		return uploadCache(projectId, key, checksum, path, is);
@@ -252,11 +271,11 @@ public class WorkerResource {
 	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
 	@POST
 	public Response uploadWorkspaceCache(
-			@QueryParam("token") String token,
-			@QueryParam("projectPath") @Nullable String projectPath,
-			@QueryParam("key") String key,
-			@QueryParam("checksum") @Nullable String checksum,
-			@QueryParam("path") String path,
+			@QueryParam("token") @NotEmpty String token,
+			@QueryParam("projectPath") String projectPath,
+			@QueryParam("key") @NotEmpty String key,
+			@QueryParam("checksum") String checksum,
+			@QueryParam("path") @NotEmpty String path,
 			InputStream is) {
 		var projectId = checkUploadCache(workspaceService.getWorkspaceContext(token, true), projectPath);
 		return uploadCache(projectId, key, checksum, path, is);
@@ -274,7 +293,7 @@ public class WorkerResource {
 	@Path("workspace-data")
 	@Produces(MediaType.APPLICATION_OCTET_STREAM)
 	@GET
-	public byte[] getWorkspaceData(@QueryParam("token") String token) {
+	public byte[] getWorkspaceData(@QueryParam("token") @NotEmpty String token) {
 		WorkspaceContext context = workspaceService.getWorkspaceContext(token, true);
 		var data = new KubernetesWorkspaceData(
 				context.getUserName(),
@@ -295,9 +314,9 @@ public class WorkerResource {
 	@Produces(MediaType.APPLICATION_OCTET_STREAM)
 	@GET
 	public Response downloadWorkspaceUserData(
-			@QueryParam("token") String token,
-			@QueryParam("key") String key,
-			@QueryParam("path") String path) {
+			@QueryParam("token") @NotEmpty String token,
+			@QueryParam("key") @NotEmpty String key,
+			@QueryParam("path") @NotEmpty String path) {
 		WorkspaceContext context = workspaceService.getWorkspaceContext(token, true);
 		Long userId = context.getUserId();
 
@@ -325,9 +344,9 @@ public class WorkerResource {
 	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
 	@POST
 	public Response uploadWorkspaceUserData(
-			@QueryParam("token") String token,
-			@QueryParam("key") String key,
-			@QueryParam("path") String path,
+			@QueryParam("token") @NotEmpty String token,
+			@QueryParam("key") @NotEmpty String key,
+			@QueryParam("path") @NotEmpty String path,
 			InputStream is) {
 		WorkspaceContext context = workspaceService.getWorkspaceContext(token, true);
 		Long userId = context.getUserId();
@@ -342,17 +361,23 @@ public class WorkerResource {
 		return Response.ok().build();
 	}
 
+	@Path("job-running")
+	@GET
+	public boolean isJobRunning(@QueryParam("token") @NotEmpty String token) {
+		return jobService.getJobContext(token, false) != null || AgentHelper.isTestRunning(token);
+	}
+
 	@Path("workspace-active")
 	@GET
-	public boolean isWorkspaceActive(@QueryParam("token") String token) {
+	public boolean isWorkspaceActive(@QueryParam("token") @NotEmpty String token) {
 		return workspaceService.getWorkspaceContext(token, false) != null;
 	}
 
 	@Path("workspace-user-data")
 	@PUT
 	public Response notifyWorkspaceUserDataUploaded(
-			@QueryParam("token") String token,
-			@QueryParam("key") String key) {
+			@QueryParam("token") @NotEmpty String token,
+			@QueryParam("key") @NotEmpty String key) {
 		WorkspaceContext context = workspaceService.getWorkspaceContext(token, true);
 		Long userId = context.getUserId();
 		userService.notifyWorkspaceDataUploaded(userId, key);

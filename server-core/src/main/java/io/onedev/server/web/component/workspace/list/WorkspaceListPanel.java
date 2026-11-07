@@ -33,7 +33,6 @@ import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.markup.repeater.Item;
 import org.apache.wicket.markup.repeater.OddEvenItem;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -213,7 +212,8 @@ public abstract class WorkspaceListPanel extends Panel {
 			protected void onConfigure() {
 				super.onConfigure();
 				setEnabled(querySubmitted && queryModel.getObject() != null);
-				setVisible(SecurityUtils.getAuthUser() != null && getQuerySaveSupport() != null);
+				setVisible(SecurityUtils.getAuthUser() != null && getQuerySaveSupport() != null
+						&& (getProject() == null || SecurityUtils.canWorkOnProject(getProject())));
 			}
 
 			@Override
@@ -371,7 +371,8 @@ public abstract class WorkspaceListPanel extends Panel {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(getProject() != null && SecurityUtils.canManageWorkspaces(getProject()));
+				setVisible(getProject() != null && SecurityUtils.canWorkOnProject(getProject())
+						&& SecurityUtils.canManageWorkspaces(getProject()));
 			}
 
 		});
@@ -396,7 +397,7 @@ public abstract class WorkspaceListPanel extends Panel {
 					public void setObject(EntityQuery<Workspace> object) {
 						WorkspaceListPanel.this.getFeedbackMessages().clear();
 						queryStringModel.setObject(object.toString());
-						var target = RequestCycle.get().find(AjaxRequestTarget.class);
+						var target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 						target.add(queryInput);
 						doQuery(target);
 					}
@@ -443,7 +444,7 @@ public abstract class WorkspaceListPanel extends Panel {
 							query = new WorkspaceQuery();
 						query.setSorts(object);
 						queryStringModel.setObject(query.toString());
-						AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class);
+						AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 						target.add(queryInput);
 						doQuery(target);
 					}
@@ -455,7 +456,7 @@ public abstract class WorkspaceListPanel extends Panel {
 
 		queryInput = new TextField<>("input", queryStringModel);
 		queryInput.add(new WorkspaceQueryBehavior(
-				new AbstractReadOnlyModel<>() {
+				new IModel<>() {
 					@Override
 					public Project getObject() {
 						return getProject();
@@ -488,8 +489,8 @@ public abstract class WorkspaceListPanel extends Panel {
 		queryForm.add(queryInput);
 		queryForm.add(new AjaxButton("submit") {
 			@Override
-			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-				super.onSubmit(target, form);
+			protected void onSubmit(AjaxRequestTarget target) {
+				super.onSubmit(target);
 				WorkspaceListPanel.this.getFeedbackMessages().clear();
 				doQuery(target);
 			}
@@ -626,7 +627,7 @@ public abstract class WorkspaceListPanel extends Panel {
 					}
 				};
 
-				link.add(new WorkspaceStatusIcon("icon", new AbstractReadOnlyModel<>() {
+				link.add(new WorkspaceStatusIcon("icon", new IModel<>() {
 					@Override
 					public Workspace.Status getObject() {
 						return rowModel.getObject().getStatus();

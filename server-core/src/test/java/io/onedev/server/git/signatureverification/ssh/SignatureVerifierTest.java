@@ -23,7 +23,7 @@ import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.revwalk.RevObject;
 import org.eclipse.jgit.revwalk.RevWalk;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -121,7 +121,7 @@ public class SignatureVerifierTest {
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		} finally {
-			FileUtils.deleteDir(tempDir, 3);
+			FileUtils.deletePath(tempDir, 3);
 		}		
     }
 	

@@ -4,14 +4,15 @@ import static io.onedev.agent.AgentUtils.buildAuthConfig;
 import static io.onedev.k8shelper.RegistryLoginFacade.merge;
 import static io.onedev.server.buildspec.step.StepGroup.DOCKER_IMAGE;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,13 +34,14 @@ import io.onedev.server.buildspec.param.ParamCombination;
 import io.onedev.server.buildspec.step.commandinterpreter.PosixInterpreter;
 import io.onedev.server.buildspec.step.commandinterpreter.Interpreter;
 import io.onedev.server.model.Build;
-import io.onedev.server.model.support.administration.DockerAware;
+import io.onedev.server.model.support.administration.RegistryLoginAware;
 import io.onedev.server.model.support.administration.jobexecutor.JobExecutor;
 
 @Editable(order=200, name="Build Image (Kaniko)", group = DOCKER_IMAGE, description="Build docker image with kaniko. " +
 		"This step needs to be executed by server docker executor, remote docker executor, or Kubernetes executor")
 public class BuildImageWithKanikoStep extends CommandStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String buildContext;
@@ -72,7 +74,7 @@ public class BuildImageWithKanikoStep extends CommandStep {
 		return "0:0";
 	}
 
-	@Editable(order=100, description="Optionally specify build context path relative to <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>. "
+	@Editable(order=100, description="Optionally specify build context path relative to <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a>. "
 			+ "Leave empty to use job working directory itself. The file <code>Dockerfile</code> is expected to exist in build context " +
 			"directory, unless you specify a different location with option <code>--dockerfile</code>")
 	@Interpolative(variableSuggester="suggestVariables")
@@ -145,8 +147,7 @@ public class BuildImageWithKanikoStep extends CommandStep {
 	public StepFacade getFacade(Build build, JobExecutor jobExecutor, String jobToken, ParamCombination paramCombination, 
 			List<RegistryLoginFacade> registryLogins, Map<String, String> envMap) {
 		var commandsBuilder = new StringBuilder();
-		if (jobExecutor instanceof DockerAware) {
-			DockerAware registryLoginAware = (DockerAware) jobExecutor;
+		if (jobExecutor instanceof RegistryLoginAware registryLoginAware) {
 			commandsBuilder.append("cat <<EOF>> /kaniko/.docker/config.json\n");
 			var mergedRegistryLogins = merge(registryLogins, registryLoginAware.getRegistryLogins(jobToken));
 			var configMap = new HashMap<String, Object>();
@@ -191,6 +192,7 @@ public class BuildImageWithKanikoStep extends CommandStep {
 	@Editable(order=100, name="Push to container registry")
 	public static class RegistryOutput implements Output {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 		
 		private String destinations;
@@ -229,11 +231,12 @@ public class BuildImageWithKanikoStep extends CommandStep {
 	@Editable(order=200, name="Export as OCI layout")
 	public static class OCIOutput implements Output {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		private String destPath;
 
-		@Editable(name="OCI Layout Directory", description = "Specify relative path under <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a> to store OCI layout")
+		@Editable(name="OCI Layout Directory", description = "Specify relative path under <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a> to store OCI layout")
 		@Interpolative(variableSuggester="suggestVariables")
 		@Path(Path.Type.RELATIVE)
 		@NoSpace

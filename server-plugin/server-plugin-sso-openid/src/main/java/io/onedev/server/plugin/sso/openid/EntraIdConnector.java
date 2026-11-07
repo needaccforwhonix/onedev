@@ -1,13 +1,14 @@
 package io.onedev.server.plugin.sso.openid;
 
 import java.io.IOException;
+import java.io.Serial;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
-import javax.ws.rs.core.MediaType;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.ws.rs.core.MediaType;
 
 import org.apache.shiro.authc.AuthenticationException;
 
@@ -27,6 +28,7 @@ import net.minidev.json.JSONObject;
 @Editable(name="Microsoft Entra ID", order=125)
 public class EntraIdConnector extends OpenIdConnector {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String tenantId;

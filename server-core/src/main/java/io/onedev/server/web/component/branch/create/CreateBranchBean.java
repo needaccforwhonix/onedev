@@ -1,12 +1,13 @@
 package io.onedev.server.web.component.branch.create;
 
+import java.io.Serial;
 import java.io.Serializable;
 
-import javax.validation.ConstraintValidatorContext;
+import jakarta.validation.ConstraintValidatorContext;
 
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.Repository;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.validation.Validatable;
 import io.onedev.server.annotation.ClassValidating;
@@ -17,6 +18,7 @@ import io.onedev.server.annotation.OmitName;
 @ClassValidating
 public class CreateBranchBean implements Validatable, Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String name;

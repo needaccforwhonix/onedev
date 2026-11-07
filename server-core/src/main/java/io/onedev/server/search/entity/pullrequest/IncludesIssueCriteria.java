@@ -1,13 +1,14 @@
 package io.onedev.server.search.entity.pullrequest;
 
+import java.io.Serial;
 import java.util.Collection;
 import java.util.HashSet;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Predicate;
 
 import org.eclipse.jgit.lib.ObjectId;
 
@@ -23,6 +24,7 @@ import io.onedev.server.xodus.PullRequestInfoService;
 
 public class IncludesIssueCriteria extends Criteria<PullRequest> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final Issue issue;

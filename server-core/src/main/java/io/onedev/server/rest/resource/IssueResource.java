@@ -1,6 +1,7 @@
 package io.onedev.server.rest.resource;
 
 import java.io.InputStream;
+import java.io.Serial;
 import java.io.Serializable;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -12,23 +13,23 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
-import javax.ws.rs.BadRequestException;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.NotAcceptableException;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotAcceptableException;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import org.apache.shiro.authz.UnauthorizedException;
 import org.apache.shiro.subject.Subject;
@@ -53,6 +54,7 @@ import io.onedev.server.model.Project;
 import io.onedev.server.model.PullRequest;
 import io.onedev.server.model.support.issue.field.FieldUtils;
 import io.onedev.server.model.support.issue.transitionspec.ManualSpec;
+import io.onedev.server.rest.RestProjectUtils;
 import io.onedev.server.rest.annotation.Api;
 import io.onedev.server.rest.annotation.EntityCreate;
 import io.onedev.server.rest.resource.support.RestConstants;
@@ -321,9 +323,10 @@ public class IssueResource {
 		var subject = SecurityUtils.getSubject();
     	var user = SecurityUtils.getUser(subject);
     	
-    	Project project = projectService.load(data.getProjectId());
+		Project project = RestProjectUtils.loadProject(projectService, data.getProjectId());
     	if (!SecurityUtils.canAccessProject(project))
 			throw new UnauthorizedException();
+		SecurityUtils.checkWorkOnProject(project);
 
 		if (data.getIterationIds() != null && !data.getIterationIds().isEmpty() && !SecurityUtils.canScheduleIssues(project))
 			throw new UnauthorizedException("No permission to schedule issue. Remove iterationIds if you want to create issue without scheduling it.");
@@ -530,6 +533,7 @@ public class IssueResource {
 	@EntityCreate(Issue.class)
 	public static class IssueOpenData implements Serializable {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		@Api(order=100)
@@ -620,6 +624,7 @@ public class IssueResource {
 	
 	public static class StateTransitionData implements Serializable {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		@Api(order=100)
@@ -666,6 +671,7 @@ public class IssueResource {
 
 	public static class FixCommit implements Serializable {
 		
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		private Long projectId;

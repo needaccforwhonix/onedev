@@ -1,10 +1,11 @@
 package io.onedev.server.search.entity.issue;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.io.Serial;
 import java.util.List;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import io.onedev.commons.codeassist.CodeAssist;
 import io.onedev.commons.codeassist.FenceAware;
@@ -17,6 +18,7 @@ public class IssueQueryGrammarTest {
 
 	private CodeAssist codeAssist = new CodeAssist(IssueQueryLexer.class, false) {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		@Override

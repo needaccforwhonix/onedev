@@ -41,7 +41,6 @@ import org.apache.wicket.markup.html.link.ExternalLink;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.markup.repeater.Item;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -188,7 +187,8 @@ public abstract class CodeCommentListPanel extends Panel {
 			protected void onConfigure() {
 				super.onConfigure();
 				setEnabled(querySubmitted && queryModel.getObject() != null);
-				setVisible(SecurityUtils.getAuthUser() != null && getQuerySaveSupport() != null);
+				setVisible(SecurityUtils.getAuthUser() != null && getQuerySaveSupport() != null
+						&& SecurityUtils.canWorkOnProject(getProject()));
 			}
 
 			@Override
@@ -616,7 +616,7 @@ public abstract class CodeCommentListPanel extends Panel {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(selectionColumn != null);
+				setVisible(selectionColumn != null && SecurityUtils.canWorkOnProject(getProject()));
 			}
 
 		});
@@ -637,7 +637,7 @@ public abstract class CodeCommentListPanel extends Panel {
 						CodeCommentListPanel.this.getFeedbackMessages().clear();
 						queryModel.setObject((CodeCommentQuery) object);
 						queryStringModel.setObject(object.toString());
-						var target = RequestCycle.get().find(AjaxRequestTarget.class);
+						var target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 						target.add(queryInput);
 						doQuery(target);	
 					}
@@ -674,7 +674,7 @@ public abstract class CodeCommentListPanel extends Panel {
 						query.setSorts(object);
 						queryModel.setObject(query);
 						queryStringModel.setObject(query.toString());
-						AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class); 
+						AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 						target.add(queryInput);
 						doQuery(target);
 					}
@@ -685,7 +685,7 @@ public abstract class CodeCommentListPanel extends Panel {
 		});	
 				
 		queryInput = new TextField<>("input", queryStringModel);
-		queryInput.add(new CodeCommentQueryBehavior(new AbstractReadOnlyModel<Project>() {
+		queryInput.add(new CodeCommentQueryBehavior(new IModel<Project>() {
 
 			@Override
 			public Project getObject() {
@@ -717,8 +717,8 @@ public abstract class CodeCommentListPanel extends Panel {
 		queryForm.add(new AjaxButton("submit") {
 
 			@Override
-			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-				super.onSubmit(target, form);
+			protected void onSubmit(AjaxRequestTarget target) {
+				super.onSubmit(target);
 				CodeCommentListPanel.this.getFeedbackMessages().clear();
 				doQuery(target);
 			}

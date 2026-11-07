@@ -3,6 +3,7 @@ package io.onedev.server.web.editable;
 import static io.onedev.server.web.translation.Translation._T;
 
 import java.io.Serializable;
+import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -12,7 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import javax.validation.Validator;
+import jakarta.validation.Validator;
 
 import org.apache.wicket.Component;
 import org.apache.wicket.behavior.AttributeAppender;
@@ -24,7 +25,9 @@ import org.apache.wicket.markup.head.IHeaderResponse;
 import org.apache.wicket.markup.head.OnDomReadyHeaderItem;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
-import org.apache.wicket.markup.repeater.RepeatingView;
+import io.onedev.server.OneDev;
+import io.onedev.server.SubscriptionService;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.util.convert.ConversionException;
@@ -43,8 +46,8 @@ import io.onedev.server.util.HierarchicalContext;
 import io.onedev.server.util.Path;
 import io.onedev.server.util.PathNode;
 import io.onedev.server.util.PathNode.Named;
+import io.onedev.server.util.ReflectionUtils;
 import io.onedev.server.util.xstream.ObjectMap;
-import io.onedev.server.web.util.WicketUtils;
 
 public class BeanEditor extends ValueEditor<Serializable> {
 	
@@ -178,7 +181,7 @@ public class BeanEditor extends ValueEditor<Serializable> {
 				} finally {
 					HierarchicalContext.pop();
 				}
-				PropertyEditor<Serializable> propertyEditor = property.renderForEdit("value", Model.of(propertyValue)); 
+				PropertyEditor<Serializable> propertyEditor = newPropertyEditor("value", property, Model.of(propertyValue));
 				add(propertyEditor);
 				
 				Label descriptionLabel = new Label("description", property.getDescriptor().getDescription());
@@ -246,6 +249,11 @@ public class BeanEditor extends ValueEditor<Serializable> {
 		return propertyContainer;
 	}
 
+	protected PropertyEditor<Serializable> newPropertyEditor(String id, PropertyContext<Serializable> property,
+			IModel<Serializable> model) {
+		return property.renderForEdit(id, model);
+	}
+
 	public PropertyContext<Serializable> getPropertyContext(String propertyName) {
 		for (List<PropertyContext<Serializable>> groupProperties: propertyContexts.values()) {
 			for (PropertyContext<Serializable> property: groupProperties) {
@@ -262,6 +270,11 @@ public class BeanEditor extends ValueEditor<Serializable> {
 
 		groupsView = new RepeatingView("groups");
 		add(groupsView);
+
+		Map<String, String> groupDescriptions = null;
+		var groupDescriptionsMethod = ReflectionUtils.findMethod(descriptor.getBeanClass(), "getGroupDescriptions");
+		if (groupDescriptionsMethod != null && Modifier.isStatic(groupDescriptionsMethod.getModifiers()))
+			groupDescriptions = ReflectionUtils.invokeStaticMethod(descriptor.getBeanClass(), "getGroupDescriptions");
 		
 		for (Map.Entry<String, List<PropertyContext<Serializable>>> entry: propertyContexts.entrySet()) {
 			WebMarkupContainer groupContainer = new WebMarkupContainer(groupsView.newChildId());
@@ -277,6 +290,10 @@ public class BeanEditor extends ValueEditor<Serializable> {
 				groupName = _T(groupName);
 			toggleLink.add(new Label("groupName", groupName));
 			groupContainer.add(toggleLink);
+
+			String groupDescription = groupDescriptions != null ? groupDescriptions.get(entry.getKey()) : null;
+			toggleLink.add(new Label("groupDescription", groupDescription)
+					.setVisible(!entry.getKey().isEmpty() && groupDescription != null && !groupDescription.isBlank()));
 			
 			RepeatingView propertiesView = new RepeatingView("properties");
 			groupContainer.add(propertiesView);
@@ -308,7 +325,7 @@ public class BeanEditor extends ValueEditor<Serializable> {
 		add(AttributeAppender.append("class", "bean-editor editable"));
 		
 		if (descriptor.getBeanClass().getAnnotation(SubscriptionRequired.class) != null 
-				&& !WicketUtils.isSubscriptionActive()) {
+				&& !OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()) {
 			add(AttributeAppender.append("class", "disabled"));
 		}
 		setOutputMarkupId(true);

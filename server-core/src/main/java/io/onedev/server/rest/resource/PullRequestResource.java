@@ -3,9 +3,10 @@ package io.onedev.server.rest.resource;
 import static io.onedev.server.model.PullRequestReview.Status.EXCLUDED;
 import static io.onedev.server.model.PullRequestReview.Status.PENDING;
 import static java.util.stream.Collectors.toList;
-import static javax.ws.rs.core.Response.Status.NOT_ACCEPTABLE;
+import static jakarta.ws.rs.core.Response.Status.NOT_ACCEPTABLE;
 
 import java.io.InputStream;
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -13,21 +14,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.NotAcceptableException;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotAcceptableException;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import org.apache.shiro.authz.UnauthorizedException;
 import org.jspecify.annotations.Nullable;
@@ -39,6 +40,7 @@ import io.onedev.commons.utils.StringUtils;
 import io.onedev.server.attachment.AttachmentService;
 import io.onedev.server.data.migration.VersionedXmlDoc;
 import io.onedev.server.model.Build;
+import io.onedev.server.model.CodeComment;
 import io.onedev.server.model.PullRequest;
 import io.onedev.server.model.PullRequestAssignment;
 import io.onedev.server.model.PullRequestChange;
@@ -197,6 +199,16 @@ public class PullRequestResource {
     	return pullRequest.getComments();
     }
 	
+	@Api(order=550, description="Get all code comments of the pull request")
+	@Path("/{requestId}/code-comments")
+	@GET
+	public Collection<CodeComment> getCodeComments(@PathParam("requestId") Long requestId) {
+		PullRequest pullRequest = pullRequestService.load(requestId);
+		if (!SecurityUtils.canReadCode(pullRequest.getProject()))
+			throw new UnauthorizedException();
+		return pullRequest.getCodeComments();
+	}
+
 	@Api(order=600)
 	@Path("/{requestId}/watches")
     @GET
@@ -273,12 +285,14 @@ public class PullRequestResource {
 
 		if (!SecurityUtils.canReadCode(target.getProject()) || !SecurityUtils.canReadCode(source.getProject()))
 			throw new UnauthorizedException();
+		SecurityUtils.checkWorkOnProject(target.getProject());
 
 		PullRequest request = new PullRequest();
 		request.setSubmitter(user);
 		request.setTarget(target);
 		request.setSource(source);
 		request.setTitle(data.getTitle());
+		request.setWorkInProgress(data.isWorkInProgress());
 		request.setDescription(data.getDescription());
 		if (data.getMergeStrategy() != null)
 			request.setMergeStrategy(data.getMergeStrategy());
@@ -330,6 +344,18 @@ public class PullRequestResource {
 		return Response.ok().build();
     }
 	
+	@Api(order=1350)
+	@Path("/{requestId}/work-in-progress")
+	@POST
+	public Response setWorkInProgress(@PathParam("requestId") Long requestId, boolean workInProgress) {
+		PullRequest request = pullRequestService.load(requestId);
+		var subject = SecurityUtils.getSubject();
+		if (!SecurityUtils.canModifyPullRequest(subject, request))
+			throw new UnauthorizedException();
+		pullRequestChangeService.changeWorkInProgress(SecurityUtils.getUser(subject), request, workInProgress);
+		return Response.ok().build();
+	}
+
 	@Api(order=1400)
 	@Path("/{requestId}/description")
     @POST
@@ -389,6 +415,7 @@ public class PullRequestResource {
 		if (user == null)
 			throw new UnauthorizedException();
 
+		SecurityUtils.checkWorkOnProject(request.getProject());
 		pullRequestReviewService.review(user, request, true, note);
 
 		return Response.ok().build();
@@ -405,7 +432,8 @@ public class PullRequestResource {
 		if (user == null)
 			throw new UnauthorizedException();
 
-		pullRequestReviewService.review(user, request, true, note);
+		SecurityUtils.checkWorkOnProject(request.getProject());
+		pullRequestReviewService.review(user, request, false, note);
 
 		return Response.ok().build();
 	}
@@ -624,6 +652,7 @@ public class PullRequestResource {
 	@EntityCreate(PullRequest.class)
 	public static class PullRequestOpenData implements Serializable {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		private Long targetProjectId;
@@ -635,6 +664,8 @@ public class PullRequestResource {
 		private String sourceBranch;
 		
 		private String title;
+
+		private boolean workInProgress;
 		
 		private String description;
 		
@@ -687,6 +718,14 @@ public class PullRequestResource {
 
 		public void setTitle(String title) {
 			this.title = title;
+		}
+
+		public boolean isWorkInProgress() {
+			return workInProgress;
+		}
+
+		public void setWorkInProgress(boolean workInProgress) {
+			this.workInProgress = workInProgress;
 		}
 
 		public String getDescription() {

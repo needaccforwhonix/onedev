@@ -1,11 +1,12 @@
 package io.onedev.server.buildspec.job.trigger;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.jspecify.annotations.Nullable;
@@ -34,6 +35,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 @Editable
 public abstract class JobTrigger implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static Function<RevCommit, Boolean> SKIP_COMMIT = commit -> {
@@ -51,7 +53,7 @@ public abstract class JobTrigger implements Serializable {
 	@Editable(name="Applicable Projects", order=900, placeholder="Any project", description=""
 			+ "Optionally specify space-separated projects applicable for this trigger. "
 			+ "This is useful for instance when you want to prevent the job from being "
-			+ "triggered in forked projects. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
+			+ "triggered in forked projects. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
 			+ "Prefix with '-' to exclude. Leave empty to match all projects")
 	@Patterns(suggester="suggestProjects", path=true)
 	public String getProjects() {
@@ -70,8 +72,7 @@ public abstract class JobTrigger implements Serializable {
 	@Editable(order=1000)
 	@ParamSpecProvider("getParamSpecs")
 	@OmitName
-	@Valid
-	public List<ParamInstances> getParamMatrix() {
+	public List<@Valid ParamInstances> getParamMatrix() {
 		return paramMatrix;
 	}
 

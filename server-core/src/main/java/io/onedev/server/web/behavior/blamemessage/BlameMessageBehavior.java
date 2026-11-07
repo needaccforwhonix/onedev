@@ -1,5 +1,8 @@
 package io.onedev.server.web.behavior.blamemessage;
 
+import java.io.Serial;
+import java.util.Date;
+
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import static org.apache.wicket.ajax.attributes.CallbackParameter.explicit;
@@ -16,6 +19,7 @@ import io.onedev.server.web.behavior.AbstractPostAjaxBehavior;
 
 public abstract class BlameMessageBehavior extends AbstractPostAjaxBehavior {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@Override
@@ -30,9 +34,9 @@ public abstract class BlameMessageBehavior extends AbstractPostAjaxBehavior {
 		if (commit.getAuthorIdent() != null) {
 			authoring = commit.getAuthorIdent().getName();
 			if (commit.getCommitterIdent() != null) {
-				authoring += " " + DateUtils.formatAge(commit.getCommitterIdent().getWhen());
+				authoring += " " + DateUtils.formatAge(Date.from(commit.getCommitterIdent().getWhenAsInstant()));
 				authoringTitle = "'" + JavaScriptEscape.escapeJavaScript(
-						DateUtils.formatDateTime(commit.getCommitterIdent().getWhen())) + "'";
+						DateUtils.formatDateTime(Date.from(commit.getCommitterIdent().getWhenAsInstant()))) + "'";
 			} else {
 				authoringTitle = "undefined";
 			}

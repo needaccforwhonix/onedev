@@ -2,6 +2,8 @@ package io.onedev.server.web.behavior.infinitescroll;
 
 import static org.apache.wicket.ajax.attributes.CallbackParameter.explicit;
 
+import java.io.Serial;
+
 import org.jspecify.annotations.Nullable;
 
 import org.apache.wicket.Component;
@@ -12,7 +14,7 @@ import org.apache.wicket.markup.head.IHeaderResponse;
 import org.apache.wicket.markup.head.JavaScriptReferenceHeaderItem;
 import org.apache.wicket.markup.head.OnLoadHeaderItem;
 import org.apache.wicket.markup.html.WebMarkupContainer;
-import org.apache.wicket.markup.repeater.RepeatingView;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.request.IRequestParameters;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.util.visit.IVisitor;
@@ -25,6 +27,7 @@ import io.onedev.server.web.util.WicketUtils;
 
 public abstract class InfiniteScrollBehavior extends AbstractPostAjaxBehavior {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final int pageSize;

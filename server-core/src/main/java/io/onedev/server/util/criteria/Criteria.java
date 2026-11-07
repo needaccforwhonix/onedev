@@ -1,19 +1,21 @@
 package io.onedev.server.util.criteria;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Order;
-import javax.persistence.criteria.Path;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Order;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
 
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.search.BooleanClause.Occur;
@@ -23,7 +25,6 @@ import org.apache.lucene.search.Query;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 
-import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.commons.utils.StringUtils;
 import io.onedev.server.util.ProjectScope;
 import io.onedev.server.util.RangeBuilder;
@@ -34,6 +35,7 @@ import io.onedev.server.web.component.issue.workflowreconcile.UndefinedStateReso
 
 public abstract class Criteria<T> implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final int IN_CLAUSE_LIMIT = 1000;

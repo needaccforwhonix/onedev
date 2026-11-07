@@ -2,6 +2,7 @@ package io.onedev.server.model.support.issue.transitionspec;
 
 import static io.onedev.server.web.translation.Translation._T;
 
+import java.io.Serial;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +18,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 @Editable(order=500, name="Code is committed")
 public class BranchUpdatedSpec extends AutoSpec {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String branches;
@@ -29,7 +31,7 @@ public class BranchUpdatedSpec extends AutoSpec {
 	}
 	
 	@Editable(order=200, name="Applicable Branches", placeholder="Any branch", description="Optionally specify space-separated branches "
-			+ "applicable for this transition. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
+			+ "applicable for this transition. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
 			+ "Prefix with '-' to exclude. Leave empty to match all")
 	@Patterns(suggester = "suggestBranches", path=true)
 	public String getBranches() {

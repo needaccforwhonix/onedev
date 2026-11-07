@@ -15,7 +15,7 @@ import org.eclipse.jgit.lib.ProgressMonitor;
 import org.eclipse.jgit.lib.RefUpdate;
 import org.eclipse.jgit.storage.file.FileBasedConfig;
 import org.eclipse.jgit.util.FS;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.Nullable;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serial;
 
 public abstract class AbstractGitTest extends AppLoaderMocker {
 
@@ -64,6 +65,7 @@ public abstract class AbstractGitTest extends AppLoaderMocker {
 		
 		Mockito.when(AppLoader.getInstance(GitLocation.class)).thenReturn(new GitLocation() {
 
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -74,14 +76,14 @@ public abstract class AbstractGitTest extends AppLoaderMocker {
 		});
 		
 		String gitError = GitUtils.checkError("git");
-	    Assert.assertTrue(gitError, gitError == null);
+	    Assertions.assertTrue(gitError == null, gitError);
 	}
 
 	protected void deleteDir(File dir, int retries) {
 		int retried = 0;
 		while (dir.exists()) {
 			try {
-				FileUtils.deleteDir(dir);
+				FileUtils.deletePath(dir);
 				break;
 			} catch (Exception e) {
 				if (retried++ < retries) {
@@ -100,7 +102,7 @@ public abstract class AbstractGitTest extends AppLoaderMocker {
 	@Override
 	protected void teardown() {
 		git.getRepository().close();
-		FileUtils.deleteDir(gitDir, 3);
+		FileUtils.deletePath(gitDir, 3);
 	}
 
 	protected void createDir(String path) {
@@ -108,7 +110,7 @@ public abstract class AbstractGitTest extends AppLoaderMocker {
 	}
 	
 	protected void deleteDir(String path) {
-		FileUtils.deleteDir(new File(gitDir, path));
+		FileUtils.deletePath(new File(gitDir, path));
 	}
 	
 	protected void writeFile(String path, String content) {

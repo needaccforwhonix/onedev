@@ -4,6 +4,10 @@ import com.google.common.collect.Lists;
 import io.onedev.server.web.page.admin.pluginsettings.ContributedAdministrationSettingPage;
 import io.onedev.server.web.page.project.setting.pluginsettings.ContributedProjectSettingPage;
 import io.onedev.server.web.util.WicketUtils;
+import io.onedev.server.web.mapper.ProjectMapperUtils;
+import io.onedev.server.web.page.project.setting.ProjectSettingPage;
+import java.io.Serial;
+import java.util.Objects;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 
 import org.jspecify.annotations.Nullable;
@@ -12,6 +16,7 @@ import java.util.List;
 
 public abstract class SidebarMenuItem implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final String iconHref;
@@ -36,6 +41,7 @@ public abstract class SidebarMenuItem implements Serializable {
 	
 	public static class Page extends SidebarMenuItem {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		private final Class<? extends org.apache.wicket.Page> pageClass;
@@ -70,7 +76,14 @@ public abstract class SidebarMenuItem implements Serializable {
 		
 		@Override
 		public boolean isActive() {
-			org.apache.wicket.Page currentPage = WicketUtils.getPage();
+			var currentPage = WicketUtils.getPage();
+			if (currentPage instanceof ProjectSettingPage 
+					&& ProjectSettingPage.class.isAssignableFrom(pageClass)
+					&& !Objects.equals(
+							currentPage.getPageParameters().get(ProjectMapperUtils.PARAM_PROJECT).toOptionalString(),
+							pageParams.get(ProjectMapperUtils.PARAM_PROJECT).toOptionalString())) {
+				return false;
+			} 
 			if (pageClass.isAssignableFrom(currentPage.getClass())) { 
 				if (pageClass.isAssignableFrom(ContributedAdministrationSettingPage.class) 
 						|| pageClass.isAssignableFrom(ContributedProjectSettingPage.class)) { 
@@ -91,6 +104,7 @@ public abstract class SidebarMenuItem implements Serializable {
 
 	public static class SubscriptionRequired extends SidebarMenuItem {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 		
 		public SubscriptionRequired(String icon, String label) {
@@ -106,6 +120,7 @@ public abstract class SidebarMenuItem implements Serializable {
 	
 	public static class SubMenu extends SidebarMenuItem {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		private final List<SidebarMenuItem> menuItems;

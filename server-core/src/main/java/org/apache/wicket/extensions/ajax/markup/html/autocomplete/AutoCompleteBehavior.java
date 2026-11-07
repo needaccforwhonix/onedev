@@ -16,9 +16,12 @@
  */
 package org.apache.wicket.extensions.ajax.markup.html.autocomplete;
 
+import java.io.Serial;
 import java.util.Iterator;
 
 import org.apache.wicket.Application;
+import org.apache.wicket.AttributeModifier;
+import org.apache.wicket.Component;
 import org.apache.wicket.request.IRequestCycle;
 import org.apache.wicket.request.IRequestHandler;
 import org.apache.wicket.request.cycle.RequestCycle;
@@ -44,6 +47,7 @@ import io.onedev.server.util.HierarchicalContext;
  */
 public abstract class AutoCompleteBehavior<T> extends AbstractAutoCompleteBehavior
 {
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final IAutoCompleteRenderer<T> renderer;
@@ -89,6 +93,13 @@ public abstract class AutoCompleteBehavior<T> extends AbstractAutoCompleteBehavi
 	}
 
 	@Override
+	protected void onBind() {
+		super.onBind();
+
+		getComponent().add(new AttributeModifier("aria-autocomplete", "list"));
+	}
+
+	@Override
 	protected final void onRequest(final String val, final RequestCycle requestCycle)
 	{
 		IRequestHandler target = new IRequestHandler()
@@ -122,11 +133,6 @@ public abstract class AutoCompleteBehavior<T> extends AbstractAutoCompleteBehavi
 					HierarchicalContext.pop();
 				}
 			}
-
-			@Override
-			public void detach(final IRequestCycle requestCycle)
-			{
-			}
 		};
 
 		requestCycle.scheduleRequestHandlerAfterCurrent(target);
@@ -142,4 +148,10 @@ public abstract class AutoCompleteBehavior<T> extends AbstractAutoCompleteBehavi
 	 * @return iterator over all possible choice objects
 	 */
 	protected abstract Iterator<T> getChoices(String input);
+
+	@Override
+	public void detach(Component component)
+	{
+		renderer.detach();
+	}
 }

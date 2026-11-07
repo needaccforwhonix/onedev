@@ -6,12 +6,13 @@ import java.util.List;
 import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
-import org.hibernate.criterion.MatchMode;
-import org.hibernate.criterion.Order;
-import org.hibernate.criterion.Restrictions;
+import io.onedev.server.oem.OemUtils;
+import io.onedev.server.persistence.dao.MatchMode;
+import io.onedev.server.persistence.dao.Order;
+import io.onedev.server.persistence.dao.Restrictions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
@@ -66,7 +67,7 @@ public class DefaultUserInvitationService extends BaseEntityService<UserInvitati
 		
 		mailService.sendMail(Arrays.asList(invitation.getEmailAddress()),
 				Lists.newArrayList(), Lists.newArrayList(), 
-				"[Invitation] You are Invited to Use OneDev", 
+				OemUtils.interpolate("[Invitation] You are Invited to Use ${productName}"),
 				htmlBody, textBody, null, null, null);
 	}
 	

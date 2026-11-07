@@ -1,13 +1,11 @@
 package io.onedev.server.service.impl;
 
-import static com.google.common.collect.Lists.newArrayList;
-import static edu.emory.mathcs.backport.java.util.Collections.sort;
 import static io.onedev.commons.utils.LockUtils.read;
 import static io.onedev.commons.utils.LockUtils.write;
 import static io.onedev.k8shelper.KubernetesHelper.BEARER;
 import static io.onedev.k8shelper.KubernetesHelper.checkStatus;
 import static io.onedev.server.model.Build.ARTIFACTS_DIR;
-import static io.onedev.server.model.Build.LOG_FILE;
+import static io.onedev.server.model.Build.LOG_DIR;
 import static io.onedev.server.model.Build.PROP_FINISH_DATE;
 import static io.onedev.server.model.Build.PROP_FINISH_TIME_GROUPS;
 import static io.onedev.server.model.Build.PROP_PENDING_DURATION;
@@ -23,9 +21,9 @@ import static io.onedev.server.model.Project.SHARE_TEST_DIR;
 import static io.onedev.server.search.entity.EntitySort.Direction.ASCENDING;
 import static io.onedev.server.util.IOUtils.BUFFER_SIZE;
 import static io.onedev.server.util.SiteSyncUtils.isVersionFile;
+import static jakarta.ws.rs.core.HttpHeaders.AUTHORIZATION;
 import static java.lang.Long.valueOf;
 import static java.util.Arrays.asList;
-import static javax.ws.rs.core.HttpHeaders.AUTHORIZATION;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -39,10 +37,10 @@ import java.io.Serializable;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,35 +48,16 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Path;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
-import javax.persistence.criteria.Selection;
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.client.Invocation;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.StreamingOutput;
-
+import io.onedev.server.model.*;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.shiro.subject.Subject;
+import org.eclipse.jgit.lib.AnyObjectId;
 import org.eclipse.jgit.lib.ObjectId;
 import org.glassfish.jersey.client.ClientProperties;
 import org.hibernate.Session;
-import org.hibernate.criterion.MatchMode;
-import org.hibernate.criterion.Order;
-import org.hibernate.criterion.Restrictions;
 import org.hibernate.query.Query;
-import org.hibernate.query.criteria.internal.path.SingularAttributePath;
+import org.hibernate.query.sqm.tree.domain.SqmPath;
 import org.jspecify.annotations.Nullable;
 import org.quartz.CronScheduleBuilder;
 import org.quartz.ScheduleBuilder;
@@ -95,22 +74,14 @@ import io.onedev.commons.utils.FileUtils;
 import io.onedev.server.OneDev;
 import io.onedev.server.StorageService;
 import io.onedev.server.cluster.ClusterService;
+import io.onedev.server.data.DataService;
 import io.onedev.server.event.Listen;
 import io.onedev.server.event.entity.EntityPersisted;
 import io.onedev.server.event.entity.EntityRemoved;
-import io.onedev.server.event.project.build.BuildFinished;
 import io.onedev.server.event.system.SystemStarting;
 import io.onedev.server.event.system.SystemStopping;
 import io.onedev.server.git.service.GitService;
-import io.onedev.server.logging.LogService;
-import io.onedev.server.model.Agent;
-import io.onedev.server.model.Build;
 import io.onedev.server.model.Build.Status;
-import io.onedev.server.model.BuildDependence;
-import io.onedev.server.model.BuildParam;
-import io.onedev.server.model.Issue;
-import io.onedev.server.model.Project;
-import io.onedev.server.model.PullRequest;
 import io.onedev.server.model.support.build.BuildPreservation;
 import io.onedev.server.persistence.SequenceGenerator;
 import io.onedev.server.persistence.SessionService;
@@ -118,6 +89,9 @@ import io.onedev.server.persistence.TransactionService;
 import io.onedev.server.persistence.annotation.Sessional;
 import io.onedev.server.persistence.annotation.Transactional;
 import io.onedev.server.persistence.dao.EntityCriteria;
+import io.onedev.server.persistence.dao.MatchMode;
+import io.onedev.server.persistence.dao.Order;
+import io.onedev.server.persistence.dao.Restrictions;
 import io.onedev.server.replica.BuildStorageSyncer;
 import io.onedev.server.search.entity.EntityQuery;
 import io.onedev.server.search.entity.EntitySort;
@@ -145,6 +119,23 @@ import io.onedev.server.util.concurrent.Prioritized;
 import io.onedev.server.util.criteria.Criteria;
 import io.onedev.server.util.facade.BuildFacade;
 import io.onedev.server.web.util.StatsGroup;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Selection;
+import jakarta.ws.rs.client.Client;
+import jakarta.ws.rs.client.ClientBuilder;
+import jakarta.ws.rs.client.Entity;
+import jakarta.ws.rs.client.Invocation;
+import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.StreamingOutput;
 
 @Singleton
 public class DefaultBuildService extends BaseEntityService<Build> implements BuildService, SchedulableTask, Serializable {
@@ -174,9 +165,6 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 	
 	@Inject
 	private BuildLabelService labelService;
-
-	@Inject
-	private LogService logService;
 	
 	@Inject
 	private ClusterService clusterService;
@@ -193,6 +181,9 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 	@Inject
 	private Set<BuildStorageSyncer> storageSyncers;
 	
+	@Inject
+	private DataService dataService;
+
 	private SequenceGenerator numberGenerator;
 	
 	private volatile IMap<Long, BuildFacade> cache;
@@ -203,7 +194,7 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 
 	private synchronized SequenceGenerator getNumberGenerator() {
 		if (numberGenerator == null)
-			numberGenerator = new SequenceGenerator(Build.class, clusterService, dao);
+			numberGenerator = new SequenceGenerator(Build.class, ProjectNumberCounter.PROP_NEXT_BUILD_NUMBER, clusterService, dao, dataService);
 		return numberGenerator;
 	}
 
@@ -223,20 +214,19 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 	
 	@Sessional
 	@Override
-	public Build findLastFinished(Project project, String jobName, @Nullable String refName) {
+	public Build findLatest(Project project, String jobName, @Nullable String refNamePattern) {
 		EntityCriteria<Build> criteria = newCriteria();
 		criteria.add(Restrictions.eq(Build.PROP_PROJECT, project));
 		criteria.add(Restrictions.eq(Build.PROP_JOB_NAME, jobName));
-		if (refName != null) {
-			refName = refName.replace("*", "%");
-			criteria.add(Restrictions.ilike(Build.PROP_REF_NAME, refName));
+		if (refNamePattern != null) {
+			refNamePattern = refNamePattern.replace("*", "%");
+			criteria.add(Restrictions.ilike(Build.PROP_REF_NAME, refNamePattern));
 		}
-		criteria.add(Build.Status.ofFinished());
 		criteria.addOrder(Order.desc(Build.PROP_NUMBER));
 		criteria.setCacheable(true);
 		return find(criteria);
 	}
-	
+
 	@Transactional
 	@Override
 	public void update(Build build) {
@@ -247,9 +237,8 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 	@Transactional
 	@Listen
 	public void on(EntityPersisted event) {
-		if (event.getEntity() instanceof Build) {
-			Build build = (Build) event.getEntity();
-			BuildFacade facade = build.getFacade();
+		if (event.getEntity() instanceof Build build) {
+            BuildFacade facade = build.getFacade();
 			String jobName = build.getJobName();
 			transactionService.runAfterCommit(() -> {
 				cache.put(facade.getId(), facade);
@@ -261,19 +250,17 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 	@Transactional
 	@Listen
 	public void on(EntityRemoved event) {
-		if (event.getEntity() instanceof Project) {
-			Project project = (Project) event.getEntity();
-	    	if (project.getForkRoot().equals(project))
-	    		getNumberGenerator().removeNextSequence(project);
+		if (event.getEntity() instanceof Project project) {
+            if (project.getForkRoot().equals(project))
+				transactionService.runAfterCommit(() -> getNumberGenerator().removeNextSequence(project));
 			
 			Long projectId = project.getId();
 			transactionService.runAfterCommit(() -> {
 				cache.removeAll(entry -> entry.getValue().getProjectId().equals(projectId));
 				jobNames.remove(projectId);
 			});
-		} else if (event.getEntity() instanceof Build) {
-			Build build = (Build) event.getEntity();
-			Long projectId = build.getProject().getId();
+		} else if (event.getEntity() instanceof Build build) {
+            Long projectId = build.getProject().getId();
 			Long buildId = build.getProject().getId();
 			Long buildNumber = build.getNumber();
 
@@ -285,7 +272,7 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 					clusterService.submitToServer(projectServer, () -> {
 						try {
 							var buildDir = getBuildDir(projectId, buildNumber);
-							FileUtils.deleteDir(buildDir);
+							FileUtils.deletePath(buildDir);
 							projectService.directoryModified(projectId, buildDir.getParentFile());
 						} catch (Throwable e) {
 							var message = "Error deleting build storage directory (project id: %d, build number: %d)"
@@ -298,11 +285,6 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 				}
 			});
 		}
-	}
-
-	@Listen
-	public void on(BuildFinished event) {
-		logService.flush(event.getBuild().getLoggingSupport());
 	}
 
 	@Sessional
@@ -387,12 +369,12 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 	@Override
 	public Map<Long, Long> queryUnfinished() {
 		Query<?> query = getSession().createQuery("select id, project.id from Build where "
-				+ "status=:waiting or status=:pending or status=:running");
+				+ "status=:waiting or status=:pending or status=:running order by submitDate", Object[].class);
 		query.setParameter("waiting", Build.Status.WAITING);
 		query.setParameter("pending", Build.Status.PENDING);
 		query.setParameter("running", Build.Status.RUNNING);
 		
-		Map<Long, Long> result = new HashMap<>();
+		Map<Long, Long> result = new LinkedHashMap<>();
 		for (Object[] fields: (List<Object[]>)query.list()) 
 			result.put((Long)fields[0], (Long)fields[1]);
 		return result;
@@ -483,12 +465,11 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 	@Sessional
 	@Override
 	public List<Build> query(Subject subject, Project project, String fuzzyQuery, int count) {
-		List<Build> builds = new ArrayList<>();
 
-		EntityCriteria<Build> criteria = newCriteria();
+        EntityCriteria<Build> criteria = newCriteria();
 		criteria.add(Restrictions.eq(Build.PROP_PROJECT, project));
 		
-		if (fuzzyQuery.length() != 0) {
+		if (!fuzzyQuery.isEmpty()) {
 			try {
 				long buildNumber = Long.parseLong(fuzzyQuery);
 				criteria.add(Restrictions.eq(Build.PROP_NUMBER, buildNumber));
@@ -501,9 +482,8 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 
 		criteria.addOrder(Order.desc(Build.PROP_PROJECT));
 		criteria.addOrder(Order.desc(Build.PROP_NUMBER));
-		builds.addAll(query(criteria, 0, count));
 
-		return builds;
+        return new ArrayList<>(query(criteria, 0, count));
 	}
 	
 	@Sessional
@@ -535,9 +515,8 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 		CriteriaBuilder builder = dao.getSession().getCriteriaBuilder();
 		CriteriaQuery<Object[]> criteriaQuery = builder.createQuery(Object[].class);
 		Root<Build> root = criteriaQuery.from(Build.class);
-		
-		var predicates = new ArrayList<Predicate>();
-		predicates.addAll(asList(getPredicates(subject, project, buildCriteria, criteriaQuery, root, builder)));
+
+        var predicates = new ArrayList<Predicate>(asList(getPredicates(subject, project, buildCriteria, criteriaQuery, root, builder)));
 		predicates.add(builder.equal(root.get(PROP_STATUS), SUCCESSFUL));
 		predicates.add(builder.isNotNull(root.get(PROP_PENDING_DURATION)));
 		predicates.add(builder.isNotNull(root.get(PROP_RUNNING_DURATION)));
@@ -549,15 +528,15 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 		var groupPath = group.getPath(root.get(PROP_FINISH_TIME_GROUPS));
 		criteriaQuery.groupBy(groupPath);
 
-		criteriaQuery.multiselect(newArrayList(
+		criteriaQuery.select(builder.array(
 				groupPath,
 				builder.avg(root.get(PROP_PENDING_DURATION)),
 				builder.avg(root.get(PROP_RUNNING_DURATION))));
 
 		Map<Integer, Pair<Integer, Integer>> stats = new HashMap<>();
 		for (var result: getSession().createQuery(criteriaQuery).getResultList()) {
-			var pendingDuration = ((Double)result[1])/60000;
-			var runningDuration = ((Double)result[2])/60000;
+			var pendingDuration = ((Double)result[1])/1000;
+			var runningDuration = ((Double)result[2])/1000;
 			stats.put((int)result[0], new ImmutablePair<>((int)pendingDuration, (int)runningDuration));
 		}
 		return stats;
@@ -581,7 +560,7 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 		var groupPath = group.getPath(root.get(PROP_FINISH_TIME_GROUPS));
 		criteriaQuery.groupBy(groupPath);
 
-		criteriaQuery.multiselect(newArrayList(groupPath, builder.count(root)));
+		criteriaQuery.select(builder.array(groupPath, builder.count(root)));
 		
 		Map<Integer, Integer> stats = new HashMap<>();
 		for (var result: getSession().createQuery(criteriaQuery).getResultList()) 
@@ -614,7 +593,7 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 			if (!projects.isEmpty()) {
 				Path<Long> projectIdPath = root.get(Build.PROP_PROJECT).get(Project.PROP_ID);
 				predicates.add(Criteria.forManyValues(builder, projectIdPath,
-						projects.stream().map(it -> it.getId()).collect(Collectors.toSet()),
+						projects.stream().map(AbstractEntity::getId).collect(Collectors.toSet()),
 						projectService.getIds()));
 			} else {
 				predicates.add(builder.disjunction());
@@ -665,7 +644,7 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 	@SuppressWarnings("rawtypes")
 	private void applyOrders(From<Build, Build> root, CriteriaQuery<?> criteriaQuery, CriteriaBuilder builder, 
 			EntityQuery<Build> query) {
-		List<javax.persistence.criteria.Order> orders = new ArrayList<>();
+		List<jakarta.persistence.criteria.Order> orders = new ArrayList<>();
 		for (EntitySort sort: query.getSorts()) {
 			if (sort.getDirection() == ASCENDING)
 				orders.add(builder.asc(QueryUtils.getPath(root, SORT_FIELDS.get(sort.getField()).getProperty())));
@@ -675,8 +654,8 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 
 		boolean found = false;
 		for (var order: orders) {
-			if (order.getExpression() instanceof SingularAttributePath 
-					&& ((SingularAttributePath) order.getExpression()).getAttribute().getName().equals(Build.PROP_SUBMIT_DATE)) {
+			if (order.getExpression() instanceof SqmPath
+					&& ((SqmPath) order.getExpression()).getReferencedPathSource().getPathName().equals(Build.PROP_SUBMIT_DATE)) {
 				found = true;
 				break;
 			}
@@ -688,7 +667,7 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 	}
 	
 	@Sessional
-	protected Collection<Long> queryIds(Project project, EntityQuery<Build> query, int firstResult, int maxResults) {
+	protected Collection<Long> queryIds(Project project, EntityQuery<Build> query, int maxResults) {
 		CriteriaBuilder builder = getSession().getCriteriaBuilder();
 		CriteriaQuery<Long> criteriaQuery = builder.createQuery(Long.class);
 		Root<Build> root = criteriaQuery.from(Build.class);
@@ -700,7 +679,7 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 		applyOrders(root, criteriaQuery, builder, query);
 
 		Query<Long> hibernateQuery = getSession().createQuery(criteriaQuery);
-		hibernateQuery.setFirstResult(firstResult);
+		hibernateQuery.setFirstResult(0);
 		hibernateQuery.setMaxResults(maxResults);
 		
 		return hibernateQuery.list();
@@ -745,27 +724,19 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 	private void fillStatus(Project project, Collection<ObjectId> commitIds, 
 			Map<ObjectId, Map<String, Collection<StatusInfo>>> commitStatuses) {
 		Query<?> query = getSession().createQuery("select commitHash, jobName, status, refName, request.id from Build "
-				+ "where project=:project and commitHash in :commitHashes");
+				+ "where project=:project and commitHash in :commitHashes", Object[].class);
 		query.setParameter("project", project);
-		query.setParameter("commitHashes", commitIds.stream().map(it->it.name()).collect(Collectors.toList()));
+		query.setParameter("commitHashes", commitIds.stream().map(AnyObjectId::name).collect(Collectors.toList()));
 		for (Object[] row: (List<Object[]>)query.list()) {
 			ObjectId commitId = ObjectId.fromString((String) row[0]);
 			String jobName = (String) row[1];
 			Status status = (Status) row[2];
 			String refName = (String) row[3];
 			Long requestId = (Long) row[4];
-			
-			Map<String, Collection<StatusInfo>> commitStatus = commitStatuses.get(commitId);
-			if (commitStatus == null) {
-				commitStatus = new HashMap<>();
-				commitStatuses.put(commitId, commitStatus);
-			}
-			Collection<StatusInfo> jobStatus = commitStatus.get(jobName);
-			if (jobStatus == null) {
-				jobStatus = new HashSet<>();
-				commitStatus.put(jobName, jobStatus);
-			}
-			jobStatus.add(new StatusInfo(status, requestId, refName));
+
+            Map<String, Collection<StatusInfo>> commitStatus = commitStatuses.computeIfAbsent(commitId, k -> new HashMap<>());
+            Collection<StatusInfo> jobStatus = commitStatus.computeIfAbsent(jobName, k -> new HashSet<>());
+            jobStatus.add(new StatusInfo(status, requestId, refName));
 		}
 	}
 	
@@ -791,10 +762,10 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 					
 					sessionService.run(() -> {
 						for (Project project: projectService.query()) {
-							logger.debug("Populating preserved build ids of project '" + project.getPath() + "'...");
+                            logger.debug("Populating preserved build ids of project '{}'...", project.getPath());
 							List<BuildPreservation> preservations = project.getHierarchyBuildPreservations();
 							if (preservations.isEmpty()) {
-								idsToPreserve.addAll(queryIds(project, new BuildQuery(), 0, Integer.MAX_VALUE));
+								idsToPreserve.addAll(queryIds(project, new BuildQuery(), Integer.MAX_VALUE));
 							} else {
 								for (BuildPreservation preservation: preservations) {
 									try {
@@ -804,12 +775,12 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 											count = preservation.getCount();
 										else
 											count = Integer.MAX_VALUE;
-										idsToPreserve.addAll(queryIds(project, query, 0, count));
+										idsToPreserve.addAll(queryIds(project, query, count));
 									} catch (Exception e) {
 										String message = String.format("Error parsing build preserve condition(project: %s, condition: %s)", 
 												project.getPath(), preservation.getCondition());
 										logger.error(message, e);
-										idsToPreserve.addAll(queryIds(project, new BuildQuery(), 0, Integer.MAX_VALUE));
+										idsToPreserve.addAll(queryIds(project, new BuildQuery(), Integer.MAX_VALUE));
 									}
 								}
 							}
@@ -827,7 +798,7 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 						}
 						for (Build build: builds) {
 							if (build.isFinished() && build.getId() <= maxId && !idsToPreserve.contains(build.getId())) {
-								logger.debug("Deleting " + build.getReference() + "...");
+                                logger.debug("Deleting {}...", build.getReference());
 								delete(build);
 							}
 						}
@@ -854,9 +825,9 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
         cache = hazelcastInstance.getMap("buildCache");
         jobNames = hazelcastInstance.getMap("jobNames");
 
-		var buildCacheInited = hazelcastInstance.getCPSubsystem().getAtomicLong("buildCacheInited");
+		var buildCacheInited = clusterService.getAtomicLong("buildCacheInited");
 		clusterService.initWithLead(buildCacheInited, () -> {
-			Query<?> query = dao.getSession().createQuery("select id, project.id, number, commitHash, jobName from Build");
+			Query<?> query = dao.getSession().createQuery("select id, project.id, number, commitHash, jobName from Build", Object[].class);
 			for (Object[] fields : (List<Object[]>) query.list()) {
 				Long buildId = (Long) fields[0];
 				Long projectId = (Long) fields[1];
@@ -891,7 +862,7 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 		List<Selection<?>> selections = new ArrayList<>();
 		for (String field: fields)
 			selections.add(root.get(field));
-		query.multiselect(selections);
+		query.select(builder.array(selections.toArray(Selection<?>[]::new)));
 		
 		return query;
 	}
@@ -1013,7 +984,7 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 	@Override
 	public Collection<Build> query(Agent agent, Status status) {
 		EntityCriteria<Build> criteria = EntityCriteria.of(Build.class);
-		EntityCriteria<Build> agentCriteria = criteria.createCriteria(Build.PROP_AGENT, org.hibernate.sql.JoinType.INNER_JOIN);
+		EntityCriteria<Build> agentCriteria = criteria.createCriteria(Build.PROP_AGENT, jakarta.persistence.criteria.JoinType.INNER);
 		if (status != null) 
 			agentCriteria.add(Restrictions.eq(Build.PROP_STATUS, status));
 		return query(criteria);
@@ -1028,10 +999,10 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 			CriteriaBuilder builder = getSession().getCriteriaBuilder();
 			CriteriaQuery<ProjectBuildStatusStat> criteriaQuery = builder.createQuery(ProjectBuildStatusStat.class);
 			Root<Build> root = criteriaQuery.from(Build.class);
-			criteriaQuery.multiselect(
+			criteriaQuery.select(builder.construct(ProjectBuildStatusStat.class,
 					root.get(Build.PROP_PROJECT).get(Project.PROP_ID), 
 					root.get(Build.PROP_STATUS), 
-					builder.count(root));
+					builder.count(root)));
 			criteriaQuery.groupBy(root.get(Build.PROP_PROJECT), root.get(Build.PROP_STATUS));
 			
 			criteriaQuery.where(root.get(Build.PROP_PROJECT).in(projects));
@@ -1083,16 +1054,16 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 							}
 						}
 					}
-					sort(children, (Comparator<ArtifactInfo>) (o1, o2) -> {
-						if (o1 instanceof FileInfo && o2 instanceof FileInfo
-								|| (o1 instanceof DirectoryInfo) && (o2 instanceof DirectoryInfo)) {
-							return o1.getPath().compareTo(o2.getPath());
-						} else if (o1 instanceof FileInfo) {
-							return 1;
-						} else {
-							return -1;
-						}
-					});
+					children.sort((o1, o2) -> {
+                        if (o1 instanceof FileInfo && o2 instanceof FileInfo
+                                || (o1 instanceof DirectoryInfo) && (o2 instanceof DirectoryInfo)) {
+                            return o1.getPath().compareTo(o2.getPath());
+                        } else if (o1 instanceof FileInfo) {
+                            return 1;
+                        } else {
+                            return -1;
+                        }
+                    });
 					return new DirectoryInfo(artifactPath, artifactFile.lastModified(), children);
 				}
 			} else {
@@ -1113,27 +1084,24 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 				return null;
 			});
 		} else {
-			Client client = ClientBuilder.newClient();
-			try {
-				String serverUrl = clusterService.getServerUrl(activeServer);
-				WebTarget target = client.target(serverUrl).path("~api/cluster/artifact")
-						.queryParam("projectId", projectId)
-						.queryParam("buildNumber", buildNumber)
-						.queryParam("artifactPath", artifactPath);
-				Invocation.Builder builder = target.request();
-				builder.header(AUTHORIZATION, BEARER + " "
-						+ clusterService.getCredential());
-				try (Response response = builder.get()) {
-					checkStatus(response);
-					try (var is = response.readEntity(InputStream.class)) {
-						IOUtils.copy(is, os, BUFFER_SIZE);
-					} catch (IOException e) {
-						throw new RuntimeException(e);
-					}
-				}
-			} finally {
-				client.close();
-			}
+            try (Client client = ClientBuilder.newClient()) {
+                String serverUrl = clusterService.getServerUrl(activeServer);
+                WebTarget target = client.target(serverUrl).path("~api/cluster/artifact")
+                        .queryParam("projectId", projectId)
+                        .queryParam("buildNumber", buildNumber)
+                        .queryParam("artifactPath", artifactPath);
+                Invocation.Builder builder = target.request();
+                builder.header(AUTHORIZATION, BEARER + " "
+                        + clusterService.getCredential());
+                try (Response response = builder.get()) {
+                    checkStatus(response);
+                    try (var is = response.readEntity(InputStream.class)) {
+                        IOUtils.copy(is, os, BUFFER_SIZE);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
 		}
 	}
 
@@ -1155,29 +1123,27 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 			});
 		} else {
 			Client client = ClientBuilder.newClient();
-			client.property(ClientProperties.REQUEST_ENTITY_PROCESSING, "CHUNKED");
-			try {
-				String serverUrl = clusterService.getServerUrl(activeServer);
-				WebTarget target = client.target(serverUrl)
-						.path("~api/cluster/artifact")
-						.queryParam("projectId", projectId)
-						.queryParam("buildNumber", buildNumber)
-						.queryParam("artifactPath", artifactPath);
-				Invocation.Builder builder = target.request();
-				builder.header(AUTHORIZATION, BEARER + " " + clusterService.getCredential());
-				StreamingOutput output = os -> {
-					try {
-						IOUtils.copy(is, os, BUFFER_SIZE);
-					} finally {
-						os.close();
-					}
-				};
-				try (Response response = builder.post(Entity.entity(output, MediaType.APPLICATION_OCTET_STREAM))) {
-					checkStatus(response);
-				}
-			} finally {
-				client.close();
-			}
+            try (client) {
+                client.property(ClientProperties.REQUEST_ENTITY_PROCESSING, "CHUNKED");
+                String serverUrl = clusterService.getServerUrl(activeServer);
+                WebTarget target = client.target(serverUrl)
+                        .path("~api/cluster/artifact")
+                        .queryParam("projectId", projectId)
+                        .queryParam("buildNumber", buildNumber)
+                        .queryParam("artifactPath", artifactPath);
+                Invocation.Builder builder = target.request();
+                builder.header(AUTHORIZATION, BEARER + " " + clusterService.getCredential());
+                StreamingOutput output = os -> {
+                    try {
+                        IOUtils.copy(is, os, BUFFER_SIZE);
+                    } finally {
+                        os.close();
+                    }
+                };
+                try (Response response = builder.post(Entity.entity(output, MediaType.APPLICATION_OCTET_STREAM))) {
+                    checkStatus(response);
+                }
+            }
 		}
 	}
 	
@@ -1191,9 +1157,9 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 				File artifactFile = new File(artifactsDir, artifactPath);
 				if (artifactFile.exists()) {
 					if (artifactFile.isFile())
-						FileUtils.deleteFile(artifactFile);
+						FileUtils.deletePath(artifactFile);
 					else 
-						FileUtils.deleteDir(artifactsDir);
+						FileUtils.deletePath(artifactsDir);
 				} else {
 					String errorMessage = String.format(
 							"Unable to find specified artifact (project: %s, build number: %d, artifact path: %s)",
@@ -1210,23 +1176,21 @@ public class DefaultBuildService extends BaseEntityService<Build> implements Bui
 
 	@Override
 	public void syncBuilds(Long projectId, String activeServer) {
-		projectService.syncDirectory(projectId, BUILDS_DIR, (suffix) -> {
-			projectService.syncDirectory(projectId, BUILDS_DIR + "/" + suffix, (buildNumberString) -> {
-				var buildNumber = valueOf(buildNumberString);
-				var buildPath = getProjectRelativeDirPath(buildNumber);
-				projectService.syncFile(projectId, buildPath + "/" + LOG_FILE, 
-						getLogLockName(projectId, buildNumber), activeServer);
-				if (clusterService.runOnServer(activeServer, () -> getArtifactsDir(projectId, buildNumber).exists())) {
-					var artifactsDir = storageService.initArtifactsDir(projectId, buildNumber);
-					var artifactsPath = Build.getProjectRelativeDirPath(buildNumber) + "/" + ARTIFACTS_DIR;
-					if (!projectService.isSharedDir(artifactsDir, activeServer, projectId, artifactsPath)) {
-						projectService.syncDirectory(projectId, buildPath + "/" + ARTIFACTS_DIR,
-								getArtifactsLockName(projectId, buildNumber), activeServer);
-					}
-				}
-				storageSyncers.forEach(it->it.sync(projectId, buildNumber, activeServer));
-			}, activeServer);
-		}, activeServer);
+		projectService.syncDirectory(projectId, BUILDS_DIR, (suffix) -> projectService.syncDirectory(projectId, BUILDS_DIR + "/" + suffix, (buildNumberString) -> {
+            var buildNumber = valueOf(buildNumberString);
+            var buildPath = getProjectRelativeDirPath(buildNumber);
+            projectService.syncDirectory(projectId, buildPath + "/" + LOG_DIR,
+                    getLogLockName(projectId, buildNumber), activeServer);
+            if (clusterService.runOnServer(activeServer, () -> getArtifactsDir(projectId, buildNumber).exists())) {
+                var artifactsDir = storageService.initArtifactsDir(projectId, buildNumber);
+                var artifactsPath = Build.getProjectRelativeDirPath(buildNumber) + "/" + ARTIFACTS_DIR;
+                if (!projectService.isSharedDir(artifactsDir, activeServer, projectId, artifactsPath)) {
+                    projectService.syncDirectory(projectId, buildPath + "/" + ARTIFACTS_DIR,
+                            getArtifactsLockName(projectId, buildNumber), activeServer);
+                }
+            }
+            storageSyncers.forEach(it->it.sync(projectId, buildNumber, activeServer));
+        }, activeServer), activeServer);
 	}
 
 	@Override

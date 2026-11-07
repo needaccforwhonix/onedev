@@ -18,14 +18,16 @@ import io.onedev.server.persistence.SessionService;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Repository;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 import java.io.File;
+import java.io.Serial;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Editable(name="Create Tag", order=300)
 public class CreateTagStep extends ServerSideStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String tagName;
@@ -63,7 +65,7 @@ public class CreateTagStep extends ServerSideStep {
 	}
 
 	@Editable(order=1060, description="For build commit not reachable from default branch, " +
-			"a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> should be specified as access token with create tag permission")
+			"a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> should be specified as access token with create tag permission")
 	@ChoiceProvider("getAccessTokenSecretChoices")
 	public String getAccessTokenSecret() {
 		return accessTokenSecret;

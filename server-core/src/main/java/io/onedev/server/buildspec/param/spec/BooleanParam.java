@@ -1,10 +1,11 @@
 package io.onedev.server.buildspec.param.spec;
 
+import java.io.Serial;
 import java.util.List;
 import java.util.Map;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 
 import io.onedev.server.buildspecmodel.inputspec.booleaninput.BooleanInput;
 import io.onedev.server.buildspecmodel.inputspec.booleaninput.defaultvalueprovider.DefaultValueProvider;
@@ -14,6 +15,7 @@ import io.onedev.server.annotation.Editable;
 @Editable(order=300, name=ParamSpec.BOOLEAN)
 public class BooleanParam extends ParamSpec {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private DefaultValueProvider defaultValueProvider = new FalseDefaultValue();

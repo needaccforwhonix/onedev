@@ -3,6 +3,7 @@ package io.onedev.server.web.behavior;
 import static io.onedev.server.web.translation.Translation._T;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
@@ -13,7 +14,6 @@ import org.jspecify.annotations.Nullable;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 
-import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.commons.codeassist.FenceAware;
 import io.onedev.commons.codeassist.InputCompletion;
 import io.onedev.commons.codeassist.InputSuggestion;
@@ -240,7 +240,7 @@ public class BuildQueryBehavior extends ANTLRAssistBehavior {
 				if (!fieldElements.isEmpty()) {
 					String fieldName = QueryUtils.getValue(fieldElements.get(0).getMatchedText());
 					if (fieldName.equals(Build.NAME_PROJECT)) {
-						hints.add(_T("Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>"));
+						hints.add(_T("Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>"));
 					} else if (fieldName.equals(Build.NAME_VERSION) || fieldName.equals(Build.NAME_JOB)) {
 						hints.add(_T("Use '*' for wildcard match"));
 						hints.add(_T("Use '\\' to escape quotes"));

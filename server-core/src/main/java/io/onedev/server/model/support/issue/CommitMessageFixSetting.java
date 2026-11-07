@@ -4,6 +4,7 @@ import static io.onedev.server.entityreference.ReferenceUtils.mayContainReferenc
 import static java.util.regex.Pattern.CASE_INSENSITIVE;
 import static org.unbescape.java.JavaEscape.unescapeJava;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -12,10 +13,10 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.validation.ConstraintValidatorContext;
-import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.ConstraintValidatorContext;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 
 import io.onedev.commons.utils.StringUtils;
 import io.onedev.server.OneDev;
@@ -33,6 +34,7 @@ import io.onedev.server.validation.validator.ProjectPathValidator;
 @ClassValidating
 public class CommitMessageFixSetting implements Serializable, Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String DEFAULT_FIX_SUGGESTION = """
@@ -78,8 +80,7 @@ public class CommitMessageFixSetting implements Serializable, Validatable {
 	@Editable(order=200, name="Fix Detection", description="Specify prefix/suffix patterns to detect fixed issues "
 			+ "in commit messages. Each line of the commit message will be matched against each entry defined here")
 	@NotNull
-	@Valid
-	public List<FixPattern> getFixPatterns() {
+	public List<@Valid FixPattern> getFixPatterns() {
 		return fixPatterns;
 	}
 
@@ -179,6 +180,7 @@ public class CommitMessageFixSetting implements Serializable, Validatable {
 	@Editable
 	public static class FixPattern implements Serializable {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		private String prefix;

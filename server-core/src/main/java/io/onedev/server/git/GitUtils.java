@@ -303,7 +303,7 @@ public class GitUtils {
 	}
 
 	public static PersonIdent newPersonIdent(String name, String email, Date when) {
-		return new PersonIdent(name, email, when.getTime(), SystemReader.getInstance().getTimezone(when.getTime()));
+		return new PersonIdent(name, email, when.toInstant(), SystemReader.getInstance().getTimeZoneAt(when.toInstant()));
 	}
 
 	/**
@@ -806,12 +806,16 @@ public class GitUtils {
 				
 			}).checkReturnCode();
 			
+			// Restrict Git LFS to our trusted config. In bare repositories, GIT_CONFIG also
+			// prevents its "git config --blob HEAD:.lfsconfig" from reading repository content.
+			git.envs().put("GIT_CONFIG", new File(homeDir, ".gitconfig").getAbsolutePath());
+
 			return task.call(git);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		} finally {
 			SecretMasker.pop();
-			FileUtils.deleteDir(homeDir);
+			FileUtils.deletePath(homeDir);
 		}
 	}
 	

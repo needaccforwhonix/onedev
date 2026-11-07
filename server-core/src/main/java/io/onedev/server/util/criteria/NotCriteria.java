@@ -1,15 +1,16 @@
 package io.onedev.server.util.criteria;
 
+import java.io.Serial;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Order;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Order;
+import jakarta.persistence.criteria.Predicate;
 
 import io.onedev.server.util.ProjectScope;
 import io.onedev.server.web.component.issue.workflowreconcile.UndefinedFieldResolution;
@@ -19,12 +20,17 @@ import io.onedev.server.web.component.issue.workflowreconcile.UndefinedStateReso
 
 public class NotCriteria<T> extends Criteria<T> {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	protected final Criteria<T> criteria;
 	
 	public NotCriteria(Criteria<T> criteria) {
 		this.criteria = criteria;
+	}
+
+	public Criteria<T> getCriteria() {
+		return criteria;
 	}
 
 	@Override

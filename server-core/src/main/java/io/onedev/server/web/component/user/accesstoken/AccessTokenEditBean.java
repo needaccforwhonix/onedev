@@ -1,5 +1,6 @@
 package io.onedev.server.web.component.user.accesstoken;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Date;
@@ -8,8 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 
 import io.onedev.server.annotation.DependsOn;
 import io.onedev.server.annotation.Editable;
@@ -23,6 +24,7 @@ import io.onedev.server.security.SecurityUtils;
 @Editable
 public class AccessTokenEditBean implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String name;

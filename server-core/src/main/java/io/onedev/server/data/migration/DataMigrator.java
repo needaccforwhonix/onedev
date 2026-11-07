@@ -9,6 +9,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
@@ -23,22 +24,14 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Stack;
-import java.util.UUID;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.inject.Singleton;
+import jakarta.inject.Singleton;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.sshd.common.config.keys.KeyUtils;
@@ -53,13 +46,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
+import com.sun.management.OperatingSystemMXBean;
 import com.thoughtworks.xstream.core.JVM;
 
 import io.onedev.commons.bootstrap.Bootstrap;
+import io.onedev.commons.utils.ClassUtils;
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.commons.utils.FileUtils;
 import io.onedev.commons.utils.StringUtils;
 import io.onedev.server.OneDev;
+import io.onedev.server.oem.OemService;
 import io.onedev.server.buildspecmodel.inputspec.InputSpec;
 import io.onedev.server.buildspecmodel.inputspec.choiceinput.choiceprovider.Choice;
 import io.onedev.server.buildspecmodel.inputspec.showcondition.ShowCondition;
@@ -67,6 +64,8 @@ import io.onedev.server.buildspecmodel.inputspec.showcondition.ValueIsOneOf;
 import io.onedev.server.git.GitUtils;
 import io.onedev.server.markdown.MarkdownService;
 import io.onedev.server.markdown.MentionParser;
+import io.onedev.server.model.AbstractEntity;
+import io.onedev.server.model.EntityIdCounter;
 import io.onedev.server.model.Issue;
 import io.onedev.server.model.IssueComment;
 import io.onedev.server.model.IssueStateHistory;
@@ -80,15 +79,12 @@ import io.onedev.server.model.support.issue.CommitMessageFixSetting;
 import io.onedev.server.model.support.issue.field.spec.BuildChoiceField;
 import io.onedev.server.service.SettingService;
 import io.onedev.server.ssh.SshKeyUtils;
-import io.onedev.server.util.CryptoUtils;
 import io.onedev.server.util.DateUtils;
 import io.onedev.server.util.GpgUtils;
 import io.onedev.server.util.Pair;
 import io.onedev.server.util.ParsedEmailAddress;
 import io.onedev.server.util.SiteSyncUtils;
 import io.onedev.server.util.patternset.PatternSet;
-import oshi.SystemInfo;
-import oshi.hardware.HardwareAbstractionLayer;
 
 
 @Singleton
@@ -100,7 +96,7 @@ public class DataMigrator {
 	private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSS'Z'");
 
 	private void migrate5(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Configs.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -119,7 +115,7 @@ public class DataMigrator {
 	}
 
 	private void migrate7(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			try {
 				String content = FileUtils.readFileToString(file, UTF_8);
 				content = Strings.CS.replace(content,
@@ -173,7 +169,7 @@ public class DataMigrator {
 	}
 
 	private void migrate8(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Configs.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -231,7 +227,7 @@ public class DataMigrator {
 					|| file.getName().startsWith("CodeCommentRelations.xml")
 					|| file.getName().startsWith("CodeCommentReplys.xml")
 					|| file.getName().startsWith("CodeCommentStatusChanges.xml")) {
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			} else if (file.getName().startsWith("PullRequestUpdates.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -247,7 +243,7 @@ public class DataMigrator {
 		try {
 			Map<String, String> accountIdToName = new HashMap<>();
 			Set<String> userIds = new HashSet<>();
-			for (File file : dataDir.listFiles()) {
+			for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 				if (file.getName().startsWith("Accounts.xml")) {
 					File renamedFile = new File(dataDir, file.getName().replace("Accounts.xml", "Users.xml"));
 					FileUtils.moveFile(file, renamedFile);
@@ -276,7 +272,7 @@ public class DataMigrator {
 			VersionedXmlDoc userAuthorizationsDom = new VersionedXmlDoc();
 			Element userAuthorizationListElement = userAuthorizationsDom.addElement("list");
 
-			for (File file : dataDir.listFiles()) {
+			for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 				if (file.getName().startsWith("Depots.xml")) {
 					File renamedFile = new File(dataDir, file.getName().replace("Depots.xml", "Projects.xml"));
 					FileUtils.moveFile(file, renamedFile);
@@ -326,7 +322,7 @@ public class DataMigrator {
 						|| file.getName().startsWith("PullRequest")
 						|| file.getName().startsWith("Review")
 						|| file.getName().startsWith("ReviewInvitation")) {
-					FileUtils.deleteFile(file);
+					FileUtils.deletePath(file);
 				} else if (file.getName().startsWith("Configs.xml")) {
 					VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 					for (Element element : dom.getRootElement().elements()) {
@@ -340,7 +336,7 @@ public class DataMigrator {
 								for (File projectDir : projectsDir.listFiles()) {
 									File infoDir = new File(projectDir, "info");
 									if (infoDir.exists())
-										FileUtils.deleteDir(infoDir);
+										FileUtils.deletePath(infoDir);
 								}
 							}
 						} else if (element.elementText("key").equals("SECURITY")) {
@@ -357,10 +353,10 @@ public class DataMigrator {
 	}
 
 	private void migrate10(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("CodeComments.xml") || file.getName().startsWith("CodeCommentReplys.xml")
 					|| file.getName().startsWith("CodeCommentStatusChanges.xml")) {
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			} else if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -398,7 +394,7 @@ public class DataMigrator {
 	}
 
 	private void migrate11(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Configs.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				long maxId = 0;
@@ -416,7 +412,7 @@ public class DataMigrator {
 	}
 
 	private void migrate12(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element projectElement : dom.getRootElement().elements()) {
@@ -433,7 +429,7 @@ public class DataMigrator {
 	}
 
 	private void migrate13(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			try {
 				String content = FileUtils.readFileToString(file, UTF_8);
 				content = Strings.CS.replace(content, "gitplex", "turbodev");
@@ -446,7 +442,7 @@ public class DataMigrator {
 	}
 
 	private void migrate14(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element projectElement : dom.getRootElement().elements()) {
@@ -465,7 +461,7 @@ public class DataMigrator {
 	}
 
 	private void migrate15(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			try {
 				String content = FileUtils.readFileToString(file, UTF_8);
 				content = Strings.CS.replace(content, "com.turbodev", "io.onedev");
@@ -511,7 +507,7 @@ public class DataMigrator {
 		Set<String> openRequests = new HashSet<>();
 		Map<String, String> reviewRequirements = new HashMap<>();
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -607,14 +603,14 @@ public class DataMigrator {
 		Element requestBuildListElement = requestBuildsDOM.addElement("list");
 		int requestBuildCount = 0;
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("BranchWatches.xml")
 					|| file.getName().startsWith("PullRequestReferences.xml")
 					|| file.getName().startsWith("PullRequestStatusChanges.xml")
 					|| file.getName().startsWith("PullRequestTasks.xml")
 					|| file.getName().startsWith("ReviewInvitations.xml")
 					|| file.getName().startsWith("Reviews.xml")) {
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			} else if (file.getName().startsWith("UserAuthorizations.xml") || file.getName().startsWith("GroupAuthorizations.xml")) {
 				try {
 					String content = FileUtils.readFileToString(file, UTF_8);
@@ -716,7 +712,7 @@ public class DataMigrator {
 						}
 					}
 				}
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 				dom.writeToFile(new File(file.getParentFile(), file.getName().replace("Config", "Setting")), false);
 			} else if (file.getName().startsWith("PullRequestWatchs.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
@@ -808,9 +804,9 @@ public class DataMigrator {
 	}
 
 	private void migrate17(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issue")) {
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			} else if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -833,7 +829,7 @@ public class DataMigrator {
 	}
 
 	private void migrate18(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -846,7 +842,7 @@ public class DataMigrator {
 	}
 
 	private void migrate19(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -864,7 +860,7 @@ public class DataMigrator {
 	}
 
 	private void migrate20(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -883,7 +879,7 @@ public class DataMigrator {
 	}
 
 	private void migrate21(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -911,7 +907,7 @@ public class DataMigrator {
 	}
 
 	private void migrate22(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("IssueFieldUnarys.xml")) {
 				File renamedFile = new File(dataDir, file.getName().replace("IssueFieldUnarys", "IssueFieldEntitys"));
 				try {
@@ -929,7 +925,7 @@ public class DataMigrator {
 	}
 
 	private void migrate23(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Build2s.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1012,7 +1008,7 @@ public class DataMigrator {
 	}
 
 	private void migrate24(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1045,7 +1041,7 @@ public class DataMigrator {
 
 	// from 2.0 to 3.0
 	private void migrate25(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				String content;
 				try {
@@ -1232,7 +1228,7 @@ public class DataMigrator {
 					|| file.getName().startsWith("Build2s.xml")
 					|| file.getName().startsWith("BuildDependences.xml")
 					|| file.getName().startsWith("BuildParams.xml")) {
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			} else if (file.getName().startsWith("IssueFieldEntitys.xml")) {
 				String content;
 				try {
@@ -1243,7 +1239,7 @@ public class DataMigrator {
 				content = content.replace("io.onedev.server.model.IssueFieldEntity",
 						"io.onedev.server.model.IssueField");
 
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 
 				File renamedFile = new File(dataDir, file.getName().replace(
 						"IssueFieldEntitys.xml", "IssueFields.xml"));
@@ -1262,7 +1258,7 @@ public class DataMigrator {
 	}
 
 	private void migrate26(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1276,7 +1272,7 @@ public class DataMigrator {
 	}
 
 	private void migrate27(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1286,13 +1282,13 @@ public class DataMigrator {
 				}
 				dom.writeToFile(file, false);
 			} else if (file.getName().startsWith("IssueChanges.xml")) {
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			}
 		}
 	}
 
 	private void migrate28(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1316,7 +1312,7 @@ public class DataMigrator {
 	}
 
 	private void migrate29(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -1336,7 +1332,7 @@ public class DataMigrator {
 	}
 
 	private void migrate30(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1350,7 +1346,7 @@ public class DataMigrator {
 	}
 
 	private void migrate31(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Roles.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1365,7 +1361,7 @@ public class DataMigrator {
 	}
 
 	private void migrate32(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1375,13 +1371,13 @@ public class DataMigrator {
 				}
 				dom.writeToFile(file, false);
 			} else if (file.getName().startsWith("IssueChanges.xml")) {
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			}
 		}
 	}
 
 	private void migrate33(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1402,7 +1398,7 @@ public class DataMigrator {
 	}
 
 	private void migrate34(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1430,7 +1426,7 @@ public class DataMigrator {
 	}
 
 	private void migrate35(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("CodeComments.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1571,7 +1567,7 @@ public class DataMigrator {
 	}
 
 	private void migrate37(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1595,7 +1591,7 @@ public class DataMigrator {
 	private void migrate38(File dataDir, Stack<Integer> versions) {
 		Map<Long, Long> forkedFroms = new HashMap<>();
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().contains(".xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Node node : dom.selectNodes("//io.onedev.server.model.support.pullrequest.NamedPullRequestQuery")) {
@@ -1701,7 +1697,7 @@ public class DataMigrator {
 			pullRequestNumbers.put(forkedRoot, new HashSet<>());
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1729,7 +1725,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1794,7 +1790,7 @@ public class DataMigrator {
 
 	// from 3.0.x to 3.1.x
 	private void migrate40(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().contains(".xml")) {
 				try {
 					String content = FileUtils.readFileToString(file, UTF_8);
@@ -1810,7 +1806,7 @@ public class DataMigrator {
 		}
 
 		long maxRoleId = 0;
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Roles.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1823,7 +1819,7 @@ public class DataMigrator {
 
 		boolean hasOwnerRole = false;
 		String idOfRolePreviouslyUsingOwnerId = null;
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Roles.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1869,7 +1865,7 @@ public class DataMigrator {
 		}
 
 		if (idOfRolePreviouslyUsingOwnerId != null) {
-			for (File file : dataDir.listFiles()) {
+			for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 				if (file.getName().startsWith("UserAuthorizations.xml")
 						|| file.getName().startsWith("GroupAuthorizations.xml")) {
 					VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
@@ -1886,7 +1882,7 @@ public class DataMigrator {
 		Map<String, Element> userBuildSettingElements = new HashMap<>();
 		Map<String, Element> userWebHooksElements = new HashMap<>();
 		Map<String, String> projectOwners = new HashMap<>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -1931,7 +1927,7 @@ public class DataMigrator {
 		}
 
 		long maxUserAuthorizationId = 0;
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2001,7 +1997,7 @@ public class DataMigrator {
 	}
 
 	private void migrate41(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2022,7 +2018,7 @@ public class DataMigrator {
 		Map<String, String> requestTargetHeads = new HashMap<>();
 		Map<String, String> requestBaseCommits = new HashMap<>();
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("CodeCommentRelations.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -2048,7 +2044,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				try {
 					String content = FileUtils.readFileToString(file, UTF_8.name());
@@ -2112,12 +2108,12 @@ public class DataMigrator {
 					element.addElement("submitReason").setText("Unknown");
 				dom.writeToFile(file, false);
 			} else if (file.getName().startsWith("CodeCommentRelations.xml")) {
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			} else if (file.getName().startsWith("PullRequestBuilds.xml")) {
 				try {
 					String content = FileUtils.readFileToString(file, UTF_8.name());
 					content = Strings.CS.replace(content, "PullRequestBuild", "PullRequestVerification");
-					FileUtils.deleteFile(file);
+					FileUtils.deletePath(file);
 					String newFileName = Strings.CS.replace(file.getName(), "PullRequestBuild", "PullRequestVerification");
 					FileUtils.writeFile(new File(dataDir, newFileName), content, UTF_8);
 				} catch (IOException e) {
@@ -2134,7 +2130,7 @@ public class DataMigrator {
 			} else if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
-					element.addElement("accessToken").setText(CryptoUtils.generateSecret());
+					element.addElement("accessToken").setText(RandomStringUtils.secure().nextAlphanumeric(40));
 					element.addElement("ssoInfo").addElement("subject").setText(UUID.randomUUID().toString());
 				}
 				dom.writeToFile(file, false);
@@ -2157,7 +2153,7 @@ public class DataMigrator {
 
 	// Migrate to 3.2.2
 	private void migrate43(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2182,7 +2178,7 @@ public class DataMigrator {
 	// Migrate to 4.0.5
 	private void migrate44(File dataDir, Stack<Integer> versions) {
 		Map<String, String> verifications = new HashMap<>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("PullRequestVerifications.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2191,7 +2187,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Builds.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2253,7 +2249,7 @@ public class DataMigrator {
 
 	// Migrate to 4.0.6
 	private void migrate45(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Builds.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -2265,7 +2261,7 @@ public class DataMigrator {
 
 	// migrate to 4.0.7
 	private void migrate46(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2287,7 +2283,7 @@ public class DataMigrator {
 
 	// migrate to 4.0.8
 	private void migrate47(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Builds.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2302,7 +2298,7 @@ public class DataMigrator {
 
 	// migrate to 4.1.0
 	private void migrate48(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			try {
 				String content = FileUtils.readFileToString(file, UTF_8);
 				content = Strings.CS.replace(content,
@@ -2317,7 +2313,7 @@ public class DataMigrator {
 	}
 
 	private void migrate49(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2334,7 +2330,7 @@ public class DataMigrator {
 	}
 
 	private void migrate51(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("CodeComments.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2351,7 +2347,7 @@ public class DataMigrator {
 
 	// Migrate to 4.2.1
 	private void migrate52(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("PullRequests.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -2367,7 +2363,7 @@ public class DataMigrator {
 		Map<String, String> groupIds = new HashMap<>();
 		List<Triple<String, String, String>> authorizations = new ArrayList<>();
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			try {
 				String content = FileUtils.readFileToString(file, UTF_8);
 				content = Strings.CS.replace(content,
@@ -2429,7 +2425,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2444,7 +2440,7 @@ public class DataMigrator {
 	}
 
 	private void migrate54(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Groups.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -2455,7 +2451,7 @@ public class DataMigrator {
 	}
 
 	private void migrate55(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2469,7 +2465,7 @@ public class DataMigrator {
 	}
 
 	private void migrate56(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2481,7 +2477,7 @@ public class DataMigrator {
 	}
 
 	private void migrate57(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			try {
 				String content = FileUtils.readFileToString(file, UTF_8);
 				content = Strings.CS.replace(content,
@@ -2533,7 +2529,7 @@ public class DataMigrator {
 	}
 
 	private void migrate58(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2545,7 +2541,7 @@ public class DataMigrator {
 	}
 
 	private void migrate59(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2574,7 +2570,7 @@ public class DataMigrator {
 	}
 
 	private void migrate60(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2603,7 +2599,7 @@ public class DataMigrator {
 	}
 
 	private void migrate61(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("PullRequests.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2680,7 +2676,7 @@ public class DataMigrator {
 					element.addElement("ssoInfo").addElement("subject").setText(UUID.randomUUID().toString());
 					element.addElement("email").setText("unknown email");
 					element.addElement("alternateEmails");
-					element.addElement("accessToken").setText(CryptoUtils.generateSecret());
+					element.addElement("accessToken").setText(RandomStringUtils.secure().nextAlphanumeric(40));
 					element.addElement("userProjectQueries");
 					element.addElement("userIssueQueries");
 					element.addElement("userIssueQueryWatches");
@@ -2763,7 +2759,7 @@ public class DataMigrator {
 	}
 
 	private void migrate62(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2771,14 +2767,13 @@ public class DataMigrator {
 					if (key.equals("SYSTEM")) {
 						Element valueElement = element.element("value");
 						if (valueElement != null) {
+							int cpu = Runtime.getRuntime().availableProcessors() * 1000;
+							valueElement.addElement("cpu").setText(String.valueOf(cpu));
 							try {
-								HardwareAbstractionLayer hardware = new SystemInfo().getHardware();
-								int cpu = hardware.getProcessor().getLogicalProcessorCount() * 1000;
-								valueElement.addElement("cpu").setText(String.valueOf(cpu));
-								int memory = (int) (hardware.getMemory().getTotal() / 1024 / 1024);
+								var operatingSystem = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
+								int memory = (int) (operatingSystem.getTotalMemorySize() / 1024 / 1024);
 								valueElement.addElement("memory").setText(String.valueOf(memory));
 							} catch (Exception e) {
-								valueElement.addElement("cpu").setText("4000");
 								valueElement.addElement("memory").setText("8000");
 							}
 						}
@@ -2870,7 +2865,7 @@ public class DataMigrator {
 					}
 					userQueryWatchesElement.detach();
 				}
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 				dom.writeToFile(new File(dataDir, file.getName().replace("Settings", "Personalizations")), false);
 			} else if (file.getName().startsWith("PullRequestQuerySettings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
@@ -2891,7 +2886,7 @@ public class DataMigrator {
 					}
 					userQueryWatchesElement.detach();
 				}
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 				dom.writeToFile(new File(dataDir, file.getName().replace("Settings", "Personalizations")), false);
 			} else if (file.getName().startsWith("BuildQuerySettings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
@@ -2909,7 +2904,7 @@ public class DataMigrator {
 					}
 					userQuerySubscriptionsElement.detach();
 				}
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 				dom.writeToFile(new File(dataDir, file.getName().replace("Settings", "Personalizations")), false);
 			} else if (file.getName().startsWith("CodeCommentQuerySettings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
@@ -2917,7 +2912,7 @@ public class DataMigrator {
 					element.setName("io.onedev.server.model.CodeCommentQueryPersonalization");
 					element.element("userQueries").setName("queries");
 				}
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 				dom.writeToFile(new File(dataDir, file.getName().replace("Settings", "Personalizations")), false);
 			} else if (file.getName().startsWith("CommitQuerySettings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
@@ -2936,14 +2931,14 @@ public class DataMigrator {
 					}
 					userQuerySubscriptionsElement.detach();
 				}
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 				dom.writeToFile(new File(dataDir, file.getName().replace("Settings", "Personalizations")), false);
 			}
 		}
 	}
 
 	private void migrate63(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2972,7 +2967,7 @@ public class DataMigrator {
 	}
 
 	private void migrate64(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -2995,7 +2990,7 @@ public class DataMigrator {
 	}
 
 	private void migrate65(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3013,7 +3008,7 @@ public class DataMigrator {
 
 	private void migrate66(File dataDir, Stack<Integer> versions) {
 		Map<String, Element> compareContexts = new HashMap<>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("CodeComments.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3063,7 +3058,7 @@ public class DataMigrator {
 				dom.writeToFile(file, false);
 			}
 		}
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("CodeCommentReplys.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3077,7 +3072,7 @@ public class DataMigrator {
 
 	private void migrate67(File dataDir, Stack<Integer> versions) {
 		Map<String, Element> compareContexts = new HashMap<>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("JestTestMetric.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -3085,7 +3080,7 @@ public class DataMigrator {
 
 				String newFileName = file.getName().replace("Jest", "Unit");
 				dom.writeToFile(new File(dataDir, newFileName), false);
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			} else if (file.getName().startsWith("CloverMetric.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -3093,7 +3088,7 @@ public class DataMigrator {
 
 				String newFileName = file.getName().replace("Clover", "Coverage");
 				dom.writeToFile(new File(dataDir, newFileName), false);
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			} else if (file.getName().startsWith("CheckstyleMetric.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -3101,7 +3096,7 @@ public class DataMigrator {
 
 				String newFileName = file.getName().replace("Checkstyle", "Problem");
 				dom.writeToFile(new File(dataDir, newFileName), false);
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			}
 		}
 	}
@@ -3129,7 +3124,7 @@ public class DataMigrator {
 
 	private void migrate68(File dataDir, Stack<Integer> versions) {
 		Map<String, String> projectIds = new HashMap<>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -3137,7 +3132,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -3223,7 +3218,7 @@ public class DataMigrator {
 
 		Set<String> promptFieldsUponIssueOpen = new HashSet<>();
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3278,7 +3273,7 @@ public class DataMigrator {
 
 		issueSchedulesDoc.writeToFile(new File(dataDir, "IssueSchedules.xml"), false);
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3314,7 +3309,7 @@ public class DataMigrator {
 		Map<Pair<String, String>, String> buildIds = new HashMap<>();
 		Map<Pair<String, String>, String> pullRequestIds = new HashMap<>();
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3342,7 +3337,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("IssueFields.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3376,7 +3371,7 @@ public class DataMigrator {
 
 	private void migrate72(File dataDir, Stack<Integer> versions) {
 		Map<String, Integer> stateOrdinals = new HashMap<>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3396,7 +3391,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3422,7 +3417,7 @@ public class DataMigrator {
 	}
 
 	private void migrate73(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("PullRequests.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3467,7 +3462,7 @@ public class DataMigrator {
 	}
 
 	private void migrate74(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Builds.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -3478,7 +3473,7 @@ public class DataMigrator {
 	}
 
 	private void migrate75(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("AgentTokens.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3512,7 +3507,7 @@ public class DataMigrator {
 	}
 
 	private void migrate76(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3535,7 +3530,7 @@ public class DataMigrator {
 		Long maxIssueCommentId = 0L;
 		File issueCommentsFile = null;
 		File pullRequestCommentsFile = null;
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3585,7 +3580,7 @@ public class DataMigrator {
 			pullRequestCommentsDom = VersionedXmlDoc.fromFile(pullRequestCommentsFile);
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3669,7 +3664,7 @@ public class DataMigrator {
 		Map<String, Integer> issueCommentCounts = new HashMap<>();
 		Map<String, Integer> pullRequestCommentCounts = new HashMap<>();
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("IssueComments.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3692,7 +3687,7 @@ public class DataMigrator {
 				}
 			}
 		}
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3722,7 +3717,7 @@ public class DataMigrator {
 		Map<String, Integer> issueCommentCounts = new HashMap<>();
 		Map<String, Integer> pullRequestCommentCounts = new HashMap<>();
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("IssueComments.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3745,7 +3740,7 @@ public class DataMigrator {
 				}
 			}
 		}
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3774,7 +3769,7 @@ public class DataMigrator {
 	}
 
 	private void migrate81(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3795,7 +3790,7 @@ public class DataMigrator {
 
 		String sshServerUrl = null;
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3884,7 +3879,7 @@ public class DataMigrator {
 		}
 
 		if (sshServerUrl != null) {
-			for (File file : dataDir.listFiles()) {
+			for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 				if (file.getName().startsWith("Settings.xml")) {
 					VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 					for (Element element : dom.getRootElement().elements()) {
@@ -3948,7 +3943,7 @@ public class DataMigrator {
 	private void migrate83(File dataDir, Stack<Integer> versions) {
 		Map<String, String> issueInfos = new HashMap<>();
 		Map<String, String> pullRequestInfos = new HashMap<>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -3968,7 +3963,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4046,7 +4041,7 @@ public class DataMigrator {
 	}
 
 	private void migrate85(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Builds.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -4060,7 +4055,7 @@ public class DataMigrator {
 	}
 
 	private void migrate87(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4087,7 +4082,7 @@ public class DataMigrator {
 	}
 
 	private void migrate88(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("CodeComments.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -4100,7 +4095,7 @@ public class DataMigrator {
 	private void migrate89(File dataDir, Stack<Integer> versions) {
 		Map<String, Integer> pullRequestCommentCounts = new HashMap<>();
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("PullRequestComments.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4150,7 +4145,7 @@ public class DataMigrator {
 				dom.writeToFile(file, false);
 			}
 		}
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("PullRequests.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4165,7 +4160,7 @@ public class DataMigrator {
 	}
 
 	private void migrate90(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("PullRequests.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4182,7 +4177,7 @@ public class DataMigrator {
 	}
 
 	private void migrate92(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -4228,7 +4223,7 @@ public class DataMigrator {
 	}
 
 	private void migrate94(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4249,7 +4244,7 @@ public class DataMigrator {
 	}
 
 	private void migrate95(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("GpgKeys.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4263,7 +4258,7 @@ public class DataMigrator {
 	}
 
 	private void migrate96(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4284,7 +4279,7 @@ public class DataMigrator {
 
 	private void migrate97(File dataDir, Stack<Integer> versions) {
 		Map<String, String> emailOwners = new HashMap<>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("EmailAddresss.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -4292,7 +4287,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("GpgKeys.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4311,7 +4306,7 @@ public class DataMigrator {
 	private void migrate99(File dataDir, Stack<Integer> versions) {
 		Map<String, String> names = new HashMap<>();
 		Map<String, String> parentIds = new HashMap<>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4329,7 +4324,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4350,7 +4345,7 @@ public class DataMigrator {
 	}
 
 	private void migrate100(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Builds.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -4361,7 +4356,7 @@ public class DataMigrator {
 	}
 
 	private void migrate101(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4385,7 +4380,7 @@ public class DataMigrator {
 		projectUpdatesDom = new VersionedXmlDoc();
 		Element listElement = projectUpdatesDom.addElement("list");
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4444,7 +4439,7 @@ public class DataMigrator {
 	}
 
 	private void migrate104(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4494,7 +4489,7 @@ public class DataMigrator {
 	}
 
 	private void migrate105(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4513,7 +4508,7 @@ public class DataMigrator {
 	}
 
 	private void migrate106(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4530,7 +4525,7 @@ public class DataMigrator {
 	}
 
 	private void migrate107(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4576,13 +4571,7 @@ public class DataMigrator {
 					} else if (key.equals("PERFORMANCE")) {
 						Element valueElement = element.element("value");
 						if (valueElement != null) {
-							int cpuIntensiveTaskConcurrency;
-							try {
-								HardwareAbstractionLayer hardware = new SystemInfo().getHardware();
-								cpuIntensiveTaskConcurrency = hardware.getProcessor().getLogicalProcessorCount();
-							} catch (Exception e) {
-								cpuIntensiveTaskConcurrency = 4;
-							}
+							int cpuIntensiveTaskConcurrency = Runtime.getRuntime().availableProcessors();
 							valueElement.addElement("cpuIntensiveTaskConcurrency")
 									.setText(String.valueOf(cpuIntensiveTaskConcurrency));
 						}
@@ -4634,7 +4623,7 @@ public class DataMigrator {
 		Set<Pair<String, String>> codeCommentMentions = new HashSet<>();
 
 		Map<String, String> userIds = new HashMap<>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4643,7 +4632,7 @@ public class DataMigrator {
 				}
 			}
 		}
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4759,7 +4748,7 @@ public class DataMigrator {
 
 	private void migrate109(File dataDir, Stack<Integer> versions) {
 		var updateIds = new HashSet<>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4770,7 +4759,7 @@ public class DataMigrator {
 				dom.writeToFile(file, false);
 			}
 		}
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("ProjectUpdates.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4781,7 +4770,7 @@ public class DataMigrator {
 						element.setName("io.onedev.server.model.ProjectDynamics");
 					}
 				}
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 				String newFileName = file.getName().replace("Update", "Dynamics");
 				dom.writeToFile(new File(file.getParent(), newFileName), false);
 			} else if (file.getName().startsWith("Issues.xml")
@@ -4796,7 +4785,7 @@ public class DataMigrator {
 				dom.writeToFile(file, false);
 			}
 		}
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().contains(".xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				List<Node> selectedNodes = new ArrayList<>();
@@ -4805,9 +4794,8 @@ public class DataMigrator {
 				selectedNodes.addAll(dom.selectNodes("//io.onedev.server.model.support.NamedCodeCommentQuery"));
 				selectedNodes.addAll(dom.selectNodes("//io.onedev.server.model.support.NamedProjectQuery"));
 				for (Node node : selectedNodes) {
-					if (node instanceof Element) {
-						Element element = (Element) node;
-						Element queryElement = element.element("query");
+					if (node instanceof Element element) {
+                        Element queryElement = element.element("query");
 						if (queryElement != null)
 							queryElement.setText(queryElement.getText().trim().replace("\"Update Date\"", "\"Last Activity Date\""));
 					}
@@ -4819,11 +4807,11 @@ public class DataMigrator {
 
 	private void migrate110(File dataDir, Stack<Integer> versions) {
 		var updateIds = new HashSet<>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
-					element.element("accessToken").setText(CryptoUtils.generateSecret());
+					element.element("accessToken").setText(RandomStringUtils.secure().nextAlphanumeric(40));
 				}
 				dom.writeToFile(file, false);
 			}
@@ -4831,7 +4819,7 @@ public class DataMigrator {
 	}
 
 	private void migrate111(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4890,7 +4878,7 @@ public class DataMigrator {
 
 	private void migrate112(File dataDir, Stack<Integer> versions) {
 		var updateIds = new HashSet<>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("IssueChanges.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -4912,7 +4900,7 @@ public class DataMigrator {
 	}
 
 	private void migrate113(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Node node : dom.selectNodes("//io.onedev.server.model.support.issue.field.spec.ChoiceField")) {
@@ -4972,7 +4960,7 @@ public class DataMigrator {
 	}
 
 	private void migrate114(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			try {
 				String content = FileUtils.readFileToString(file, UTF_8);
 				content = Strings.CS.replace(content,
@@ -4984,7 +4972,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5078,7 +5066,7 @@ public class DataMigrator {
 	}
 
 	private void migrate115(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5114,7 +5102,7 @@ public class DataMigrator {
 	}
 
 	private void migrate116(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Node node : dom.selectNodes("//io.onedev.server.model.support.issue.field.spec.UserChoiceField")) {
@@ -5173,7 +5161,7 @@ public class DataMigrator {
 		var agentLastUsedDateId = 1L;
 
 		var agentTokenIds = new HashSet<Long>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("AgentTokens.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -5193,9 +5181,9 @@ public class DataMigrator {
 			partialAgentTokensElement = partialAgentTokensDom.addElement("list");
 		}
 
-		for (var file : dataDir.listFiles()) {
+		for (var file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("ClusterCredentials.xml")) {
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			} else if (file.getName().startsWith("Projects.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (var element : dom.getRootElement().elements()) {
@@ -5214,7 +5202,7 @@ public class DataMigrator {
 					if (lastCommitDateElement != null)
 						lastCommitDateElement.setName("commit");
 				}
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 				dom.writeToFile(new File(dataDir, file.getName().replace("ProjectDynamicss", "ProjectLastEventDates")), false);
 			} else if (file.getName().startsWith("Agents.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
@@ -5255,9 +5243,9 @@ public class DataMigrator {
 	}
 
 	private void migrate118(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("ClusterServers.xml"))
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 		}
 	}
 
@@ -5265,14 +5253,14 @@ public class DataMigrator {
 	}
 
 	private void migrate120(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("ClusterServers.xml"))
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 		}
 	}
 
 	private void migrate121(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5310,7 +5298,7 @@ public class DataMigrator {
 	}
 
 	private void migrate122(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5337,7 +5325,7 @@ public class DataMigrator {
 		var issueTouchId = 1L;
 		var pullRequestTouchId = 1L;
 		var codeCommentTouchId = 1L;
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5368,7 +5356,7 @@ public class DataMigrator {
 			} else if (file.getName().startsWith("IssueTouchs.xml")
 					|| file.getName().startsWith("PullRequestTouchs.xml")
 					|| file.getName().startsWith("CodeCommentTouchs.xml")) {
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			}
 		}
 
@@ -5378,7 +5366,7 @@ public class DataMigrator {
 	}
 
 	private void migrate124(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5395,7 +5383,7 @@ public class DataMigrator {
 	}
 
 	private void migrate125(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5416,7 +5404,7 @@ public class DataMigrator {
 	}
 
 	private void migrate126(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5439,7 +5427,7 @@ public class DataMigrator {
 	}
 
 	private void migrate127(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("SshKeys.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5460,7 +5448,7 @@ public class DataMigrator {
 	}
 
 	private void migrate128(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5489,7 +5477,7 @@ public class DataMigrator {
 	}
 
 	private void migrate130(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5504,9 +5492,9 @@ public class DataMigrator {
 	}
 
 	private void migrate131(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("CodeCommentTouchs.xml") || file.getName().startsWith("PullRequestTouchs.xml")) {
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			} else if (file.getName().startsWith("Alerts.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -5559,7 +5547,7 @@ public class DataMigrator {
 	}
 
 	private void migrate132(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5584,7 +5572,7 @@ public class DataMigrator {
 	}
 
 	private void migrate133(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5613,7 +5601,7 @@ public class DataMigrator {
 	}
 
 	private void migrate134(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5661,7 +5649,7 @@ public class DataMigrator {
 	}
 
 	private void migrate135(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5690,7 +5678,7 @@ public class DataMigrator {
 	}
 
 	private void migrate136(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Builds.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -5719,7 +5707,7 @@ public class DataMigrator {
 	}
 
 	private void migrate137(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("CoverageMetrics.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5732,7 +5720,7 @@ public class DataMigrator {
 	}
 
 	private void migrate138(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Builds.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5746,7 +5734,7 @@ public class DataMigrator {
 	}
 
 	private void migrate139(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Agents.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -5757,7 +5745,7 @@ public class DataMigrator {
 	}
 
 	private void migrate140(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5776,7 +5764,7 @@ public class DataMigrator {
 	}
 
 	private void migrate141(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5789,7 +5777,7 @@ public class DataMigrator {
 	}
 
 	private void migrate142(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				String content;
 				try {
@@ -5869,7 +5857,7 @@ public class DataMigrator {
 	}
 
 	private void migrate143(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -5906,7 +5894,7 @@ public class DataMigrator {
 	}
 
 	private void migrate144(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5923,7 +5911,7 @@ public class DataMigrator {
 	}
 
 	private void migrate145(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5948,7 +5936,7 @@ public class DataMigrator {
 	}
 
 	private void migrate146(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -5977,7 +5965,7 @@ public class DataMigrator {
 
 	// Migrate data to 9.4.0
 	private void migrate147(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Builds.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6013,7 +6001,7 @@ public class DataMigrator {
 	}
 
 	private void migrate148(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Dashboards.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6026,7 +6014,7 @@ public class DataMigrator {
 	}
 
 	private void migrate149(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6053,7 +6041,7 @@ public class DataMigrator {
 	}
 
 	private void migrate150(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			try {
 				var content = FileUtils.readFileToString(file, UTF_8);
 				content = Strings.CS.replace(content,
@@ -6074,7 +6062,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6088,7 +6076,7 @@ public class DataMigrator {
 	}
 
 	private void migrate151(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Packs.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6105,7 +6093,7 @@ public class DataMigrator {
 	}
 
 	private void migrate152(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Packs.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6119,7 +6107,7 @@ public class DataMigrator {
 	}
 
 	private void migrate153(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Packs.xml")) {
 				try {
 					var content = FileUtils.readFileToString(file, UTF_8);
@@ -6133,7 +6121,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Packs.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6210,7 +6198,7 @@ public class DataMigrator {
 	}
 
 	private void migrate154(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Roles.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -6222,7 +6210,7 @@ public class DataMigrator {
 
 	// Migrate to 10.1.0
 	private void migrate155(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6239,7 +6227,7 @@ public class DataMigrator {
 					} else if (key.equals("BRANDING")) {
 						Element valueElement = element.element("value");
 						if (valueElement != null)
-							valueElement.addElement("url").setText("https://onedev.io");
+							valueElement.addElement("url").setText(OneDev.getInstance(OemService.class).getWebsite());
 					} else if (key.equals("SECURITY")) {
 						Element valueElement = element.element("value");
 						if (valueElement != null)
@@ -6253,7 +6241,7 @@ public class DataMigrator {
 
 	// Migrate to 10.1.1
 	private void migrate156(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6288,7 +6276,7 @@ public class DataMigrator {
 	}
 
 	private void migrate157(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6309,7 +6297,7 @@ public class DataMigrator {
 	}
 
 	private void migrate158(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Roles.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6331,7 +6319,7 @@ public class DataMigrator {
 	}
 
 	private void migrate159(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("ProblemMetrics.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -6342,7 +6330,7 @@ public class DataMigrator {
 	}
 
 	private void migrate160(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6366,7 +6354,7 @@ public class DataMigrator {
 	}
 
 	private void migrate161(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6388,7 +6376,7 @@ public class DataMigrator {
 	}
 
 	private void migrate162(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().contains(".xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (var whitespaceOptionNode : dom.selectNodes(".//whitespaceOption")) {
@@ -6402,7 +6390,7 @@ public class DataMigrator {
 	}
 
 	private void migrate163(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Builds.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -6429,7 +6417,7 @@ public class DataMigrator {
 		accessTokensDom = new VersionedXmlDoc();
 		Element listElement = accessTokensDom.addElement("list");
 		var accessTokenId = 1;
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6458,7 +6446,7 @@ public class DataMigrator {
 	}
 
 	private void migrate165(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Agents.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6472,7 +6460,7 @@ public class DataMigrator {
 	}
 
 	private void migrate166(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6490,7 +6478,7 @@ public class DataMigrator {
 	}
 
 	private void migrate167(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Milestones.xml")) {
 				File renamedFile = new File(dataDir, file.getName().replace("Milestones.xml", "Iterations.xml"));
 				try {
@@ -6500,7 +6488,7 @@ public class DataMigrator {
 				}
 			}
 		}
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6586,7 +6574,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			try {
 				String content = FileUtils.readFileToString(file, UTF_8);
 				content = Strings.CS.replace(content,
@@ -6607,7 +6595,7 @@ public class DataMigrator {
 	}
 
 	private void migrate168(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			try {
 				var content = Strings.CS.replace(
 						FileUtils.readFileToString(file, UTF_8),
@@ -6621,7 +6609,7 @@ public class DataMigrator {
 	}
 
 	private void migrate169(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6645,7 +6633,7 @@ public class DataMigrator {
 	}
 
 	private void migrate170(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6691,7 +6679,7 @@ public class DataMigrator {
 	}
 
 	private void migrate171(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			try {
 				var content = Strings.CS.replace(
 						FileUtils.readFileToString(file, UTF_8),
@@ -6737,7 +6725,7 @@ public class DataMigrator {
 
 		Map<Long, List<IssueStateHistory>> histories = new HashMap<>();
 		var id = 1L;
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("IssueChanges.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6855,7 +6843,7 @@ public class DataMigrator {
 	}
 
 	private void migrate172(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6881,7 +6869,7 @@ public class DataMigrator {
 			throw new RuntimeException(e);
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6902,7 +6890,7 @@ public class DataMigrator {
 
 	private void migrate174(File dataDir, Stack<Integer> versions) {
 		String initialState = null;
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -6918,14 +6906,14 @@ public class DataMigrator {
 					}
 				}
 			} else if (file.getName().startsWith("IssueStateHistorys.xml")) {
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			}
 		}
 
 		Map<Long, List<IssueStateHistory>> histories = new HashMap<>();
 		var id = 1L;
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				if (initialState != null) {
 					VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
@@ -6984,7 +6972,7 @@ public class DataMigrator {
 	}
 
 	private void migrate175(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7046,7 +7034,7 @@ public class DataMigrator {
 	}
 	
 	private void migrate176(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Builds.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7075,7 +7063,7 @@ public class DataMigrator {
 	}
 
 	private void migrate177(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) 
@@ -7086,7 +7074,7 @@ public class DataMigrator {
 	}
 
 	private void migrate178(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7112,15 +7100,10 @@ public class DataMigrator {
 	}
 	
 	private void migrate179(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("CodeComments.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) 
-					migrate179_removeSingleFile(element);
-				dom.writeToFile(file, false);
-			} else if (file.getName().startsWith("CodeCommentReplys.xml")) {
-				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
-				for (Element element : dom.getRootElement().elements())
 					migrate179_removeSingleFile(element);
 				dom.writeToFile(file, false);
 			} else if (file.getName().startsWith("CodeCommentReplys.xml")) {
@@ -7138,7 +7121,7 @@ public class DataMigrator {
 	}
 
 	private void migrate180(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -7175,7 +7158,7 @@ public class DataMigrator {
 	}
 
 	private void migrate181(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -7232,7 +7215,7 @@ public class DataMigrator {
 	}
 
 	private void migrate182(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7262,7 +7245,7 @@ public class DataMigrator {
 
 	private void migrate183(File dataDir, Stack<Integer> versions) {
 		ParsedEmailAddress systemAddress = null;
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7297,7 +7280,7 @@ public class DataMigrator {
 				dom.writeToFile(file, false);
 			}
 		}
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7317,7 +7300,7 @@ public class DataMigrator {
 	}
 
 	private void migrate185(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7343,7 +7326,7 @@ public class DataMigrator {
 	}
 
 	private void migrate186(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Builds.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7355,7 +7338,7 @@ public class DataMigrator {
 	}
 
 	private void migrate187(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Dashboards.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7376,7 +7359,7 @@ public class DataMigrator {
 	}
 
 	private void migrate188(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7410,7 +7393,7 @@ public class DataMigrator {
 	private void migrate189(File dataDir, Stack<Integer> versions) {
 		Map<String, String> pullRequestIdToProjectId = new HashMap<>();
 		Map<String, String> codeCommentIdToProjectId = new HashMap<>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("PullRequests.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7474,7 +7457,7 @@ public class DataMigrator {
 	private void migrate190(File dataDir, Stack<Integer> versions) {
 		List<Pair<File, VersionedXmlDoc>> doms = new ArrayList<>();
 		List<Pair<Element, Date>> histories = new ArrayList<>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("IssueStateHistorys.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				doms.add(new Pair<>(file, dom));
@@ -7492,7 +7475,7 @@ public class DataMigrator {
 			entry.getRight().writeToFile(entry.getLeft(), false);
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Dashboards.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7538,9 +7521,9 @@ public class DataMigrator {
 			Map<String, String> packIdToProjectId = new HashMap<>();
 			int nextPackBlobId = 1;
 			String packStorePath = null;
-			for (File file : dataDir.listFiles()) {
+			for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 				if (file.getName().startsWith("PackBlobAuthorizations.xml")) {
-					FileUtils.deleteFile(file);
+					FileUtils.deletePath(file);
 				} else if (file.getName().startsWith("PackBlobs.xml")) {
 					var dom = VersionedXmlDoc.fromFile(file);
 					for (Element element : dom.getRootElement().elements()) {
@@ -7577,7 +7560,7 @@ public class DataMigrator {
 			}
 
 			var projectsDir = new File(dataDir.getParentFile().getParentFile().getParentFile(), "site/projects");
-			for (File file : dataDir.listFiles()) {
+			for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 				if (file.getName().startsWith("PackBlobReferences.xml")) {
 					var dom = VersionedXmlDoc.fromFile(file);
 					for (Element element : dom.getRootElement().elements()) {
@@ -7648,7 +7631,7 @@ public class DataMigrator {
 	}
 
 	private void migrate191(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7675,7 +7658,7 @@ public class DataMigrator {
 
 	private void migrate192(File dataDir, Stack<Integer> versions) {
 		var updateIds = new HashSet<>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("IssueChanges.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7706,7 +7689,7 @@ public class DataMigrator {
 	}
 
 	private void migrate193(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) 
@@ -7717,7 +7700,7 @@ public class DataMigrator {
 	}
 
 	private void migrate194(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7738,7 +7721,7 @@ public class DataMigrator {
 	}
 
 	private void migrate195(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("PullRequests.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7766,7 +7749,7 @@ public class DataMigrator {
 	}
 
 	private void migrate196(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7806,7 +7789,7 @@ public class DataMigrator {
 	}
 
 	private void migrate197(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7818,7 +7801,7 @@ public class DataMigrator {
 	}
 
 	private void migrate198(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("IssueFields.xml") || file.getName().startsWith("BuildParams.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7870,7 +7853,7 @@ public class DataMigrator {
 
 	private void migrate199(File dataDir, Stack<Integer> versions) {
 		String defaultGroupName = null;
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7891,7 +7874,7 @@ public class DataMigrator {
 		}
 		String defaultLoginGroupId = null;
 		if (defaultGroupName != null) {
-			for (File file : dataDir.listFiles()) {
+			for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 				if (file.getName().startsWith("Groups.xml")) {
 					VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 					for (Element element : dom.getRootElement().elements()) {
@@ -7907,7 +7890,7 @@ public class DataMigrator {
 			long maxMembershipId = 0L;
 			int maxFileIndex = 0;
 			Set<String> userIdsInDefaultLoginGroup = new HashSet<>();
-			for (File file : dataDir.listFiles()) {
+			for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 				if (file.getName().startsWith("Memberships.xml")) {
 					var suffix = file.getName().substring("Memberships.xml".length());					
 					int fileIndex;
@@ -7927,7 +7910,7 @@ public class DataMigrator {
 				}
 			}
 			Set<String> userIdsNotInDefaultLoginGroup = new HashSet<>();
-			for (File file : dataDir.listFiles()) {
+			for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 				if (file.getName().startsWith("Users.xml")) {
 					VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 					for (Element element : dom.getRootElement().elements()) {
@@ -7960,7 +7943,7 @@ public class DataMigrator {
 	}
 
 	private void migrate200(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Issues.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -7990,7 +7973,7 @@ public class DataMigrator {
 	}
 	
 	private void migrate201(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("EmailAddresss.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements())
@@ -8002,7 +7985,7 @@ public class DataMigrator {
 
 	private void migrate202(File dataDir, Stack<Integer> versions) {
 		var fieldTypes = new HashMap<String, String>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8065,7 +8048,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("IssueChanges.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8097,7 +8080,7 @@ public class DataMigrator {
 		Element baseAuthorizationsListElement = baseAuthorizationsDom.addElement("list");		
 		long baseAuthorizationId = 1L;
 		
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8120,7 +8103,7 @@ public class DataMigrator {
 	}
 
 	private void migrate204(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8145,7 +8128,7 @@ public class DataMigrator {
 	}
 
 	private void migrate206(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8169,7 +8152,7 @@ public class DataMigrator {
 	}
 
 	private void migrate207(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8196,7 +8179,7 @@ public class DataMigrator {
 		long ssoProviderId = 1L;
 
 		var groupIds = new HashMap<String, String>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Groups.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8223,7 +8206,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8266,7 +8249,7 @@ public class DataMigrator {
 	}
 
 	private void migrate209(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8287,7 +8270,7 @@ public class DataMigrator {
 	}
 
 	private void migrate210(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8314,7 +8297,7 @@ public class DataMigrator {
 	}
 
 	private void migrate211(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element projectElement : dom.getRootElement().elements()) {
@@ -8337,7 +8320,7 @@ public class DataMigrator {
 	}
 
 	private void migrate212(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8362,7 +8345,7 @@ public class DataMigrator {
 	}
 
 	private void migrate213(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element projectElement : dom.getRootElement().elements()) {
@@ -8394,7 +8377,7 @@ public class DataMigrator {
 	}
 
 	private void migrate215(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8423,7 +8406,7 @@ public class DataMigrator {
 	}
 
 	private void migrate216(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("IssueLinks.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8436,7 +8419,7 @@ public class DataMigrator {
 	}
 
 	private void migrate217(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8454,15 +8437,15 @@ public class DataMigrator {
 	}
 
 	private void migrate218(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Chats.xml") || file.getName().startsWith("ChatMessages.xml")) {
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			}
 		}
 	}
 
 	private void migrate219(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8491,7 +8474,7 @@ public class DataMigrator {
 	}
 
 	private void migrate220(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8532,7 +8515,7 @@ public class DataMigrator {
 	}
 
 	private void migrate221(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element projectElement : dom.getRootElement().elements()) {
@@ -8556,7 +8539,7 @@ public class DataMigrator {
 			throw new RuntimeException(e);
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element projectElement : dom.getRootElement().elements()) {
@@ -8614,13 +8597,13 @@ public class DataMigrator {
 				}
 				dom.writeToFile(file, false);
 			} else if (file.getName().startsWith("RunCaches.xml")) {
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			}
 		}
 	}
 
 	private void migrate223(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8656,7 +8639,7 @@ public class DataMigrator {
 	}
 
 	private void migrate224(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Workspaces.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element workspaceElement : dom.getRootElement().elements()) {
@@ -8673,7 +8656,7 @@ public class DataMigrator {
 	}
 	
 	private void migrate225(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element projectElement : dom.getRootElement().elements()) {
@@ -8694,52 +8677,56 @@ public class DataMigrator {
 	}
 
 	private void migrate226(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
 					String key = element.elementTextTrim("key");
-					if (key.equals("JOB_EXECUTORS")) {
-						Element valueElement = element.element("value");
-						if (valueElement != null) {
-							for (Element executorElement : valueElement.elements()) {
-								if (executorElement.getName().contains("KubernetesExecutor")) {
-									Element kubeCtlPathElement = executorElement.element("kubeCtlPath");
-									if (kubeCtlPathElement != null)
-										kubeCtlPathElement.setName("kubectlPath");
-									Element buildWithPVElement = executorElement.element("buildWithPV");
-									boolean buildWithPV = Boolean.parseBoolean(buildWithPVElement.getTextTrim());
-									buildWithPVElement.detach();
-									if (!buildWithPV) {
-										var storageClassElement = executorElement.element("storageClass");
-										if (storageClassElement != null)
-											storageClassElement.detach();
-										var storageSizeElement = executorElement.element("storageSize");
-										if (storageSizeElement != null)
-											storageSizeElement.detach();
-										executorElement.addElement("storageSize").setText("10Gi");
-									}
-								}
-							}
-						}
-					} else if (key.equals("WORKSPACE_PROVISIONERS")) {
-						Element valueElement = element.element("value");
-						if (valueElement != null) {
-							for (Element provisionerElement : valueElement.elements()) {
-								if (provisionerElement.getName().equals("io.onedev.server.plugin.provisioner.docker.DockerProvisioner"))
-									provisionerElement.setName("io.onedev.server.plugin.provisioner.serverdocker.ServerDockerProvisioner");
-								else if (provisionerElement.getName().equals("io.onedev.server.plugin.provisioner.shell.ShellProvisioner"))
-									provisionerElement.setName("io.onedev.server.plugin.provisioner.servershell.ServerShellProvisioner");
-							}
-						}
-					} else if (key.equals("ISSUE")) {
-						Element valueElement = element.element("value");
-						if (valueElement != null) {
-							Element transitionSpecsElement = valueElement.element("transitionSpecs");
-							if (transitionSpecsElement != null)
-								migrate226TransitionSpecsElement(transitionSpecsElement);
-						}
-					}
+                    switch (key) {
+                        case "JOB_EXECUTORS" -> {
+                            Element valueElement = element.element("value");
+                            if (valueElement != null) {
+                                for (Element executorElement : valueElement.elements()) {
+                                    if (executorElement.getName().contains("KubernetesExecutor")) {
+                                        Element kubeCtlPathElement = executorElement.element("kubeCtlPath");
+                                        if (kubeCtlPathElement != null)
+                                            kubeCtlPathElement.setName("kubectlPath");
+                                        Element buildWithPVElement = executorElement.element("buildWithPV");
+                                        boolean buildWithPV = Boolean.parseBoolean(buildWithPVElement.getTextTrim());
+                                        buildWithPVElement.detach();
+                                        if (!buildWithPV) {
+                                            var storageClassElement = executorElement.element("storageClass");
+                                            if (storageClassElement != null)
+                                                storageClassElement.detach();
+                                            var storageSizeElement = executorElement.element("storageSize");
+                                            if (storageSizeElement != null)
+                                                storageSizeElement.detach();
+                                            executorElement.addElement("storageSize").setText("10Gi");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        case "WORKSPACE_PROVISIONERS" -> {
+                            Element valueElement = element.element("value");
+                            if (valueElement != null) {
+                                for (Element provisionerElement : valueElement.elements()) {
+                                    if (provisionerElement.getName().equals("io.onedev.server.plugin.provisioner.docker.DockerProvisioner"))
+                                        provisionerElement.setName("io.onedev.server.plugin.provisioner.serverdocker.ServerDockerProvisioner");
+                                    else if (provisionerElement.getName().equals("io.onedev.server.plugin.provisioner.shell.ShellProvisioner"))
+                                        provisionerElement.setName("io.onedev.server.plugin.provisioner.servershell.ServerShellProvisioner");
+                                }
+                            }
+                        }
+                        case "ISSUE" -> {
+                            Element valueElement = element.element("value");
+                            if (valueElement != null) {
+                                Element transitionSpecsElement = valueElement.element("transitionSpecs");
+                                if (transitionSpecsElement != null)
+                                    migrate226TransitionSpecsElement(transitionSpecsElement);
+                            }
+                        }
+                    }
 				}
 				dom.writeToFile(file, false);
 			} else if (file.getName().startsWith("Projects.xml")) {
@@ -8772,7 +8759,7 @@ public class DataMigrator {
 	}
 
 	private void migrate227(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -8797,7 +8784,7 @@ public class DataMigrator {
 	}
 
 	private void migrate228(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Roles.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element roleElement : dom.getRootElement().elements()) {
@@ -8884,7 +8871,7 @@ public class DataMigrator {
 		Map<String, String> issueProjects = new HashMap<>();
 		Map<String, String> pullRequestProjects = new HashMap<>();
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Builds.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element buildElement : dom.getRootElement().elements()) {
@@ -8909,7 +8896,7 @@ public class DataMigrator {
 			}
 		}
 
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element projectElement : dom.getRootElement().elements()) {
@@ -9080,7 +9067,7 @@ public class DataMigrator {
 									var showCondition = new ShowCondition();
 									showCondition.setInputName("Type");
 									var valueIsOneOf = new ValueIsOneOf();
-									valueIsOneOf.setValues(List.of("Build Failed"));
+									valueIsOneOf.setValues(Lists.newArrayList("Build Failed"));
 									showCondition.setValueMatcher(valueIsOneOf);
 									build.setShowCondition(showCondition);
 									fieldSpecsElement.add(beanToElement(build));
@@ -9098,7 +9085,7 @@ public class DataMigrator {
 	}
 
 	private void migrate231(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Roles.xml")) {
 				VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
 				for (Element roleElement : dom.getRootElement().elements()) {
@@ -9111,7 +9098,7 @@ public class DataMigrator {
 	}
 
 	private void migrate232(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element projectElement : dom.getRootElement().elements()) {
@@ -9134,7 +9121,7 @@ public class DataMigrator {
 	}
 
 	private void migrate233(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Dashboards.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -9150,13 +9137,13 @@ public class DataMigrator {
 				}
 				dom.writeToFile(file, false);
 			} else if (file.getName().startsWith("GitLfsLocks.xml")) {
-				FileUtils.deleteFile(file);
+				FileUtils.deletePath(file);
 			}
 		}
 	}
 
 	private void migrate234(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -9168,7 +9155,7 @@ public class DataMigrator {
 	}
 
 	private void migrate235(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -9187,7 +9174,7 @@ public class DataMigrator {
 	}
 
 	private void migrate236(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -9228,7 +9215,7 @@ public class DataMigrator {
 
 	private void migrate237(File dataDir, Stack<Integer> versions) {
 		var keepEmailAddressesPrivateMap = new HashMap<String, Boolean>();
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("EmailAddresss.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -9242,7 +9229,7 @@ public class DataMigrator {
 				dom.writeToFile(file, false);
 			}
 		}
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Users.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -9291,7 +9278,7 @@ public class DataMigrator {
 	private void migrate238(File dataDir, Stack<Integer> versions) {
 		var oldClaudeRunTaskCmd = "claude --dangerously-skip-permissions -p --verbose \"$TASK_PROMPT\"";
 		var newClaudeRunTaskCmd = "claude --dangerously-skip-permissions --system-prompt \"$TASK_SYSTEM_PROMPT\" -p --verbose \"$TASK_USER_PROMPT\"";
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element projectElement : dom.getRootElement().elements()) {
@@ -9311,7 +9298,7 @@ public class DataMigrator {
 	}
 
 	private void migrate239(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -9335,7 +9322,7 @@ public class DataMigrator {
 			Priority: Major
 			Build: <build number>
 			Assignees: <your own user name>""";
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -9354,7 +9341,7 @@ public class DataMigrator {
 	}
 
 	private void migrate241(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element projectElement : dom.getRootElement().elements()) {
@@ -9373,7 +9360,7 @@ public class DataMigrator {
 				in the commit message footer as a separate line, for instance:
 				Fixes #100
 				Fixes PROJ-100""");
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Settings.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -9393,7 +9380,7 @@ public class DataMigrator {
 	}
 
 	private void migrate243(File dataDir, Stack<Integer> versions) {
-		for (File file : dataDir.listFiles()) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
 			if (file.getName().startsWith("Projects.xml")) {
 				var dom = VersionedXmlDoc.fromFile(file);
 				for (Element element : dom.getRootElement().elements()) {
@@ -9403,6 +9390,261 @@ public class DataMigrator {
 				dom.writeToFile(file, false);
 			}
 		}
+	}
+
+	private void migrate244(File dataDir, Stack<Integer> versions) {
+		var oldClass = "javax.mail.internet.InternetAddress";
+		var newClass = "jakarta.mail.internet.InternetAddress";
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
+			if (file.getName().startsWith("Issues.xml") || file.getName().startsWith("IssueComments.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Node node : dom.selectNodes("//*")) {
+					var element = (Element) node;
+					if (element.getName().equals(oldClass))
+						element.setName(newClass);
+					if (oldClass.equals(element.attributeValue("class")))
+						element.addAttribute("class", newClass);
+					var reference = element.attribute("reference");
+					if (reference != null)
+						reference.setValue(Strings.CS.replace(reference.getValue(), oldClass, newClass));
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate245(File dataDir, Stack<Integer> versions) {
+		var files = Objects.requireNonNull(dataDir.listFiles());
+		var projectFiles = new ArrayList<File>();
+		for (var file: files) {
+			if (file.getName().startsWith("Projects.xml"))
+				projectFiles.add(file);
+		}
+		var numberProperties = Map.of(
+				"Issues.xml", "nextIssueNumber",
+				"PullRequests.xml", "nextPullRequestNumber",
+				"Builds.xml", "nextBuildNumber",
+				"Workspaces.xml", "nextWorkspaceNumber");
+		var nextNumbers = new HashMap<String, Map<String, Long>>();
+		for (var entry: numberProperties.entrySet()) {
+			var numbers = new HashMap<String, Long>();
+			nextNumbers.put(entry.getValue(), numbers);
+			if (projectFiles.isEmpty())
+				continue;
+			for (var file: files) {
+				if (file.getName().equals(entry.getKey()) || file.getName().startsWith(entry.getKey() + ".")) {
+					var dom = VersionedXmlDoc.fromFile(file);
+					for (var entity: dom.getRootElement().elements()) {
+						var scope = entity.elementTextTrim("numberScope");
+						var nextNumber = Math.addExact(Long.parseLong(entity.elementTextTrim("number")), 1);
+						numbers.merge(scope, nextNumber, Math::max);
+					}
+				}
+			}
+		}
+		var counters = new VersionedXmlDoc();
+		var list = counters.addElement("list");
+		long counterId = 0;
+		for (var file: projectFiles) {
+			var dom = VersionedXmlDoc.fromFile(file);
+			for (var project: dom.getRootElement().elements()) {
+				var counter = list.addElement("io.onedev.server.model.ProjectNumberCounter");
+				counter.addAttribute("revision", "0.0");
+				counter.addElement("id").setText(String.valueOf(++counterId));
+				var id = project.elementTextTrim("id");
+				counter.addElement("project").setText(id);
+				for (var entry: nextNumbers.entrySet())
+					counter.addElement(entry.getKey()).setText(String.valueOf(entry.getValue().getOrDefault(id, 1L)));
+			}
+		}
+		counters.writeToFile(new File(dataDir, "ProjectNumberCounters.xml"), false);
+
+		var entityTypes = ClassUtils.findImplementations(AbstractEntity.class, AbstractEntity.class);
+		entityTypes.removeIf(type -> !type.isAnnotationPresent(jakarta.persistence.Entity.class));
+		entityTypes.sort(comparing(Class::getName));
+		files = Objects.requireNonNull(dataDir.listFiles());
+		counters = new VersionedXmlDoc();
+		list = counters.addElement("list");
+		counterId = 0;
+		for (var entityType: entityTypes) {
+			long maxId = 0;
+			if (entityType == EntityIdCounter.class) {
+				maxId = entityTypes.size();
+			} else {
+				var fileName = entityType.getSimpleName() + "s.xml";
+				for (var file: files) {
+					if (file.getName().equals(fileName) || file.getName().startsWith(fileName + ".")) {
+						var dom = VersionedXmlDoc.fromFile(file);
+						for (var entity: dom.getRootElement().elements())
+							maxId = Math.max(maxId, Long.parseLong(entity.elementTextTrim("id")));
+					}
+				}
+			}
+			var counter = list.addElement("io.onedev.server.model.EntityIdCounter");
+			counter.addAttribute("revision", "0.0");
+			counter.addElement("id").setText(String.valueOf(++counterId));
+			counter.addElement("entityName").setText(entityType.getName());
+			counter.addElement("maxId").setText(String.valueOf(maxId));
+		}
+		counters.writeToFile(new File(dataDir, "EntityIdCounters.xml"), false);
+	}
+
+	private void migrate246(File dataDir, Stack<Integer> versions) {
+		var wipPrefix = Pattern.compile("(?i)^(?:\\[wip\\]|wip)\\s*:?\\s*");
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
+			if (file.getName().startsWith("PullRequests.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					var titleElement = element.element("title");
+					var title = titleElement.getText();
+					var prefix = wipPrefix.matcher(title);
+					var workInProgress = prefix.find();
+					element.addElement("workInProgress").setText(String.valueOf(workInProgress));
+					if (workInProgress)
+						titleElement.setText(title.substring(prefix.end()).trim());
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Builds.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					element.addElement("finalization").setText("false");
+					element.addElement("stepExecutions");
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate247(File dataDir, Stack<Integer> versions) {
+		// Recreate the schema to restore longblob columns on MySQL/MariaDB (OD-3157).
+	}
+
+	private void migrate248(File dataDir, Stack<Integer> versions) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
+			if (file.getName().startsWith("Settings.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					if ("JOB_EXECUTORS".equals(element.elementTextTrim("key"))) {
+						var valueElement = element.element("value");
+						if (valueElement != null) {
+							for (Element executorElement : valueElement.elements()) {
+								if (executorElement.getName().endsWith(".ServerDockerExecutor")
+										|| executorElement.getName().endsWith(".RemoteDockerExecutor")) {
+									executorElement.addElement("buildxImageBuildEnabled").setText("false");
+									executorElement.addElement("builderCachePruneEnabled").setText("false");
+									executorElement.addElement("imagetoolsEnabled").setText("false");
+								}
+							}
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate249(File dataDir, Stack<Integer> versions) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
+			if (file.getName().startsWith("Projects.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					var codeAnalysisSettingElement = element.element("codeAnalysisSetting");
+					if (codeAnalysisSettingElement != null)
+						codeAnalysisSettingElement.setName("codeIndexingSetting");
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate250(File dataDir, Stack<Integer> versions) {
+		// Recreate the schema to add the optional accessibleSites role property.
+	}
+
+	private void migrate251(File dataDir, Stack<Integer> versions) {
+	}
+
+	private void migrate252(File dataDir, Stack<Integer> versions) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
+			if (file.getName().startsWith("Settings.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements()) {
+					if ("BRANDING".equals(element.elementTextTrim("key"))) {
+						var valueElement = element.element("value");
+						if (valueElement != null) {
+							var nameElement = valueElement.element("name");
+							if (nameElement != null && "OneDev".equals(nameElement.getText()))
+								nameElement.detach();
+						}
+					}
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate253(File dataDir, Stack<Integer> versions) {
+		var renamedClasses = Map.of(
+				"io.onedev.server.plugin.executor.servershell.ServerShellExecutor",
+				"io.onedev.server.plugin.executor.serverhost.ServerHostExecutor",
+				"io.onedev.server.plugin.executor.remoteshell.RemoteShellExecutor",
+				"io.onedev.server.plugin.executor.remotehost.RemoteHostExecutor",
+				"io.onedev.server.plugin.provisioner.servershell.ServerShellProvisioner",
+				"io.onedev.server.plugin.provisioner.serverhost.ServerHostProvisioner",
+				"io.onedev.server.ee.provisioner.RemoteShellProvisioner",
+				"io.onedev.server.ee.provisioner.RemoteHostProvisioner");
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
+			if (file.getName().startsWith("Projects.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element projectElement : dom.getRootElement().elements()) {
+					var workspaceSpecsElement = projectElement.element("workspaceSpecs");
+					for (Element workspaceSpecElement : workspaceSpecsElement.elements()) {
+						var containerPortsElement = workspaceSpecElement.element("containerPorts");
+						containerPortsElement.setName("exposedPorts");
+						var runInContainerElement = workspaceSpecElement.element("runInContainer");
+						var provisionMode = Boolean.parseBoolean(runInContainerElement.getTextTrim()) ? "DOCKER" : "HOST";
+						runInContainerElement.detach();
+						workspaceSpecElement.addElement("provisionMode").setText(provisionMode);
+					}
+				}
+				dom.writeToFile(file, false);
+			} else if (file.getName().startsWith("Settings.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Node node : dom.selectNodes("//*")) {
+					var element = (Element) node;
+					var renamedClass = renamedClasses.get(element.getName());
+					if (renamedClass != null)
+						element.setName(renamedClass);
+					var classAttribute = element.attribute("class");
+					if (classAttribute != null) {
+						renamedClass = renamedClasses.get(classAttribute.getValue());
+						if (renamedClass != null)
+							classAttribute.setValue(renamedClass);
+					}
+					var reference = element.attribute("reference");
+					if (reference != null) {
+						for (var entry : renamedClasses.entrySet())
+							reference.setValue(Strings.CS.replace(reference.getValue(), entry.getKey(), entry.getValue()));
+					}
+				}
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate254(File dataDir, Stack<Integer> versions) {
+		for (File file : Objects.requireNonNull(dataDir.listFiles())) {
+			if (file.getName().startsWith("Projects.xml") || file.getName().startsWith("Roles.xml")) {
+				var dom = VersionedXmlDoc.fromFile(file);
+				for (Element element : dom.getRootElement().elements())
+					element.addElement("maintenance").setText("false");
+				dom.writeToFile(file, false);
+			}
+		}
+	}
+
+	private void migrate255(File dataDir, Stack<Integer> versions) {
+		// OAuth applications and grants add new tables and an optional AccessToken.oauthGrant association.
 	}
 
 }

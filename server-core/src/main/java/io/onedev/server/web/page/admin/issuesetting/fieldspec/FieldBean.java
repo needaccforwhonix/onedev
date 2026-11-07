@@ -1,8 +1,9 @@
 package io.onedev.server.web.page.admin.issuesetting.fieldspec;
 
+import java.io.Serial;
 import java.io.Serializable;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import io.onedev.server.model.support.issue.field.spec.FieldSpec;
 import io.onedev.server.annotation.Editable;
@@ -10,6 +11,7 @@ import io.onedev.server.annotation.Editable;
 @Editable
 public class FieldBean implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private FieldSpec field;

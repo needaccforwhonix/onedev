@@ -1,16 +1,18 @@
 package io.onedev.server.search.buildmetric;
 
+import java.io.Serial;
 import java.io.Serializable;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.Join;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 
 import io.onedev.commons.utils.StringUtils;
 
 public abstract class BuildMetricCriteria implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private boolean withParens;

@@ -1,21 +1,24 @@
 package io.onedev.server.buildspec.param.spec.choiceparam.defaultvalueprovider;
 
+import java.io.Serial;
+
 import io.onedev.server.util.GroovyUtils;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.OmitName;
 import io.onedev.server.annotation.ScriptChoice;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 @Editable(order=400, name="Evaluate script to get default value")
 public class ScriptingDefaultValue implements DefaultValueProvider {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String scriptName;
 
 	@Editable(description="Groovy script to be evaluated. It should return a <i>string</i> value. "
-			+ "Check <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>scripting help</a> for details")
+			+ "Check <a href='${docsite}/appendix/scripting' target='_blank'>scripting help</a> for details")
 	@ScriptChoice
 	@OmitName
 	@NotEmpty

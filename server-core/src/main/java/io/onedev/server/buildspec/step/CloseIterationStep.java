@@ -14,14 +14,16 @@ import io.onedev.server.model.Iteration;
 import io.onedev.server.model.Project;
 import io.onedev.server.persistence.TransactionService;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 import java.io.File;
+import java.io.Serial;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Editable(name="Close Iteration", order=400)
 public class CloseIterationStep extends ServerSideStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String iterationName;
@@ -45,7 +47,7 @@ public class CloseIterationStep extends ServerSideStep {
 	}
 
 	@Editable(order=1060, description="For build commit not reachable from default branch, " +
-			"a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> should be specified as access token with manage issue permission")
+			"a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> should be specified as access token with manage issue permission")
 	@ChoiceProvider("getAccessTokenSecretChoices")
 	public String getAccessTokenSecret() {
 		return accessTokenSecret;

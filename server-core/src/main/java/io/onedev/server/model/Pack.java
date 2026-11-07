@@ -8,7 +8,8 @@ import io.onedev.server.pack.PackSupport;
 import io.onedev.server.search.entity.SortField;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.*;
+import jakarta.persistence.*;
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.*;
 
@@ -18,14 +19,15 @@ import static io.onedev.server.search.entity.EntitySort.Direction.DESCENDING;
 @Entity
 @Table(
 		indexes={
-				@Index(columnList="o_project_id"), @Index(columnList= PROP_TYPE), 
+				@Index(columnList="project_id"), @Index(columnList= PROP_TYPE),
 				@Index(columnList= PROP_NAME), @Index(columnList= PROP_VERSION)
 		}, uniqueConstraints = {
-				@UniqueConstraint(columnNames={"o_project_id", PROP_TYPE, PROP_NAME, PROP_VERSION})
+				@UniqueConstraint(columnNames={"project_id", PROP_TYPE, PROP_NAME, PROP_VERSION})
 		}
 )
 public class Pack extends AbstractEntity implements LabelSupport<PackLabel> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static final String NAME_PROJECT = "Project";

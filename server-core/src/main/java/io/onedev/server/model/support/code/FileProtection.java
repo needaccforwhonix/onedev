@@ -1,12 +1,13 @@
 package io.onedev.server.model.support.code;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.ConstraintValidatorContext;
+import jakarta.validation.ConstraintValidatorContext;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.server.model.Project;
@@ -22,6 +23,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 @ClassValidating
 public class FileProtection implements Serializable, Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String paths;
@@ -32,7 +34,7 @@ public class FileProtection implements Serializable, Validatable {
 	
 	private List<String> jobNames = new ArrayList<>();
 	
-	@Editable(order=100, description="Specify space-separated paths to be protected. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
+	@Editable(order=100, description="Specify space-separated paths to be protected. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
 			+ "Prefix with '-' to exclude")
 	@Patterns(suggester = "suggestPaths", path=true)
 	@NotEmpty
@@ -46,8 +48,9 @@ public class FileProtection implements Serializable, Validatable {
 	
 	@SuppressWarnings("unused")
 	private static List<InputSuggestion> suggestPaths(String matchWith) {
-		if (Project.get() != null)
-			return SuggestionUtils.suggestBlobs(Project.get(), matchWith);
+		var project = Project.get();
+		if (project != null && !Project.DEFAULT_ID.equals(project.getId()))
+			return SuggestionUtils.suggestBlobs(project, matchWith);
 		else
 			return new ArrayList<>();
 	}

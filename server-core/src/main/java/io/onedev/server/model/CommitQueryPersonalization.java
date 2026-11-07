@@ -1,18 +1,19 @@
 package io.onedev.server.model;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.Index;
-import javax.persistence.JoinColumn;
-import javax.persistence.Lob;
-import javax.persistence.ManyToOne;
-import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import io.onedev.server.OneDev;
 import io.onedev.server.service.CommitQueryPersonalizationService;
@@ -23,11 +24,12 @@ import io.onedev.server.util.watch.QueryWatchSupport;
 
 @Entity
 @Table(
-		indexes={@Index(columnList="o_project_id"), @Index(columnList="o_user_id")}, 
-		uniqueConstraints={@UniqueConstraint(columnNames={"o_project_id", "o_user_id"})}
+		indexes={@Index(columnList="project_id"), @Index(columnList="user_id")},
+		uniqueConstraints={@UniqueConstraint(columnNames={"project_id", "user_id"})}
 )
 public class CommitQueryPersonalization extends AbstractEntity implements QueryPersonalization<NamedCommitQuery> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@ManyToOne(fetch=FetchType.LAZY)

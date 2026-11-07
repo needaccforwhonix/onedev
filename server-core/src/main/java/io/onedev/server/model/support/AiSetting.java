@@ -1,9 +1,10 @@
 package io.onedev.server.model.support;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 
-import javax.validation.constraints.Min;
+import jakarta.validation.constraints.Min;
 
 import org.jspecify.annotations.Nullable;
 
@@ -11,6 +12,7 @@ import com.google.common.collect.Lists;
 
 public class AiSetting implements Serializable {
     
+    @Serial
     private static final long serialVersionUID = 1L;
 
     public enum PullRequestAssigneeResponsibility {

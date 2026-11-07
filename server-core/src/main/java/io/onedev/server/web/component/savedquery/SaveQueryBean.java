@@ -1,8 +1,9 @@
 package io.onedev.server.web.component.savedquery;
 
+import java.io.Serial;
 import java.io.Serializable;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.OmitName;
@@ -10,6 +11,7 @@ import io.onedev.server.annotation.OmitName;
 @Editable
 public class SaveQueryBean implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String name;

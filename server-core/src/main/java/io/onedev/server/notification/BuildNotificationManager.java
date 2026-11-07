@@ -11,8 +11,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
 import org.apache.shiro.authz.Permission;
 import org.jspecify.annotations.Nullable;
@@ -116,7 +116,7 @@ public class BuildNotificationManager implements Serializable {
 	@Sessional
 	@Listen
 	public void on(BuildEvent event) {
-		if (!(event instanceof BuildUpdated) && (event.getUser() == null || event.getUser().getType() != User.Type.SERVICE)) {
+		if (!event.isMinor() && !(event instanceof BuildUpdated) && (event.getUser() == null || event.getUser().getType() != User.Type.SERVICE)) {
 			Project project = event.getProject();
 			Map<User, Collection<String>> subscribedQueryStrings = new HashMap<>();
 			for (BuildQueryPersonalization personalization: project.getBuildQueryPersonalizations()) {

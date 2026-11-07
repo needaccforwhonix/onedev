@@ -3,6 +3,7 @@ package io.onedev.server.plugin.executor.remotedocker;
 import static io.onedev.agent.WebsocketUtils.call;
 import static java.util.stream.Collectors.toList;
 
+import java.io.Serial;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -16,6 +17,7 @@ import io.onedev.agent.job.JobDockerSettings;
 import io.onedev.agent.job.JobResumeData;
 import io.onedev.agent.job.TestDockerJobData;
 import io.onedev.agent.shell.JobShellOpenData;
+import io.onedev.agent.shell.JobShellOpenData.Mode;
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.commons.utils.TaskLogger;
 import io.onedev.server.OneDev;
@@ -31,12 +33,14 @@ import io.onedev.server.plugin.executor.serverdocker.ServerDockerExecutor;
 import io.onedev.server.search.entity.agent.AgentQuery;
 import io.onedev.server.service.AgentService;
 import io.onedev.server.service.ResourceService;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.service.support.AgentCallable;
 import io.onedev.server.terminal.Shell;
 
 @Editable(order=RemoteDockerExecutor.ORDER, description="This executor runs build jobs as docker containers on remote machines via <a href='/~administration/agents' target='_blank'>agents</a>")
 public class RemoteDockerExecutor extends ServerDockerExecutor {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	static final int ORDER = 500;
@@ -109,8 +113,10 @@ public class RemoteDockerExecutor extends ServerDockerExecutor {
 					
 					var dockerSettings = new JobDockerSettings(isMountDockerSock(), getDockerSockPath(),
 							getCpuLimit(), getMemoryLimit(), getRunOptions(), registryLogins,
-							isAlwaysPullImage(), getDockerBuilder(), getNetworkOptions());
-					DockerJobData jobData = new DockerJobData(jobToken, getName(), jobContext.getProjectPath(),
+							isAlwaysPullImage(), getDockerBuilder(), getNetworkOptions(),
+							isBuildxImageBuildEnabled(), isBuilderCachePruneEnabled(), isImagetoolsEnabled());
+					var serverUrl = OneDev.getInstance(SettingService.class).getSystemSetting().getServerUrl();
+					DockerJobData jobData = new DockerJobData(serverUrl, jobToken, getName(), jobContext.getProjectPath(),
 							jobContext.getProjectId(), jobContext.getRefName(), jobContext.getCommitId().name(),
 							jobContext.getBuildNumber(), jobContext.getSubmitSequence(), jobContext.getActions(),
 							jobContext.getSecretMasker(), jobContext.getServices(), dockerSettings);
@@ -135,7 +141,7 @@ public class RemoteDockerExecutor extends ServerDockerExecutor {
 				@Override
 				public Shell openShell(JobContext jobContext, JobTerminal terminal) {
 					if (agentSession != null) {
-						var shellOpenData = new JobShellOpenData(true, jobContext.getJobToken(), 
+						var shellOpenData = new JobShellOpenData(Mode.CONTAINER, jobContext.getJobToken(),
 								terminal.getSessionId(), jobContext.getProjectId(), jobContext.getBuildNumber(), 
 								jobContext.getSubmitSequence(), getDockerSockPath());
 						return new JobAgentShell(terminal, agentSession, shellOpenData);

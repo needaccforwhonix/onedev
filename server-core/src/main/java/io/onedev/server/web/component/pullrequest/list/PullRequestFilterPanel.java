@@ -34,13 +34,16 @@ import io.onedev.server.search.entity.pullrequest.OpenCriteria;
 import io.onedev.server.search.entity.pullrequest.StatusCriteria;
 import io.onedev.server.search.entity.pullrequest.SubmittedByCriteria;
 import io.onedev.server.search.entity.pullrequest.SubmittedByUserCriteria;
+import io.onedev.server.search.entity.pullrequest.WorkInProgressCriteria;
 import io.onedev.server.service.LabelSpecService;
 import io.onedev.server.service.UserService;
 import io.onedev.server.util.DateUtils;
 import io.onedev.server.util.criteria.Criteria;
+import io.onedev.server.util.criteria.NotCriteria;
 import io.onedev.server.web.component.datepicker.DatePicker;
 import io.onedev.server.web.component.filteredit.FilterEditPanel;
 import io.onedev.server.web.component.stringchoice.StringMultiChoice;
+import io.onedev.server.web.component.tristateswitch.TriStateSwitch;
 import io.onedev.server.web.component.user.choice.UserMultiChoice;
 
 class PullRequestFilterPanel extends FilterEditPanel<PullRequest> {
@@ -98,6 +101,54 @@ class PullRequestFilterPanel extends FilterEditPanel<PullRequest> {
 			
 		});
 		add(statusChoice);
+
+		var workInProgressSwitch = new TriStateSwitch("workInProgress", new IModel<Boolean>() {
+
+			@Override
+			public Boolean getObject() {
+				var criteria = getModelObject().getCriteria();
+				if (!getMatchingCriterias(criteria, WorkInProgressCriteria.class, null).isEmpty())
+					return true;
+				if (!getMatchingCriterias(criteria, NotCriteria.class,
+						it -> it.getCriteria() instanceof WorkInProgressCriteria).isEmpty())
+					return false;
+				return null;
+			}
+
+			@Override
+			public void setObject(Boolean object) {
+				var query = getModelObject();
+				var criteria = query.getCriteria();
+				if (!getMatchingCriterias(criteria, WorkInProgressCriteria.class, null).isEmpty())
+					criteria = setMatchingCriteria(criteria, WorkInProgressCriteria.class, null, null);
+				if (!getMatchingCriterias(criteria, NotCriteria.class,
+						it -> it.getCriteria() instanceof WorkInProgressCriteria).isEmpty()) {
+					criteria = setMatchingCriteria(criteria, NotCriteria.class, null,
+							it -> it.getCriteria() instanceof WorkInProgressCriteria);
+				}
+				if (object != null) {
+					Criteria<PullRequest> workInProgress = new WorkInProgressCriteria();
+					if (!object)
+						workInProgress = new NotCriteria<>(workInProgress);
+					criteria = setMatchingCriteria(criteria, WorkInProgressCriteria.class, workInProgress, null);
+				}
+				query.setCriteria(criteria);
+				getModel().setObject(query);
+			}
+
+			@Override
+			public void detach() {
+			}
+
+		});
+		workInProgressSwitch.add(new AjaxFormComponentUpdatingBehavior("change") {
+
+			@Override
+			protected void onUpdate(AjaxRequestTarget target) {
+			}
+
+		});
+		add(workInProgressSwitch);
 
 		var submittedByChoice = new UserMultiChoice("submittedBy", new IModel<Collection<User>>() {
 

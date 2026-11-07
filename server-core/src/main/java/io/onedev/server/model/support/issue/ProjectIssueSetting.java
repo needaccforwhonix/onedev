@@ -1,5 +1,6 @@
 package io.onedev.server.model.support.issue;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -11,8 +12,8 @@ import java.util.Map;
 import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 
 import io.onedev.server.OneDev;
 import io.onedev.server.annotation.BranchName;
@@ -33,6 +34,7 @@ import io.onedev.server.web.component.issue.workflowreconcile.UndefinedStateReso
 @Editable
 public class ProjectIssueSetting implements Serializable {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private List<String> listFields;
@@ -76,8 +78,7 @@ public class ProjectIssueSetting implements Serializable {
 	}
 
 	@Nullable
-	@Valid
-	public List<BoardSpec> getBoardSpecs() {
+	public List<@Valid BoardSpec> getBoardSpecs() {
 		return boardSpecs;
 	}
 
@@ -86,8 +87,7 @@ public class ProjectIssueSetting implements Serializable {
 	}
 
 	@Nullable
-	@Valid
-	public List<NamedIssueQuery> getNamedQueries() {
+	public List<@Valid NamedIssueQuery> getNamedQueries() {
 		return namedQueries;
 	}
 
@@ -95,8 +95,7 @@ public class ProjectIssueSetting implements Serializable {
 		this.namedQueries = namedQueries;
 	}
 
-	@Valid
-	public Map<String, TimesheetSetting> getTimesheetSettings() {
+	public Map<String, @Valid TimesheetSetting> getTimesheetSettings() {
 		return timesheetSettings;
 	}
 
@@ -105,8 +104,7 @@ public class ProjectIssueSetting implements Serializable {
 	}
 
 	@NotNull
-	@Valid
-	public List<TransitionSpec> getTransitionSpecs() {
+	public List<@Valid TransitionSpec> getTransitionSpecs() {
 		return transitionSpecs;
 	}
 
@@ -114,7 +112,7 @@ public class ProjectIssueSetting implements Serializable {
 		this.transitionSpecs = transitionSpecs;
 	}
 
-	@Editable(name="Branch Prefix", placeholder="Inherit from parent", rootPlaceholder="No prefix", description="""
+	@Editable(name="Branch Prefix", placeholder="Inherit from parent", topPlaceholder="No prefix", description="""
 			Optionally specify a prefix to be prepended (as a path segment) when generate issue branch. 
 			For instance with prefix <code>feature</code>, generated issue branch will be 
 			<code>feature/issue-100-some-title</code>""")

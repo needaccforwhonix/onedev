@@ -1,10 +1,11 @@
 package io.onedev.server.plugin.imports.jiracloud;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.OneDev;
 import io.onedev.server.service.SettingService;
@@ -15,6 +16,7 @@ import io.onedev.server.annotation.Editable;
 @Editable
 public class IssueStatusMapping implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String jiraIssueStatus;
@@ -31,7 +33,7 @@ public class IssueStatusMapping implements Serializable {
 		this.jiraIssueStatus = jiraIssueStatus;
 	}
 
-	@Editable(order=200, name="OneDev Issue State", description="OneDev Issue State")
+	@Editable(order=200, name="${productName} Issue State", description="${productName} Issue State")
 	@ChoiceProvider("getOneDevIssueStateChoices")
 	@NotEmpty
 	public String getOneDevIssueState() {

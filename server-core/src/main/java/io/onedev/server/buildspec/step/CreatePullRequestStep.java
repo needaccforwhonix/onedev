@@ -1,11 +1,12 @@
 package io.onedev.server.buildspec.step;
 
 import java.io.File;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.commons.utils.ExplicitException;
@@ -34,6 +35,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 @Editable(name="Create Pull Request", order=350)
 public class CreatePullRequestStep extends ServerSideStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 		
 	private String targetBranch;
@@ -163,8 +165,7 @@ public class CreatePullRequestStep extends ServerSideStep {
 						var titleAndDescription = titleAndDescritpionProvider.getTitleAndDescription(pullRequest);
 						
 						pullRequest.setTitle(titleAndDescription.getLeft());
-						if (isWorkInProgress() && !pullRequest.isWorkInProgress()) 
-							pullRequest.setTitle("[WIP] " + pullRequest.getTitle());
+						pullRequest.setWorkInProgress(isWorkInProgress());
 						
 						pullRequest.setDescription(titleAndDescription.getRight());
 						

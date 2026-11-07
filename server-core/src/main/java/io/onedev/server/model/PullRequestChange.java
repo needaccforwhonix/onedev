@@ -1,22 +1,24 @@
 package io.onedev.server.model;
 
+import java.io.Serial;
 import java.util.Date;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.Index;
-import javax.persistence.JoinColumn;
-import javax.persistence.Lob;
-import javax.persistence.ManyToOne;
-import javax.persistence.Table;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 import io.onedev.server.model.support.pullrequest.changedata.PullRequestChangeData;
 
 @Entity
-@Table(indexes={@Index(columnList="o_request_id"), @Index(columnList="o_user_id")})
+@Table(indexes={@Index(columnList="request_id"), @Index(columnList="user_id")})
 public class PullRequestChange extends AbstractEntity {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static final String PROP_REQUEST = "request";

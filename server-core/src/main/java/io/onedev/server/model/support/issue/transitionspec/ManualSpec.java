@@ -2,6 +2,7 @@ package io.onedev.server.model.support.issue.transitionspec;
 
 import static io.onedev.server.web.translation.Translation._T;
 
+import java.io.Serial;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,6 +43,7 @@ import io.onedev.server.web.component.issue.workflowreconcile.UndefinedStateReso
 @Editable(order=100, name="Transit manually")
 public class ManualSpec extends TransitionSpec {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private static final Logger logger = LoggerFactory.getLogger(ManualSpec.class);
@@ -117,6 +119,8 @@ public class ManualSpec extends TransitionSpec {
 	}
 
 	public boolean canTransit(Subject subject, Issue issue, @Nullable String state) {
+		if (!SecurityUtils.canWorkOnProject(subject, issue.getProject()))
+			return false;
 		if ((state == null || getToStates().isEmpty() || getToStates().contains(state)) 
 				&& (getFromStates().isEmpty() || getFromStates().contains(issue.getState())) 
 				&& isAuthorized(subject, issue)) {

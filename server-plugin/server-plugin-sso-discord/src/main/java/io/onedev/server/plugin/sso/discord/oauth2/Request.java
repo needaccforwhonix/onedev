@@ -3,6 +3,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.io.Serial;
 import java.io.Serializable;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -15,6 +16,7 @@ import org.jspecify.annotations.Nullable;
 import org.apache.http.entity.ContentType;
 
 public class Request implements Serializable {
+	@Serial
 	private static final long serialVersionUID = 1L;
 	private static final String AUTHORIZE_ENDPOINT = "https://discord.com/api/oauth2/authorize";
 	private static final String USER_AGENT = "onedev";
@@ -93,44 +95,45 @@ public class Request implements Serializable {
 		}
 		
 		HttpURLConnection httpConn = (HttpURLConnection)finalURL.openConnection();
-		httpConn.setDoOutput(true);
-		httpConn.setRequestProperty("User-Agent", USER_AGENT);
-		
-		if (accessTokenResponse != null && accessTokenResponse.hasValidAccessToken())
-			httpConn.setRequestProperty("Authorization", accessTokenResponse.getAuthorizationProperty());
-		
-		httpConn.setRequestProperty("Accept", ContentType.APPLICATION_JSON.toString());
-		httpConn.setRequestMethod(method.name());
-		
-		if (method.equals(Method.POST)) {
-			httpConn.setRequestProperty("Content-Type", ContentType.APPLICATION_FORM_URLENCODED.toString());
-			
-			if (query != null) {
-				OutputStreamWriter writer = new OutputStreamWriter(httpConn.getOutputStream());
-				writer.write(query);
-				writer.close();
+		try {
+			httpConn.setDoOutput(true);
+			httpConn.setRequestProperty("User-Agent", USER_AGENT);
+
+			if (accessTokenResponse != null && accessTokenResponse.hasValidAccessToken())
+				httpConn.setRequestProperty("Authorization", accessTokenResponse.getAuthorizationProperty());
+
+			httpConn.setRequestProperty("Accept", ContentType.APPLICATION_JSON.toString());
+			httpConn.setRequestMethod(method.name());
+
+			if (method.equals(Method.POST)) {
+				httpConn.setRequestProperty("Content-Type", ContentType.APPLICATION_FORM_URLENCODED.toString());
+
+				if (query != null) {
+					try (var output = httpConn.getOutputStream();
+							var writer = new OutputStreamWriter(output)) {
+						writer.write(query);
+					}
+				}
 			}
+
+			return httpConn;
+		} catch (IOException | RuntimeException | Error e) {
+			httpConn.disconnect();
+			throw e;
 		}
-		
-		return httpConn;
 	}
 	
 	private static String readContent(HttpURLConnection httpConn) throws IOException {
-		BufferedReader buffer = new BufferedReader(new InputStreamReader(httpConn.getInputStream()));
-		StringBuffer response = new StringBuffer();
-
-		try {
+		try (var input = httpConn.getInputStream();
+				var buffer = new BufferedReader(new InputStreamReader(input))) {
+			StringBuffer response = new StringBuffer();
 			String inputLine;
 			while ((inputLine = buffer.readLine()) != null) {
 				response.append(inputLine);
 			}
-			buffer.close();
-		} catch (IOException e) {
-			throw e;
+			return response.toString();
 		} finally {
 			httpConn.disconnect();
 		}
-		
-		return response.toString();
 	}
 }

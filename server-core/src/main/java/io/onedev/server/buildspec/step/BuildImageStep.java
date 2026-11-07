@@ -3,13 +3,14 @@ package io.onedev.server.buildspec.step;
 import static io.onedev.server.buildspec.step.StepGroup.DOCKER_IMAGE;
 import static java.util.stream.Collectors.toList;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.k8shelper.BuildImageFacade;
@@ -25,13 +26,15 @@ import io.onedev.server.model.Build;
 import io.onedev.server.model.support.administration.DockerAware;
 import io.onedev.server.model.support.administration.jobexecutor.JobExecutor;
 import io.onedev.server.model.support.administration.jobexecutor.KubernetesAware;
+import io.onedev.server.model.support.administration.jobexecutor.SandboxAware;
 
-@Editable(order=160, name="Build Image", group = DOCKER_IMAGE, description="Build docker image with docker buildx. " +
-		"This step can only be executed by server docker executor or remote docker executor, and it uses the buildx " +
-		"builder specified in these executors to do the job. To build image with Kubernetes executor, please use kaniko " +
+@Editable(order=160, name="Build Image (Buildx)", group = DOCKER_IMAGE, description="Build docker image with buildx. " +
+		"This step can be executed by docker or sandbox executors. Docker executors use their configured buildx " +
+		"builder; sandbox executors use the default builder inside the sandbox. To build image with Kubernetes executor, please use kaniko " +
 		"step instead")
 public class BuildImageStep extends Step {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String buildPath;
@@ -43,10 +46,10 @@ public class BuildImageStep extends Step {
 	private List<RegistryLogin> registryLogins = new ArrayList<>();
 	
 	private String platforms;
-	
+
 	private String moreOptions;
-	
-	@Editable(order=100, description="Optionally specify build path relative to <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>. "
+
+	@Editable(order=100, description="Optionally specify build path relative to <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a>. "
 			+ "Leave empty to use job working directory itself")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Path(Path.Type.RELATIVE)
@@ -58,7 +61,7 @@ public class BuildImageStep extends Step {
 		this.buildPath = buildPath;
 	}
 
-	@Editable(order=200, description="Optionally specify Dockerfile relative to <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>. "
+	@Editable(order=200, description="Optionally specify Dockerfile relative to <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a>. "
 			+ "Leave empty to use file <tt>Dockerfile</tt> under build path specified above")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Path(Path.Type.RELATIVE)
@@ -83,8 +86,7 @@ public class BuildImageStep extends Step {
 	@Editable(order=1000, group="More Settings", description="Optionally specify registry logins to override " +
 			"those defined in job executor. For built-in registry, use <code>@server_url@</code> for registry url, " +
 			"<code>@job_token@</code> for user name, and access token secret for password secret")
-	@Valid
-	public List<RegistryLogin> getRegistryLogins() {
+	public List<@Valid RegistryLogin> getRegistryLogins() {
 		return registryLogins;
 	}
 
@@ -108,7 +110,7 @@ public class BuildImageStep extends Step {
 	@Editable(order=1400, group = "More Settings", description="Optionally specify additional options for " +
 			"buildx build command")
 	@Interpolative(variableSuggester="suggestVariables")
-	@ReservedOptions({"--builder", "(--builder)=.*", "--platform", "(--platform)=.*", "--push", "-f", "--file", "(-f|--file)=.*", "-t", "--tag", "(-t|--tag)=.*", "-o", "--output", "(-o|--output)=.*"})
+	@ReservedOptions({"--", "(--builder|--platform|--push|--load|--file|--tag|--output)(=.*)?", "(-q*[fto]).*"})
 	public String getMoreOptions() {
 		return moreOptions;
 	}
@@ -116,7 +118,7 @@ public class BuildImageStep extends Step {
 	public void setMoreOptions(String moreOptions) {
 		this.moreOptions = moreOptions;
 	}
-	
+
 	static List<InputSuggestion> suggestVariables(String matchWith) {
 		return BuildSpec.suggestVariables(matchWith, true, true, false);
 	}
@@ -130,7 +132,8 @@ public class BuildImageStep extends Step {
 	
 	@Override
 	public boolean isApplicable(Build build, JobExecutor executor) {
-		return executor instanceof DockerAware && !(executor instanceof KubernetesAware);
+		return executor instanceof SandboxAware
+				|| executor instanceof DockerAware && !(executor instanceof KubernetesAware);
 	}
 
 	@Editable
@@ -143,6 +146,7 @@ public class BuildImageStep extends Step {
 	@Editable(order=100, name="Push to container registry")
 	public static class RegistryOutput implements Output {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		private String tags;
@@ -174,11 +178,12 @@ public class BuildImageStep extends Step {
 	@Editable(order=200, name="Export as OCI layout")
 	public static class OCIOutput implements Output {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 		
 		private String destPath;
 
-		@Editable(name="OCI Layout Directory", description = "Specify relative path under <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a> to store OCI layout")
+		@Editable(name="OCI Layout Directory", description = "Specify relative path under <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a> to store OCI layout")
 		@Path(Path.Type.RELATIVE)
 		@NoSpace
 		@Interpolative(variableSuggester="suggestVariables")

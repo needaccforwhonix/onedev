@@ -7,22 +7,22 @@ import static io.onedev.server.model.Project.PROP_TIME_TRACKING;
 import static java.util.stream.Collectors.toSet;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.persistence.criteria.Join;
-import javax.persistence.criteria.JoinType;
-import javax.persistence.criteria.Predicate;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 
 import org.apache.shiro.subject.Subject;
-import org.hibernate.criterion.Restrictions;
+import io.onedev.server.persistence.dao.Restrictions;
 import org.hibernate.query.Query;
 
-import edu.emory.mathcs.backport.java.util.Arrays;
 import io.onedev.server.service.IssueFieldService;
 import io.onedev.server.service.IssueService;
 import io.onedev.server.service.IssueWorkService;
@@ -51,7 +51,6 @@ public class DefaultIssueWorkService extends BaseEntityService<IssueWork> implem
 		dao.persist(work);
 	}
 
-	@SuppressWarnings("unchecked")
 	@Sessional
 	@Override
 	public List<IssueWork> query(Subject subject, ProjectScope projectScope, EntityQuery<Issue> issueQuery, Date fromDate, Date toDate) {
@@ -71,7 +70,7 @@ public class DefaultIssueWorkService extends BaseEntityService<IssueWork> implem
 		predicates.add(builder.lessThanOrEqualTo(root.get(PROP_DATE), toDate));
 		
 		criteriaQuery.where(predicates.toArray(new Predicate[0]));
-		List<javax.persistence.criteria.Order> preferOrders = new ArrayList<>();
+		List<jakarta.persistence.criteria.Order> preferOrders = new ArrayList<>();
 		if (issueQuery.getCriteria() != null) 
 			preferOrders.addAll(issueQuery.getCriteria().getPreferOrders(builder, issue));
 		criteriaQuery.orderBy(issueService.buildOrders(issueQuery, builder, issue, preferOrders));

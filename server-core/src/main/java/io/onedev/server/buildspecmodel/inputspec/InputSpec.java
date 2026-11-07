@@ -1,5 +1,6 @@
 package io.onedev.server.buildspecmodel.inputspec;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashMap;
@@ -10,7 +11,7 @@ import org.jspecify.annotations.Nullable;
 
 import io.onedev.server.buildspecmodel.inputspec.choiceinput.choiceprovider.ChoiceProvider;
 import io.onedev.server.buildspecmodel.inputspec.showcondition.ShowCondition;
-import org.apache.commons.lang.SerializationUtils;
+import org.apache.commons.lang3.SerializationUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.unbescape.java.JavaEscape;
@@ -24,6 +25,7 @@ import io.onedev.server.annotation.Editable;
 @Editable
 public abstract class InputSpec implements Serializable {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private static final Logger logger = LoggerFactory.getLogger(InputSpec.class);
@@ -238,13 +240,13 @@ public abstract class InputSpec implements Serializable {
 		buffer.append("import io.onedev.server.util.*;\n");
 		buffer.append("import io.onedev.server.util.facade.*;\n");
 		buffer.append("import java.util.*;\n");
-		buffer.append("import javax.validation.constraints.*;\n");
+		buffer.append("import jakarta.validation.constraints.*;\n");
 		buffer.append("import org.hibernate.validator.constraints.*;\n");
 		buffer.append("\n");
 		buffer.append("@Editable(name=").append("\"").append(description).append("\", translatable=false)\n");
 		buffer.append("class " + className + " implements java.io.Serializable {\n");
 		buffer.append("\n");
-		buffer.append("    private static final long serialVersionUID = 1L;\n");
+		buffer.append("    @Serial private static final long serialVersionUID = 1L;\n");
 		buffer.append("\n");
 		Map<String, Integer> indexes = new HashMap<>();
 		int index = 1;

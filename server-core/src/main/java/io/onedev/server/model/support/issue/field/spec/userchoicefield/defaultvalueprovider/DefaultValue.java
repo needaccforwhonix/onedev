@@ -9,8 +9,9 @@ import io.onedev.server.model.User;
 import io.onedev.server.util.EditContext;
 import io.onedev.server.web.util.SuggestionUtils;
 
-import javax.validation.Validator;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.Validator;
+import jakarta.validation.constraints.NotEmpty;
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +20,7 @@ import java.util.stream.Collectors;
 @Editable(name="Value")
 public class DefaultValue implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String value;
@@ -37,7 +39,7 @@ public class DefaultValue implements Serializable {
 	}
 	
 	@Editable(order=200, placeholder="All projects", description="Specify applicable projects separated by space. "
-			+ "Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
+			+ "Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
 			+ "Prefix with '-' to exclude. Leave empty for all projects")
 	@Patterns(suggester="suggestProjects", path=true)
 	public String getApplicableProjects() {

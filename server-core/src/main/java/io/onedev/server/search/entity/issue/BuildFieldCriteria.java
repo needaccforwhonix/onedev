@@ -1,18 +1,20 @@
 package io.onedev.server.search.entity.issue;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Predicate;
 
 import io.onedev.server.model.Issue;
 import io.onedev.server.model.IssueField;
 
 public class BuildFieldCriteria extends FieldCriteria {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private final Long number;

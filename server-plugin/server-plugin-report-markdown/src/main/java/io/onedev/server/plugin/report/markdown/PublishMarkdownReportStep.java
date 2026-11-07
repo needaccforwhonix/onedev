@@ -7,6 +7,7 @@ import io.onedev.k8shelper.ServerStepResult;
 import io.onedev.server.OneDev;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Interpolative;
+import io.onedev.server.annotation.Path;
 import io.onedev.server.buildspec.BuildSpec;
 import io.onedev.server.buildspec.step.PublishReportStep;
 import io.onedev.server.buildspec.step.StepGroup;
@@ -15,9 +16,10 @@ import io.onedev.server.service.ProjectService;
 import io.onedev.server.model.Build;
 import io.onedev.server.persistence.SessionService;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serial;
 import java.util.List;
 
 import static io.onedev.commons.utils.LockUtils.write;
@@ -25,6 +27,7 @@ import static io.onedev.commons.utils.LockUtils.write;
 @Editable(order=1100, group=StepGroup.PUBLISH, name="Markdown Report")
 public class PublishMarkdownReportStep extends PublishReportStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static final String CATEGORY = "markdown";
@@ -33,8 +36,9 @@ public class PublishMarkdownReportStep extends PublishReportStep {
 	
 	private String startPage;
 	
-	@Editable(order=1100, description="Specify start page of the report relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, for instance: <tt>manual/index.md</tt>")
+	@Editable(order=1100, description="Specify start page of the report relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, for instance: <tt>manual/index.md</tt>")
 	@Interpolative(variableSuggester="suggestVariables")
+	@Path(Path.Type.RELATIVE)
 	@NotEmpty
 	public String getStartPage() {
 		return startPage;
@@ -59,10 +63,10 @@ public class PublishMarkdownReportStep extends PublishReportStep {
 	
 	@Override
 	public ServerStepResult run(Long buildId, File inputDir, TaskLogger logger) {
+		File startPage = getReportFile(inputDir, getStartPage());
 		OneDev.getInstance(SessionService.class).run(() -> {
 			var build = OneDev.getInstance(BuildService.class).load(buildId);
 			write(getReportLockName(build), () -> {
-				File startPage = new File(inputDir, getStartPage());
 				if (startPage.exists()) {
 					File reportDir = new File(build.getDir(), CATEGORY + "/" + getReportName());
 

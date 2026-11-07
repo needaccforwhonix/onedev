@@ -4,6 +4,7 @@ import static io.onedev.server.util.DateUtils.parseISO8601Date;
 import static io.onedev.server.util.DateUtils.toLocalDate;
 import static java.time.ZoneId.systemDefault;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -14,29 +15,29 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.persistence.Id;
-import javax.validation.Valid;
-import javax.validation.Validator;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.NotAcceptableException;
-import javax.ws.rs.NotFoundException;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.persistence.Id;
+import jakarta.validation.Valid;
+import jakarta.validation.Validator;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotAcceptableException;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import org.apache.shiro.authz.UnauthorizedException;
 import org.apache.shiro.subject.Subject;
-import org.hibernate.criterion.Restrictions;
+import io.onedev.server.persistence.dao.Restrictions;
 import org.jspecify.annotations.Nullable;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -50,7 +51,7 @@ import io.onedev.server.model.Iteration;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.ProjectLabel;
 import io.onedev.server.model.UserAuthorization;
-import io.onedev.server.model.support.CodeAnalysisSetting;
+import io.onedev.server.model.support.CodeIndexingSetting;
 import io.onedev.server.model.support.NamedCodeCommentQuery;
 import io.onedev.server.model.support.NamedCommitQuery;
 import io.onedev.server.model.support.WebHook;
@@ -64,6 +65,7 @@ import io.onedev.server.model.support.pullrequest.ProjectPullRequestSetting;
 import io.onedev.server.model.support.wiki.WikiSetting;
 import io.onedev.server.model.support.workspace.ProjectWorkspaceSetting;
 import io.onedev.server.persistence.dao.EntityCriteria;
+import io.onedev.server.rest.RestProjectUtils;
 import io.onedev.server.rest.annotation.Api;
 import io.onedev.server.rest.annotation.EntityCreate;
 import io.onedev.server.rest.resource.support.RestConstants;
@@ -105,7 +107,7 @@ public class ProjectResource {
 	@Path("/{projectId}")
     @GET
     public ProjectData getProject(@PathParam("projectId") Long projectId) {
-    	Project project = projectService.load(projectId);
+		Project project = RestProjectUtils.loadProject(projectService, projectId);
     	if (!SecurityUtils.canAccessProject(project))
 			throw new UnauthorizedException();
      	return ProjectData.from(project);
@@ -117,6 +119,7 @@ public class ProjectResource {
 	public Long getProjectId(@PathParam("path") String path) {
 		var project = projectService.findByPath(path);
 		if (project != null) {
+			RestProjectUtils.checkProjectId(project.getId());
 			if (!SecurityUtils.canAccessProject(project))
 				throw new NotFoundException("Project not found or inaccessible: " + path);
 			return project.getId();
@@ -129,7 +132,7 @@ public class ProjectResource {
 	@Path("/{projectId}/clone-url")
     @GET
     public CloneUrl getCloneURL(@PathParam("projectId") Long projectId) {
-    	Project project = projectService.load(projectId);
+		Project project = RestProjectUtils.loadProject(projectService, projectId);
     	if (!SecurityUtils.canAccessProject(project))
 			throw new UnauthorizedException();
 
@@ -144,7 +147,7 @@ public class ProjectResource {
 	@Path("/{projectId}/setting")
     @GET
     public ProjectSetting getSetting(@PathParam("projectId") Long projectId) {
-    	Project project = projectService.load(projectId);
+		Project project = RestProjectUtils.loadProject(projectService, projectId);
     	if (!SecurityUtils.canManageProject(project)) 
 			throw new UnauthorizedException();
 		return ProjectSetting.from(project);
@@ -154,7 +157,7 @@ public class ProjectResource {
 	@Path("/{projectId}/forks")
     @GET
     public Collection<ProjectData> getForks(@PathParam("projectId") Long projectId) {
-    	Project project = projectService.load(projectId);
+		Project project = RestProjectUtils.loadProject(projectService, projectId);
     	if (!SecurityUtils.canAccessProject(project)) 
 			throw new UnauthorizedException();
     	return project.getForks().stream().map(ProjectData::from).collect(Collectors.toList());
@@ -164,7 +167,7 @@ public class ProjectResource {
 	@Path("/{projectId}/base-authorizations")
     @GET
     public Collection<BaseAuthorization> getBaseAuthorizations(@PathParam("projectId") Long projectId) {
-    	Project project = projectService.load(projectId);
+		Project project = RestProjectUtils.loadProject(projectService, projectId);
     	if (!SecurityUtils.canManageProject(project)) 
 			throw new UnauthorizedException();
     	return project.getBaseAuthorizations();
@@ -174,7 +177,7 @@ public class ProjectResource {
 	@Path("/{projectId}/group-authorizations")
     @GET
     public Collection<GroupAuthorization> getGroupAuthorizations(@PathParam("projectId") Long projectId) {
-		var project = projectService.load(projectId);
+		var project = RestProjectUtils.loadProject(projectService, projectId);
 		if (!SecurityUtils.canManageProject(project))
 			throw new UnauthorizedException();
     	return project.getGroupAuthorizations();
@@ -184,7 +187,7 @@ public class ProjectResource {
 	@Path("/{projectId}/user-authorizations")
     @GET
     public Collection<UserAuthorization> getUserAuthorizations(@PathParam("projectId") Long projectId) {
-    	Project project = projectService.load(projectId);
+		Project project = RestProjectUtils.loadProject(projectService, projectId);
     	if (!SecurityUtils.canManageProject(project)) 
 			throw new UnauthorizedException();
     	return project.getUserAuthorizations();
@@ -194,7 +197,7 @@ public class ProjectResource {
 	@Path("/{projectId}/labels")
 	@GET
 	public Collection<ProjectLabel> getLabels(@PathParam("projectId") Long projectId) {
-		Project project = projectService.load(projectId);
+		Project project = RestProjectUtils.loadProject(projectService, projectId);
 		if (!SecurityUtils.canAccessProject(project))
 			throw new UnauthorizedException();
 		return project.getLabels();
@@ -228,7 +231,7 @@ public class ProjectResource {
 										   @QueryParam("dueAfter") @Api(exampleProvider="getDateExample", description="ISO 8601 date") String dueAfter,
 										   @QueryParam("closed") Boolean closed, @QueryParam("offset") @Api(example="0") int offset,
 										   @QueryParam("count") @Api(example="100") int count) {
-    	Project project = projectService.load(projectId);
+		Project project = RestProjectUtils.loadProject(projectService, projectId);
     	if (!SecurityUtils.canAccessProject(project)) 
 			throw new UnauthorizedException();
 
@@ -260,7 +263,7 @@ public class ProjectResource {
     		@QueryParam("sinceDate") @NotEmpty @Api(description="Since date of format <i>yyyy-MM-dd</i>") String since, 
     		@QueryParam("untilDate") @NotEmpty @Api(description="Until date of format <i>yyyy-MM-dd</i>") String until, 
     		@QueryParam("count") int count) {
-    	Project project = projectService.load(projectId);
+		Project project = RestProjectUtils.loadProject(projectService, projectId);
     	if (!SecurityUtils.canAccessProject(project)) 
 			throw new UnauthorizedException();
     	
@@ -325,7 +328,7 @@ public class ProjectResource {
 	@Path("/{projectId}")
 	@POST
 	public Response updateProject(@PathParam("projectId") Long projectId, @NotNull @Valid ProjectData data) {
-		Project project = projectService.load(projectId);
+		Project project = RestProjectUtils.loadProject(projectService, projectId);
 
 		var subject = SecurityUtils.getSubject();
 		if (!SecurityUtils.canManageProject(subject, project))
@@ -336,7 +339,7 @@ public class ProjectResource {
 
 		data.populate(project, projectService);
 
-		Project parent = data.getParentId() != null? projectService.load(data.getParentId()) : null;
+		Project parent = data.getParentId() != null? RestProjectUtils.loadProject(projectService, data.getParentId()) : null;
 
 		if (!Objects.equals(oldParentId, Project.idOf(parent)))
 			checkProjectCreationPermission(subject, parent);
@@ -377,17 +380,20 @@ public class ProjectResource {
 	@Path("/{projectId}/setting")
     @POST
     public Response updateSetting(@PathParam("projectId") Long projectId, @NotNull ProjectSetting setting) {
-		for (var boardSpec: setting.getIssueSetting().getBoardSpecs())
-			boardSpec.populateEditColumns();
+		Project project = RestProjectUtils.loadProject(projectService, projectId);
+		if (!SecurityUtils.canManageProject(project))
+			throw new UnauthorizedException();
+		var boardSpecs = setting.getIssueSetting().getBoardSpecs();
+		if (boardSpecs != null) {
+			for (var boardSpec: boardSpecs)
+				boardSpec.populateEditColumns();
+		}
 		var violations = validator.validate(setting);
 		if (!violations.isEmpty()) {
 			var violation = violations.iterator().next();
 			throw new ExplicitException(violation.getPropertyPath() + ": " + violation.getMessage());
 		}
 
-    	Project project = projectService.load(projectId);
-    	if (!SecurityUtils.canManageProject(project)) 
-			throw new UnauthorizedException();
 		var oldAuditContent = VersionedXmlDoc.fromBean(ProjectSetting.from(project)).toXML();
 		setting.populate(project);
 		projectService.update(project);
@@ -400,7 +406,7 @@ public class ProjectResource {
 	@Path("/{projectId}")
     @DELETE
     public Response deleteProject(@PathParam("projectId") Long projectId) {
-    	Project project = projectService.load(projectId);
+		Project project = RestProjectUtils.loadProject(projectService, projectId);
     	if (!SecurityUtils.canManageProject(project))
 			throw new UnauthorizedException();
     	projectService.delete(project);
@@ -413,6 +419,7 @@ public class ProjectResource {
 	
 	public static class CloneUrl implements Serializable {
 		
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		private String http;
@@ -440,10 +447,12 @@ public class ProjectResource {
 	@EntityCreate(Project.class)
 	public static class ProjectData implements Serializable {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 		
 		@Api(order=50)
 		@Id
+		@JsonProperty(access = JsonProperty.Access.READ_ONLY)
 		private Long id;
 		
 		@Api(order = 100, description="Represents the parent project of this project. Remove this property if "
@@ -466,6 +475,9 @@ public class ProjectResource {
 
 		@Api(order = 500, description="May be empty")
 		private String description;
+
+		@Api(order = 525)
+		private boolean maintenance;
 
 		@JsonProperty(access = JsonProperty.Access.READ_ONLY)
 		@Api(order = 550)
@@ -493,7 +505,7 @@ public class ProjectResource {
 		private GitPackConfig gitPackConfig;
 
 		@Api(order = 900)
-		private CodeAnalysisSetting codeAnalysisSetting;
+		private CodeIndexingSetting codeIndexingSetting;
 		
 		public Long getId() {
 			return id;
@@ -550,6 +562,14 @@ public class ProjectResource {
 
 		public void setDescription(String description) {
 			this.description = description;
+		}
+
+		public boolean isMaintenance() {
+			return maintenance;
+		}
+
+		public void setMaintenance(boolean maintenance) {
+			this.maintenance = maintenance;
 		}
 
 		public Date getCreateDate() {
@@ -618,26 +638,29 @@ public class ProjectResource {
 		}
 
 		@NotNull
-		public CodeAnalysisSetting getCodeAnalysisSetting() {
-			return codeAnalysisSetting;
+		public CodeIndexingSetting getCodeIndexingSetting() {
+			return codeIndexingSetting;
 		}
 
-		public void setCodeAnalysisSetting(CodeAnalysisSetting codeAnalysisSetting) {
-			this.codeAnalysisSetting = codeAnalysisSetting;
+		public void setCodeIndexingSetting(CodeIndexingSetting codeIndexingSetting) {
+			this.codeIndexingSetting = codeIndexingSetting;
 		}
 
 		public void populate(Project project, ProjectService projectService) {
+			RestProjectUtils.checkProjectId(parentId);
+			RestProjectUtils.checkProjectId(forkedFromId);
 			if (parentId != null)
-				project.setParent(projectService.load(getParentId()));
+				project.setParent(RestProjectUtils.loadProject(projectService, getParentId()));
 			else
 				project.setParent(null);
 			if (forkedFromId != null)
-				project.setForkedFrom(projectService.load(getForkedFromId()));
+				project.setForkedFrom(RestProjectUtils.loadProject(projectService, getForkedFromId()));
 			else
 				project.setForkedFrom(null);
 			project.setName(getName());
 			project.setKey(getKey());
 			project.setDescription(getDescription());
+			project.setMaintenance(isMaintenance());
 			project.setCodeManagement(isCodeManagement());
 			project.setWikiManagement(isWikiManagement());
 			project.setPackManagement(isPackManagement());
@@ -645,7 +668,7 @@ public class ProjectResource {
 			project.setTimeTracking(isTimeTracking());
 			project.setServiceDeskEmailAddress(getServiceDeskEmailAddress());
 			project.setGitPackConfig(getGitPackConfig());
-			project.setCodeAnalysisSetting(getCodeAnalysisSetting());
+			project.setCodeIndexingSetting(getCodeIndexingSetting());
 		}
 
 		public static ProjectData from(Project project) {
@@ -657,6 +680,7 @@ public class ProjectResource {
 			data.setKey(project.getKey());
 			data.setPath(project.getPath());
 			data.setDescription(project.getDescription());
+			data.setMaintenance(project.isMaintenance());
 			data.setCreateDate(project.getCreateDate());
 			data.setCodeManagement(project.isCodeManagement());
 			data.setWikiManagement(project.isWikiManagement());
@@ -665,7 +689,7 @@ public class ProjectResource {
 			data.setTimeTracking(project.isTimeTracking());
 			data.setServiceDeskEmailAddress(project.getServiceDeskEmailAddress());
 			data.setGitPackConfig(project.getGitPackConfig());
-			data.setCodeAnalysisSetting(project.getCodeAnalysisSetting());
+			data.setCodeIndexingSetting(project.getCodeIndexingSetting());
 
 			return data;
 		}
@@ -674,6 +698,7 @@ public class ProjectResource {
 	
 	public static class ProjectSetting implements Serializable {
 		
+		@Serial
 		private static final long serialVersionUID = 1L;
 		
 		private ArrayList<BranchProtection> branchProtections = new ArrayList<>();
@@ -700,8 +725,7 @@ public class ProjectResource {
 		
 		private ArrayList<ContributedProjectSetting> contributedSettings = new ArrayList<>();
 
-		@Valid
-		public ArrayList<BranchProtection> getBranchProtections() {
+		public ArrayList<@Valid BranchProtection> getBranchProtections() {
 			return branchProtections;
 		}
 
@@ -709,8 +733,7 @@ public class ProjectResource {
 			this.branchProtections = branchProtections;
 		}
 
-		@Valid
-		public ArrayList<TagProtection> getTagProtections() {
+		public ArrayList<@Valid TagProtection> getTagProtections() {
 			return tagProtections;
 		}
 
@@ -773,8 +796,7 @@ public class ProjectResource {
 			this.workspaceSetting = workspaceSetting;
 		}
 
-		@Valid
-		public ArrayList<NamedCommitQuery> getNamedCommitQueries() {
+		public ArrayList<@Valid NamedCommitQuery> getNamedCommitQueries() {
 			return namedCommitQueries;
 		}
 
@@ -782,8 +804,7 @@ public class ProjectResource {
 			this.namedCommitQueries = namedCommitQueries;
 		}
 
-		@Valid
-		public ArrayList<NamedCodeCommentQuery> getNamedCodeCommentQueries() {
+		public ArrayList<@Valid NamedCodeCommentQuery> getNamedCodeCommentQueries() {
 			return namedCodeCommentQueries;
 		}
 
@@ -791,8 +812,7 @@ public class ProjectResource {
 			this.namedCodeCommentQueries = namedCodeCommentQueries;
 		}
 
-		@Valid
-		public ArrayList<WebHook> getWebHooks() {
+		public ArrayList<@Valid WebHook> getWebHooks() {
 			return webHooks;
 		}
 
@@ -800,8 +820,7 @@ public class ProjectResource {
 			this.webHooks = webHooks;
 		}
 
-		@Valid
-		public ArrayList<ContributedProjectSetting> getContributedSettings() {
+		public ArrayList<@Valid ContributedProjectSetting> getContributedSettings() {
 			return contributedSettings;
 		}
 
@@ -827,21 +846,24 @@ public class ProjectResource {
 			project.setContributedSettings(contributedSettings);
 		}
 
+		protected void populateFrom(Project project) {
+			setBranchProtections(project.getBranchProtections());
+			setTagProtections(project.getTagProtections());
+			setBuildSetting(project.getBuildSetting());
+			setPackSetting(project.getPackSetting());
+			setIssueSetting(project.getIssueSetting());
+			setWikiSetting(project.getWikiSetting());
+			setNamedCodeCommentQueries(project.getNamedCodeCommentQueries());
+			setNamedCommitQueries(project.getNamedCommitQueries());
+			setPullRequestSetting(project.getPullRequestSetting());
+			setWorkspaceSetting(project.getWorkspaceSetting());
+			setWebHooks(project.getWebHooks());
+			getContributedSettings().addAll(project.getContributedSettings().values());
+		}
+
 		public static ProjectSetting from(Project project) {
 			ProjectSetting setting = new ProjectSetting();
-			setting.setBranchProtections(project.getBranchProtections());
-			setting.setTagProtections(project.getTagProtections());
-			setting.setBuildSetting(project.getBuildSetting());
-			setting.setPackSetting(project.getPackSetting());
-			setting.setIssueSetting(project.getIssueSetting());
-			setting.setWikiSetting(project.getWikiSetting());
-			setting.setNamedCodeCommentQueries(project.getNamedCodeCommentQueries());
-			setting.setNamedCommitQueries(project.getNamedCommitQueries());
-			setting.setPullRequestSetting(project.getPullRequestSetting());
-			setting.setWorkspaceSetting(project.getWorkspaceSetting());
-			setting.setWebHooks(project.getWebHooks());
-			setting.getContributedSettings().addAll(project.getContributedSettings().values());
-
+			setting.populateFrom(project);
 			return setting;
 		}
 

@@ -3,6 +3,7 @@ package io.onedev.server.model;
 import static io.onedev.server.search.entity.EntitySort.Direction.ASCENDING;
 import static io.onedev.server.search.entity.EntitySort.Direction.DESCENDING;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -13,15 +14,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Stack;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.Index;
-import javax.persistence.JoinColumn;
-import javax.persistence.Lob;
-import javax.persistence.ManyToOne;
-import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import org.eclipse.jgit.lib.ObjectId;
 import org.hibernate.annotations.Cache;
@@ -35,7 +36,7 @@ import io.onedev.server.OneDev;
 import io.onedev.server.cluster.ClusterService;
 import io.onedev.server.entityreference.WorkspaceReference;
 import io.onedev.server.git.GitUtils;
-import io.onedev.server.logging.WorkspaceLoggingSupport;
+import io.onedev.server.logging.workspace.WorkspaceLoggingSupport;
 import io.onedev.server.model.support.workspace.spec.WorkspaceSpec;
 import io.onedev.server.search.entity.SortField;
 import io.onedev.server.web.util.TextUtils;
@@ -43,23 +44,24 @@ import io.onedev.server.web.util.TextUtils;
 @Entity
 @Table(
 		indexes={
-				@Index(columnList="o_user_id"),
-				@Index(columnList="o_project_id"),
-				@Index(columnList="o_issue_id"),
-				@Index(columnList="o_request_id"),
-				@Index(columnList="o_agent_id"),
+				@Index(columnList="user_id"),
+				@Index(columnList="project_id"),
+				@Index(columnList="issue_id"),
+				@Index(columnList="request_id"),
+				@Index(columnList="agent_id"),
 				@Index(columnList=Workspace.PROP_SPEC),
 				@Index(columnList= Workspace.PROP_STATUS),
 				@Index(columnList= Workspace.PROP_BRANCH),
 				@Index(columnList= Workspace.PROP_CREATE_DATE),
 				@Index(columnList= Workspace.PROP_ACTIVE_DATE),
 				@Index(columnList=AbstractEntity.PROP_NUMBER),
-				@Index(columnList="o_numberScope_id")},
-		uniqueConstraints={@UniqueConstraint(columnNames={"o_numberScope_id", AbstractEntity.PROP_NUMBER})}
+				@Index(columnList="numberScope_id")},
+		uniqueConstraints={@UniqueConstraint(columnNames={"numberScope_id", AbstractEntity.PROP_NUMBER})}
 )
 @Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
 public class Workspace extends AbstractEntity {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private static ThreadLocal<Stack<Workspace>> stack = ThreadLocal.withInitial(Stack::new);

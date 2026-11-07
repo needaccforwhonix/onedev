@@ -1,10 +1,12 @@
 package io.onedev.server.search.buildmetric;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.Join;
-import javax.persistence.criteria.Path;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
+import java.io.Serial;
+
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 
 import org.eclipse.jgit.lib.Constants;
 
@@ -12,6 +14,7 @@ import io.onedev.server.model.Build;
 
 public class BranchCriteria extends BuildMetricCriteria {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final String value;

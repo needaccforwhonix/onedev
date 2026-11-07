@@ -4,9 +4,9 @@ import static io.onedev.commons.utils.LockUtils.read;
 import static io.onedev.server.model.Build.getArtifactsLockName;
 import static io.onedev.server.model.Project.SHARE_TEST_DIR;
 import static io.onedev.server.util.IOUtils.BUFFER_SIZE;
-import static javax.ws.rs.core.Response.ok;
-import static javax.ws.rs.core.Response.status;
-import static javax.ws.rs.core.Response.Status.NO_CONTENT;
+import static jakarta.ws.rs.core.Response.ok;
+import static jakarta.ws.rs.core.Response.status;
+import static jakarta.ws.rs.core.Response.Status.NO_CONTENT;
 import static org.eclipse.jgit.lib.ObjectId.fromString;
 
 import java.io.BufferedOutputStream;
@@ -19,17 +19,17 @@ import java.io.OutputStream;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.StreamingOutput;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.StreamingOutput;
 
 import org.apache.shiro.authz.UnauthorizedException;
 import org.eclipse.jgit.lib.Repository;
@@ -245,15 +245,15 @@ public class ClusterResource {
 		return ok(out).build();
 	}
 
-	@Path("/project-site")
+	@Path("/project-sites")
 	@Produces(MediaType.APPLICATION_OCTET_STREAM)
 	@GET
 	public Response downloadProjectSiteFile(@QueryParam("projectId") Long projectId, @QueryParam("filePath") String filePath) {
 		if (!SecurityUtils.isSystem()) 
 			throw new UnauthorizedException("This api can only be accessed via cluster credential");
 		
-		StreamingOutput os = output -> read(Project.getSiteLockName(projectId), () -> {
-			File file = new File(projectService.getSiteDir(projectId), filePath);
+		StreamingOutput os = output -> read(Project.getSitesLockName(projectId), () -> {
+			File file = new File(projectService.getSitesDir(projectId), filePath);
 			try (output; InputStream is = new FileInputStream(file)) {
 				IOUtils.copy(is, output, BUFFER_SIZE);
 			}
@@ -333,7 +333,7 @@ public class ClusterResource {
 				commitInfoService.export(projectId, tempDir);
 				TarUtils.tar(tempDir, os, false);
 			} finally {
-				FileUtils.deleteDir(tempDir);
+				FileUtils.deletePath(tempDir);
 			}
 	   };
 		return ok(output).build();
@@ -352,7 +352,7 @@ public class ClusterResource {
 				visitInfoService.export(projectId, tempDir);
 				TarUtils.tar(tempDir, os, false);
 			} finally {
-				FileUtils.deleteDir(tempDir);
+				FileUtils.deletePath(tempDir);
 			}
 		};
 		return ok(output).build();
@@ -381,8 +381,8 @@ public class ClusterResource {
 		if (!SecurityUtils.isSystem()) 
 			throw new UnauthorizedException("This api can only be accessed via cluster credential");
 
-		try (input; OutputStream os = new LfsObject(projectId, objectId).getOutputStream()) {
-			IOUtils.copy(input, os, BUFFER_SIZE);
+		try (input) {
+			new LfsObject(projectId, objectId).upload(input);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}

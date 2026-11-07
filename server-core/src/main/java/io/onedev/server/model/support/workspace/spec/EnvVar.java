@@ -1,9 +1,10 @@
 package io.onedev.server.model.support.workspace.spec;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.server.annotation.DependsOn;
@@ -16,6 +17,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 @Editable
 public class EnvVar implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String name;

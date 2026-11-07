@@ -1,5 +1,6 @@
 package io.onedev.server.model.support.administration;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -11,9 +12,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
 
 import org.jspecify.annotations.Nullable;
 
@@ -38,8 +36,6 @@ import io.onedev.server.model.support.issue.TimeTrackingSetting;
 import io.onedev.server.model.support.issue.field.spec.BuildChoiceField;
 import io.onedev.server.model.support.issue.field.spec.FieldSpec;
 import io.onedev.server.model.support.issue.field.spec.choicefield.ChoiceField;
-import io.onedev.server.model.support.issue.field.spec.choicefield.defaultvalueprovider.DefaultValue;
-import io.onedev.server.model.support.issue.field.spec.choicefield.defaultvalueprovider.SpecifiedDefaultValue;
 import io.onedev.server.model.support.issue.field.spec.userchoicefield.UserChoiceField;
 import io.onedev.server.model.support.issue.transitionspec.BranchCreatedSpec;
 import io.onedev.server.model.support.issue.transitionspec.BranchUpdatedSpec;
@@ -56,10 +52,13 @@ import io.onedev.server.web.component.issue.workflowreconcile.UndefinedFieldReso
 import io.onedev.server.web.component.issue.workflowreconcile.UndefinedFieldValue;
 import io.onedev.server.web.component.issue.workflowreconcile.UndefinedFieldValuesResolution;
 import io.onedev.server.web.component.issue.workflowreconcile.UndefinedStateResolution;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 
 @Editable
 public class GlobalIssueSetting implements Serializable {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String PROP_EXTERNAL_ISSUE_PATTERN = "externalIssuePattern";
@@ -94,15 +93,10 @@ public class GlobalIssueSetting implements Serializable {
 		SpecifiedChoices specifiedChoices = new SpecifiedChoices();
 
 		List<Choice> choices = new ArrayList<>(); 
-		Choice newFeature = new Choice();
-		newFeature.setValue("New Feature");
-		newFeature.setColor("#1bc5bd");
-		choices.add(newFeature);
-		
-		Choice improvement = new Choice();
-		improvement.setValue("Improvement");
-		improvement.setColor("#1bc5bd");
-		choices.add(improvement);
+		Choice enhancement = new Choice();
+		enhancement.setValue("Enhancement");
+		enhancement.setColor("#1bc5bd");
+		choices.add(enhancement);
 
 		Choice bug = new Choice();
 		bug.setValue("Bug");
@@ -126,18 +120,12 @@ public class GlobalIssueSetting implements Serializable {
 		
 		specifiedChoices.setChoices(choices);
 		type.setChoiceProvider(specifiedChoices);
-		
-		SpecifiedDefaultValue specifiedDefaultValue = new SpecifiedDefaultValue();
-		DefaultValue defaultValue = new DefaultValue();
-		defaultValue.setValue("New Feature");
-		specifiedDefaultValue.getDefaultValues().add(defaultValue);
-		
-		type.setDefaultValueProvider(specifiedDefaultValue);
-		
+				
 		fieldSpecs.add(type);
 		
 		ChoiceField priority = new ChoiceField();
 		priority.setName("Priority");
+		priority.setDescription("This field should be set to 'Normal' for most cases");
 		specifiedChoices = new SpecifiedChoices();
 
 		choices = new ArrayList<>(); 
@@ -164,13 +152,7 @@ public class GlobalIssueSetting implements Serializable {
 		
 		specifiedChoices.setChoices(choices);
 		priority.setChoiceProvider(specifiedChoices);
-		
-		specifiedDefaultValue = new SpecifiedDefaultValue();
-		defaultValue = new DefaultValue();
-		defaultValue.setValue("Normal");
-		specifiedDefaultValue.getDefaultValues().add(defaultValue);
-		priority.setDefaultValueProvider(specifiedDefaultValue);
-		
+				
 		fieldSpecs.add(priority);
 
 		UserChoiceField assignees = new UserChoiceField();
@@ -310,8 +292,7 @@ public class GlobalIssueSetting implements Serializable {
 	}
 	
 	@NotNull
-	@Valid
-	public List<StateSpec> getStateSpecs() {
+	public List<@Valid StateSpec> getStateSpecs() {
 		return stateSpecs;
 	}
 
@@ -320,8 +301,7 @@ public class GlobalIssueSetting implements Serializable {
 	}
 
 	@NotNull
-	@Valid
-	public List<TransitionSpec> getTransitionSpecs() {
+	public List<@Valid TransitionSpec> getTransitionSpecs() {
 		return transitionSpecs;
 	}
 
@@ -331,8 +311,7 @@ public class GlobalIssueSetting implements Serializable {
 
 	@Editable
 	@NotNull
-	@Valid
-	public List<FieldSpec> getFieldSpecs() {
+	public List<@Valid FieldSpec> getFieldSpecs() {
 		return fieldSpecs;
 	}
 
@@ -704,8 +683,7 @@ public class GlobalIssueSetting implements Serializable {
 	}
 	
 	@NotNull
-	@Valid
-	public List<BoardSpec> getBoardSpecs() {
+	public List<@Valid BoardSpec> getBoardSpecs() {
 		return boardSpecs;
 	}
 
@@ -742,8 +720,7 @@ public class GlobalIssueSetting implements Serializable {
 	}
 
 	@NotNull
-	@Valid
-	public List<NamedIssueQuery> getNamedQueries() {
+	public List<@Valid NamedIssueQuery> getNamedQueries() {
 		return namedQueries;
 	}
 
@@ -752,8 +729,7 @@ public class GlobalIssueSetting implements Serializable {
 	}
 	
 	@NotNull
-	@Valid
-	public List<IssueTemplate> getIssueTemplates() {
+	public List<@Valid IssueTemplate> getIssueTemplates() {
 		return issueTemplates;
 	}
 

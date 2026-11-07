@@ -1,9 +1,10 @@
 package io.onedev.server.model.support.issue.field.spec;
 
+import java.io.Serial;
 import java.util.List;
 import java.util.Map;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.buildspecmodel.inputspec.dateinput.DateInput;
@@ -12,6 +13,7 @@ import io.onedev.server.buildspecmodel.inputspec.dateinput.defaultvalueprovider.
 @Editable(order=505, name=FieldSpec.DATE)
 public class DateField extends FieldSpec {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private DefaultValueProvider defaultValueProvider;

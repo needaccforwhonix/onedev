@@ -1,12 +1,13 @@
 package io.onedev.server.plugin.imports.jiracloud;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.validation.ConstraintValidatorContext;
-import javax.validation.constraints.Size;
+import jakarta.validation.ConstraintValidatorContext;
+import jakarta.validation.constraints.Size;
 
 import io.onedev.server.annotation.ChoiceProvider;
 import io.onedev.server.annotation.ClassValidating;
@@ -22,6 +23,7 @@ import io.onedev.server.web.editable.BeanEditor;
 @ClassValidating
 public class ImportProjects implements Serializable, Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	ImportServer server;
@@ -32,7 +34,7 @@ public class ImportProjects implements Serializable, Validatable {
 
 	private List<String> jiraProjects;
 
-	@Editable(order=200, name="Parent OneDev Project", description = "Optionally specify a OneDev project " +
+	@Editable(order=200, name="Parent ${productName} Project", description = "Optionally specify a ${productName} project " +
 			"to be used as parent of imported projects. Leave empty to import as root projects")
 	@ChoiceProvider("getParentOneDevProjectChoices")
 	public String getParentOneDevProject() {

@@ -1,17 +1,18 @@
 package io.onedev.server.model.support.administration;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 
-import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.commons.utils.match.PathMatcher;
 import io.onedev.server.OneDev;
@@ -27,6 +28,7 @@ import io.onedev.server.web.component.issue.workflowreconcile.UndefinedFieldValu
 @Editable
 public class ServiceDeskSetting implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private List<IssueCreationSetting> issueCreationSettings = new ArrayList<>();
@@ -42,8 +44,7 @@ public class ServiceDeskSetting implements Serializable {
 	@Editable(order=300, description="Specify issue creation settings. For a particular sender and project, " +
 			"the first matching entry will take effect. Issue creation will be disallowed if no matching " +
 			"entry found")
-	@Valid
-	public List<IssueCreationSetting> getIssueCreationSettings() {
+	public List<@Valid IssueCreationSetting> getIssueCreationSettings() {
 		return issueCreationSettings;
 	}
 

@@ -2,11 +2,13 @@ package io.onedev.server.search.entity.codecomment;
 
 import static io.onedev.server.web.translation.Translation._T;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Path;
-import javax.persistence.criteria.Predicate;
+import java.io.Serial;
+
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
 
 import org.jspecify.annotations.Nullable;
 
@@ -18,6 +20,7 @@ import io.onedev.server.util.ProjectScope;
 
 public class CreatedByMeCriteria extends CreatedByCriteria {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@Override

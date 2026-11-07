@@ -1,12 +1,15 @@
 package io.onedev.server.plugin.authenticator.ldap;
 
-import javax.validation.constraints.NotEmpty;
+import java.io.Serial;
+
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.annotation.Editable;
 
 @Editable(order=300)
 public class SearchGroupsUsingFilter implements GroupRetrieval {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String groupSearchBase;
@@ -42,7 +45,7 @@ public class SearchGroupsUsingFilter implements GroupRetrieval {
 
 	@Editable(order=300, description=""
 			+ "Specifies the attribute containing group name inside the found group LDAP entry. Value of this attribute "
-			+ "will be mapped to a OneDev group. This attribute is normally set to <i>cn</i>")
+			+ "will be mapped to a ${productName} group. This attribute is normally set to <i>cn</i>")
 	@NotEmpty
 	public String getGroupNameAttribute() {
 		return groupNameAttribute;

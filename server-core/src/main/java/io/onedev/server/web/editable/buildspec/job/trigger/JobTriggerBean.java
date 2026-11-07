@@ -1,8 +1,9 @@
 package io.onedev.server.web.editable.buildspec.job.trigger;
 
+import java.io.Serial;
 import java.io.Serializable;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import io.onedev.server.buildspec.job.trigger.JobTrigger;
 import io.onedev.server.annotation.Editable;
@@ -10,6 +11,7 @@ import io.onedev.server.annotation.Editable;
 @Editable
 public class JobTriggerBean implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private JobTrigger trigger;

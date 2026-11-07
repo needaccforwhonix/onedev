@@ -1,5 +1,6 @@
 package io.onedev.server.ai;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -8,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import io.onedev.server.model.*;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.jgit.diff.DiffEntry.ChangeType;
@@ -26,13 +28,6 @@ import io.onedev.server.git.BlobIdent;
 import io.onedev.server.git.GitUtils;
 import io.onedev.server.git.service.DiffEntryFacade;
 import io.onedev.server.git.service.GitService;
-import io.onedev.server.model.CodeComment;
-import io.onedev.server.model.CodeCommentReply;
-import io.onedev.server.model.Project;
-import io.onedev.server.model.PullRequest;
-import io.onedev.server.model.PullRequestComment;
-import io.onedev.server.model.PullRequestReview;
-import io.onedev.server.model.User;
 import io.onedev.server.model.support.CompareContext;
 import io.onedev.server.model.support.Mark;
 import io.onedev.server.service.CodeCommentService;
@@ -41,6 +36,7 @@ import io.onedev.server.service.UrlService;
 import io.onedev.server.util.diff.DiffUtils;
 import io.onedev.server.util.diff.WhitespaceOption;
 import io.onedev.server.web.util.DiffPlanarRange;
+import org.jspecify.annotations.Nullable;
 
 public class PullRequestHelper {
     
@@ -52,7 +48,15 @@ public class PullRequestHelper {
         return OneDev.getInstance(UrlService.class);
     }
 
-    public static Map<String, Object> getSummary(Project currentProject, 
+    public static Map<String, Object> getIdentity(@Nullable Project currentProject, PullRequest pullRequest) {
+        return Map.of(
+            "id", pullRequest.getId(),
+            "number", pullRequest.getNumber(),
+            "reference", pullRequest.getReference().toString(currentProject),
+            "link", getUrlService().urlFor(pullRequest, true));
+    }
+
+    public static Map<String, Object> getSummary(@Nullable Project currentProject,
             PullRequest pullRequest, boolean checkMergeConditionIfOpen) {        
         var typeReference = new TypeReference<LinkedHashMap<String, Object>>() {};
         var summary = getObjectMapper().convertValue(pullRequest, typeReference);
@@ -79,18 +83,14 @@ public class PullRequestHelper {
         summary.remove("codeCommentsUpdateDate");
         summary.remove("lastActivity");
         summary.put("lastActivityDate", pullRequest.getLastActivity().getDate());
-        for (var it = summary.entrySet().iterator(); it.hasNext();) {
-            var entry = it.next();
-            if (entry.getKey().endsWith("Count"))
-                it.remove();
-        }
+        summary.entrySet().removeIf(entry -> entry.getKey().endsWith("Count"));
         return summary;
     }
 
-    public static Map<String, Object> getDetail(Project currentProject, PullRequest pullRequest) {
+    public static Map<String, Object> getDetail(@Nullable Project currentProject, PullRequest pullRequest) {
         var data = getSummary(currentProject, pullRequest, true);        
         data.put("headCommitHash", pullRequest.getLatestUpdate().getHeadCommitHash());
-        data.put("assignees", pullRequest.getAssignees().stream().map(it->it.getName()).collect(Collectors.toList()));
+        data.put("assignees", pullRequest.getAssignees().stream().map(User::getName).collect(Collectors.toList()));
         var reviews = new ArrayList<Map<String, Object>>();
         for (var review : pullRequest.getReviews()) {
             if (review.getStatus() == PullRequestReview.Status.EXCLUDED)
@@ -112,14 +112,13 @@ public class PullRequestHelper {
         return data;
     }
 
-    public static List<Map<String, Object>> getBuilds(Project currentProject, PullRequest pullRequest) {
+    public static List<Map<String, Object>> getBuilds(@Nullable Project currentProject, PullRequest pullRequest) {
         var builds = new ArrayList<Map<String, Object>>();
-        pullRequest.getCurrentBuilds().stream()
-            .forEach(it -> {
-                var summary = BuildHelper.getSummary(currentProject, it);
-                summary.put("link", getUrlService().urlFor(it, true));
-                builds.add(summary);
-        });
+        for (Build build : pullRequest.getCurrentBuilds()) {
+            var summary = BuildHelper.getSummary(currentProject, build);
+            summary.put("link", getUrlService().urlFor(build, true));
+            builds.add(summary);
+        }
         return builds;
     }
 
@@ -175,6 +174,7 @@ public class PullRequestHelper {
         var newDiffBlobIdent = GitUtils.getNewBlobIdent(matchingEntry, newCommitId.name());
         var blobChange = new BlobChange(changeType, oldDiffBlobIdent, newDiffBlobIdent, WhitespaceOption.IGNORE_TRAILING) {
 
+            @Serial
             private static final long serialVersionUID = 1L;
 
             @Override

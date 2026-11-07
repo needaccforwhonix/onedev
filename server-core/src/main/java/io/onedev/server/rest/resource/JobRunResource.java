@@ -9,6 +9,7 @@ import io.onedev.server.model.Build;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.PullRequest;
 import io.onedev.server.model.support.pullrequest.MergePreview;
+import io.onedev.server.rest.RestProjectUtils;
 import io.onedev.server.rest.annotation.Api;
 import io.onedev.server.rest.resource.support.JobRun;
 import io.onedev.server.rest.resource.support.JobRunOnCommit;
@@ -19,15 +20,16 @@ import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.revwalk.RevCommit;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.validation.Valid;
-import javax.validation.ValidationException;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
-import javax.ws.rs.*;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.validation.Valid;
+import jakarta.validation.ValidationException;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import java.io.Serial;
 import java.io.Serializable;
 
 @Path("/job-runs")
@@ -70,7 +72,7 @@ public class JobRunResource {
 		if (jobRun instanceof JobRunOnCommit) {
 			JobRunOnCommit jobRunOnCommit = (JobRunOnCommit) jobRun;
 			
-	    	project = projectService.load(jobRunOnCommit.getProjectId());
+			project = RestProjectUtils.loadProject(projectService, jobRunOnCommit.getProjectId());
 			if (!SecurityUtils.canRunJob(subject, project, jobRun.getJobName()))		
 				throw new UnauthorizedException();
 
@@ -138,6 +140,7 @@ public class JobRunResource {
 	
 	public static class JobRerun implements Serializable {
 		
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		@Api(order=100)

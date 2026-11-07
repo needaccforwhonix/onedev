@@ -1,7 +1,7 @@
 package io.onedev.server.web.page.help;
 
-import static io.onedev.server.web.page.help.ValueInfo.Origin.CREATE_BODY;
-import static io.onedev.server.web.page.help.ValueInfo.Origin.UPDATE_BODY;
+import static io.onedev.server.oem.OemUtils.interpolate;
+import static io.onedev.server.oem.OemUtils.interpolateHtml;
 import static io.onedev.server.web.translation.Translation._T;
 
 import java.io.InputStream;
@@ -14,13 +14,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.StreamingOutput;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.StreamingOutput;
 
 import org.apache.wicket.Component;
 import org.apache.wicket.event.IEvent;
@@ -98,14 +97,7 @@ public class MethodDetailPage extends ApiHelpPage {
 
 	@Nullable
 	private Parameter getRequestBodyParam() {
-		for (Parameter param: getResourceMethod().getParameters()) {
-			if (param.getAnnotation(PathParam.class) == null 
-					&& param.getAnnotation(QueryParam.class) == null 
-					&& param.getAnnotation(Context.class) == null) {
-				return param;
-			}
-		}
-		return null;
+		return ApiHelpUtils.getRequestBodyParam(getResourceMethod());
 	}
 	
 	@Override
@@ -216,7 +208,7 @@ public class MethodDetailPage extends ApiHelpPage {
 				item.add(new Label("name", "{" + pathParam.value() + "}"));
 				Api api = param.getAnnotation(Api.class);
 				if (api != null && api.description().length() != 0)
-					item.add(new Label("description", api.description()));
+					item.add(new Label("description", interpolate(api.description())));
 				else
 					item.add(new Label("description", StringUtils.capitalize(WordUtils.uncamel(pathParam.value()))));
 				
@@ -266,7 +258,7 @@ public class MethodDetailPage extends ApiHelpPage {
 				item.add(new Label("name", queryParam.value()));
 				Api api = param.getAnnotation(Api.class);
 				if (api != null && api.description().length() != 0)
-					item.add(new Label("description", api.description()).setEscapeModelStrings(false));
+					item.add(new Label("description", interpolateHtml(api.description())).setEscapeModelStrings(false));
 				else
 					item.add(new Label("description", StringUtils.capitalize(WordUtils.uncamel(queryParam.value()).toLowerCase())));
 				item.add(new Label("required", TextUtils.getDisplayValue(ParamCheckFilter.isRequired(param))));
@@ -430,11 +422,7 @@ public class MethodDetailPage extends ApiHelpPage {
 	}
 	
 	private ValueInfo.Origin getPostValueOrigin(Method method) {
-		var firstParam = getResourceMethod().getParameters()[0];
-		if (firstParam.getAnnotation(PathParam.class) != null && firstParam.getType() == Long.class)
-			return UPDATE_BODY;
-		else
-			return CREATE_BODY;
+		return ApiHelpUtils.getPostValueOrigin(method);
 	}
 	
 	private void appendParam(StringBuilder curlExample, String paramKey, String paramValue) {

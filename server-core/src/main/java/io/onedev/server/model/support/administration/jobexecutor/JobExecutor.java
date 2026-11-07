@@ -1,14 +1,16 @@
 package io.onedev.server.model.support.administration.jobexecutor;
 
+import java.io.Serial;
 import java.io.Serializable;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import org.jspecify.annotations.Nullable;
 
 import io.onedev.commons.loader.ExtensionPoint;
 import io.onedev.commons.utils.TaskLogger;
 import io.onedev.server.OneDev;
+import io.onedev.server.SubscriptionService;
 import io.onedev.server.annotation.DnsName;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.job.JobContext;
@@ -16,12 +18,12 @@ import io.onedev.server.job.JobService;
 import io.onedev.server.job.match.JobMatch;
 import io.onedev.server.job.match.JobMatchContext;
 import io.onedev.server.util.usage.Usage;
-import io.onedev.server.web.util.WicketUtils;
 
 @ExtensionPoint
 @Editable
 public abstract class JobExecutor implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private boolean enabled = true;
@@ -53,8 +55,10 @@ public abstract class JobExecutor implements Serializable {
 		this.name = name;
 	}
 
-	@Editable(order=30, name="Enable Site Publish", group = "Security Settings", description="Enable this to allow to run site publish step. OneDev will serve project "
-			+ "site files as is. To avoid XSS attack, make sure this executor can only be used by trusted jobs")
+	@Editable(order=30, name="Enable Site Publish", group = "Security Settings", description="""
+			Enable this to allow to run site publish step. ${productName} will serve project
+			site files as is. To avoid XSS attack, make sure executor with this 
+			option enabled can only be used by trusted jobs""")
 	public boolean isSitePublishEnabled() {
 		return sitePublishEnabled;
 	}
@@ -63,8 +67,9 @@ public abstract class JobExecutor implements Serializable {
 		this.sitePublishEnabled = sitePublishEnabled;
 	}
 
-	@Editable(order=40, name="Enable Html Report Publish", group = "Security Settings", description = "Enable this to allow to run html report publish step. To avoid XSS attack, " +
-			"make sure this executor can only be used by trusted jobs")
+	@Editable(order=40, name="Enable Html Report Publish", group = "Security Settings", description = """
+			Enable this to allow to run html report publish step. To avoid XSS attack, 
+			make sure executor with this option enabled can only be used by trusted jobs""")
 	public boolean isHtmlReportPublishEnabled() {
 		return htmlReportPublishEnabled;
 	}
@@ -75,9 +80,13 @@ public abstract class JobExecutor implements Serializable {
 
 	@SuppressWarnings("unused")
 	private static boolean isSubscriptionActive() {
-		return WicketUtils.isSubscriptionActive();
+		return OneDev.getInstance(SubscriptionService.class).isSubscriptionActive();
 	}
 
+	/**
+	 * Callers must not hold a database connection: execution may wait for tasks
+	 * that need database access, which could otherwise cause a circular wait.
+	 */
 	public abstract boolean execute(JobContext jobContext, TaskLogger jobLogger);
 
 	public abstract boolean isApplicable(JobMatchContext context);

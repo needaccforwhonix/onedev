@@ -23,13 +23,22 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("#Node Selector Entries", "#Node Selector Einträge");
 		m.put("#Params", "#Parameter");
 		m.put("#Paths", "#Pfade");
+		m.put("${productName}", "${productName}");
+		m.put("${productName} Issue Field", "${productName} Problemfeld");
+		m.put("${productName} Issue Link", "${productName} Problemverknüpfung");
+		m.put("${productName} Issue State", "${productName} Problemstatus");
+		m.put("${productName} configures git hooks to communicate with itself via curl", "${productName} konfiguriert Git-Hooks, um über Curl mit sich selbst zu kommunizieren");
+		m.put("${productName} needs to search and determine user DN, as well as searching user group information if group retrieval is enabled. Tick this option and specify 'manager' DN and password if these operations needs to be authenticated", 
+			"${productName} muss den Benutzer-DN suchen und bestimmen sowie Benutzergruppeninformationen durchsuchen, falls die Gruppenabfrage aktiviert ist. Aktivieren Sie diese Option und geben Sie den 'Manager'-DN und das Passwort an, falls diese Vorgänge authentifiziert werden müssen");
+		m.put("${productName} requires git command line to manage repositories. The minimum required version is 2.11.1. Also make sure that git-lfs is installed if you want to retrieve LFS files in build job", 
+			"${productName} benötigt die Git-Befehlszeile, um Repositories zu verwalten. Die minimal erforderliche Version ist 2.11.1. Stellen Sie außerdem sicher, dass git-lfs installiert ist, wenn Sie LFS-Dateien im Build-Job abrufen möchten");
 		m.put("'..' is not allowed in the directory", "'..' ist im Verzeichnis nicht erlaubt");
 		m.put("(* = any string, ? = any character)", "(* = beliebiger String, ? = beliebiges Zeichen)");
 		m.put("(on behalf of <b>{0}</b>)", "(im Namen von <b>{0}</b>)");
 		m.put("** Enterprise edition is disabled as the subscription was expired. Renew to enable **", 
 			"** Enterprise-Edition ist deaktiviert, da das Abonnement abgelaufen ist. Erneuern, um zu aktivieren **");
-		m.put("** Enterprise edition is disabled as the trial subscription was expired, order subscription to enable or contact support@onedev.io if you need to extend your trial **", 
-			"** Enterprise-Edition ist deaktiviert, da das Testabonnement abgelaufen ist. Bestellen Sie ein Abonnement, um es zu aktivieren, oder kontaktieren Sie support@onedev.io, wenn Sie Ihre Testphase verlängern möchten **");
+		m.put("** Enterprise edition is disabled as the trial subscription was expired, order subscription to enable or contact ${contactEmail} if you need to extend your trial **", 
+			"** Die Enterprise-Edition ist deaktiviert, da das Testabonnement abgelaufen ist. Bestellen Sie ein Abonnement, um es zu aktivieren, oder kontaktieren Sie ${contactEmail}, wenn Sie Ihre Testphase verlängern möchten. **");
 		m.put("** Enterprise edition is disabled as there is no remaining user months. Order more to enable **", 
 			"** Enterprise-Edition ist deaktiviert, da keine verbleibenden Benutzer-Monate vorhanden sind. Bestellen Sie mehr, um sie zu aktivieren **");
 		m.put("1 Year", "1 Jahr");
@@ -48,16 +57,20 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("6 Months", "6 Monate");
 		m.put("6-digits passcode", "6-stelliger Passcode");
 		m.put("7 days", "7 Tage");
+		m.put("<a href=\"/~administration/settings/jev\" target=\"_blank\">Set up Jev</a> to mark the most likely", 
+			"<a href=\"/~administration/settings/jev\" target=\"_blank\">Richten Sie Jev ein</a>, um die wahrscheinlichsten zu markieren");
 		m.put("<a href=\"/~administration/settings/lite-ai-model\" target=\"_blank\">Set up AI</a> to mark the most likely", 
 			"<a href=\"/~administration/settings/lite-ai-model\" target=\"_blank\">Richten Sie KI ein</a>, um die wahrscheinlichsten zu markieren");
 		m.put("<a href=\"https://code.onedev.io/onedev/server/~files/main/server-core/src/main/java/io/onedev/server/model/User.java\">user</a> to reset password for", 
 			"<a href=\"https://code.onedev.io/onedev/server/~files/main/server-core/src/main/java/io/onedev/server/model/User.java\">Benutzer</a>, um das Passwort zurückzusetzen");
 		m.put("<a href=\"https://code.onedev.io/onedev/server/~files/main/server-core/src/main/java/io/onedev/server/model/User.java\">user</a> to verify email for", 
 			"<a href=\"https://code.onedev.io/onedev/server/~files/main/server-core/src/main/java/io/onedev/server/model/User.java\">Benutzer</a>, um die E-Mail zu verifizieren");
-		m.put("<a href=\"https://guides.github.com/features/mastering-markdown/\" target=\"_blank\">GitHub flavored markdown</a> is accepted, with <a href=\"https://docs.onedev.io/appendix/markdown-syntax\" target=\"_blank\">mermaid and katex support</a>.", 
-			"<a href=\"https://guides.github.com/features/mastering-markdown/\" target=\"_blank\">GitHub-flavored Markdown</a> wird akzeptiert, mit <a href=\"https://docs.onedev.io/appendix/markdown-syntax\" target=\"_blank\">Mermaid- und KaTeX-Unterstützung</a>.");
+		m.put("<a href=\"https://guides.github.com/features/mastering-markdown/\" target=\"_blank\">GitHub flavored markdown</a> is accepted, with <a href=\"${docsite}/appendix/markdown-syntax\" target=\"_blank\">mermaid, plantuml and katex support</a>.", 
+			"<a href=\"https://guides.github.com/features/mastering-markdown/\" target=\"_blank\">GitHub-flavored Markdown</a> wird akzeptiert, mit <a href=\"${docsite}/appendix/markdown-syntax\" target=\"_blank\">Mermaid-, PlantUML- und KaTeX-Unterstützung</a>.");
 		m.put("<a href=\"https://guides.github.com/features/mastering-markdown/\" target=\"_blank\">GitHub flavored markdown</a> is accepted, with <a href=\"https://docs.onedev.io/appendix/markdown-syntax\" target=\"_blank\">mermaid, plantuml and katex support</a>.", 
 			"<a href=\"https://guides.github.com/features/mastering-markdown/\" target=\"_blank\">GitHub-flavored Markdown</a> wird akzeptiert, mit <a href=\"https://docs.onedev.io/appendix/markdown-syntax\" target=\"_blank\">Unterstützung für Mermaid, PlantUML und KaTeX</a>.");
+		m.put("<a href=\"https://typesafe.ai/\" target=\"_blank\" rel=\"noopener noreferrer\">Jev</a> marks the most likely symbol definition in symbol navigation and suggests field values when creating an issue.", 
+			"<a href=\"https://typesafe.ai/\" target=\"_blank\" rel=\"noopener noreferrer\">Jev</a> markiert die wahrscheinlichste Symboldefinition in der Symbolnavigation und schlägt Feldwerte vor, wenn ein Problem erstellt wird.");
 		m.put("<a href='/~administration/settings/lite-ai-model' target='_blank'>Set up AI</a> to query with natural language", 
 			"<a href='/~administration/settings/lite-ai-model' target='_blank'>Richten Sie KI ein</a>, um mit natürlicher Sprache abzufragen");
 		m.put("<a href='/~administration/settings/lite-ai-model' target='_blank'>Set up AI</a> to query with natural language</a>", 
@@ -77,20 +90,28 @@ public class Translation_de extends TranslationResourceBundle {
 			"<a wicket:id=\"removePassword\">Passwort entfernen</a>, um den Benutzer zur Authentifizierung über ein externes System zu zwingen");
 		m.put("<a wicket:id=\"verifyRecoveryCode\">Verify by recovery code</a> if you cannot access your TOTP authenticator", 
 			"<a wicket:id=\"verifyRecoveryCode\">Mit Wiederherstellungscode verifizieren</a>, wenn Sie keinen Zugriff auf Ihren TOTP-Authenticator haben");
-		m.put("<b class='text-danger'>NOTE: </b> This requires an enterprise subscription. <a href='https://onedev.io/pricing' target='_blank'>Try free</a> for 30 days", 
-			"<b class='text-danger'>HINWEIS: </b> Dies erfordert ein Enterprise-Abonnement. <a href='https://onedev.io/pricing' target='_blank'>30 Tage kostenlos testen</a>");
-		m.put("<b class='text-danger'>NOTE: </b> This step requires an enterprise subscription. <a href='https://onedev.io/pricing' target='_blank'>Try free</a> for 30 days", 
-			"<b class='text-danger'>HINWEIS: </b> Dieser Schritt erfordert ein Enterprise-Abonnement. <a href='https://onedev.io/pricing' target='_blank'>30 Tage kostenlos testen</a>");
-		m.put("<b class='text-danger'>NOTE: </b>Kubernetes provisioner is an enterprise feature. <a href='https://onedev.io/pricing' target='_blank'>Try free</a> for 30 days", 
-			"<b class='text-danger'>HINWEIS: </b>Kubernetes-Provisioner ist eine Enterprise-Funktion. <a href='https://onedev.io/pricing' target='_blank'>30 Tage kostenlos testen</a>");
-		m.put("<b class='text-danger'>NOTE: </b>Remote docker provisioner is an enterprise feature. <a href='https://onedev.io/pricing' target='_blank'>Try free</a> for 30 days", 
-			"<b class='text-danger'>HINWEIS: </b>Remote-Docker-Provisioner ist eine Enterprise-Funktion. <a href='https://onedev.io/pricing' target='_blank'>30 Tage kostenlos testen</a>");
-		m.put("<b class='text-danger'>NOTE: </b>Remote shell provisioner is an enterprise feature. <a href='https://onedev.io/pricing' target='_blank'>Try free</a> for 30 days", 
-			"<b class='text-danger'>HINWEIS: </b>Remote-Shell-Provisioner ist eine Enterprise-Funktion. <a href='https://onedev.io/pricing' target='_blank'>30 Tage kostenlos testen</a>");
-		m.put("<b class='text-danger'>NOTE: </b>SendGrid integration is an enterprise feature. <a href='https://onedev.io/pricing' target='_blank'>Try free</a> for 30 days", 
-			"<b class='text-danger'>HINWEIS: </b>SendGrid-Integration ist eine Enterprise-Funktion. <a href='https://onedev.io/pricing' target='_blank'>30 Tage kostenlos testen</a>");
-		m.put("<b class='text-warning'>NOTE: </b><a href='https://docs.onedev.io/tutorials/issue/time-tracking' target='_blank'>Time tracking</a> is an enterprise feature. <a href='https://onedev.io/pricing' target='_blank'>Try free</a> for 30 days", 
-			"<b class='text-warning'>HINWEIS: </b><a href='https://docs.onedev.io/tutorials/issue/time-tracking' target='_blank'>Zeiterfassung</a> ist eine Enterprise-Funktion. <a href='https://onedev.io/pricing' target='_blank'>30 Tage kostenlos testen</a>");
+		m.put("<b class='text-danger'>NOTE: </b> This requires an enterprise subscription. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days", 
+			"<b class='text-danger'>HINWEIS: </b> Dies erfordert ein Enterprise-Abonnement. <a href='${website}/pricing' target='_blank'>30 Tage kostenlos testen</a>");
+		m.put("<b class='text-danger'>NOTE: </b> This step requires an enterprise subscription. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days", 
+			"<b class='text-danger'>HINWEIS: </b> Dieser Schritt erfordert ein Enterprise-Abonnement. <a href='${website}/pricing' target='_blank'>30 Tage kostenlos testen</a>");
+		m.put("<b class='text-danger'>NOTE: </b>Kubernetes provisioner is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days", 
+			"<b class='text-danger'>HINWEIS: </b> Der Kubernetes-Provisioner ist eine Enterprise-Funktion. <a href='${website}/pricing' target='_blank'>30 Tage kostenlos testen</a>");
+		m.put("<b class='text-danger'>NOTE: </b>Remote docker provisioner is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days", 
+			"<b class='text-danger'>HINWEIS: </b> Der Remote-Docker-Provisioner ist eine Enterprise-Funktion. <a href='${website}/pricing' target='_blank'>30 Tage kostenlos testen</a>");
+		m.put("<b class='text-danger'>NOTE: </b>Remote host provisioner is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days", 
+			"<b class='text-danger'>HINWEIS: </b>Der Remote-Host-Provisioner ist eine Enterprise-Funktion. <a href='${website}/pricing' target='_blank'>30 Tage kostenlos testen</a>");
+		m.put("<b class='text-danger'>NOTE: </b>Remote sandbox executor is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days", 
+			"<b class='text-danger'>HINWEIS: </b>Der Remote-Sandbox-Executor ist eine Enterprise-Funktion. <a href='${website}/pricing' target='_blank'>30 Tage kostenlos testen</a>");
+		m.put("<b class='text-danger'>NOTE: </b>Remote sandbox provisioner is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days", 
+			"<b class='text-danger'>HINWEIS: </b>Der Remote-Sandbox-Provisioner ist eine Enterprise-Funktion. <a href='${website}/pricing' target='_blank'>30 Tage kostenlos testen</a>");
+		m.put("<b class='text-danger'>NOTE: </b>SendGrid integration is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days", 
+			"<b class='text-danger'>HINWEIS: </b> Die SendGrid-Integration ist eine Enterprise-Funktion. <a href='${website}/pricing' target='_blank'>30 Tage kostenlos testen</a>");
+		m.put("<b class='text-warning'>NOTE: </b><a href='${docsite}/tutorials/issue/time-tracking' target='_blank'>Time tracking</a> is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days", 
+			"<b class='text-warning'>HINWEIS: </b><a href='${docsite}/tutorials/issue/time-tracking' target='_blank'>Zeiterfassung</a> ist eine Enterprise-Funktion. <a href='${website}/pricing' target='_blank'>30 Tage kostenlos testen</a>");
+		m.put("<b class='text-warning'>NOTE: </b>Maintenance mode is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days", 
+			"<b class='text-warning'>HINWEIS: </b>Der Wartungsmodus ist eine Enterprise-Funktion. <a href='${website}/pricing' target='_blank'>30 Tage kostenlos testen</a>");
+		m.put("<b>NOTE: </b> Service desk only takes effect if <a wicket:id=\"mailConnector\">mail service</a> is defined and its <tt>check incoming email</tt> option is enabled. Also <a href='https://en.wikipedia.org/wiki/Email_address#Subaddressing' target='_blank'>sub addressing</a> needs to be enabled for the system email address. Check <a href=\"${docsite}/tutorials/issue/service-desk\" target='_blank'>this tutorial</a> for details", 
+			"<b>HINWEIS: </b> Der Service Desk funktioniert nur, wenn ein <a wicket:id=\"mailConnector\">Mail-Dienst</a> definiert ist und die Option <tt>Eingehende E-Mails prüfen</tt> aktiviert ist. Außerdem muss <a href='https://en.wikipedia.org/wiki/Email_address#Subaddressing' target='_blank'>Subaddressing</a> für die System-E-Mail-Adresse aktiviert sein. Weitere Informationen finden Sie in <a href=\"${docsite}/tutorials/issue/service-desk\" target='_blank'>diesem Tutorial</a>");
 		m.put("<b>NOTE: </b> Service desk only takes effect if <a wicket:id=\"mailConnector\">mail service</a> is defined and its <tt>check incoming email</tt> option is enabled. Also <a href='https://en.wikipedia.org/wiki/Email_address#Subaddressing' target='_blank'>sub addressing</a> needs to be enabled for the system email address. Check <a href=\"https://medium.com/p/e56d62c27e57\" target='_blank'>this tutorial</a> for details", 
 			"<b>HINWEIS: </b> Der Service Desk funktioniert nur, wenn <a wicket:id=\"mailConnector\">Mail-Dienst</a> definiert ist und die Option <tt>Eingehende E-Mails prüfen</tt> aktiviert ist. Außerdem muss <a href='https://en.wikipedia.org/wiki/Email_address#Subaddressing' target='_blank'>Subaddressing</a> für die System-E-Mail-Adresse aktiviert sein. Weitere Informationen finden Sie in <a href=\"https://medium.com/p/e56d62c27e57\" target='_blank'>diesem Tutorial</a>.");
 		m.put("<b>NOTE: </b> Transition rules can also be configured and overridden at project level", 
@@ -100,10 +121,10 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("<b>NOTE:</b> Batch editing issues will not cause state transitions of other issues even if transition rule matches", 
 			"<b>HINWEIS:</b> Das Batch-Bearbeiten von Problemen führt nicht zu Statusübergängen anderer Probleme, selbst wenn die Übergangsregel übereinstimmt");
 		m.put("<b>Project Owner</b> is a built-in role with full permission over projects", "<b>Projektbesitzer</b> ist eine integrierte Rolle mit vollständigen Berechtigungen für Projekte");
-		m.put("<b>Tips: </b> Type <tt>@</tt> to <a href='https://docs.onedev.io/appendix/job-variables' target='_blank' tabindex='-1'>insert variable</a>. Use <tt>@@</tt> for literal <tt>@</tt>", 
-			"<b>Tipps: </b> Geben Sie <tt>@</tt> ein, um <a href='https://docs.onedev.io/appendix/job-variables' target='_blank' tabindex='-1'>Variable einzufügen</a>. Verwenden Sie <tt>@@</tt> für ein literales <tt>@</tt>");
-		m.put("<b>Tips: </b> Type <tt>@</tt> to <a href='https://docs.onedev.io/appendix/workspace-variables' target='_blank' tabindex='-1'>insert variable</a>. Use <tt>@@</tt> for literal <tt>@</tt>", 
-			"<b>Tipps: </b> Geben Sie <tt>@</tt> ein, um <a href='https://docs.onedev.io/appendix/workspace-variables' target='_blank' tabindex='-1'>Variable einzufügen</a>. Verwenden Sie <tt>@@</tt> für wörtliches <tt>@</tt>");
+		m.put("<b>Tips: </b> Type <tt>@</tt> to <a href='${docsite}/appendix/job-variables' target='_blank' tabindex='-1'>insert variable</a>. Use <tt>@@</tt> for literal <tt>@</tt>", 
+			"<b>Tipps: </b> Geben Sie <tt>@</tt> ein, um eine <a href='${docsite}/appendix/job-variables' target='_blank' tabindex='-1'>Variable einzufügen</a>. Verwenden Sie <tt>@@</tt> für ein wörtliches <tt>@</tt>");
+		m.put("<b>Tips: </b> Type <tt>@</tt> to <a href='${docsite}/appendix/workspace-variables' target='_blank' tabindex='-1'>insert variable</a>. Use <tt>@@</tt> for literal <tt>@</tt>", 
+			"<b>Tipps: </b> Geben Sie <tt>@</tt> ein, um eine <a href='${docsite}/appendix/workspace-variables' target='_blank' tabindex='-1'>Variable einzufügen</a>. Verwenden Sie <tt>@@</tt> für ein wörtliches <tt>@</tt>");
 		m.put("<div><span>Search Files</span> <span class='font-size-sm text-muted'>in default branch</span></div>", 
 			"<div><span>Dateien suchen</span> <span class='font-size-sm text-muted'>im Standard-Branch</span></div>");
 		m.put("<div><span>Search Symbols</span> <span class='font-size-sm text-muted'>in default branch</span></div>", 
@@ -129,6 +150,7 @@ public class Translation_de extends TranslationResourceBundle {
 			"Ein <a href='https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html'>Java-Muster</a> wird hier erwartet");
 		m.put("A <a href='https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html'>Java regular expression</a> to validate commit message footer", 
 			"Ein <a href='https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html'>Java-Regulärer Ausdruck</a>, um die Commit-Nachrichten-Fußzeile zu validieren");
+		m.put("A JSON version of this API help is available for AI agents at", "Eine JSON-Version dieser API-Hilfe ist für KI-Agenten verfügbar unter");
 		m.put("A child project with name \"{0}\" already exists under \"{1}\"", "Ein untergeordnetes Projekt mit dem Namen \"{0}\" existiert bereits unter \"{1}\"");
 		m.put("A file exists where you’re trying to create a subdirectory. Choose a new path and try again..", 
 			"Eine Datei existiert dort, wo Sie versuchen, ein Unterverzeichnis zu erstellen. Wählen Sie einen neuen Pfad und versuchen Sie es erneut.");
@@ -172,6 +194,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Absolute", "Absolut");
 		m.put("Absolute or relative url of the image", "Absolute oder relative URL des Bildes");
 		m.put("Absolute or relative url of the link", "Absolute oder relative URL des Links");
+		m.put("Access", "Zugriff");
 		m.put("Access Anonymously", "Anonym zugreifen");
 		m.put("Access Build Log", "Build-Log zugreifen");
 		m.put("Access Build Pipeline", "Build-Pipeline zugreifen");
@@ -184,12 +207,16 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Access Token Secret", "Zugriffstoken-Geheimnis");
 		m.put("Access Token for Target Project", "Zugriffstoken für Zielprojekt");
 		m.put("Access Tokens", "Zugriffstoken");
+		m.put("Access expires after 30 days. You can revoke access at any time under Authorized Applications.", 
+			"Zugriff läuft nach 30 Tagen ab. Sie können den Zugriff jederzeit unter Autorisierte Anwendungen widerrufen.");
+		m.put("Access token expires", "Zugriffstoken läuft ab");
 		m.put("Access token is intended for api access and repository pull/push. It cannot be used to sign in to web ui", 
 			"Das Zugriffstoken ist für API-Zugriff und Repository-Pull/Push vorgesehen. Es kann nicht verwendet werden, um sich bei der Web-Benutzeroberfläche anzumelden");
 		m.put("Access token is intended for api access or repository pull/push. It cannot be used to sign in to web ui", 
 			"Das Zugriffstoken ist für API-Zugriff oder Repository-Pull/Push vorgesehen. Es kann nicht verwendet werden, um sich bei der Web-Benutzeroberfläche anzumelden");
 		m.put("Access token regenerated successfully", "Zugriffstoken erfolgreich regeneriert");
 		m.put("Access token regenerated, make sure to update the token at agent side", "Zugriffstoken regeneriert, stellen Sie sicher, dass Sie das Token auf der Agentenseite aktualisieren");
+		m.put("Accessible Sites", "Zugängliche Seiten");
 		m.put("Account Email", "Konten-E-Mail");
 		m.put("Account Name", "Kontenname");
 		m.put("Account is disabled", "Konto ist deaktiviert");
@@ -210,7 +237,6 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Add Issues to Iteration", "Probleme zur Iteration hinzufügen");
 		m.put("Add New", "Neu hinzufügen");
 		m.put("Add New Board", "Neues Board hinzufügen");
-		m.put("Add New Email Address", "Neue E-Mail-Adresse hinzufügen");
 		m.put("Add New Timesheet", "Neue Zeiterfassung hinzufügen");
 		m.put("Add Provisioner", "Provisioner hinzufügen");
 		m.put("Add Rule", "Regel hinzufügen");
@@ -281,7 +307,6 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Added to group", "Zur Gruppe hinzugefügt");
 		m.put("Additional Job Privileges", "Zusätzliche Job-Berechtigungen");
 		m.put("Additional Privileges", "Zusätzliche Berechtigungen");
-		m.put("Additions", "Ergänzungen");
 		m.put("Administration", "Verwaltung");
 		m.put("Administrative permission over a project", "Administrative Berechtigung für ein Projekt");
 		m.put("Advanced Search", "Erweiterte Suche");
@@ -316,6 +341,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("All RESTful Resources", "Alle RESTful-Ressourcen");
 		m.put("All Types", "Alle Typen");
 		m.put("All accessible", "Alle zugänglich");
+		m.put("All authorizations for this application have been revoked", "Alle Autorisierungen für diese Anwendung wurden widerrufen");
 		m.put("All builds", "Alle Builds");
 		m.put("All changes", "Alle Änderungen");
 		m.put("All except", "Alle außer");
@@ -331,10 +357,14 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("All projects", "Alle Projekte");
 		m.put("All projects with code read permission", "Alle Projekte mit Leseberechtigung für Code");
 		m.put("All pull requests", "Alle Pull-Requests");
+		m.put("All root projects can inherit shared settings from Administration / Project Defaults. Requires an active subscription.", 
+			"Alle Stammprojekte können gemeinsame Einstellungen von Administration / Projekteinstellungen übernehmen. Erfordert ein aktives Abonnement.");
 		m.put("All users", "Alle Benutzer");
 		m.put("Allow Empty", "Leere erlauben");
 		m.put("Allow Empty Value", "Leeren Wert erlauben");
 		m.put("Allow Multiple", "Mehrfach erlauben");
+		m.put("Allow to work on a project while in maintenance mode. Permission for each action is still required", 
+			"Erlaubt das Arbeiten an einem Projekt im Wartungsmodus. Berechtigungen für jede Aktion sind weiterhin erforderlich");
 		m.put("Allowed Licenses", "Zulässige Lizenzen");
 		m.put("Allowed Self Sign-Up Email Domain", "Zulässige E-Mail-Domain für Selbstregistrierung");
 		m.put("Also accepts cross-project linking in form of <code>projectpath#100</code> or <code>PROJECTKEY-100</code>", 
@@ -344,7 +374,9 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Also add below to $HOME/.m2/settings.xml if you want to compile project from command line", 
 			"Fügen Sie auch Folgendes zu $HOME/.m2/settings.xml hinzu, wenn Sie das Projekt von der Befehlszeile aus kompilieren möchten");
 		m.put("Always", "Immer");
+		m.put("Always Pull Container Image", "Container-Image immer ziehen");
 		m.put("Always Pull Image", "Image immer ziehen");
+		m.put("Always Pull Template Image", "Vorlagen-Image immer ziehen");
 		m.put("Amend", "Ändern");
 		m.put("An issue already linked for {0}. Unlink it first", "Ein Issue ist bereits für {0} verlinkt. Entfernen Sie es zuerst");
 		m.put("An unexpected exception occurred", "Es ist eine unerwartete Ausnahme aufgetreten");
@@ -354,17 +386,18 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Another workspace spec with the same name already exists", "Ein weiterer Arbeitsbereichs-Spec mit demselben Namen existiert bereits");
 		m.put("Any agent", "Beliebiger Agent");
 		m.put("Any branch", "Beliebiger Branch");
+		m.put("Any branch/tag", "Beliebiger Branch/Tag");
 		m.put("Any commit message", "Beliebige Commit-Nachricht");
 		m.put("Any domain", "Beliebige Domäne");
 		m.put("Any file", "Beliebige Datei");
 		m.put("Any issue", "Beliebiges Problem");
 		m.put("Any job", "Beliebiger Job");
 		m.put("Any project", "Beliebiges Projekt");
-		m.put("Any ref", "Beliebiger Ref");
 		m.put("Any sender", "Beliebiger Absender");
 		m.put("Any state", "Beliebiger Zustand");
 		m.put("Any tag", "Beliebiges Tag");
 		m.put("Any user", "Beliebiger Benutzer");
+		m.put("Anywhere", "Überall");
 		m.put("Api Key", "API-Schlüssel");
 		m.put("Api Token", "API-Token");
 		m.put("Api Url", "API-URL");
@@ -385,7 +418,13 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Applicable Services", "Anwendbare Dienste");
 		m.put("Applicable Users", "Anwendbare Benutzer");
 		m.put("Applicable Workspace Projects", "Anwendbare Arbeitsbereichsprojekte");
+		m.put("Application", "Anwendung");
 		m.put("Application (client) ID", "Anwendungs-(Client)-ID");
+		m.put("Application Access", "Anwendungszugriff");
+		m.put("Application deleted", "Anwendung gelöscht");
+		m.put("Application registered", "Anwendung registriert");
+		m.put("Applications with access to your account and selected projects. Open an application to review its tokens and permissions, or revoke its access.", 
+			"Anwendungen mit Zugriff auf Ihr Konto und ausgewählte Projekte. Öffnen Sie eine Anwendung, um deren Tokens und Berechtigungen zu überprüfen oder den Zugriff zu widerrufen.");
 		m.put("Apply suggested change from code comment", "Vorgeschlagene Änderung aus Code-Kommentar übernehmen");
 		m.put("Apply suggested changes from code comments", "Vorgeschlagene Änderungen aus Code-Kommentaren übernehmen");
 		m.put("Approve", "Genehmigen");
@@ -450,16 +489,26 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Author date", "Autoren-Datum");
 		m.put("Authored By", "Verfasst von");
 		m.put("Authorization", "Autorisierung");
+		m.put("Authorization expires", "Autorisierung läuft ab");
+		m.put("Authorization revoked", "Autorisierung widerrufen");
 		m.put("Authorizations", "Autorisierungen");
+		m.put("Authorize", "Autorisieren");
+		m.put("Authorize Application", "Anwendung autorisieren");
+		m.put("Authorize these roles on selected projects and their children", "Diese Rollen für ausgewählte Projekte und deren Unterprojekte autorisieren");
 		m.put("Authorize user...", "Benutzer autorisieren...");
+		m.put("Authorized", "Autorisiert");
+		m.put("Authorized Applications", "Autorisierte Anwendungen");
 		m.put("Authorized Projects", "Autorisierte Projekte");
 		m.put("Authorized Roles", "Autorisierte Rollen");
+		m.put("Authorized Tokens", "Autorisierte Tokens");
 		m.put("Auto", "Auto");
 		m.put("Auto Merge", "Automatisches Zusammenführen");
 		m.put("Auto Spec", "Automatische Spezifikation");
 		m.put("Auto update check is performed by requesting an image in your browser from onedev.io indicating new version availability, with color indicating severity of the update. It works the same way as how gravatar requests avatar images. If disabled, you are highly recommended to check update manually from time to time (can be done via help menu on left bottom of the screen) to see if there are any security/critical fixes", 
 			"Die automatische Update-Prüfung wird durchgeführt, indem ein Bild in Ihrem Browser von onedev.io angefordert wird, das die Verfügbarkeit neuer Versionen anzeigt, wobei die Farbe die Schwere des Updates angibt. Es funktioniert genauso wie die Anforderung von Avatar-Bildern durch Gravatar. Wenn deaktiviert, wird dringend empfohlen, das Update von Zeit zu Zeit manuell zu überprüfen (kann über das Hilfemenü unten links auf dem Bildschirm erfolgen), um zu sehen, ob Sicherheits-/kritische Fixes verfügbar sind");
 		m.put("Auto-discovered executor", "Automatisch entdeckter Executor");
+		m.put("Auto-update and auto-scroll steps and logs", "Schritte und Protokolle automatisch aktualisieren und scrollen");
+		m.put("Automatic updates and scrolling are paused. Click to resume.", "Automatische Updates und Scrollen sind pausiert. Klicken Sie, um fortzufahren.");
 		m.put("Available Agent Tokens", "Verfügbare Agent-Tokens");
 		m.put("Available Choices", "Verfügbare Auswahlmöglichkeiten");
 		m.put("Avatar", "Avatar");
@@ -482,6 +531,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Base URL", "Basis-URL");
 		m.put("Base URL of <b class='text-info'>OpenAI compatible</b> API endpoint.\n<b class='text-danger'>NOTE:</b> Make sure base URL specified here supports HTTP/2 connection. HTTP/1.1 is not\nsupported and will get a connection timeout error", 
 			"Basis-URL des <b class='text-info'>OpenAI-kompatiblen</b> API-Endpunkts.\n<b class='text-danger'>HINWEIS:</b> Stellen Sie sicher, dass die hier angegebene Basis-URL eine HTTP/2-Verbindung unterstützt. HTTP/1.1 wird nicht\nunterstützt und führt zu einem Verbindungszeitfehler.");
+		m.put("Base URL of the Jev API, including any custom port. Defaults to https://api.typesafe.ai/v1. The /systemone endpoint is appended automatically", 
+			"Basis-URL der Jev-API, einschließlich eines benutzerdefinierten Ports. Standardmäßig https://api.typesafe.ai/v1. Der Endpunkt /systemone wird automatisch angehängt");
 		m.put("Base64 encoded PEM format, starting with -----BEGIN CERTIFICATE----- and ending with -----END CERTIFICATE-----", 
 			"Base64-codiertes PEM-Format, beginnend mit -----BEGIN CERTIFICATE----- und endend mit -----END CERTIFICATE-----");
 		m.put("Basic Info", "Grundlegende Informationen");
@@ -538,18 +589,19 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Branch Choice Bean", "Branch-Auswahl-Bean");
 		m.put("Branch Name", "Branch-Name");
 		m.put("Branch Name Provider", "Branch-Namen-Anbieter");
+		m.put("Branch Pattern", "Branch-Muster");
 		m.put("Branch Prefix", "Branch-Präfix");
 		m.put("Branch Protection", "Branch-Schutz");
 		m.put("Branch Revision", "Branch-Revision");
 		m.put("Branch is created", "Branch wurde erstellt");
 		m.put("Branch is updated. Please refresh the page and resubmit the job", "Branch wurde aktualisiert. Bitte aktualisieren Sie die Seite und senden Sie den Job erneut");
 		m.put("Branch update", "Branch-Aktualisierung");
+		m.put("Branch/Tag", "Branch/Tag");
 		m.put("Branches", "Branches");
 		m.put("Brand Setting Edit Bean", "Markeneinstellungs-Bearbeitungs-Bean");
 		m.put("Branding", "Branding");
 		m.put("Branding settings updated", "Branding-Einstellungen aktualisiert");
 		m.put("Browse Code", "Code durchsuchen");
-		m.put("Browse code", "Code durchsuchen");
 		m.put("Bug Report", "Fehlerbericht");
 		m.put("Build", "Build");
 		m.put("Build #{0} already finished", "Build #{0} bereits abgeschlossen");
@@ -560,7 +612,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Build Description", "Build-Beschreibung");
 		m.put("Build Failure Issue Prompt", "Build-Fehler Problemaufforderung");
 		m.put("Build Filter", "Build-Filter");
-		m.put("Build Image", "Build-Image");
+		m.put("Build Image (Buildx)", "Image erstellen (Buildx)");
 		m.put("Build Image (Kaniko)", "Build-Image (Kaniko)");
 		m.put("Build Management", "Build-Management");
 		m.put("Build Notification", "Build-Benachrichtigung");
@@ -580,8 +632,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Build Volume Storage Size", "Build-Volume-Speichergröße");
 		m.put("Build administrative permission for all jobs inside a project, including batch operations over multiple builds", 
 			"Build-Administrationsberechtigung für alle Jobs innerhalb eines Projekts, einschließlich Batch-Operationen über mehrere Builds");
-		m.put("Build docker image with docker buildx. This step can only be executed by server docker executor or remote docker executor, and it uses the buildx builder specified in these executors to do the job. To build image with Kubernetes executor, please use kaniko step instead", 
-			"Build-Docker-Image mit Docker Buildx. Dieser Schritt kann nur vom Server-Docker-Executor oder Remote-Docker-Executor ausgeführt werden und verwendet den in diesen Executoren angegebenen Buildx-Builder, um die Aufgabe auszuführen. Um ein Image mit Kubernetes-Executor zu erstellen, verwenden Sie bitte stattdessen den Kaniko-Schritt");
+		m.put("Build docker image with buildx. This step can be executed by docker or sandbox executors. Docker executors use their configured buildx builder; sandbox executors use the default builder inside the sandbox. To build image with Kubernetes executor, please use kaniko step instead", 
+			"Docker-Image mit Buildx erstellen. Dieser Schritt kann von Docker- oder Sandbox-Executors ausgeführt werden. Docker-Executors verwenden ihren konfigurierten Buildx-Builder; Sandbox-Executors verwenden den Standard-Builder innerhalb der Sandbox. Um ein Image mit dem Kubernetes-Executor zu erstellen, verwenden Sie stattdessen den Kaniko-Schritt.");
 		m.put("Build docker image with kaniko. This step needs to be executed by server docker executor, remote docker executor, or Kubernetes executor", 
 			"Build-Docker-Image mit Kaniko. Dieser Schritt muss vom Server-Docker-Executor, Remote-Docker-Executor oder Kubernetes-Executor ausgeführt werden");
 		m.put("Build duration statistics", "Build-Dauerstatistiken");
@@ -597,8 +649,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Build spec not defined", "Build-Spezifikation nicht definiert");
 		m.put("Build spec not defined (import project: {0}, import revision: {1})", "Build-Spezifikation nicht definiert (Importprojekt: {0}, Importrevision: {1})");
 		m.put("Build spec not found in commit of this build", "Build-Spezifikation im Commit dieses Builds nicht gefunden");
-		m.put("Build statistics is an enterprise feature. <a href='https://onedev.io/pricing' target='_blank'>Try free</a> for 30 days", 
-			"Build-Statistiken sind eine Enterprise-Funktion. <a href='https://onedev.io/pricing' target='_blank'>30 Tage kostenlos testen</a>");
+		m.put("Build statistics is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days", 
+			"Build-Statistiken sind eine Enterprise-Funktion. <a href='${website}/pricing' target='_blank'>30 Tage kostenlos testen</a>");
 		m.put("Build version", "Build-Version");
 		m.put("Build {0} deleted", "Build {0} gelöscht");
 		m.put("Builds", "Builds");
@@ -612,8 +664,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("By Group", "Nach Gruppe");
 		m.put("By User", "Nach Benutzer");
 		m.put("By day", "Nach Tag");
-		m.put("By default code is cloned via an auto-generated credential, which only has read permission over current project. In case the job needs to <a href='https://docs.onedev.io/tutorials/cicd/commit-and-push' target='_blank'>push code to server</a>, you should supply custom credential with appropriate permissions here", 
-			"Standardmäßig wird der Code über eine automatisch generierte Berechtigung geklont, die nur Leserechte für das aktuelle Projekt hat. Falls der Job <a href='https://docs.onedev.io/tutorials/cicd/commit-and-push' target='_blank'>Code auf den Server pushen</a> muss, sollten Sie hier benutzerdefinierte Berechtigungen mit entsprechenden Rechten bereitstellen");
+		m.put("By default code is cloned via an auto-generated credential, which only has read permission over current project. In case the job needs to <a href='${docsite}/tutorials/cicd/commit-and-push' target='_blank'>push code to server</a>, you should supply custom credential with appropriate permissions here", 
+			"Standardmäßig wird der Code über ein automatisch generiertes Anmeldeinformation geklont, das nur Leseberechtigung für das aktuelle Projekt hat. Falls der Job <a href='${docsite}/tutorials/cicd/commit-and-push' target='_blank'>Code auf den Server pushen</a> muss, sollten Sie hier benutzerdefinierte Anmeldeinformationen mit den entsprechenden Berechtigungen angeben");
 		m.put("By default issues of parent and child projects will also be listed. Use query <code>&quot;Project&quot; is current</code> to show issues only belong to this project", 
 			"Standardmäßig werden auch Probleme von übergeordneten und untergeordneten Projekten aufgelistet. Verwenden Sie die Abfrage <code>&quot;Project&quot; is current</code>, um nur Probleme dieses Projekts anzuzeigen");
 		m.put("By default, AI user only responds when assigned tasks or mentioned in issue/PR context.\nEnable this to have it respond as long as the comment is relevant even if not mentioned.\nThis provides a better interaction experience, especially in case of service desks,\nbut may consume more tokens", 
@@ -633,7 +685,10 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("CPU Intensive Task Concurrency", "CPU-intensive Aufgaben-Konkurrenz");
 		m.put("CPU capability in millis. This is normally (CPU cores)*1000", "CPU-Kapazität in Millis. Dies ist normalerweise (CPU-Kerne)*1000");
 		m.put("CPU cores", "CPU-Kerne");
+		m.put("CPU count for each sandbox. Leave empty to use the Docker Sandboxes default (All CPUs).", 
+			"CPU-Anzahl für jede Sandbox. Leer lassen, um die Standardeinstellung der Docker-Sandboxes zu verwenden (alle CPUs).");
 		m.put("CPU request for the workspace container.", "CPU-Anforderung für den Workspace-Container.");
+		m.put("CPUs", "CPUs");
 		m.put("Cache \"{0}\" deleted", "Cache \"{0}\" gelöscht");
 		m.put("Cache Config", "Cache-Konfiguration");
 		m.put("Cache Entries", "Cache-Einträge");
@@ -688,6 +743,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Change To", "Ändern zu");
 		m.put("Change already merged", "Änderung bereits zusammengeführt");
 		m.put("Change not updated yet", "Änderung noch nicht aktualisiert");
+		m.put("Change property <code>serverUrl</code> in file <code>conf/agent.properties</code> if necessary. The default value is taken from ${productName} server url specified in <i>Administration / System Setting</i>", 
+			"Ändern Sie die Eigenschaft <code>serverUrl</code> in der Datei <code>conf/agent.properties</code>, falls erforderlich. Der Standardwert wird aus der in <i>Administration / Systemeinstellungen</i> angegebenen ${productName}-Server-URL übernommen");
 		m.put("Change property <code>serverUrl</code> in file <code>conf/agent.properties</code> if necessary. The default value is taken from OneDev server url specified in <i>Administration / System Setting</i>", 
 			"Eigenschaft <code>serverUrl</code> in Datei <code>conf/agent.properties</code> bei Bedarf ändern. Der Standardwert wird aus der OneDev-Server-URL übernommen, die unter <i>Administration / System Setting</i> angegeben ist");
 		m.put("Change to another field", "Zu einem anderen Feld wechseln");
@@ -711,6 +768,10 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Chat with AI", "Chat mit AI");
 		m.put("Chats older than the specified number of days will be automatically deleted during daily maintenance.", 
 			"Chats, die älter als die angegebene Anzahl von Tagen sind, werden während der täglichen Wartung automatisch gelöscht.");
+		m.put("Check <a href=\"${docsite}/administration-guide/agent-management\" target=\"_blank\">agent management</a> for details, including instructions on how to run agent as service", 
+			"Weitere Informationen finden Sie unter <a href=\"${docsite}/administration-guide/agent-management\" target=\"_blank\">Agentenverwaltung</a>, einschließlich Anweisungen zum Ausführen des Agenten als Dienst");
+		m.put("Check <a href=\"${docsite}/administration-guide/agent-management\" target=\"_blank\">agent management</a> for details, including list of supported environment variables", 
+			"Weitere Informationen finden Sie unter <a href=\"${docsite}/administration-guide/agent-management\" target=\"_blank\">Agentenverwaltung</a>, einschließlich einer Liste der unterstützten Umgebungsvariablen");
 		m.put("Check <a href=\"https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification#gpg-commit-signature-verification\" target=\"_blank\">GitHub's guide</a> on how to generate and use GPG keys to sign your commits", 
 			"Sehen Sie sich <a href=\"https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification#gpg-commit-signature-verification\" target=\"_blank\">GitHubs Anleitung</a> an, wie Sie GPG-Schlüssel generieren und verwenden, um Ihre Commits zu signieren");
 		m.put("Check <a href=\"https://docs.onedev.io/administration-guide/agent-management\" target=\"_blank\">agent management</a> for details, including instructions on how to run agent as service", 
@@ -725,6 +786,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Check Update", "Update überprüfen");
 		m.put("Check Vulnerabilities", "Schwachstellen überprüfen");
 		m.put("Check Workflow Integrity", "Workflow-Integrität überprüfen");
+		m.put("Check if the application can securely store a secret. Leave unchecked for desktop, mobile, and browser applications. S256 PKCE is required for all applications.", 
+			"Überprüfen Sie, ob die Anwendung ein Geheimnis sicher speichern kann. Lassen Sie dies für Desktop-, Mobil- und Browseranwendungen deaktiviert. S256 PKCE ist für alle Anwendungen erforderlich.");
 		m.put("Check out to local directory", "In lokales Verzeichnis auschecken");
 		m.put("Check this to compare right side with common ancestor of left and right", "Markieren Sie dies, um die rechte Seite mit dem gemeinsamen Vorfahren von links und rechts zu vergleichen");
 		m.put("Check this to enforce two-factor authentication for all users in the system", "Markieren Sie dies, um Zwei-Faktor-Authentifizierung für alle Benutzer im System zu erzwingen");
@@ -762,6 +825,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Choose JIRA project to import issues from", "Wählen Sie das JIRA-Projekt aus, aus dem Probleme importiert werden sollen");
 		m.put("Choose Revision", "Revision wählen");
 		m.put("Choose YouTrack project to import issues from", "Wählen Sie das YouTrack-Projekt aus, aus dem Probleme importiert werden sollen");
+		m.put("Choose a fast, cost-effective model for lightweight tasks such as interpreting natural language queries, generating branch names from issue titles, and suggesting titles and descriptions for pull requests that contain multiple commits.", 
+			"Wählen Sie ein schnelles, kosteneffizientes Modell für leichte Aufgaben wie das Interpretieren von Abfragen in natürlicher Sprache, das Generieren von Branch-Namen aus Problem-Titeln und das Vorschlagen von Titeln und Beschreibungen für Pull-Requests mit mehreren Commits.");
 		m.put("Choose a project...", "Ein Projekt wählen...");
 		m.put("Choose a user...", "Einen Benutzer wählen...");
 		m.put("Choose branch...", "Branch wählen...");
@@ -789,10 +854,12 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Click to select a commit, or shift-click to select multiple commit", "Klicken, um einen Commit auszuwählen, oder Shift-Klick, um mehrere Commits auszuwählen");
 		m.put("Click to show comment of marked text", "Klicken, um den Kommentar des markierten Textes anzuzeigen");
 		m.put("Click to show issue details", "Klicken, um Problemdetails anzuzeigen");
-		m.put("Client ID of this OneDev instance registered in Google cloud", "Client-ID dieser OneDev-Instanz, die in der Google-Cloud registriert ist");
+		m.put("Client ID", "Client-ID");
+		m.put("Client ID of this ${productName} instance registered in Google cloud", "Client-ID dieser ${productName}-Instanz, die in Google Cloud registriert ist");
 		m.put("Client Id", "Client-ID");
 		m.put("Client Secret", "Client-Secret");
-		m.put("Client secret of this OneDev instance registered in Google cloud", "Client-Secret dieser OneDev-Instanz, die in der Google-Cloud registriert ist");
+		m.put("Client Type", "Client-Typ");
+		m.put("Client secret of this ${productName} instance registered in Google cloud", "Client-Secret dieser ${productName}-Instanz, die in Google Cloud registriert ist");
 		m.put("Clippy Report", "Clippy-Bericht");
 		m.put("Clone", "Klonen");
 		m.put("Clone Credential", "Klon-Anmeldeinformationen");
@@ -813,9 +880,6 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Clustered Servers", "Cluster-Server");
 		m.put("Cobertura Coverage Report", "Cobertura-Abdeckungsbericht");
 		m.put("Code", "Code");
-		m.put("Code Analysis", "Code-Analyse");
-		m.put("Code Analysis Setting", "Code-Analyse-Einstellung");
-		m.put("Code Analysis Settings", "Code-Analyse-Einstellungen");
 		m.put("Code Changes", "Code-Änderungen");
 		m.put("Code Comment", "Code-Kommentar");
 		m.put("Code Comment Management", "Code-Kommentar-Verwaltung");
@@ -824,11 +888,13 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Code Contributions", "Code-Beiträge");
 		m.put("Code Coverage", "Code-Abdeckung");
 		m.put("Code Explanation Prompt", "Code-Erklärungsaufforderung");
+		m.put("Code Indexing", "Code-Indexierung");
+		m.put("Code Indexing Setting", "Einstellung der Code-Indexierung");
+		m.put("Code Indexing Settings", "Einstellungen der Code-Indexierung");
 		m.put("Code Management", "Code-Verwaltung");
 		m.put("Code Privilege", "Code-Berechtigung");
 		m.put("Code Problem Statistics", "Code-Problemstatistiken");
 		m.put("Code Search", "Code-Suche");
-		m.put("Code analysis settings updated", "Code-Analyse-Einstellungen aktualisiert");
 		m.put("Code changes since...", "Code-Änderungen seit...");
 		m.put("Code clone or download", "Code klonen oder herunterladen");
 		m.put("Code comment", "Code-Kommentar");
@@ -836,6 +902,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Code comment administrative permission inside a project, including batch operations over multiple code comments", 
 			"Administrative Berechtigung für Code-Kommentare innerhalb eines Projekts, einschließlich Batch-Operationen über mehrere Code-Kommentare");
 		m.put("Code commit", "Code-Commit");
+		m.put("Code indexing settings updated", "Einstellungen der Code-Indexierung aktualisiert");
 		m.put("Code is committed", "Code wurde committet");
 		m.put("Code push", "Code-Push");
 		m.put("Code read permission is required to import build spec (import project: {0}, import revision: {1})", 
@@ -888,8 +955,10 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Commit to conclude the merge, or", "Commit, um die Zusammenführung abzuschließen, oder");
 		m.put("Commits", "Commits");
 		m.put("Commits are taken from default branch of non-forked repositories", "Commits stammen aus dem Standard-Branch von nicht geforkten Repositories");
-		m.put("Commits generated by OneDev previously will be shown as unverified if this key is deleted. Type <code>yes</code> below if you want to continue.", 
-			"Commits, die zuvor von OneDev generiert wurden, werden als nicht verifiziert angezeigt, wenn dieser Schlüssel gelöscht wird. Geben Sie <code>yes</code> unten ein, wenn Sie fortfahren möchten.");
+		m.put("Commits generated by ${productName} previously will be shown as unverified if this key is deleted. Type <code>yes</code> below if you want to continue.", 
+			"Von ${productName} zuvor generierte Commits werden als nicht verifiziert angezeigt, wenn dieser Schlüssel gelöscht wird. Geben Sie unten <code>yes</code> ein, wenn Sie fortfahren möchten.");
+		m.put("Commits generated by ${productName} previously will be shown as unverified if this key is regenerated. Type <code>yes</code> below if you want to continue.", 
+			"Von ${productName} zuvor generierte Commits werden als nicht verifiziert angezeigt, wenn dieser Schlüssel neu generiert wird. Geben Sie <code>yes</code> unten ein, wenn Sie fortfahren möchten.");
 		m.put("Commits were merged into target branch", "Commits wurden in den Ziel-Branch zusammengeführt");
 		m.put("Commits were merged into target branch outside of this pull request", "Commits wurden außerhalb dieses Pull-Requests in den Ziel-Branch zusammengeführt");
 		m.put("Commits were rebased onto target branch", "Commits wurden auf den Ziel-Branch umgestellt");
@@ -899,11 +968,13 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Committed By", "Commit von");
 		m.put("Committer", "Committer");
 		m.put("Compare", "Vergleichen");
+		m.put("Compare and set", "Vergleichen und setzen");
 		m.put("Compare with base revision", "Vergleichen mit Basisrevision");
 		m.put("Compare with this parent", "Vergleichen mit diesem Elternteil");
 		m.put("Concurrency", "Parallelität");
 		m.put("Condition", "Bedingung");
 		m.put("Confidential", "Vertraulich");
+		m.put("Confidential Client", "Vertraulicher Client");
 		m.put("Config File", "Konfigurationsdatei");
 		m.put("Config Files", "Konfigurationsdateien");
 		m.put("Configuration Discovery Url", "Konfigurations-Erkennungs-URL");
@@ -929,6 +1000,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Contact Name", "Kontaktname");
 		m.put("Container Image", "Container-Image");
 		m.put("Container Image(s)", "Container-Image(s)");
+		m.put("Container Settings", "Container-Einstellungen");
 		m.put("Container default", "Container-Standard");
 		m.put("Content", "Inhalt");
 		m.put("Content Type", "Inhaltstyp");
@@ -949,11 +1021,13 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Copy Markdown", "Markdown kopieren");
 		m.put("Copy Selected Issues To...", "Ausgewählte Issues kopieren nach...");
 		m.put("Copy as Markdown", "Als Markdown kopieren");
+		m.put("Copy client ID", "Client-ID kopieren");
+		m.put("Copy client secret", "Client-Geheimnis kopieren");
 		m.put("Copy dashboard", "Dashboard kopieren");
-		m.put("Copy issue number and title", "Issue-Nummer und Titel kopieren");
 		m.put("Copy permanent link", "Permanenter Link kopieren");
 		m.put("Copy public key", "Öffentlichen Schlüssel kopieren");
 		m.put("Copy selected text to clipboard", "Ausgewählten Text in die Zwischenablage kopieren");
+		m.put("Copy the client secret now. It will not be shown again.", "Kopieren Sie jetzt das Client-Geheimnis. Es wird nicht erneut angezeigt.");
 		m.put("Copy this executor", "Diesen Executor kopieren");
 		m.put("Copy this provisioner", "Diesen Provisioner kopieren");
 		m.put("Copy this rule", "Diese Regel kopieren");
@@ -973,6 +1047,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Create Branch Bean With Revision", "Branch Bean mit Revision erstellen");
 		m.put("Create Child Project", "Unterprojekt erstellen");
 		m.put("Create Child Projects", "Unterprojekte erstellen");
+		m.put("Create Dependency Dashboard Issue", "Abhängigkeits-Dashboard-Issue erstellen");
 		m.put("Create Issue", "Erstelle Problem");
 		m.put("Create Iteration", "Erstelle Iteration");
 		m.put("Create Merge Commit", "Erstelle Merge-Commit");
@@ -990,20 +1065,28 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Create Workspace", "Arbeitsbereich erstellen");
 		m.put("Create Workspace Spec", "Arbeitsbereichs-Spec erstellen");
 		m.put("Create Workspaces", "Workspaces erstellen");
-		m.put("Create a workspace spec running Claude Code directly with server shell environment.\nWorkspaces using created spec will share same environments and settings.\nTo use this template, please ensure that:\n<ul>\n    <li><a href='https://code.claude.com/docs/en/overview' target='_blank'>Claude Code</a> is installed on OneDev server</li>\n    <li><a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>TOD</a> is installed on OneDev server and companion skills are installed for Claude Code</li>\n    <li>A shell provisioner is added in 'Administration / Workspace Provisioners' with 'applicable projects' configured properly</li>\n</ul>", 
-			"Erstellen Sie eine Workspace-Spezifikation, die Claude Code direkt mit der Server-Shell-Umgebung ausführt.\nWorkspaces, die mit der erstellten Spezifikation verwendet werden, teilen sich dieselben Umgebungen und Einstellungen.\nUm diese Vorlage zu verwenden, stellen Sie bitte sicher, dass:\n<ul>\n    <li><a href='https://code.claude.com/docs/en/overview' target='_blank'>Claude Code</a> auf dem OneDev-Server installiert ist</li>\n    <li><a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>TOD</a> auf dem OneDev-Server installiert ist und Begleitfähigkeiten für Claude Code installiert sind</li>\n    <li>Ein Shell-Provisioner unter 'Administration / Workspace Provisioners' hinzugefügt wurde und 'anwendbare Projekte' ordnungsgemäß konfiguriert sind</li>\n</ul>");
+		m.put("Create a workspace spec running Claude Code directly on the workspace host.\nWorkspaces using created spec will share same environments and settings.\nTo use this template, please ensure that:\n<ul>\n    <li><a href='https://code.claude.com/docs/en/overview' target='_blank'>Claude Code</a> is installed on the workspace host</li>\n    <li><a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>TOD</a> is installed on the workspace host and companion skills are installed for Claude Code</li>\n    <li>A host provisioner is added in 'Administration / Workspace Provisioners' with 'applicable projects' configured properly</li>\n</ul>", 
+			"Erstellen Sie eine Workspace-Spezifikation, die Claude Code direkt auf dem Workspace-Host ausführt.\nWorkspaces, die die erstellte Spezifikation verwenden, teilen sich dieselben Umgebungen und Einstellungen.\nUm diese Vorlage zu verwenden, stellen Sie bitte sicher, dass:\n<ul>\n    <li><a href='https://code.claude.com/docs/en/overview' target='_blank'>Claude Code</a> auf dem Workspace-Host installiert ist</li>\n    <li><a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>TOD</a> auf dem Workspace-Host installiert ist und Begleitfähigkeiten für Claude Code installiert sind</li>\n    <li>Ein Host-Provisioner unter 'Administration / Workspace-Provisioners' hinzugefügt wurde und 'anwendbare Projekte' korrekt konfiguriert sind</li>\n</ul>");
+		m.put("Create a workspace spec running Claude Code inside a sandbox for isolation.\nYou may customize the <a href='https://code.onedev.io/onedev/docker/claudecode' target='_blank'>sandbox template image</a>\nlater to suit your needs if desired", 
+			"Erstellen Sie eine Workspace-Spezifikation, die Claude Code innerhalb einer Sandbox zur Isolation ausführt.\nSie können das <a href='https://code.onedev.io/onedev/docker/claudecode' target='_blank'>Sandbox-Vorlagen-Image</a>\nspäter anpassen, um es bei Bedarf Ihren Anforderungen anzupassen.");
 		m.put("Create a workspace spec running Claude Code inside container for isolation and security purpose.\nYou may customize the <a href='https://code.onedev.io/onedev/docker/claudecode' target='_blank'>container image</a>\nlater to suit your needs if desired", 
 			"Erstelle eine Workspace-Spezifikation, die Claude Code innerhalb eines Containers für Isolations- und Sicherheitszwecke ausführt.\nSie können das <a href='https://code.onedev.io/onedev/docker/claudecode' target='_blank'>Container-Image</a>\nspäter anpassen, um Ihren Bedürfnissen gerecht zu werden, falls gewünscht");
-		m.put("Create a workspace spec running Codex directly with server shell environment.\nWorkspaces using created spec will share same environments and settings.\nTo use this template, please ensure that:\n<ul>\n    <li><a href='https://openai.com/codex/' target='_blank'>Codex</a> is installed on OneDev server</li>\n    <li><a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>TOD</a> is installed on OneDev server and companion skills are installed for Codex</li>\n    <li>A shell provisioner is added in 'Administration / Workspace Provisioners' with 'applicable projects' configured properly</li>\n</ul>", 
-			"Erstellen Sie eine Workspace-Spezifikation, die Codex direkt mit der Server-Shell-Umgebung ausführt.\nWorkspaces, die mit der erstellten Spezifikation verwendet werden, teilen sich dieselben Umgebungen und Einstellungen.\nUm diese Vorlage zu verwenden, stellen Sie bitte sicher, dass:\n<ul>\n    <li><a href='https://openai.com/codex/' target='_blank'>Codex</a> auf dem OneDev-Server installiert ist</li>\n    <li><a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>TOD</a> auf dem OneDev-Server installiert ist und Begleitfähigkeiten für Codex installiert sind</li>\n    <li>Ein Shell-Provisioner unter 'Administration / Workspace Provisioners' hinzugefügt wurde und 'anwendbare Projekte' ordnungsgemäß konfiguriert sind</li>\n</ul>");
+		m.put("Create a workspace spec running Codex directly on the workspace host.\nWorkspaces using created spec will share same environments and settings.\nTo use this template, please ensure that:\n<ul>\n    <li><a href='https://openai.com/codex/' target='_blank'>Codex</a> is installed on the workspace host</li>\n    <li><a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>TOD</a> is installed on the workspace host and companion skills are installed for Codex</li>\n    <li>A host provisioner is added in 'Administration / Workspace Provisioners' with 'applicable projects' configured properly</li>\n</ul>", 
+			"Erstellen Sie eine Workspace-Spezifikation, die Codex direkt auf dem Workspace-Host ausführt.\nWorkspaces, die die erstellte Spezifikation verwenden, teilen sich dieselben Umgebungen und Einstellungen.\nUm diese Vorlage zu verwenden, stellen Sie bitte sicher, dass:\n<ul>\n    <li><a href='https://openai.com/codex/' target='_blank'>Codex</a> auf dem Workspace-Host installiert ist</li>\n    <li><a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>TOD</a> auf dem Workspace-Host installiert ist und Begleitfähigkeiten für Codex installiert sind</li>\n    <li>Ein Host-Provisioner unter 'Administration / Workspace-Provisioners' hinzugefügt wurde und 'anwendbare Projekte' korrekt konfiguriert sind</li>\n</ul>");
+		m.put("Create a workspace spec running Codex inside a sandbox for isolation.\nYou may customize the <a href='https://code.onedev.io/onedev/docker/codex' target='_blank'>sandbox template image</a>\nlater to suit your needs if desired", 
+			"Erstellen Sie eine Workspace-Spezifikation, die Codex innerhalb einer Sandbox zur Isolation ausführt.\nSie können das <a href='https://code.onedev.io/onedev/docker/codex' target='_blank'>Sandbox-Vorlagen-Image</a>\nspäter anpassen, um es bei Bedarf Ihren Anforderungen anzupassen.");
 		m.put("Create a workspace spec running Codex inside container for isolation and security purpose.\nYou may customize the <a href='https://code.onedev.io/onedev/docker/codex' target='_blank'>container image</a>\nlater to suit your needs if desired", 
 			"Erstelle eine Workspace-Spezifikation, die Codex innerhalb eines Containers für Isolations- und Sicherheitszwecke ausführt.\nSie können das <a href='https://code.onedev.io/onedev/docker/codex' target='_blank'>Container-Image</a>\nspäter anpassen, um Ihren Bedürfnissen gerecht zu werden, falls gewünscht");
-		m.put("Create a workspace spec running Cursor directly with server shell environment.\nWorkspaces using created spec will share same environments and settings.\nTo use this template, please ensure that:\n<ul>\n    <li><a href='https://cursor.com/docs/cli/overview' target='_blank'>Cursor CLI</a> is installed on OneDev server</li>\n    <li><a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>TOD</a> is installed on OneDev server and companion skills are installed for Cursor CLI</li>\n    <li>A shell provisioner is added in 'Administration / Workspace Provisioners' with 'applicable projects' configured properly</li>\n</ul>", 
-			"Erstellen Sie eine Workspace-Spezifikation, die Cursor direkt mit der Server-Shell-Umgebung ausführt.\nWorkspaces, die die erstellte Spezifikation verwenden, teilen sich dieselben Umgebungen und Einstellungen.\nUm diese Vorlage zu verwenden, stellen Sie bitte sicher, dass:\n<ul>\n    <li><a href='https://cursor.com/docs/cli/overview' target='_blank'>Cursor CLI</a> auf dem OneDev-Server installiert ist</li>\n    <li><a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>TOD</a> auf dem OneDev-Server installiert ist und Begleitfähigkeiten für Cursor CLI installiert sind</li>\n    <li>Ein Shell-Provisioner unter 'Administration / Workspace Provisioners' hinzugefügt wurde und 'anwendbare Projekte' ordnungsgemäß konfiguriert sind</li>\n</ul>");
+		m.put("Create a workspace spec running Cursor directly on the workspace host.\nWorkspaces using created spec will share same environments and settings.\nTo use this template, please ensure that:\n<ul>\n    <li><a href='https://cursor.com/docs/cli/overview' target='_blank'>Cursor CLI</a> is installed on the workspace host</li>\n    <li><a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>TOD</a> is installed on the workspace host and companion skills are installed for Cursor CLI</li>\n    <li>A host provisioner is added in 'Administration / Workspace Provisioners' with 'applicable projects' configured properly</li>\n</ul>", 
+			"Erstellen Sie eine Workspace-Spezifikation, die Cursor direkt auf dem Workspace-Host ausführt.\nWorkspaces, die die erstellte Spezifikation verwenden, teilen sich dieselben Umgebungen und Einstellungen.\nUm diese Vorlage zu verwenden, stellen Sie bitte sicher, dass:\n<ul>\n    <li><a href='https://cursor.com/docs/cli/overview' target='_blank'>Cursor CLI</a> auf dem Workspace-Host installiert ist</li>\n    <li><a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>TOD</a> auf dem Workspace-Host installiert ist und Begleitfähigkeiten für Cursor CLI installiert sind</li>\n    <li>Ein Host-Provisioner unter 'Administration / Workspace-Provisioners' hinzugefügt wurde und 'anwendbare Projekte' korrekt konfiguriert sind</li>\n</ul>");
+		m.put("Create a workspace spec running Cursor inside a sandbox for isolation.\nYou may customize the <a href='https://code.onedev.io/onedev/docker/cursor' target='_blank'>sandbox template image</a>\nlater to suit your needs if desired", 
+			"Erstellen Sie eine Workspace-Spezifikation, die Cursor innerhalb einer Sandbox zur Isolation ausführt.\nSie können das <a href='https://code.onedev.io/onedev/docker/cursor' target='_blank'>Sandbox-Vorlagen-Image</a>\nspäter anpassen, um es bei Bedarf Ihren Anforderungen anzupassen.");
 		m.put("Create a workspace spec running Cursor inside container for isolation and security purpose.\nYou may customize the <a href='https://code.onedev.io/onedev/docker/cursor' target='_blank'>container image</a>\nlater to suit your needs if desired", 
 			"Erstellen Sie eine Workspace-Spezifikation, die Cursor innerhalb eines Containers ausführt, um Isolation und Sicherheit zu gewährleisten.\nSie können das <a href='https://code.onedev.io/onedev/docker/cursor' target='_blank'>Container-Image</a>\nspäter anpassen, um es bei Bedarf Ihren Anforderungen anzupassen");
-		m.put("Create a workspace spec running Open Code directly with server shell environment.\nWorkspaces using created spec will share same environments and settings.\nTo use this template, please ensure that:\n<ul>\n    <li><a href='https://opencode.ai/' target='_blank'>Open Code</a> is installed on OneDev server</li>\n    <li><a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>TOD</a> is installed on OneDev server and companion skills are installed for Open Code</li>\n    <li>A shell provisioner is added in 'Administration / Workspace Provisioners' with 'applicable projects' configured properly</li>\n</ul>", 
-			"Erstellen Sie eine Workspace-Spezifikation, die Open Code direkt mit der Server-Shell-Umgebung ausführt.\nWorkspaces, die mit der erstellten Spezifikation verwendet werden, teilen sich dieselben Umgebungen und Einstellungen.\nUm diese Vorlage zu verwenden, stellen Sie bitte sicher, dass:\n<ul>\n    <li><a href='https://opencode.ai/' target='_blank'>Open Code</a> auf dem OneDev-Server installiert ist</li>\n    <li><a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>TOD</a> auf dem OneDev-Server installiert ist und Begleitfähigkeiten für Open Code installiert sind</li>\n    <li>Ein Shell-Provisioner unter 'Administration / Workspace Provisioners' hinzugefügt wurde und 'anwendbare Projekte' ordnungsgemäß konfiguriert sind</li>\n</ul>");
+		m.put("Create a workspace spec running Open Code directly on the workspace host.\nWorkspaces using created spec will share same environments and settings.\nTo use this template, please ensure that:\n<ul>\n    <li><a href='https://opencode.ai/' target='_blank'>Open Code</a> is installed on the workspace host</li>\n    <li><a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>TOD</a> is installed on the workspace host and companion skills are installed for Open Code</li>\n    <li>A host provisioner is added in 'Administration / Workspace Provisioners' with 'applicable projects' configured properly</li>\n</ul>", 
+			"Erstellen Sie eine Workspace-Spezifikation, die Open Code direkt auf dem Workspace-Host ausführt.\nWorkspaces, die die erstellte Spezifikation verwenden, teilen sich dieselben Umgebungen und Einstellungen.\nUm diese Vorlage zu verwenden, stellen Sie bitte sicher, dass:\n<ul>\n    <li><a href='https://opencode.ai/' target='_blank'>Open Code</a> auf dem Workspace-Host installiert ist</li>\n    <li><a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>TOD</a> auf dem Workspace-Host installiert ist und Begleitfähigkeiten für Open Code installiert sind</li>\n    <li>Ein Host-Provisioner unter 'Administration / Workspace-Provisioners' hinzugefügt wurde und 'anwendbare Projekte' korrekt konfiguriert sind</li>\n</ul>");
+		m.put("Create a workspace spec running Open Code inside a sandbox for isolation.\nYou may customize the <a href='https://code.onedev.io/onedev/docker/opencode' target='_blank'>sandbox template image</a>\nlater to suit your needs if desired", 
+			"Erstellen Sie eine Workspace-Spezifikation, die Open Code innerhalb einer Sandbox zur Isolation ausführt.\nSie können das <a href='https://code.onedev.io/onedev/docker/opencode' target='_blank'>Sandbox-Vorlagen-Image</a>\nspäter anpassen, um es bei Bedarf Ihren Anforderungen anzupassen.");
 		m.put("Create a workspace spec running Open Code inside container for isolation and security purpose.\nYou may customize the <a href='https://code.onedev.io/onedev/docker/opencode' target='_blank'>container image</a>\nlater to suit your needs if desired", 
 			"Erstelle eine Workspace-Spezifikation, die Open Code innerhalb eines Containers für Isolations- und Sicherheitszwecke ausführt.\nSie können das <a href='https://code.onedev.io/onedev/docker/opencode' target='_blank'>Container-Image</a>\nspäter anpassen, um Ihren Bedürfnissen gerecht zu werden, falls gewünscht");
 		m.put("Create an issue for this failure", "Erstellen Sie ein Problem für diesen Fehler");
@@ -1041,6 +1124,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Current context is different from this action, click to show the comment context", "Der aktuelle Kontext unterscheidet sich von dieser Aktion. Klicken Sie, um den Kommentar-Kontext anzuzeigen");
 		m.put("Current platform", "Aktuelle Plattform");
 		m.put("Current project", "Aktuelles Projekt");
+		m.put("Current step index / total number of steps", "Aktueller Schrittindex / Gesamtanzahl der Schritte");
 		m.put("Custom Headers", "Benutzerdefinierte Header");
 		m.put("Customize", "Anpassen");
 		m.put("DISCARDED", "VERWORFEN");
@@ -1118,6 +1202,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Delete All Queried Pull Requests", "Alle abgefragten Pull-Requests löschen");
 		m.put("Delete All Queried Users", "Alle abgefragten Benutzer löschen");
 		m.put("Delete All Queried Workspaces", "Alle abgefragten Arbeitsbereiche löschen");
+		m.put("Delete Application", "Anwendung löschen");
 		m.put("Delete Build", "Build löschen");
 		m.put("Delete Comment", "Kommentar löschen");
 		m.put("Delete Pull Request", "Pull-Request löschen");
@@ -1135,6 +1220,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Delete Source Branch", "Quellbranch löschen");
 		m.put("Delete Source Branch After Merge", "Quellbranch nach dem Merge löschen");
 		m.put("Delete Workspace If Succeeded", "Workspace löschen, wenn erfolgreich");
+		m.put("Delete application \"{0}\" and all its authorizations?", "Anwendung \"{0}\" und alle ihre Autorisierungen löschen?");
 		m.put("Delete chat", "Chat löschen");
 		m.put("Delete dashboard", "Dashboard löschen");
 		m.put("Delete from branch {0}", "Von Branch {0} löschen");
@@ -1162,8 +1248,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Deleted source branch", "Quellbranch gelöscht");
 		m.put("Deletion not allowed due to branch protection rule", "Löschen nicht erlaubt aufgrund der Branch-Schutzregel");
 		m.put("Deletion not allowed due to tag protection rule", "Löschen nicht erlaubt aufgrund der Tag-Schutzregel");
-		m.put("Deletions", "Löschungen");
 		m.put("Denied", "Verweigert");
+		m.put("Deny", "Ablehnen");
 		m.put("Dependencies & Services", "Abhängigkeiten & Dienste");
 		m.put("Dependency Management", "Abhängigkeitsmanagement");
 		m.put("Dependency job finished", "Abhängigkeitsjob abgeschlossen");
@@ -1208,6 +1294,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Discarded pull request \"{0}\" ({1})", "Pull Request \"{0}\" ({1}) verworfen");
 		m.put("Discord", "Discord");
 		m.put("Discord Notifications", "Discord-Benachrichtigungen");
+		m.put("Discover endpoints at", "Endpunkte entdecken unter");
 		m.put("Display Fields", "Anzeigefelder");
 		m.put("Display Links", "Anzeigelinks");
 		m.put("Display Months", "Anzeigemonate");
@@ -1286,6 +1373,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Docker Hub", "Docker Hub");
 		m.put("Docker Image", "Docker-Image");
 		m.put("Docker Sock Path", "Docker-Sock-Pfad");
+		m.put("Docker sandbox default", "Standard für Docker-Sandbox");
 		m.put("Dockerfile", "Dockerfile");
 		m.put("Documentation", "Dokumentation");
 		m.put("Don't have an account yet?", "Haben Sie noch kein Konto?");
@@ -1308,6 +1396,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Duration", "Dauer");
 		m.put("Durations", "Dauern");
 		m.put("ESLint Report", "ESLint-Bericht");
+		m.put("Each token has its own permissions and expiration. Revoking a token also revokes its refresh token. Revoke all to remove this application's access to your account.", 
+			"Jedes Token hat eigene Berechtigungen und ein Ablaufdatum. Das Widerrufen eines Tokens widerruft auch dessen Refresh-Token. Widerrufen Sie alle, um den Zugriff dieser Anwendung auf Ihr Konto zu entfernen.");
 		m.put("Edit", "Bearbeiten");
 		m.put("Edit <code>$HOME/.cargo/config.toml</code> to add a registry like below", "Bearbeiten Sie <code>$HOME/.cargo/config.toml</code>, um ein Registry wie unten hinzuzufügen");
 		m.put("Edit <code>$HOME/.gem/credentials</code> to add a source", "Bearbeiten Sie <code>$HOME/.gem/credentials</code>, um eine Quelle hinzuzufügen.");
@@ -1345,6 +1435,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Editor", "Editor");
 		m.put("Either specify value or secret value of the environment variable", "Entweder Wert oder geheimen Wert der Umgebungsvariable angeben");
 		m.put("Either target branch or source branch has new commits just now, please re-check.", "Entweder der Ziel-Branch oder der Quell-Branch hat gerade neue Commits, bitte erneut überprüfen.");
+		m.put("Elapsed time: {0}", "Verstrichene Zeit: {0}");
 		m.put("Email", "E-Mail");
 		m.put("Email Address", "E-Mail-Adresse");
 		m.put("Email Address Privacy", "E-Mail-Adressenschutz");
@@ -1370,15 +1461,18 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Empty file added.", "Leere Datei hinzugefügt.");
 		m.put("Empty file removed.", "Leere Datei entfernt.");
 		m.put("Enable", "Aktivieren");
-		m.put("Enable <a href='https://docs.onedev.io/tutorials/issue/time-tracking' target='_blank'>time tracking</a> for this project to track progress and generate timesheets", 
-			"Aktivieren Sie <a href='https://docs.onedev.io/tutorials/issue/time-tracking' target='_blank'>Zeiterfassung</a> für dieses Projekt, um Fortschritte zu verfolgen und Zeiterfassungen zu erstellen.");
-		m.put("Enable <a href='https://docs.onedev.io/tutorials/package/working-with-packages' target='_blank'>package management</a> for this project", 
-			"Aktivieren Sie <a href='https://docs.onedev.io/tutorials/package/working-with-packages' target='_blank'>Paketverwaltung</a> für dieses Projekt");
+		m.put("Enable <a href='${docsite}/tutorials/issue/time-tracking' target='_blank'>time tracking</a> for this project to track progress and generate timesheets", 
+			"Aktivieren Sie <a href='${docsite}/tutorials/issue/time-tracking' target='_blank'>Zeiterfassung</a> für dieses Projekt, um Fortschritte zu verfolgen und Arbeitszeittabellen zu erstellen");
+		m.put("Enable <a href='${docsite}/tutorials/package/working-with-packages' target='_blank'>package management</a> for this project", 
+			"Aktivieren Sie <a href='${docsite}/tutorials/package/working-with-packages' target='_blank'>Paketverwaltung</a> für dieses Projekt");
 		m.put("Enable Account Self Removal", "Aktivieren Sie die Selbstentfernung des Kontos");
 		m.put("Enable Account Self Sign-Up", "Aktivieren Sie die Selbstregistrierung des Kontos");
 		m.put("Enable All Queried Users", "Aktivieren Sie alle abgefragten Benutzer");
 		m.put("Enable Anonymous Access", "Aktivieren Sie anonymen Zugriff");
 		m.put("Enable Auto Backup", "Aktivieren Sie die automatische Sicherung");
+		m.put("Enable Builder Cache Prune", "Builder-Cache-Bereinigung aktivieren");
+		m.put("Enable Buildx Image Build", "Buildx-Image-Erstellung aktivieren");
+		m.put("Enable Buildx Image Tools", "Buildx-Image-Tools aktivieren");
 		m.put("Enable CI/CD by <a wicket:id=\"addFile\" class=\"link-primary\"></a>", "CI/CD aktivieren durch <a wicket:id=\"addFile\" class=\"link-primary\"></a>");
 		m.put("Enable Html Report Publish", "HTML-Berichtveröffentlichung aktivieren");
 		m.put("Enable Selected Users", "Aktivieren Sie ausgewählte Benutzer");
@@ -1391,18 +1485,26 @@ public class Translation_de extends TranslationResourceBundle {
 			"Aktivieren Sie dies, wenn die Spezifikation vom KI-Benutzer verwendet werden kann, um Workspaces zu erstellen, um zugewiesene Aufgaben auszuführen");
 		m.put("Enable this option to merge the pull request automatically when ready (all reviewers approved, all required jobs passed etc.)", 
 			"Aktivieren Sie diese Option, um den Pull-Request automatisch zu mergen, wenn er bereit ist (alle Gutachter haben zugestimmt, alle erforderlichen Jobs sind abgeschlossen usw.)");
-		m.put("Enable this to allow to run html report publish step. To avoid XSS attack, make sure this executor can only be used by trusted jobs", 
-			"Aktivieren Sie dies, um den Schritt zur Veröffentlichung des HTML-Berichts auszuführen. Um XSS-Angriffe zu vermeiden, stellen Sie sicher, dass dieser Executor nur von vertrauenswürdigen Jobs verwendet werden kann");
-		m.put("Enable this to allow to run site publish step. OneDev will serve project site files as is. To avoid XSS attack, make sure this executor can only be used by trusted jobs", 
-			"Aktivieren Sie dies, um den Site-Veröffentlichungsschritt auszuführen. OneDev wird Projekt-Site-Dateien unverändert bereitstellen. Um XSS-Angriffe zu vermeiden, stellen Sie sicher, dass dieser Executor nur von vertrauenswürdigen Jobs verwendet werden kann");
+		m.put("Enable this to allow to run html report publish step. To avoid XSS attack,\nmake sure executor with this option enabled can only be used by trusted jobs", 
+			"Aktivieren Sie dies, um den Schritt zum Veröffentlichen von HTML-Berichten auszuführen. Um XSS-Angriffe zu vermeiden,\nstellen Sie sicher, dass der Executor mit dieser Option nur von vertrauenswürdigen Jobs verwendet werden kann.");
+		m.put("Enable this to allow to run prune builder cache step. To avoid shared builder cache being\ncleared by malicious jobs, make sure executor with this option enabled can only be used\nby trusted jobs", 
+			"Aktivieren Sie dies, um den Schritt zur Bereinigung des Builder-Caches auszuführen. Um zu vermeiden, dass der gemeinsame Builder-Cache\nvon böswilligen Jobs gelöscht wird, stellen Sie sicher, dass der Executor mit dieser Option nur von\nvertrauenswürdigen Jobs verwendet werden kann.");
+		m.put("Enable this to allow to run site publish step. ${productName} will serve project\nsite files as is. To avoid XSS attack, make sure executor with this\noption enabled can only be used by trusted jobs", 
+			"Aktivieren Sie dies, um den Schritt zur Veröffentlichung der Website auszuführen. ${productName} wird Projekt\nWebseiten-Dateien unverändert bereitstellen. Um XSS-Angriffe zu vermeiden, stellen Sie sicher, dass der Executor mit dieser\nOption nur von vertrauenswürdigen Jobs verwendet werden kann");
+		m.put("Enable this to allow to run the buildx image tools step.\nTo avoid malicious jobs reading or writing arbitrary host files by running this step,\nmake sure executor with this option enabled can only be used by trusted jobs", 
+			"Aktivieren Sie dies, um den Schritt für Buildx-Image-Tools auszuführen.\nUm zu vermeiden, dass böswillige Jobs durch Ausführen dieses Schritts beliebige Host-Dateien lesen oder schreiben,\nstellen Sie sicher, dass der Executor mit dieser Option nur von vertrauenswürdigen Jobs verwendet werden kann.");
+		m.put("Enable this to allow to run the image build step using buildx.\nThe image build step using kaniko can still be used even this option is disabled.\nTo avoid malicious jobs reading arbitrary host files by running this step,\nmake sure executor with this option enabled can only be used by trusted jobs", 
+			"Aktivieren Sie dies, um den Schritt zur Image-Erstellung mit Buildx auszuführen.\nDer Schritt zur Image-Erstellung mit Kaniko kann weiterhin verwendet werden, auch wenn diese Option deaktiviert ist.\nUm zu vermeiden, dass böswillige Jobs durch Ausführen dieses Schritts beliebige Host-Dateien lesen,\nstellen Sie sicher, dass der Executor mit dieser Option nur von vertrauenswürdigen Jobs verwendet werden kann.");
 		m.put("Enable this to process issue or pull request comments posted via email", "Aktivieren Sie dies, um Kommentare zu Problemen oder Pull-Requests zu verarbeiten, die per E-Mail gepostet wurden");
-		m.put("Enable this to process issue or pull request comments posted via email. <b class='text-danger'>NOTE:</b> <a href='https://docs.microsoft.com/en-us/exchange/recipients-in-exchange-online/plus-addressing-in-exchange-online' target='_blank'>Sub addressing</a> needs to be enabled for system email address above, as OneDev uses it to track issue and pull request contexts", 
-			"Aktivieren Sie dies, um Kommentare zu Problemen oder Pull-Requests zu verarbeiten, die per E-Mail gepostet wurden. <b class='text-danger'>HINWEIS:</b> <a href='https://docs.microsoft.com/en-us/exchange/recipients-in-exchange-online/plus-addressing-in-exchange-online' target='_blank'>Sub-Addressing</a> muss für die oben angegebene System-E-Mail-Adresse aktiviert sein, da OneDev diese verwendet, um Problem- und Pull-Request-Kontexte zu verfolgen");
-		m.put("Enable this to process issue or pull request comments posted via email. <b class='text-danger'>NOTE:</b> <a href='https://en.wikipedia.org/wiki/Email_address#Subaddressing' target='_blank'>Sub addressing</a> needs to be enabled for system email address above, as OneDev uses it to track issue and pull request contexts", 
-			"Aktivieren Sie dies, um Kommentare zu Problemen oder Pull-Requests zu verarbeiten, die per E-Mail gepostet wurden. <b class='text-danger'>HINWEIS:</b> <a href='https://en.wikipedia.org/wiki/Email_address#Subaddressing' target='_blank'>Sub-Addressing</a> muss für die oben angegebene System-E-Mail-Adresse aktiviert sein, da OneDev diese verwendet, um Problem- und Pull-Request-Kontexte zu verfolgen");
+		m.put("Enable this to process issue or pull request comments posted via email. <b class='text-danger'>NOTE:</b> <a href='https://docs.microsoft.com/en-us/exchange/recipients-in-exchange-online/plus-addressing-in-exchange-online' target='_blank'>Sub addressing</a> needs to be enabled for system email address above, as ${productName} uses it to track issue and pull request contexts", 
+			"Aktivieren Sie dies, um Kommentare zu Problemen oder Pull-Requests zu verarbeiten, die per E-Mail gepostet wurden. <b class='text-danger'>HINWEIS:</b> <a href='https://docs.microsoft.com/en-us/exchange/recipients-in-exchange-online/plus-addressing-in-exchange-online' target='_blank'>Subaddressing</a> muss für die oben angegebene System-E-Mail-Adresse aktiviert sein, da ${productName} es verwendet, um Problem- und Pull-Request-Kontexte zu verfolgen");
+		m.put("Enable this to process issue or pull request comments posted via email. <b class='text-danger'>NOTE:</b> <a href='https://en.wikipedia.org/wiki/Email_address#Subaddressing' target='_blank'>Sub addressing</a> needs to be enabled for system email address above, as ${productName} uses it to track issue and pull request contexts", 
+			"Aktivieren Sie dies, um Kommentare zu Problemen oder Pull-Requests zu verarbeiten, die per E-Mail gepostet wurden. <b class='text-danger'>HINWEIS:</b> <a href='https://en.wikipedia.org/wiki/Email_address#Subaddressing' target='_blank'>Subaddressing</a> muss für die oben angegebene System-E-Mail-Adresse aktiviert sein, da ${productName} es verwendet, um Problem- und Pull-Request-Kontexte zu verfolgen");
 		m.put("Enable this to retrieve Git LFS files", "Aktivieren Sie dies, um Git LFS-Dateien abzurufen");
 		m.put("Enable to allow to upload build cache generated during CI/CD job. Uploaded cache can be used by subsequent builds of the project as long as cache key matches", 
 			"Aktivieren Sie dies, um den Upload des während des CI/CD-Jobs generierten Build-Caches zu ermöglichen. Hochgeladener Cache kann von nachfolgenden Builds des Projekts verwendet werden, solange der Cache-Schlüssel übereinstimmt");
+		m.put("Enable to also test running a command in a Docker container inside the sandbox", "Aktivieren, um auch das Ausführen eines Befehls in einem Docker-Container innerhalb der Sandbox zu testen");
+		m.put("Enable to execute this job in a sandbox VM", "Aktivieren, um diesen Job in einer Sandbox-VM auszuführen");
 		m.put("End Point", "Endpunkt");
 		m.put("Enforce Password Policy", "Passwortrichtlinie durchsetzen");
 		m.put("Enforce Two-factor Authentication", "Erzwingen Sie die Zwei-Faktor-Authentifizierung");
@@ -1410,7 +1512,6 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Enter New Password", "Neues Passwort eingeben");
 		m.put("Enter description here", "Geben Sie hier eine Beschreibung ein");
 		m.put("Enter your details to create your account", "Geben Sie Ihre Daten ein, um Ihr Konto zu erstellen");
-		m.put("Enter your details to login to your account", "Geben Sie Ihre Daten ein, um sich in Ihrem Konto anzumelden");
 		m.put("Enter your user name or email to reset password", "Geben Sie Ihren Benutzernamen oder Ihre E-Mail ein, um das Passwort zurückzusetzen");
 		m.put("Entitle to All Users and Projects", "Allen Benutzern und Projekten zuweisen");
 		m.put("Entitled Groups", "Berechtigte Gruppen");
@@ -1434,6 +1535,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Env Var", "Umgebungsvariable");
 		m.put("Environment Variable", "Umgebungsvariable");
 		m.put("Environment Variables", "Umgebungsvariablen");
+		m.put("Environment variable <code>serverUrl</code> in above command is taken from ${productName} server url specified in <i>Administration / System Setting</i>. Change it if necessary", 
+			"Die Umgebungsvariable <code>serverUrl</code> im obigen Befehl wird aus der in <i>Administration / Systemeinstellungen</i> angegebenen ${productName}-Server-URL übernommen. Ändern Sie sie bei Bedarf");
 		m.put("Environment variable <code>serverUrl</code> in above command is taken from OneDev server url specified in <i>Administration / System Setting</i>. Change it if necessary", 
 			"Die Umgebungsvariable <code>serverUrl</code> im obigen Befehl wird aus der OneDev-Server-URL übernommen, die in <i>Administration / System Setting</i> angegeben ist. Ändern Sie sie bei Bedarf");
 		m.put("Equal", "Gleich");
@@ -1461,6 +1564,11 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Estimated Time Edit Bean", "Bearbeitungs-Bean für geschätzte Zeit");
 		m.put("Estimated Time Issue Field", "Feld für geschätzte Zeit bei Problemen");
 		m.put("Estimated Time:", "Geschätzte Zeit:");
+		m.put("Estimated build progress", "Geschätzter Baufortschritt");
+		m.put("Estimated progress", "Geschätzter Fortschritt");
+		m.put("Estimated progress based on the running time of the last successful build in the same stream", 
+			"Geschätzter Fortschritt basierend auf der Laufzeit des letzten erfolgreichen Builds im selben Stream");
+		m.put("Estimated remaining time: {0}", "Geschätzte verbleibende Zeit: {0}");
 		m.put("Estimated time", "Geschätzte Zeit");
 		m.put("Estimated/Spent time. Click for details", "Geschätzte/Verbrauchte Zeit. Klicken Sie für Details");
 		m.put("Evaluate script to get choices", "Script auswerten, um Auswahlmöglichkeiten zu erhalten");
@@ -1472,6 +1580,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Ever Used Since", "Seit jeher verwendet");
 		m.put("Everything inside this project and all child projects will be deleted and cannot be recovered, please type project path <code>{0}</code> below to confirm deletion.", 
 			"Alles innerhalb dieses Projekts und aller untergeordneten Projekte wird gelöscht und kann nicht wiederhergestellt werden. Bitte geben Sie den Projektpfad <code>{0}</code> unten ein, um die Löschung zu bestätigen.");
+		m.put("Exact", "Exakt");
 		m.put("Example", "Beispiel");
 		m.put("Example Plugin Setting", "Beispiel-Plugin-Einstellung");
 		m.put("Example Property", "Beispiel-Eigenschaft");
@@ -1483,6 +1592,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Excludes", "Ausnahmen");
 		m.put("Execute Commands", "Befehle ausführen");
 		m.put("Execute Commands via SSH", "Befehle über SSH ausführen");
+		m.put("Execute In Sandbox", "In Sandbox ausführen");
+		m.put("Execution paused", "Ausführung angehalten");
 		m.put("Exit Run As", "Run As beenden");
 		m.put("Exited run as", "Run as verlassen");
 		m.put("Expand all", "Alle erweitern");
@@ -1549,7 +1660,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("File name patterns such as *.java, *.c", "Dateinamenmuster wie *.java, *.c");
 		m.put("File not found", "Datei nicht gefunden");
 		m.put("Files", "Dateien");
-		m.put("Files to Be Analyzed", "Zu analysierende Dateien");
+		m.put("Files to Be Indexed", "Dateien, die indexiert werden sollen");
 		m.put("Filter", "Filter");
 		m.put("Filter Issues", "Filterprobleme");
 		m.put("Filter actions", "Aktionen filtern");
@@ -1571,6 +1682,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Filter users", "Benutzer filtern");
 		m.put("Filter...", "Filter...");
 		m.put("Filters", "Filter");
+		m.put("Finalization", "Finalisierung");
 		m.put("Find branch", "Zweig finden");
 		m.put("Find or create branch", "Zweig finden oder erstellen");
 		m.put("Find or create tag", "Tag finden oder erstellen");
@@ -1617,12 +1729,14 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("For CI/CD job, run below via a command step", "Für CI/CD-Job, führen Sie unten über einen Befehls-Schritt aus");
 		m.put("For a particular project, the first matching entry will be used", "Für ein bestimmtes Projekt wird der erste passende Eintrag verwendet");
 		m.put("For all issues", "Für alle Probleme");
-		m.put("For build commit not reachable from default branch, a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> should be specified as access token with create branch permission", 
-			"Für Build-Commit, der vom Standardzweig nicht erreichbar ist, sollte ein <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> als Zugriffstoken mit Berechtigung zum Erstellen von Zweigen angegeben werden");
-		m.put("For build commit not reachable from default branch, a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> should be specified as access token with create tag permission", 
-			"Für Build-Commit, der vom Standardzweig nicht erreichbar ist, sollte ein <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> als Zugriffstoken mit Berechtigung zum Erstellen von Tags angegeben werden");
-		m.put("For build commit not reachable from default branch, a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> should be specified as access token with manage issue permission", 
-			"Für Build-Commit, der vom Standardzweig nicht erreichbar ist, sollte ein <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> als Zugriffstoken mit Berechtigung zum Verwalten von Problemen angegeben werden");
+		m.put("For build commit not reachable from default branch, a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> should be specified as access token with create branch permission", 
+			"Für Build-Commits, die vom Standard-Branch nicht erreichbar sind, sollte ein <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>Job-Secret</a> als Zugriffstoken mit der Berechtigung zum Erstellen von Branches angegeben werden");
+		m.put("For build commit not reachable from default branch, a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> should be specified as access token with create tag permission", 
+			"Für Build-Commits, die vom Standard-Branch nicht erreichbar sind, sollte ein <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>Job-Secret</a> als Zugriffstoken mit der Berechtigung zum Erstellen von Tags angegeben werden");
+		m.put("For build commit not reachable from default branch, a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> should be specified as access token with manage issue permission", 
+			"Für Build-Commits, die vom Standard-Branch nicht erreichbar sind, sollte ein <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>Job-Secret</a> als Zugriffstoken mit der Berechtigung zur Verwaltung von Problemen angegeben werden");
+		m.put("For each build, ${productName} calculates a list of fixed issues since previous build automatically. This setting provides a default query to further filter/order this list. For a given job, the first matching entry will be used.", 
+			"Für jeden Build berechnet ${productName} automatisch eine Liste behobener Probleme seit dem vorherigen Build. Diese Einstellung bietet eine Standardabfrage, um diese Liste weiter zu filtern/zu sortieren. Für einen bestimmten Job wird der erste passende Eintrag verwendet.");
 		m.put("For each build, OneDev calculates a list of fixed issues since previous build automatically. This setting provides a default query to further filter/order this list. For a given job, the first matching entry will be used.", 
 			"Für jeden Build berechnet OneDev automatisch eine Liste von behobenen Problemen seit dem vorherigen Build. Diese Einstellung bietet eine Standardabfrage, um diese Liste weiter zu filtern/zu ordnen. Für einen bestimmten Job wird der erste passende Eintrag verwendet.");
 		m.put("For each selected branch/tag, a separate build will be generated with branch/tag set to corresponding value", 
@@ -1630,6 +1744,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("For issues matching: ", "Für Probleme, die übereinstimmen:");
 		m.put("For very large git repository, you may need to tune options here to reduce memory usage", 
 			"Für sehr große Git-Repositories müssen Sie möglicherweise Optionen hier anpassen, um den Speicherverbrauch zu reduzieren");
+		m.put("For web hooks defined here and in parent projects, ${productName} will post event data in JSON format to specified URLs when subscribed events happen", 
+			"Für hier und in übergeordneten Projekten definierte Webhooks sendet ${productName} Ereignisdaten im JSON-Format an die angegebenen URLs, wenn abonnierte Ereignisse auftreten");
 		m.put("For web hooks defined here and in parent projects, OneDev will post event data in JSON format to specified URLs when subscribed events happen", 
 			"Für Webhooks, die hier und in übergeordneten Projekten definiert sind, sendet OneDev Ereignisdaten im JSON-Format an die angegebenen URLs, wenn abonnierte Ereignisse auftreten");
 		m.put("Force", "Erzwingen");
@@ -1653,6 +1769,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("GPG Trusted Keys", "GPG-Vertrauenswürdige Schlüssel");
 		m.put("GPG key deleted", "GPG-Schlüssel gelöscht");
 		m.put("GPG public key begins with '-----BEGIN PGP PUBLIC KEY BLOCK-----'", "GPG-Öffentlicher Schlüssel beginnt mit '-----BEGIN PGP PUBLIC KEY BLOCK-----'");
+		m.put("GPG signing key will be used to sign commits generated by ${productName}, including pull request merge commits, user commits created via web UI or RESTful api.", 
+			"Der GPG-Signaturschlüssel wird verwendet, um von ${productName} generierte Commits zu signieren, einschließlich Pull-Request-Merge-Commits, Benutzer-Commits, die über die Web-UI oder die RESTful-API erstellt wurden.");
 		m.put("GPG signing key will be used to sign commits generated by OneDev, including pull request merge commits, user commits created via web UI or RESTful api.", 
 			"GPG-Signaturschlüssel wird verwendet, um von OneDev generierte Commits zu signieren, einschließlich Pull-Request-Merge-Commits, Benutzer-Commits, die über die Web-UI oder RESTful-API erstellt wurden.");
 		m.put("Gem Info", "Edelstein Info");
@@ -1666,7 +1784,6 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Generic LDAP", "Generisches LDAP");
 		m.put("Get", "Holen");
 		m.put("Get Groups Using Attribute", "Gruppen mit Attribut abrufen");
-		m.put("Git", "Git");
 		m.put("Git Command Line", "Git-Befehlszeile");
 		m.put("Git Credential", "Git-Anmeldeinformationen");
 		m.put("Git LFS Storage", "Git LFS-Speicher");
@@ -1675,8 +1792,6 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Git Pack Config", "Git Pack-Konfiguration");
 		m.put("Git Path", "Git-Pfad");
 		m.put("Git command failed with exit code", "Git-Befehl fehlgeschlagen mit Exit-Code");
-		m.put("Git email address will be used as git author/committer for commits created on web UI", 
-			"Git-E-Mail-Adresse wird als Git-Autor/Committer für auf der Web-UI erstellte Commits verwendet");
 		m.put("Git pack config updated", "Git Pack-Konfiguration aktualisiert");
 		m.put("GitHub", "GitHub");
 		m.put("GitHub API URL", "GitHub API-URL");
@@ -1717,28 +1832,28 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Great, your mail service configuration is working", "Großartig, Ihre Mail-Dienst-Konfiguration funktioniert");
 		m.put("Groovy Script", "Groovy-Skript");
 		m.put("Groovy Scripts", "Groovy-Skripte");
-		m.put("Groovy script to be evaluated. It should return a <i>Date</i> value. Check <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>scripting help</a> for details", 
-			"Groovy-Skript zur Auswertung. Es sollte einen <i>Date</i>-Wert zurückgeben. Weitere Details finden Sie in der <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
-		m.put("Groovy script to be evaluated. It should return a <i>Float</i> value. Check <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>scripting help</a> for details", 
-			"Groovy-Skript zur Auswertung. Es sollte einen <i>Float</i>-Wert zurückgeben. Weitere Details finden Sie in der <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
-		m.put("Groovy script to be evaluated. It should return a <i>Integer</i> value. Check <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>scripting help</a> for details", 
-			"Groovy-Skript zur Auswertung. Es sollte einen <i>Integer</i>-Wert zurückgeben. Weitere Details finden Sie in der <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
-		m.put("Groovy script to be evaluated. It should return a <i>String</i> value. Check <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>scripting help</a> for details", 
-			"Groovy-Skript zur Auswertung. Es sollte einen <i>String</i>-Wert zurückgeben. Weitere Details finden Sie in der <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
-		m.put("Groovy script to be evaluated. It should return a <i>boolean</i> value. Check <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>scripting help</a> for details", 
-			"Groovy-Skript zur Auswertung. Es sollte einen <i>boolean</i>-Wert zurückgeben. Weitere Details finden Sie in der <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
-		m.put("Groovy script to be evaluated. It should return a <i>string</i> value. Check <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>scripting help</a> for details", 
-			"Groovy-Skript zur Auswertung. Es sollte einen <i>string</i>-Wert zurückgeben. Weitere Details finden Sie in der <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
-		m.put("Groovy script to be evaluated. It should return name of a group. Check <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>scripting help</a> for details", 
-			"Groovy-Skript zur Auswertung. Es sollte den Namen einer Gruppe zurückgeben. Weitere Details finden Sie in der <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
-		m.put("Groovy script to be evaluated. It should return string or list of string. Check <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>scripting help</a> for details", 
-			"Groovy-Skript zur Auswertung. Es sollte einen String oder eine Liste von Strings zurückgeben. Weitere Details finden Sie in der <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
-		m.put("Groovy script to be evaluated. The return value should be a list of group facade object to be used as choices. Check <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>scripting help</a> for details", 
-			"Groovy-Skript zur Auswertung. Der Rückgabewert sollte eine Liste von Gruppenfassadenobjekten sein, die als Auswahlmöglichkeiten verwendet werden. Weitere Details finden Sie in der <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
-		m.put("Groovy script to be evaluated. The return value should be a list of user login names to be used as choices. Check <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>scripting help</a> for details", 
-			"Groovy-Skript zur Auswertung. Der Rückgabewert sollte eine Liste von Benutzeranmeldenamen sein, die als Auswahlmöglichkeiten verwendet werden. Weitere Details finden Sie in der <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
-		m.put("Groovy script to be evaluated. The return value should be a value to color map, for instance:<br><code>return [\"Successful\":\"#00ff00\", \"Failed\":\"#ff0000\"]</code>, Use <tt>null</tt> if the value does not have a color. Check <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>scripting help</a> for details", 
-			"Groovy-Skript zur Auswertung. Der Rückgabewert sollte eine Wert-zu-Farb-Zuordnung sein, zum Beispiel:<br><code>return [\"Successful\":\"#00ff00\", \"Failed\":\"#ff0000\"]</code>. Verwenden Sie <tt>null</tt>, wenn der Wert keine Farbe hat. Weitere Details finden Sie in der <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
+		m.put("Groovy script to be evaluated. It should return a <i>Date</i> value. Check <a href='${docsite}/appendix/scripting' target='_blank'>scripting help</a> for details", 
+			"Groovy-Skript, das ausgewertet werden soll. Es sollte einen <i>Date</i>-Wert zurückgeben. Weitere Informationen finden Sie unter <a href='${docsite}/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
+		m.put("Groovy script to be evaluated. It should return a <i>Float</i> value. Check <a href='${docsite}/appendix/scripting' target='_blank'>scripting help</a> for details", 
+			"Groovy-Skript, das ausgewertet werden soll. Es sollte einen <i>Float</i>-Wert zurückgeben. Weitere Informationen finden Sie unter <a href='${docsite}/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
+		m.put("Groovy script to be evaluated. It should return a <i>Integer</i> value. Check <a href='${docsite}/appendix/scripting' target='_blank'>scripting help</a> for details", 
+			"Groovy-Skript, das ausgewertet werden soll. Es sollte einen <i>Integer</i>-Wert zurückgeben. Weitere Informationen finden Sie unter <a href='${docsite}/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
+		m.put("Groovy script to be evaluated. It should return a <i>String</i> value. Check <a href='${docsite}/appendix/scripting' target='_blank'>scripting help</a> for details", 
+			"Groovy-Skript, das ausgewertet werden soll. Es sollte einen <i>String</i>-Wert zurückgeben. Weitere Informationen finden Sie unter <a href='${docsite}/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
+		m.put("Groovy script to be evaluated. It should return a <i>boolean</i> value. Check <a href='${docsite}/appendix/scripting' target='_blank'>scripting help</a> for details", 
+			"Groovy-Skript, das ausgewertet werden soll. Es sollte einen <i>boolean</i>-Wert zurückgeben. Weitere Informationen finden Sie unter <a href='${docsite}/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
+		m.put("Groovy script to be evaluated. It should return a <i>string</i> value. Check <a href='${docsite}/appendix/scripting' target='_blank'>scripting help</a> for details", 
+			"Groovy-Skript, das ausgewertet werden soll. Es sollte einen <i>string</i>-Wert zurückgeben. Weitere Informationen finden Sie unter <a href='${docsite}/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
+		m.put("Groovy script to be evaluated. It should return name of a group. Check <a href='${docsite}/appendix/scripting' target='_blank'>scripting help</a> for details", 
+			"Groovy-Skript, das ausgewertet werden soll. Es sollte den Namen einer Gruppe zurückgeben. Weitere Informationen finden Sie unter <a href='${docsite}/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
+		m.put("Groovy script to be evaluated. It should return string or list of string. Check <a href='${docsite}/appendix/scripting' target='_blank'>scripting help</a> for details", 
+			"Groovy-Skript, das ausgewertet werden soll. Es sollte einen String oder eine Liste von Strings zurückgeben. Weitere Informationen finden Sie unter <a href='${docsite}/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
+		m.put("Groovy script to be evaluated. The return value should be a list of group facade object to be used as choices. Check <a href='${docsite}/appendix/scripting' target='_blank'>scripting help</a> for details", 
+			"Groovy-Skript, das ausgewertet werden soll. Der Rückgabewert sollte eine Liste von Gruppenfassadenobjekten sein, die als Auswahlmöglichkeiten verwendet werden. Weitere Informationen finden Sie unter <a href='${docsite}/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
+		m.put("Groovy script to be evaluated. The return value should be a list of user login names to be used as choices. Check <a href='${docsite}/appendix/scripting' target='_blank'>scripting help</a> for details", 
+			"Groovy-Skript, das ausgewertet werden soll. Der Rückgabewert sollte eine Liste von Benutzeranmeldenamen sein, die als Auswahlmöglichkeiten verwendet werden. Weitere Informationen finden Sie unter <a href='${docsite}/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
+		m.put("Groovy script to be evaluated. The return value should be a value to color map, for instance:<br><code>return [\"Successful\":\"#00ff00\", \"Failed\":\"#ff0000\"]</code>, Use <tt>null</tt> if the value does not have a color. Check <a href='${docsite}/appendix/scripting' target='_blank'>scripting help</a> for details", 
+			"Groovy-Skript, das ausgewertet werden soll. Der Rückgabewert sollte eine Wert-zu-Farbe-Zuordnung sein, zum Beispiel:<br><code>return [\"Successful\":\"#00ff00\", \"Failed\":\"#ff0000\"]</code>. Verwenden Sie <tt>null</tt>, wenn der Wert keine Farbe hat. Weitere Informationen finden Sie unter <a href='${docsite}/appendix/scripting' target='_blank'>Scripting-Hilfe</a>");
 		m.put("Groovy scripts", "Groovy-Skripte");
 		m.put("Group", "Gruppe");
 		m.put("Group \"{0}\" deleted", "Gruppe \"{0}\" gelöscht");
@@ -1776,6 +1891,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("History of comparing revisions is unrelated", "Verlauf des Vergleichs von Revisionen ist nicht zusammenhängend");
 		m.put("History of target branch and source branch is unrelated", "Verlauf des Ziel- und Quellzweigs ist nicht zusammenhängend");
 		m.put("Home page not found", "Startseite nicht gefunden");
+		m.put("Homepage", "Startseite");
 		m.put("Host name or ip address of remote machine to run commands via SSH", "Hostname oder IP-Adresse der entfernten Maschine, um Befehle über SSH auszuführen");
 		m.put("Hours Per Day", "Stunden pro Tag");
 		m.put("How to Publish", "Wie veröffentlichen");
@@ -1791,6 +1907,10 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("IP Address", "IP-Adresse");
 		m.put("Id", "ID");
 		m.put("Identify Field", "Feld identifizieren");
+		m.put("If enabled, a login session is required to automatically trigger code indexing when browsing repository files or viewing diffs.\nThis is useful for public projects to prevent anonymous AI crawlers from triggering indexing of every historical commit and generating a huge index cache.", 
+			"Wenn aktiviert, ist eine Login-Sitzung erforderlich, um das automatische Auslösen der Code-Indizierung beim Durchsuchen von Repository-Dateien oder Anzeigen von Diffs zu ermöglichen.\nDies ist nützlich für öffentliche Projekte, um zu verhindern, dass anonyme KI-Crawler die Indizierung jedes historischen Commits auslösen und einen riesigen Index-Cache erzeugen.");
+		m.put("If enabled, only project managers and users with maintenance permission can work on this project", 
+			"Wenn aktiviert, können nur Projektmanager und Benutzer mit Wartungsberechtigung an diesem Projekt arbeiten");
 		m.put("If enabled, scheduled backup will run on lead server which is <span wicket:id=\"leadServer\"></span> currently", 
 			"Wenn aktiviert, wird das geplante Backup auf dem Hauptserver ausgeführt, der <span wicket:id=\"leadServer\"></span> derzeit ist");
 		m.put("If enabled, source branch will be deleted automatically after merge the pull request if user has permission to do that", 
@@ -1799,15 +1919,15 @@ public class Translation_de extends TranslationResourceBundle {
 			"Wenn aktiviert, wird der ursprüngliche JSON-Bericht (.osv-scanner-vulners.json), der vom Osv-Scanner generiert wurde, als Artefakt veröffentlicht");
 		m.put("If enabled, the original JSON report in .trivy-outputs generated by Trivy will be published as artifact", 
 			"Wenn aktiviert, wird der ursprüngliche JSON-Bericht in .trivy-outputs, der von Trivy generiert wurde, als Artefakt veröffentlicht");
-		m.put("If specified, OneDev will only display iterations with this prefix", "Wenn angegeben, zeigt OneDev nur Iterationen mit diesem Präfix an");
+		m.put("If specified, ${productName} will only display iterations with this prefix", "Falls angegeben, zeigt ${productName} nur Iterationen mit diesem Präfix an");
 		m.put("If specified, all public and internal projects imported from GitLab will use these as default roles. Private projects are not affected", 
 			"Wenn angegeben, werden alle öffentlichen und internen Projekte, die von GitLab importiert werden, diese als Standardrollen verwenden. Private Projekte sind nicht betroffen");
 		m.put("If specified, all public repositories imported from GitHub will use these as default roles. Private repositories are not affected", 
 			"Wenn angegeben, werden alle öffentlichen Repositories, die von GitHub importiert werden, diese als Standardrollen verwenden. Private Repositories sind nicht betroffen");
 		m.put("If specified, total estimated/spent time of an issue will also include linked issues of this type", 
 			"Wenn angegeben, wird die geschätzte/aufgewendete Gesamtzeit eines Problems auch verknüpfte Probleme dieses Typs einschließen");
-		m.put("If this option is enabled, git lfs command needs to be installed on OneDev server (even this step runs on other node)", 
-			"Wenn diese Option aktiviert ist, muss der Befehl git lfs auf dem OneDev-Server installiert sein (auch wenn dieser Schritt auf einem anderen Knoten ausgeführt wird)");
+		m.put("If this option is enabled, git lfs command needs to be installed on ${productName} server (even this step runs on other node)", 
+			"Wenn diese Option aktiviert ist, muss der Git-lfs-Befehl auf dem ${productName}-Server installiert sein (auch wenn dieser Schritt auf einem anderen Knoten ausgeführt wird)");
 		m.put("If ticked, group indicated by this field will be able to edit estimated time of corresponding issues if time tracking is enabled", 
 			"Wenn aktiviert, kann die Gruppe, die durch dieses Feld angegeben wird, die geschätzte Zeit der entsprechenden Probleme bearbeiten, wenn die Zeiterfassung aktiviert ist");
 		m.put("Ignore", "Ignorieren");
@@ -1854,11 +1974,14 @@ public class Translation_de extends TranslationResourceBundle {
 			"Probleme werden in das aktuelle Projekt importiert. Bitte beachten Sie, dass die Problemnummern nur beibehalten werden, wenn der gesamte Projekt-Fork-Graph keine Probleme hat, um doppelte Problemnummern zu vermeiden");
 		m.put("Importing projects from {0}", "Projekte werden aus {0} importiert");
 		m.put("Imports", "Importe");
+		m.put("In Container", "Im Container");
+		m.put("In Host", "Auf dem Host");
 		m.put("In Projects", "In Projekten");
-		m.put("In case IMAP host certificate is self-signed or its CA root is not accepted, you may tell OneDev to bypass certificate check. <b class='text-danger'>WARNING: </b> In an untrusted network, this may lead to man-in-the-middle attack, and you should <a href='https://docs.onedev.io/administration-guide/trust-self-signed-certificates#trust-self-signed-certificates-on-server' target='_blank'>import the certificate into OneDev</a> instead", 
-			"Falls das IMAP-Host-Zertifikat selbstsigniert ist oder dessen CA-Root nicht akzeptiert wird, können Sie OneDev anweisen, die Zertifikatsprüfung zu umgehen. <b class='text-danger'>WARNUNG: </b> In einem unzuverlässigen Netzwerk kann dies zu einem Man-in-the-Middle-Angriff führen, und Sie sollten stattdessen <a href='https://docs.onedev.io/administration-guide/trust-self-signed-certificates#trust-self-signed-certificates-on-server' target='_blank'>das Zertifikat in OneDev importieren</a>");
-		m.put("In case SMTP host certificate is self-signed or its CA root is not accepted, you may tell OneDev to bypass certificate check. <b class='text-danger'>WARNING: </b> In an untrusted network, this may lead to man-in-the-middle attack, and you should <a href='https://docs.onedev.io/administration-guide/trust-self-signed-certificates#trust-self-signed-certificates-on-server' target='_blank'>import the certificate into OneDev</a> instead", 
-			"Falls das SMTP-Host-Zertifikat selbstsigniert ist oder dessen CA-Root nicht akzeptiert wird, können Sie OneDev anweisen, die Zertifikatsprüfung zu umgehen. <b class='text-danger'>WARNUNG: </b> In einem unzuverlässigen Netzwerk kann dies zu einem Man-in-the-Middle-Angriff führen, und Sie sollten stattdessen <a href='https://docs.onedev.io/administration-guide/trust-self-signed-certificates#trust-self-signed-certificates-on-server' target='_blank'>das Zertifikat in OneDev importieren</a>");
+		m.put("In Sandbox", "In der Sandbox");
+		m.put("In case IMAP host certificate is self-signed or its CA root is not accepted, you may tell ${productName} to bypass certificate check. <b class='text-danger'>WARNING: </b> In an untrusted network, this may lead to man-in-the-middle attack, and you should <a href='${docsite}/administration-guide/trust-self-signed-certificates#trust-self-signed-certificates-on-server' target='_blank'>import the certificate into ${productName}</a> instead", 
+			"Falls das IMAP-Host-Zertifikat selbstsigniert ist oder dessen CA-Root nicht akzeptiert wird, können Sie ${productName} anweisen, die Zertifikatsprüfung zu umgehen. <b class='text-danger'>WARNUNG: </b> In einem unzuverlässigen Netzwerk kann dies zu einem Man-in-the-Middle-Angriff führen, und Sie sollten <a href='${docsite}/administration-guide/trust-self-signed-certificates#trust-self-signed-certificates-on-server' target='_blank'>das Zertifikat stattdessen in ${productName} importieren</a>");
+		m.put("In case SMTP host certificate is self-signed or its CA root is not accepted, you may tell ${productName} to bypass certificate check. <b class='text-danger'>WARNING: </b> In an untrusted network, this may lead to man-in-the-middle attack, and you should <a href='${docsite}/administration-guide/trust-self-signed-certificates#trust-self-signed-certificates-on-server' target='_blank'>import the certificate into ${productName}</a> instead", 
+			"Falls das SMTP-Host-Zertifikat selbstsigniert ist oder dessen CA-Root nicht akzeptiert wird, können Sie ${productName} anweisen, die Zertifikatsprüfung zu umgehen. <b class='text-danger'>WARNUNG: </b> In einem unzuverlässigen Netzwerk kann dies zu einem Man-in-the-Middle-Angriff führen, und Sie sollten <a href='${docsite}/administration-guide/trust-self-signed-certificates#trust-self-signed-certificates-on-server' target='_blank'>das Zertifikat stattdessen in ${productName} importieren</a>");
 		m.put("In case anonymous access is disabled or anonymous user does not have enough permission for a resource operation, you will need to authenticate by providing user name and password (or access token) via http basic auth header", 
 			"Falls anonymer Zugriff deaktiviert ist oder der anonyme Benutzer nicht genügend Berechtigungen für eine Ressourcenoperation hat, müssen Sie sich authentifizieren, indem Sie Benutzername und Passwort (oder Zugriffstoken) über den HTTP-Basic-Auth-Header bereitstellen");
 		m.put("In case cache needs to be uploaded, this property specifies target project for the upload.\nLeave empty for current project", 
@@ -1885,10 +2008,12 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Include When Issue is Opened", "Einbeziehen, wenn das Problem geöffnet wird");
 		m.put("Incompatibilities", "Inkompatibilitäten");
 		m.put("Inconsistent issuer in provider metadata and ID token", "Inkonsistenter Aussteller in Providermetadaten und ID-Token");
+		m.put("Increment", "Inkrementieren");
 		m.put("Indicator", "Indikator");
 		m.put("Inferring the most likely...", "Ermitteln der wahrscheinlichsten...");
 		m.put("Inherit from parent", "Vom Elternteil erben");
 		m.put("Inherited", "Geerbt");
+		m.put("Initialization", "Initialisierung");
 		m.put("Input Spec", "Eingabe-Spezifikation");
 		m.put("Input URL", "Eingabe-URL");
 		m.put("Input allowed CORS origin, hit ENTER to add", "Geben Sie die erlaubte CORS-Ursprung ein, drücken Sie ENTER, um hinzuzufügen");
@@ -1904,8 +2029,9 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Insert this image", "Dieses Bild einfügen");
 		m.put("Install Subscription Key", "Abonnement-Schlüssel installieren");
 		m.put("Integer", "Ganzzahl");
-		m.put("Interactive web shell access to running jobs is an enterprise feature. <a href='https://onedev.io/pricing' target='_blank'>Try free</a> for 30 days", 
-			"Interaktiver Web-Shell-Zugriff auf laufende Jobs ist eine Enterprise-Funktion. <a href='https://onedev.io/pricing' target='_blank'>30 Tage kostenlos testen</a>");
+		m.put("Integration and supported scopes", "Integration und unterstützte Bereiche");
+		m.put("Interactive web shell access to running jobs is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days", 
+			"Interaktiver Web-Shell-Zugriff auf laufende Jobs ist eine Enterprise-Funktion. <a href='${website}/pricing' target='_blank'>30 Tage kostenlos testen</a>");
 		m.put("Internal Database", "Interne Datenbank");
 		m.put("Interpreter", "Interpreter");
 		m.put("Invalid GPG signature", "Ungültige GPG-Signatur");
@@ -1924,8 +2050,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Invalid selection, click for details", "Ungültige Auswahl, klicken Sie für Details");
 		m.put("Invalid ssh signature", "Ungültige SSH-Signatur");
 		m.put("Invalid state response", "Ungültige Statusantwort");
-		m.put("Invalid state. Please make sure you are visiting OneDev using server url specified in system setting", 
-			"Ungültiger Zustand. Bitte stellen Sie sicher, dass Sie OneDev über die in den Systemeinstellungen angegebene Server-URL besuchen");
+		m.put("Invalid state. Please make sure you are visiting ${productName} using server url specified in system setting", 
+			"Ungültiger Zustand. Bitte stellen Sie sicher, dass Sie ${productName} über die in den Systemeinstellungen angegebene Server-URL aufrufen");
 		m.put("Invalid subscription key", "Ungültiger Abonnement-Schlüssel");
 		m.put("Invalid working period", "Ungültiger Arbeitszeitraum");
 		m.put("Invitation sent to \"{0}\"", "Einladung gesendet an \"{0}\"");
@@ -2005,8 +2131,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Issue state duration statistics", "Problem-Statusdauer-Statistiken");
 		m.put("Issue state frequency statistics", "Problem-Statushäufigkeits-Statistiken");
 		m.put("Issue state trend statistics", "Problem-Statustrend-Statistiken");
-		m.put("Issue statistics is an enterprise feature. <a href='https://onedev.io/pricing' target='_blank'>Try free</a> for 30 days", 
-			"Problem-Statistiken sind eine Enterprise-Funktion. <a href='https://onedev.io/pricing' target='_blank'>30 Tage kostenlos testen</a>");
+		m.put("Issue statistics is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days", 
+			"Problemstatistiken sind eine Enterprise-Funktion. <a href='${website}/pricing' target='_blank'>30 Tage kostenlos testen</a>");
 		m.put("Issue workflow changed, <a wicket:id=\"reconcile\" class=\"link-primary\">reconciliation</a> needs to be performed to make data consistent. You may do this after making all necessary changes", 
 			"Problem-Workflow geändert, <a wicket:id=\"reconcile\" class=\"link-primary\">Abgleich</a> muss durchgeführt werden, um die Daten konsistent zu machen. Sie können dies nach allen notwendigen Änderungen tun");
 		m.put("Issue {0} deleted", "Issue {0} gelöscht");
@@ -2042,6 +2168,10 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("JaCoCo Coverage Report", "JaCoCo-Abdeckungsbericht");
 		m.put("Jest Coverage Report", "Jest-Abdeckungsbericht");
 		m.put("Jest Test Report", "Jest-Testbericht");
+		m.put("Jev", "Jev");
+		m.put("Jev Decide Value", "Jev-Wert entscheiden");
+		m.put("Jev Setting", "Jev-Einstellung");
+		m.put("Jev settings have been saved", "Jev-Einstellungen wurden gespeichert");
 		m.put("Job", "Job");
 		m.put("Job \"{0}\" associated with the build not found.", "Job \"{0}\", der mit dem Build verknüpft ist, wurde nicht gefunden.");
 		m.put("Job Authorization", "Job-Autorisierung");
@@ -2099,6 +2229,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Key ID", "Schlüssel-ID");
 		m.put("Key Secret", "Schlüssel-Geheimnis");
 		m.put("Key Type", "Schlüsseltyp");
+		m.put("Keys", "Schlüssel");
 		m.put("Kubectl Config File", "Kubectl-Konfigurationsdatei");
 		m.put("Kubernetes", "Kubernetes");
 		m.put("Kubernetes Executor", "Kubernetes-Executor");
@@ -2116,21 +2247,28 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Labels have been updated", "Labels wurden aktualisiert");
 		m.put("Language", "Sprache");
 		m.put("Last Accessed", "Zuletzt zugegriffen");
-		m.put("Last Finished of Specified Job", "Zuletzt abgeschlossen für den angegebenen Job");
 		m.put("Last Modified", "Zuletzt geändert");
 		m.put("Last Published", "Zuletzt veröffentlicht");
 		m.put("Last Update", "Letztes Update");
 		m.put("Last Updated", "Zuletzt aktualisiert");
+		m.put("Last Used", "Zuletzt verwendet");
 		m.put("Last commit", "Letzter Commit");
 		m.put("Last commit hash", "Letzter Commit-Hash");
 		m.put("Last commit index version", "Letzte Commit-Indexversion");
+		m.put("Last token exchange", "Letzter Token-Austausch");
+		m.put("Latest Build of Specified Job", "Neuester Build des angegebenen Jobs");
 		m.put("Leaf Projects", "Blattprojekte");
 		m.put("Least branch coverage", "Geringste Branch-Abdeckung");
 		m.put("Least line coverage", "Geringste Zeilenabdeckung");
 		m.put("Leave a comment", "Einen Kommentar hinterlassen");
 		m.put("Leave a note", "Eine Notiz hinterlassen");
+		m.put("Leave empty to inherit from the parent project.", "Leer lassen, um von dem übergeordneten Projekt zu erben.");
+		m.put("Leave empty to use the <a href='${docsite}/administration-guide/project-defaults' target='_blank'>default setting</a>.", 
+			"Lassen Sie dieses Feld leer, um die <a href='${docsite}/administration-guide/project-defaults' target='_blank'>Standardeinstellung</a> zu verwenden.");
 		m.put("Left", "Links");
 		m.put("Less", "Weniger");
+		m.put("Let applications offer sign-in with OneDev. Follow the <a href=\"${docsite}/tutorials/security/openid-connect-provider\" target=\"_blank\">OpenID Connect provider tutorial</a> to register an application and configure its OIDC client.", 
+			"Lassen Sie Anwendungen die Anmeldung mit OneDev anbieten. Folgen Sie dem <a href=\"${docsite}/tutorials/security/openid-connect-provider\" target=\"_blank\">OpenID-Connect-Provider-Tutorial</a>, um eine Anwendung zu registrieren und ihren OIDC-Client zu konfigurieren.");
 		m.put("License Agreement", "Lizenzvereinbarung");
 		m.put("License Setting", "Lizenzeinstellung");
 		m.put("Licensed To", "Lizenziert für");
@@ -2139,7 +2277,6 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Line", "Zeile");
 		m.put("Line: ", "Zeile:");
 		m.put("Lines", "Zeilen");
-		m.put("Link", "Link");
 		m.put("Link / upload", "Verknüpfen / Hochladen");
 		m.put("Link Existing User", "Bestehenden Benutzer verknüpfen");
 		m.put("Link Spec", "Link-Spezifikation");
@@ -2173,6 +2310,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Login name already used by another account", "Anmeldename wird bereits von einem anderen Konto verwendet");
 		m.put("Login name or email", "Anmeldename oder E-Mail");
 		m.put("Login name or email address", "Anmeldename oder E-Mail-Adresse");
+		m.put("Login to ${productName} docker registry", "Melden Sie sich beim ${productName}-Docker-Registry an");
 		m.put("Login to OneDev docker registry", "Anmelden beim OneDev-Docker-Registry");
 		m.put("Login to comment", "Anmelden, um zu kommentieren");
 		m.put("Login to comment on selection", "Anmelden, um die Auswahl zu kommentieren");
@@ -2199,6 +2337,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Mail service not configured", "Mail-Dienst nicht konfiguriert");
 		m.put("Mail service settings saved", "Mail-Dienst-Einstellungen gespeichert");
 		m.put("Main Repository", "Haupt-Repository");
+		m.put("Maintenance", "Wartung");
 		m.put("Make sure <a href=\"https://openjdk.java.net\" target=\"_blank\">Java 17 or higher</a> is installed", 
 			"Stellen Sie sicher, dass <a href=\"https://openjdk.java.net\" target=\"_blank\">Java 17 oder höher</a> installiert ist");
 		m.put("Make sure current user has permission to run docker containers", "Stellen Sie sicher, dass der aktuelle Benutzer die Berechtigung hat, Docker-Container auszuführen");
@@ -2244,17 +2383,19 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Markdown from file", "Markdown aus Datei");
 		m.put("Maven", "Maven");
 		m.put("Maven(s)", "Maven(s)");
+		m.put("Max", "Max");
+		m.put("Max Attempts", "Maximale Versuche");
 		m.put("Max Code Search Entries", "Maximale Code-Sucheinträge");
 		m.put("Max Commit Message Line Length", "Maximale Zeilenlänge der Commit-Nachricht");
 		m.put("Max Git LFS File Size (MB)", "Maximale Git-LFS-Dateigröße (MB)");
 		m.put("Max Loop Count", "Maximale Schleifenanzahl");
-		m.put("Max Retries", "Maximale Wiederholungen");
 		m.put("Max Upload File Size (MB)", "Maximale Upload-Dateigröße (MB)");
 		m.put("Max Value", "Maximalwert");
+		m.put("Maximum concurrent jobs on each server. Leave empty to use its CPU count.", "Maximale gleichzeitige Jobs auf jedem Server. Leer lassen, um die CPU-Anzahl zu verwenden.");
+		m.put("Maximum number of attempts including the initial run before giving up", "Maximale Anzahl von Versuchen einschließlich des ersten Durchlaufs, bevor aufgegeben wird");
 		m.put("Maximum number of entries to return when search code in repository", "Maximale Anzahl von Einträgen, die bei der Codesuche im Repository zurückgegeben werden");
 		m.put("Maximum number of times this AI user can be awakened in a single task. When the limit is reached, the AI user will not run and a system comment will be posted instead", 
 			"Maximale Anzahl, wie oft dieser KI-Benutzer in einer einzelnen Aufgabe aktiviert werden kann. Wenn das Limit erreicht ist, wird der KI-Benutzer nicht ausgeführt und stattdessen ein Systemkommentar gepostet");
-		m.put("Maximum of retries before giving up", "Maximale Anzahl von Wiederholungen, bevor aufgegeben wird");
 		m.put("May not be empty", "Darf nicht leer sein");
 		m.put("Medium", "Mittel");
 		m.put("Medium Severity", "Mittlere Schwere");
@@ -2262,6 +2403,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Memory", "Speicher");
 		m.put("Memory Limit", "Speicherlimit");
 		m.put("Memory Request", "Speicheranforderung");
+		m.put("Memory for each sandbox, for example 2g. Leave empty to use the Docker Sandboxes default (50% of host memory).", 
+			"Speicher für jede Sandbox, z. B. 2g. Leer lassen, um die Standardeinstellung der Docker-Sandboxes zu verwenden (50 % des Host-Speichers).");
 		m.put("Memory request for the workspace container.", "Speicheranforderung für den Workspace-Container.");
 		m.put("Mention Someone", "Jemanden erwähnen");
 		m.put("Mention someone", "Jemanden erwähnen");
@@ -2362,6 +2505,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Network Options", "Netzwerkoptionen");
 		m.put("Never", "Niemals");
 		m.put("Never expire", "Niemals ablaufen");
+		m.put("New", "Neu");
 		m.put("New Board", "Neues Board");
 		m.put("New Invitation Bean", "Neue Einladung-Bean");
 		m.put("New Issue", "Neues Issue");
@@ -2381,10 +2525,12 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Next year", "Nächstes Jahr");
 		m.put("Next {0}", "Nächster {0}");
 		m.put("No", "Nein");
+		m.put("No ${productName} Account", "Kein ${productName}-Konto");
 		m.put("No Activity Days", "Keine Aktivitätstage");
 		m.put("No SSH keys configured in your account. You may <a wicket:id=\"sshKeys\" class=\"link-primary\">add a key</a> or switch to <a wicket:id=\"useHttp\" class=\"link-primary\">HTTP(S)</a> url", 
 			"Keine SSH-Schlüssel in Ihrem Konto konfiguriert. Sie können <a wicket:id=\"sshKeys\" class=\"link-primary\">einen Schlüssel hinzufügen</a> oder zu <a wicket:id=\"useHttp\" class=\"link-primary\">HTTP(S)</a>-URL wechseln");
 		m.put("No SSL", "Kein SSL");
+		m.put("No accessible named sites", "Keine zugänglichen benannten Seiten");
 		m.put("No accessible reports", "Keine zugänglichen Berichte");
 		m.put("No activity for some time", "Keine Aktivität seit einiger Zeit");
 		m.put("No agents to pause", "Keine Agenten zum Pausieren");
@@ -2395,8 +2541,10 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("No any", "Kein Einziger");
 		m.put("No any matches", "Keine Übereinstimmungen");
 		m.put("No applicable transitions or no permission to transit", "Keine anwendbaren Übergänge oder keine Berechtigung zum Übergang");
+		m.put("No applications registered yet", "Noch keine Anwendungen registriert");
 		m.put("No attributes defined (can only be edited when agent is online)", "Keine Attribute definiert (können nur bearbeitet werden, wenn der Agent online ist)");
 		m.put("No audits", "Keine Audits");
+		m.put("No authorized applications yet", "Noch keine autorisierten Anwendungen");
 		m.put("No authorized job secret found (project: {0}, job secret: {1})", "Kein autorisiertes Job-Geheimnis gefunden (Projekt: {0}, Job-Geheimnis: {1})");
 		m.put("No branch to cherry-pick to", "Kein Branch zum Cherry-Picking");
 		m.put("No branch to revert on", "Kein Branch zum Zurücksetzen");
@@ -2458,12 +2606,15 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("No jobs defined", "Keine Jobs definiert");
 		m.put("No jobs found", "Keine Jobs gefunden");
 		m.put("No limit", "Kein Limit");
+		m.put("No log entries", "Keine Protokolleinträge");
 		m.put("No mail service", "Kein Mail-Service");
 		m.put("No one", "Niemand");
 		m.put("No packages to delete", "Keine Pakete zum Löschen");
 		m.put("No parent", "Kein Elternteil");
 		m.put("No permission to access wiki project.", "Keine Berechtigung, auf das Wiki-Projekt zuzugreifen.");
 		m.put("No prefix", "Kein Präfix");
+		m.put("No previous successful build on <a href=\"${docsite}/concepts#build-stream\" class=\"link-primary\" target=\"_blank\">same stream</a> to calculate fixed issues since", 
+			"Kein vorheriger erfolgreicher Build im <a href=\"${docsite}/concepts#build-stream\" class=\"link-primary\" target=\"_blank\">gleichen Stream</a>, um behobene Probleme seitdem zu berechnen");
 		m.put("No previous successful build on <a href=\"https://docs.onedev.io/concepts#build-stream\" class=\"link-primary\" target=\"_blank\">same stream</a> to calculate fixed issues since", 
 			"Kein vorheriger erfolgreicher Build auf <a href=\"https://docs.onedev.io/concepts#build-stream\" class=\"link-primary\" target=\"_blank\">dem gleichen Stream</a>, um behobene Issues seitdem zu berechnen");
 		m.put("No projects found", "Keine Projekte gefunden");
@@ -2486,6 +2637,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("No services defined", "Keine Dienste definiert");
 		m.put("No specs found", "Keine Spezifikationen gefunden");
 		m.put("No start/due date", "Kein Start-/Fälligkeitsdatum");
+		m.put("No step logs available", "Keine Schrittprotokolle verfügbar");
 		m.put("No step templates defined", "Keine Schrittvorlagen definiert");
 		m.put("No suggestions", "Keine Vorschläge");
 		m.put("No tags found", "Keine Tags gefunden");
@@ -2512,6 +2664,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Not a verified email of signing ssh key owner", "Nicht eine verifizierte E-Mail des Besitzers des signierenden SSH-Schlüssels");
 		m.put("Not allowed file type: {0}", "Nicht erlaubter Dateityp: {0}");
 		m.put("Not allowed to modify this file", "Keine Berechtigung, diese Datei zu ändern");
+		m.put("Not applicable", "Nicht zutreffend");
 		m.put("Not assigned", "Nicht zugewiesen");
 		m.put("Not authorized to create project under \"{0}\"", "Nicht berechtigt, ein Projekt unter \"{0}\" zu erstellen");
 		m.put("Not authorized to create root project", "Nicht berechtigt, ein Root-Projekt zu erstellen");
@@ -2523,10 +2676,12 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Not covered by any test", "Nicht durch einen Test abgedeckt");
 		m.put("Not displaying any fields", "Keine Felder angezeigt");
 		m.put("Not displaying any links", "Keine Links angezeigt");
+		m.put("Not issued", "Nicht ausgestellt");
 		m.put("Not passed", "Nicht bestanden");
 		m.put("Not rendered in failsafe mode", "Nicht im Failsafe-Modus gerendert");
 		m.put("Not run", "Nicht ausgeführt");
 		m.put("Not specified", "Nicht angegeben");
+		m.put("Not used", "Nicht verwendet");
 		m.put("Note", "Notiz");
 		m.put("Nothing changed yet", "Noch nichts geändert");
 		m.put("Nothing to preview", "Nichts zu Vorschau anzeigen");
@@ -2547,10 +2702,15 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Number of builds to preserve", "Anzahl der Builds, die erhalten bleiben sollen");
 		m.put("Number of project replicas, including primary and backups", "Anzahl der Projekt-Replikate, einschließlich primärer und Backup-Kopien");
 		m.put("Number of recent months to show statistics for", "Anzahl der letzten Monate, für die Statistiken angezeigt werden sollen");
+		m.put("O Auth Application Bean", "OAuth-Anwendungs-Bean");
+		m.put("OAuth Applications", "OAuth-Anwendungen");
+		m.put("OAuth Signing Key", "OAuth-Signaturschlüssel");
 		m.put("OAuth2 Client information | CLIENT ID", "OAuth2-Client-Informationen | CLIENT-ID");
 		m.put("OAuth2 Client information | CLIENT SECRET", "OAuth2-Client-Informationen | CLIENT-SECRET");
 		m.put("OCI Layout Directory", "OCI-Layout-Verzeichnis");
+		m.put("OFF", "AUS");
 		m.put("OIDC error: Inconsistent sub in ID token and userinfo", "OIDC-Fehler: Inkonsistenter Sub in ID-Token und Benutzerinfo");
+		m.put("ON", "AN");
 		m.put("OOPS! There Is An Error", "OOPS! Es gibt einen Fehler");
 		m.put("OPEN", "OFFEN");
 		m.put("OS", "Betriebssystem");
@@ -2558,28 +2718,22 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("OS User Name", "Betriebssystem-Benutzername");
 		m.put("OS Version", "Betriebssystem-Version");
 		m.put("OS/ARCH", "OS/ARCH");
+		m.put("Oauth signing key", "OAuth-Signaturschlüssel");
 		m.put("Offline", "Offline");
 		m.put("Ok", "Ok");
+		m.put("Old", "Alt");
 		m.put("Old Name", "Alter Name");
 		m.put("Old Password", "Altes Passwort");
 		m.put("On", "An");
 		m.put("On Behalf Of", "Im Namen von");
 		m.put("On Branches", "Auf Branches");
 		m.put("One year", "Ein Jahr");
-		m.put("OneDev Issue Field", "OneDev-Issue-Feld");
-		m.put("OneDev Issue Link", "OneDev-Issue-Link");
-		m.put("OneDev Issue State", "OneDev-Issue-Status");
-		m.put("OneDev analyzes repository files for code search, line statistics, and code contribution statistics. This setting tells which files should be analyzed.\n<b>NOTE: </b> Changing this setting only affects new commits. To apply the change to history commits, please stop the server and delete folder\n<code>index</code> and <code>info/commit</code> under <a href='https://docs.onedev.io/concepts#project-storage' target='_blank'>project's storage directory</a>.\nThe repository will be re-analyzed when server is started", 
-			"OneDev analysiert Repository-Dateien für die Codesuche, Zeilenstatistiken und Codebeitragsstatistiken. Diese Einstellung gibt an, welche Dateien analysiert werden sollen.\n<b>HINWEIS: </b> Das Ändern dieser Einstellung betrifft nur neue Commits. Um die Änderung auf historische Commits anzuwenden, stoppen Sie bitte den Server und löschen Sie den Ordner\n<code>index</code> und <code>info/commit</code> unter <a href='https://docs.onedev.io/concepts#project-storage' target='_blank'>Projekt-Speicherverzeichnis</a>.\nDas Repository wird neu analysiert, wenn der Server gestartet wird");
-		m.put("OneDev configures git hooks to communicate with itself via curl", "OneDev konfiguriert Git-Hooks, um über Curl mit sich selbst zu kommunizieren");
-		m.put("OneDev needs to search and determine user DN, as well as searching user group information if group retrieval is enabled. Tick this option and specify 'manager' DN and password if these operations needs to be authenticated", 
-			"OneDev muss Benutzer-DN suchen und bestimmen sowie Benutzergruppeninformationen abrufen, wenn die Gruppenabfrage aktiviert ist. Aktivieren Sie diese Option und geben Sie 'Manager'-DN und Passwort an, wenn diese Vorgänge authentifiziert werden müssen");
-		m.put("OneDev requires git command line to manage repositories. The minimum required version is 2.11.1. Also make sure that git-lfs is installed if you want to retrieve LFS files in build job", 
-			"OneDev benötigt die Git-Befehlszeile, um Repositories zu verwalten. Die minimal erforderliche Version ist 2.11.1. Stellen Sie außerdem sicher, dass Git-LFS installiert ist, wenn Sie LFS-Dateien im Build-Job abrufen möchten");
 		m.put("Online", "Online");
 		m.put("Only create merge commit if target branch cannot be fast-forwarded to source branch", 
 			"Erstelle nur einen Merge-Commit, wenn der Zielbranch nicht auf den Quellbranch vorwärtsgeführt werden kann");
 		m.put("Only projects manageable by access token owner can be authorized", "Nur Projekte, die vom Besitzer des Zugriffstokens verwaltet werden können, dürfen autorisiert werden");
+		m.put("Only projects you have permission to manage can be authorized. The application can only exercise permissions you have. Changes to these roles also affect this authorization.", 
+			"Nur Projekte, die Sie verwalten dürfen, können autorisiert werden. Die Anwendung kann nur Berechtigungen ausüben, die Sie haben. Änderungen an diesen Rollen wirken sich auch auf diese Autorisierung aus.");
 		m.put("Only system level audit events are displayed here. To view audit events for a specific project, please visit the project audit log page", 
 			"Hier werden nur Audit-Ereignisse auf Systemebene angezeigt. Um Audit-Ereignisse für ein bestimmtes Projekt anzuzeigen, besuchen Sie bitte die Audit-Log-Seite des Projekts");
 		m.put("Only users able to authenticate via password can be linked", "Nur Benutzer, die sich über ein Passwort authentifizieren können, können verknüpft werden");
@@ -2589,10 +2743,10 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Open terminal", "Terminal öffnen");
 		m.put("Open terminal of current running step", "Terminal des aktuell laufenden Schritts öffnen");
 		m.put("OpenID", "OpenID");
-		m.put("OpenID client identification will be assigned by your OpenID provider when registering this OneDev instance as client application", 
-			"OpenID-Client-Identifikation wird von Ihrem OpenID-Anbieter zugewiesen, wenn Sie diese OneDev-Instanz als Client-Anwendung registrieren");
-		m.put("OpenID client secret will be generated by your OpenID provider when registering this OneDev instance as client application", 
-			"OpenID-Client-Secret wird von Ihrem OpenID-Anbieter generiert, wenn Sie diese OneDev-Instanz als Client-Anwendung registrieren");
+		m.put("OpenID client identification will be assigned by your OpenID provider when registering this ${productName} instance as client application", 
+			"Die OpenID-Client-Identifikation wird von Ihrem OpenID-Anbieter zugewiesen, wenn Sie diese ${productName}-Instanz als Client-Anwendung registrieren");
+		m.put("OpenID client secret will be generated by your OpenID provider when registering this ${productName} instance as client application", 
+			"Das OpenID-Client-Secret wird von Ihrem OpenID-Anbieter generiert, wenn Sie diese ${productName}-Instanz als Client-Anwendung registrieren");
 		m.put("OpenSSH Public Key", "OpenSSH-Öffentlicher Schlüssel");
 		m.put("OpenSSH public key begins with 'ssh-rsa', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'ssh-ed25519', 'sk-ecdsa-sha2-nistp256@openssh.com', or 'sk-ssh-ed25519@openssh.com'", 
 			"OpenSSH-Öffentlicher Schlüssel beginnt mit 'ssh-rsa', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'ssh-ed25519', 'sk-ecdsa-sha2-nistp256@openssh.com' oder 'sk-ssh-ed25519@openssh.com'");
@@ -2604,6 +2758,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Operations", "Operationen");
 		m.put("Optional", "Optional");
 		m.put("Optional instructions that define how the AI user should behave", "Optionale Anweisungen, die definieren, wie sich der AI-Benutzer verhalten soll");
+		m.put("Optional registry logins for steps and services that use container images inside the sandbox. These logins are not used to pull the sandbox template image. Logins specified in a step or service override these for the same registry. For built-in registry, use <code>@server_url@</code> for registry url, <code>@job_token@</code> for user name, and access token for password.", 
+			"Optionale Registry-Logins für Schritte und Dienste, die Container-Images innerhalb der Sandbox verwenden. Diese Logins werden nicht verwendet, um das Sandbox-Vorlagen-Image zu ziehen. In einem Schritt oder Dienst angegebene Logins überschreiben diese für dasselbe Registry. Für das integrierte Registry verwenden Sie <code>@server_url@</code> für die Registry-URL, <code>@job_token@</code> für den Benutzernamen und das Zugriffstoken für das Passwort.");
 		m.put("Optionally add new users to specified default group", "Optional neue Benutzer zur angegebenen Standardgruppe hinzufügen");
 		m.put("Optionally add newly authenticated user to specified group if membership information is not available", 
 			"Optional neu authentifizierten Benutzer zur angegebenen Gruppe hinzufügen, wenn keine Mitgliedschaftsinformationen verfügbar sind");
@@ -2631,14 +2787,15 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Optionally filter pull requests", "Optional Pull-Requests filtern");
 		m.put("Optionally leave a note", "Optional eine Notiz hinterlassen");
 		m.put("Optionally mount directories or files under job working directory into container", "Optional Verzeichnisse oder Dateien unter dem Job-Arbeitsbereich in den Container einbinden");
+		m.put("Optionally restrict above job to a branch or tag", "Optional können Sie den obigen Job auf einen Branch oder Tag beschränken");
 		m.put("Optionally select fields to prompt when this button is pressed", "Optional Felder auswählen, die angezeigt werden sollen, wenn diese Schaltfläche gedrückt wird");
 		m.put("Optionally select fields to remove when this transition happens", "Optional Felder auswählen, die entfernt werden sollen, wenn dieser Übergang stattfindet");
 		m.put("Optionally specifies name of the attribute inside the user LDAP entry whose value will be taken as user email. This field is normally set to <i>mail</i> according to RFC 2798", 
 			"Optional den Namen des Attributs innerhalb des Benutzer-LDAP-Eintrags angeben, dessen Wert als Benutzer-E-Mail verwendet wird. Dieses Feld wird normalerweise gemäß RFC 2798 auf <i>mail</i> gesetzt");
 		m.put("Optionally specifies name of the attribute inside the user LDAP entry whose value will be taken as user full name. This field is normally set to <i>displayName</i> according to RFC 2798. If left empty, full name of the user will not be retrieved", 
 			"Optional den Namen des Attributs innerhalb des Benutzer-LDAP-Eintrags angeben, dessen Wert als vollständiger Benutzername verwendet wird. Dieses Feld wird normalerweise gemäß RFC 2798 auf <i>displayName</i> gesetzt. Wenn leer gelassen, wird der vollständige Name des Benutzers nicht abgerufen");
-		m.put("Optionally specify <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as GitHub access token. This is used to retrieve release notes of dependencies hosted on GitHub, and the authenticated access will get a higher rate limit", 
-			"Optional geben Sie <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, das als GitHub-Zugriffstoken verwendet werden soll. Dies wird verwendet, um Release-Notizen von Abhängigkeiten abzurufen, die auf GitHub gehostet werden, und der authentifizierte Zugriff erhält ein höheres Ratenlimit");
+		m.put("Optionally specify <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as GitHub access token. This is used to retrieve release notes of dependencies hosted on GitHub, and the authenticated access will get a higher rate limit", 
+			"Optional können Sie ein <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>Job-Secret</a> als GitHub-Zugriffstoken angeben. Dies wird verwendet, um Release-Notizen von Abhängigkeiten abzurufen, die auf GitHub gehostet werden, und der authentifizierte Zugriff erhält ein höheres Ratenlimit");
 		m.put("Optionally specify <a href='https://github.com/GoogleContainerTools/kaniko?tab=readme-ov-file#additional-flags' target='_blank'>additional options</a> of kaniko", 
 			"Optional geben Sie <a href='https://github.com/GoogleContainerTools/kaniko?tab=readme-ov-file#additional-flags' target='_blank'>zusätzliche Optionen</a> von Kaniko an");
 		m.put("Optionally specify <a href='https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane_pull.md' target='_blank'>additional options</a> of crane", 
@@ -2653,49 +2810,55 @@ public class Translation_de extends TranslationResourceBundle {
 			"Optional geben Sie <span class='text-info'>kommagetrennte</span> Plattformen zum Scannen an, beispielsweise <tt>linux/amd64,linux/arm64</tt>. Lassen Sie das Feld leer, um alle Plattformen im OCI-Layout zu scannen");
 		m.put("Optionally specify API key for authentication", "Optional API-Schlüssel für Authentifizierung angeben");
 		m.put("Optionally specify CPU limit for the workspace container.", "Optional CPU-Limit für den Workspace-Container angeben.");
-		m.put("Optionally specify Dockerfile relative to <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>. Leave empty to use file <tt>Dockerfile</tt> under build path specified above", 
-			"Optional geben Sie die Dockerfile relativ zu <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job-Arbeitsbereich</a> an. Lassen Sie das Feld leer, um die Datei <tt>Dockerfile</tt> unter dem oben angegebenen Build-Pfad zu verwenden");
+		m.put("Optionally specify Docker options to create the network for jobs using services. Multiple options should be separated by space, and single options containing spaces should be quoted.", 
+			"Optional Docker-Optionen angeben, um das Netzwerk für Jobs mit Diensten zu erstellen. Mehrere Optionen sollten durch Leerzeichen getrennt werden, und einzelne Optionen mit Leerzeichen sollten in Anführungszeichen gesetzt werden.");
+		m.put("Optionally specify Docker options to run containers inside the sandbox. Multiple options should be separated by space, and single options containing spaces should be quoted. Do not specify <code>--network</code> or <code>--net</code> for jobs using services, as their network is managed automatically. File paths refer to the sandbox filesystem; relative file paths are resolved from the job working directory.", 
+			"Optional Docker-Optionen angeben, um Container innerhalb der Sandbox auszuführen. Mehrere Optionen sollten durch Leerzeichen getrennt werden, und einzelne Optionen mit Leerzeichen sollten in Anführungszeichen gesetzt werden. Geben Sie keine <code>--network</code> oder <code>--net</code> für Jobs mit Diensten an, da deren Netzwerk automatisch verwaltet wird. Dateipfade beziehen sich auf das Sandbox-Dateisystem; relative Dateipfade werden vom Arbeitsverzeichnis des Jobs aus aufgelöst.");
+		m.put("Optionally specify Dockerfile relative to <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a>. Leave empty to use file <tt>Dockerfile</tt> under build path specified above", 
+			"Optional können Sie eine Dockerfile relativ zum <a href='${docsite}/concepts#job-workdir' target='_blank'>Job-Arbeitsverzeichnis</a> angeben. Lassen Sie das Feld leer, um die Datei <tt>Dockerfile</tt> unter dem oben angegebenen Build-Pfad zu verwenden");
 		m.put("Optionally specify JavaScript config to be used by Renovate CLI", "Optional geben Sie die JavaScript-Konfiguration an, die von der Renovate-CLI verwendet werden soll");
 		m.put("Optionally specify SSH root URL, which will be used to construct project clone url via SSH protocol. Leave empty to derive from server url", 
 			"Optional geben Sie die SSH-Root-URL an, die verwendet wird, um die Projekt-Klon-URL über das SSH-Protokoll zu erstellen. Lassen Sie das Feld leer, um es von der Server-URL abzuleiten");
+		m.put("Optionally specify a ${productName} project to be used as parent of imported projects. Leave empty to import as root projects", 
+			"Optional können Sie ein ${productName}-Projekt angeben, das als übergeordnetes Projekt der importierten Projekte verwendet werden soll. Lassen Sie das Feld leer, um als Stammprojekte zu importieren");
+		m.put("Optionally specify a ${productName} project to be used as parent of imported repositories. Leave empty to import as root projects", 
+			"Optional können Sie ein ${productName}-Projekt angeben, das als übergeordnetes Projekt der importierten Repositories verwendet werden soll. Lassen Sie das Feld leer, um als Stammprojekte zu importieren");
 		m.put("Optionally specify a <a href='http://docs.oracle.com/javase/6/docs/api/java/util/regex/Pattern.html'>regular expression pattern</a> for valid values of the text input", 
 			"Optional geben Sie ein <a href='http://docs.oracle.com/javase/6/docs/api/java/util/regex/Pattern.html'>Regulärer Ausdrucksmuster</a> für gültige Werte der Texteingabe an");
-		m.put("Optionally specify a OneDev project to be used as parent of imported projects. Leave empty to import as root projects", 
-			"Optional geben Sie ein OneDev-Projekt an, das als übergeordnetes Projekt der importierten Projekte verwendet werden soll. Lassen Sie das Feld leer, um als Root-Projekte zu importieren");
-		m.put("Optionally specify a OneDev project to be used as parent of imported repositories. Leave empty to import as root projects", 
-			"Optional geben Sie ein OneDev-Projekt an, das als übergeordnetes Projekt der importierten Repositories verwendet werden soll. Lassen Sie das Feld leer, um als Root-Projekte zu importieren");
 		m.put("Optionally specify a base query for the list", "Optional geben Sie eine Basisabfrage für die Liste an");
 		m.put("Optionally specify a base query to filter/order issues in backlog. Backlog issues are those not associating with current iteration", 
 			"Optional geben Sie eine Basisabfrage an, um Probleme im Backlog zu filtern/zu sortieren. Backlog-Probleme sind diejenigen, die nicht mit der aktuellen Iteration verbunden sind");
 		m.put("Optionally specify a base query to filter/order issues of the board", "Optional geben Sie eine Basisabfrage an, um Probleme des Boards zu filtern/zu sortieren");
 		m.put("Optionally specify a commit message checker to validate commit messages. Only applicable for non-merge commits", 
 			"Optional einen Commit-Nachrichtenprüfer angeben, um Commit-Nachrichten zu validieren. Nur anwendbar für Nicht-Merge-Commits");
-		m.put("Optionally specify a cron expression to schedule database auto-backup. The cron expression format is <em>&lt;seconds&gt; &lt;minutes&gt; &lt;hours&gt; &lt;day-of-month&gt; &lt;month&gt; &lt;day-of-week&gt;</em>.For example, <em>0 0 1 * * ?</em> means 1:00am every day. For details of the format, refer to <a href='http://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html#format' target='_blank'>Quartz tutorial</a>.The backup files will be placed into <em>db-backup</em> folder under OneDev installation directory. In case multiple servers connect to form a cluster, auto-backup takes place on the <a href='https://docs.onedev.io/concepts#lead-server' target='_blank'>lead server</a>. Leave this property empty if you do not want to enable database auto backup.", 
-			"Optional geben Sie einen Cron-Ausdruck an, um die automatische Datenbanksicherung zu planen. Das Cron-Ausdrucksformat ist <em>&lt;Sekunden&gt; &lt;Minuten&gt; &lt;Stunden&gt; &lt;Tag-des-Monats&gt; &lt;Monat&gt; &lt;Tag-der-Woche&gt;</em>. Zum Beispiel bedeutet <em>0 0 1 * * ?</em> 1:00 Uhr morgens jeden Tag. Einzelheiten zum Format finden Sie im <a href='http://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html#format' target='_blank'>Quartz-Tutorial</a>. Die Sicherungsdateien werden im Ordner <em>db-backup</em> unter dem OneDev-Installationsverzeichnis abgelegt. Wenn mehrere Server verbunden sind, um einen Cluster zu bilden, erfolgt die automatische Sicherung auf dem <a href='https://docs.onedev.io/concepts#lead-server' target='_blank'>Leitserver</a>. Lassen Sie diese Eigenschaft leer, wenn Sie die automatische Datenbanksicherung nicht aktivieren möchten.");
-		m.put("Optionally specify a date field to hold due date information.<br><b>NOTE: </b> You may customize OneDev issue fields in case there is no appropriate option here", 
-			"Optional geben Sie ein Datumsfeld an, um Informationen zum Fälligkeitsdatum zu speichern.<br><b>HINWEIS: </b> Sie können die OneDev-Probleme-Felder anpassen, falls hier keine geeignete Option vorhanden ist");
-		m.put("Optionally specify a path relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> to put retrieved artifacts. Leave empty to use job working directory itself", 
-			"Optional geben Sie einen Pfad relativ zu <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, um abgerufene Artefakte abzulegen. Lassen Sie das Feld leer, um den Job-Arbeitsbereich selbst zu verwenden");
+		m.put("Optionally specify a cron expression to schedule database auto-backup. The cron expression format is <em>&lt;seconds&gt; &lt;minutes&gt; &lt;hours&gt; &lt;day-of-month&gt; &lt;month&gt; &lt;day-of-week&gt;</em>.For example, <em>0 0 1 * * ?</em> means 1:00am every day. For details of the format, refer to <a href='http://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html#format' target='_blank'>Quartz tutorial</a>.The backup files will be placed into <em>db-backup</em> folder under ${productName} installation directory. In case multiple servers connect to form a cluster, auto-backup takes place on the <a href='${docsite}/concepts#lead-server' target='_blank'>lead server</a>. Leave this property empty if you do not want to enable database auto backup.", 
+			"Optional können Sie einen Cron-Ausdruck angeben, um die automatische Datenbanksicherung zu planen. Das Cron-Ausdrucksformat lautet <em>&lt;Sekunden&gt; &lt;Minuten&gt; &lt;Stunden&gt; &lt;Tag-des-Monats&gt; &lt;Monat&gt; &lt;Tag-der-Woche&gt;</em>. Zum Beispiel bedeutet <em>0 0 1 * * ?</em> jeden Tag um 1:00 Uhr morgens. Weitere Informationen zum Format finden Sie im <a href='http://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html#format' target='_blank'>Quartz-Tutorial</a>. Die Sicherungsdateien werden im Ordner <em>db-backup</em> unter dem ${productName}-Installationsverzeichnis abgelegt. Falls mehrere Server zu einem Cluster verbunden sind, erfolgt die automatische Sicherung auf dem <a href='${docsite}/concepts#lead-server' target='_blank'>Leitserver</a>. Lassen Sie dieses Feld leer, wenn Sie die automatische Datenbanksicherung nicht aktivieren möchten.");
+		m.put("Optionally specify a date field to hold due date information.<br><b>NOTE: </b> You may customize ${productName} issue fields in case there is no appropriate option here", 
+			"Optional können Sie ein Datumsfeld angeben, um Fälligkeitsinformationen zu speichern.<br><b>HINWEIS: </b> Sie können ${productName}-Problemfelder anpassen, falls hier keine geeignete Option vorhanden ist");
+		m.put("Optionally specify a path relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a> to put retrieved artifacts. Leave empty to use job working directory itself", 
+			"Optional können Sie einen Pfad relativ zum <a href='${docsite}/concepts#job-workdir'>Job-Arbeitsverzeichnis</a> angeben, um abgerufene Artefakte abzulegen. Lassen Sie das Feld leer, um das Job-Arbeitsverzeichnis selbst zu verwenden");
 		m.put("Optionally specify a prefix to be prepended (as a path segment) when generate issue branch.\nFor instance with prefix <code>feature</code>, generated issue branch will be\n<code>feature/issue-100-some-title</code>", 
 			"Geben Sie optional ein Präfix an, das beim Generieren eines Issue-Branches vorangestellt wird (als Pfadsegment).\nZum Beispiel wird mit dem Präfix <code>feature</code> der generierte Issue-Branch\n<code>feature/issue-100-some-title</code> sein");
+		m.put("Optionally specify a site name. Named sites require access permission configured in roles. Leave empty to publish a publicly accessible site. The name 'public' is reserved (case insensitive)", 
+			"Optional können Sie einen Seitennamen angeben. Benannte Seiten erfordern Zugriffserlaubnis, die in Rollen konfiguriert ist. Lassen Sie das Feld leer, um eine öffentlich zugängliche Seite zu veröffentlichen. Der Name 'public' ist reserviert (Groß-/Kleinschreibung wird nicht berücksichtigt)");
 		m.put("Optionally specify a storage class to allocate build volume dynamically. Leave empty to use default storage class. <b class='text-warning'>NOTE:</b> Reclaim policy of the storage class should be set to <code>Delete</code>, as the volume is only used to hold temporary build files", 
 			"Optional geben Sie eine Speicherklasse an, um das Build-Volume dynamisch zuzuweisen. Lassen Sie das Feld leer, um die Standard-Speicherklasse zu verwenden. <b class='text-warning'>HINWEIS:</b> Die Rückgewinnungsrichtlinie der Speicherklasse sollte auf <code>Delete</code> gesetzt werden, da das Volume nur zum Speichern temporärer Build-Dateien verwendet wird");
 		m.put("Optionally specify a storage class to allocate the workspace PVC dynamically. Leave empty to use default storage class. <b class='text-warning'>NOTE:</b> Reclaim policy of the storage class should be set to <code>Delete</code>, as the volume will be deleted when the workspace is deleted", 
 			"Optional können Sie eine Storage-Class angeben, um das Workspace-PVC dynamisch zuzuweisen. Lassen Sie das Feld leer, um die Standard-Storage-Class zu verwenden. <b class='text-warning'>HINWEIS:</b> Die Reclaim-Policy der Storage-Class sollte auf <code>Delete</code> gesetzt sein, da das Volume gelöscht wird, wenn der Arbeitsbereich gelöscht wird");
-		m.put("Optionally specify a working period field to hold estimated time infomration.<br><b>NOTE: </b> You may customize OneDev issue fields in case there is no appropriate option here", 
-			"Optional geben Sie ein Arbeitszeitfeld an, um geschätzte Zeitinformationen zu speichern.<br><b>HINWEIS: </b> Sie können die OneDev-Probleme-Felder anpassen, falls hier keine geeignete Option vorhanden ist");
-		m.put("Optionally specify a working period field to hold spent time infomration.<br><b>NOTE: </b> You may customize OneDev issue fields in case there is no appropriate option here", 
-			"Optional geben Sie ein Arbeitszeitfeld an, um aufgewendete Zeitinformationen zu speichern.<br><b>HINWEIS: </b> Sie können die OneDev-Probleme-Felder anpassen, falls hier keine geeignete Option vorhanden ist");
-		m.put("Optionally specify a working period field to hold time estimate infomration.<br><b>NOTE: </b> You may customize OneDev issue fields in case there is no appropriate option here", 
-			"Optional geben Sie ein Arbeitszeitfeld an, um Zeitabschätzungsinformationen zu speichern.<br><b>HINWEIS: </b> Sie können die OneDev-Probleme-Felder anpassen, falls hier keine geeignete Option vorhanden ist");
-		m.put("Optionally specify a working period field to hold time spent infomration.<br><b>NOTE: </b> You may customize OneDev issue fields in case there is no appropriate option here", 
-			"Optional geben Sie ein Arbeitszeitfeld an, um aufgewendete Zeitinformationen zu speichern.<br><b>HINWEIS: </b> Sie können die OneDev-Probleme-Felder anpassen, falls hier keine geeignete Option vorhanden ist");
-		m.put("Optionally specify absolute path to the kubeconfig file used by kubectl to access the cluster. Leave empty to have kubectl determine cluster access automatically (works when OneDev itself runs in the cluster).", 
-			"Optional den absoluten Pfad zur kubeconfig-Datei angeben, die von kubectl zum Zugriff auf den Cluster verwendet wird. Leer lassen, damit kubectl den Clusterzugriff automatisch bestimmt (funktioniert, wenn OneDev selbst im Cluster läuft).");
+		m.put("Optionally specify a working period field to hold estimated time infomration.<br><b>NOTE: </b> You may customize ${productName} issue fields in case there is no appropriate option here", 
+			"Optional können Sie ein Arbeitszeitfeld angeben, um geschätzte Zeitinformationen zu speichern.<br><b>HINWEIS: </b> Sie können ${productName}-Problemfelder anpassen, falls hier keine geeignete Option vorhanden ist");
+		m.put("Optionally specify a working period field to hold spent time infomration.<br><b>NOTE: </b> You may customize ${productName} issue fields in case there is no appropriate option here", 
+			"Optional können Sie ein Arbeitszeitfeld angeben, um aufgewendete Zeitinformationen zu speichern.<br><b>HINWEIS: </b> Sie können ${productName}-Problemfelder anpassen, falls hier keine geeignete Option vorhanden ist");
+		m.put("Optionally specify a working period field to hold time estimate infomration.<br><b>NOTE: </b> You may customize ${productName} issue fields in case there is no appropriate option here", 
+			"Optional können Sie ein Arbeitszeitfeld angeben, um Zeitabschätzungsinformationen zu speichern.<br><b>HINWEIS: </b> Sie können ${productName}-Problemfelder anpassen, falls hier keine geeignete Option vorhanden ist");
+		m.put("Optionally specify a working period field to hold time spent infomration.<br><b>NOTE: </b> You may customize ${productName} issue fields in case there is no appropriate option here", 
+			"Optional können Sie ein Arbeitszeitfeld angeben, um aufgewendete Zeitinformationen zu speichern.<br><b>HINWEIS: </b> Sie können ${productName}-Problemfelder anpassen, falls hier keine geeignete Option vorhanden ist");
+		m.put("Optionally specify absolute path to the kubeconfig file used by kubectl to access the cluster. Leave empty to have kubectl determine cluster access automatically (works when ${productName} itself runs in the cluster).", 
+			"Optional können Sie einen absoluten Pfad zur Kubeconfig-Datei angeben, die von kubectl verwendet wird, um auf den Cluster zuzugreifen. Lassen Sie das Feld leer, damit kubectl den Clusterzugriff automatisch bestimmt (funktioniert, wenn ${productName} selbst im Cluster ausgeführt wird).");
 		m.put("Optionally specify absolute path to the kubectl executable. Leave empty to use kubectl from the system PATH.", 
 			"Optional den absoluten Pfad zur kubectl-Ausführungsdatei angeben. Leer lassen, um kubectl aus dem System-PATH zu verwenden.");
-		m.put("Optionally specify additional HTTP headers to include in the webhook POST request, for example an Authorization header required by the receiving endpoint", 
-			"Optional zusätzliche HTTP-Header angeben, die in die Webhook-POST-Anfrage aufgenommen werden sollen, zum Beispiel einen Autorisierungs-Header, der vom empfangenden Endpunkt benötigt wird");
+		m.put("Optionally specify additional HTTP headers to include in the webhook POST request, for example an Authorization header required by the receiving endpoint. X-OneDev-Signature is generated automatically and cannot be overridden", 
+			"Optional zusätzliche HTTP-Header angeben, die in die Webhook-POST-Anfrage aufgenommen werden sollen, z. B. einen Authorization-Header, der vom empfangenden Endpunkt benötigt wird. X-OneDev-Signature wird automatisch generiert und kann nicht überschrieben werden");
 		m.put("Optionally specify additional options for buildx build command", "Optional geben Sie zusätzliche Optionen für den Buildx-Build-Befehl an");
 		m.put("Optionally specify allowed <a href='https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS' target='_blank'>CORS</a> origins. For a CORS simple or preflight request, if value of request header <code>Origin</code> is included here, the response header <code>Access-Control-Allow-Origin</code> will be set to the same value", 
 			"Optional geben Sie erlaubte <a href='https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS' target='_blank'>CORS</a>-Ursprünge an. Für eine einfache oder vorab genehmigte CORS-Anfrage wird der Wert des Anfrage-Headers <code>Origin</code> hier eingeschlossen, und der Antwort-Header <code>Access-Control-Allow-Origin</code> wird auf denselben Wert gesetzt");
@@ -2708,17 +2871,17 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Optionally specify applicable jobs of this executor", "Optional anwendbare Jobs für diesen Executor angeben");
 		m.put("Optionally specify applicable users who pushed the change", "Geben Sie optional an, welche Benutzer die Änderung gepusht haben");
 		m.put("Optionally specify arguments to run above image", "Optional geben Sie Argumente an, um das obige Image auszuführen");
-		m.put("Optionally specify artifacts to retrieve from the dependency into <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. Only published artifacts (via artifact publish step) can be retrieved. Leave empty to not retrieve any artifacts", 
-			"Optional geben Sie Artefakte an, die aus der Abhängigkeit in den <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> abgerufen werden sollen. Nur veröffentlichte Artefakte (über den Artefakt-Veröffentlichungsschritt) können abgerufen werden. Lassen Sie das Feld leer, um keine Artefakte abzurufen");
+		m.put("Optionally specify artifacts to retrieve from the dependency into <a href='${docsite}/concepts#job-workdir'>job working directory</a>. Only published artifacts (via artifact publish step) can be retrieved. Leave empty to not retrieve any artifacts", 
+			"Optional können Sie Artefakte angeben, die aus der Abhängigkeit in das <a href='${docsite}/concepts#job-workdir'>Job-Arbeitsverzeichnis</a> abgerufen werden sollen. Nur veröffentlichte Artefakte (über den Artefaktveröffentlichungsschritt) können abgerufen werden. Lassen Sie das Feld leer, um keine Artefakte abzurufen");
 		m.put("Optionally specify authorized roles to press this button. If not specified, all users are allowed", 
 			"Optional geben Sie autorisierte Rollen an, um diese Schaltfläche zu drücken. Wenn nicht angegeben, sind alle Benutzer berechtigt");
 		m.put("Optionally specify base query of the list", "Optional geben Sie die Basisabfrage der Liste an");
 		m.put("Optionally specify branches allowed to access this secret. If left empty, any job can access this secret, including those triggered via external pull requests", 
 			"Optional können Sie Zweige angeben, die auf dieses Geheimnis zugreifen dürfen. Wenn leer gelassen, kann jeder Job auf dieses Geheimnis zugreifen, einschließlich solcher, die über externe Pull-Requests ausgelöst werden.");
-		m.put("Optionally specify build context path relative to <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>. Leave empty to use job working directory itself. The file <code>Dockerfile</code> is expected to exist in build context directory, unless you specify a different location with option <code>--dockerfile</code>", 
-			"Optional geben Sie den Build-Kontextpfad relativ zu <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job-Arbeitsbereich</a> an. Lassen Sie das Feld leer, um den Job-Arbeitsbereich selbst zu verwenden. Die Datei <code>Dockerfile</code> wird im Build-Kontextverzeichnis erwartet, es sei denn, Sie geben einen anderen Speicherort mit der Option <code>--dockerfile</code> an");
-		m.put("Optionally specify build path relative to <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>. Leave empty to use job working directory itself", 
-			"Optional geben Sie den Build-Pfad relativ zu <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job-Arbeitsbereich</a> an. Lassen Sie das Feld leer, um den Job-Arbeitsbereich selbst zu verwenden");
+		m.put("Optionally specify build context path relative to <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a>. Leave empty to use job working directory itself. The file <code>Dockerfile</code> is expected to exist in build context directory, unless you specify a different location with option <code>--dockerfile</code>", 
+			"Optional können Sie den Build-Kontextpfad relativ zum <a href='${docsite}/concepts#job-workdir' target='_blank'>Job-Arbeitsverzeichnis</a> angeben. Lassen Sie das Feld leer, um das Job-Arbeitsverzeichnis selbst zu verwenden. Die Datei <code>Dockerfile</code> wird im Build-Kontextverzeichnis erwartet, es sei denn, Sie geben einen anderen Speicherort mit der Option <code>--dockerfile</code> an");
+		m.put("Optionally specify build path relative to <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a>. Leave empty to use job working directory itself", 
+			"Optional können Sie den Build-Pfad relativ zum <a href='${docsite}/concepts#job-workdir' target='_blank'>Job-Arbeitsverzeichnis</a> angeben. Lassen Sie das Feld leer, um das Job-Arbeitsverzeichnis selbst zu verwenden");
 		m.put("Optionally specify cluster role the job pods service account binding to. This is necessary if you want to do things such as running other Kubernetes pods in job command", 
 			"Optional geben Sie die Cluster-Rolle an, an die das Service-Konto der Job-Pods gebunden ist. Dies ist erforderlich, wenn Sie Dinge wie das Ausführen anderer Kubernetes-Pods im Job-Befehl ausführen möchten");
 		m.put("Optionally specify comma separated <a href='https://spdx.org/licenses/'>SPDX license identifiers</a> to be ignored", 
@@ -2727,8 +2890,6 @@ public class Translation_de extends TranslationResourceBundle {
 			"Optional Commit-Typen angeben, die für die Überprüfung der Commit-Nachrichtenfußzeile gelten (drücken Sie ENTER, um den Wert hinzuzufügen). Leer lassen für alle Typen");
 		m.put("Optionally specify container arguments separated by space. Single argument containing space should be quoted. <b class='text-warning'>Note: </b> do not confuse this with container options which should be specified in executor setting", 
 			"Optional geben Sie Container-Argumente an, die durch Leerzeichen getrennt sind. Einzelne Argumente, die Leerzeichen enthalten, sollten in Anführungszeichen gesetzt werden. <b class='text-warning'>Hinweis: </b> Verwechseln Sie dies nicht mit Container-Optionen, die in der Executor-Einstellung angegeben werden sollten");
-		m.put("Optionally specify container ports to expose. These ports will be mapped to random ports on host\nwhich will be displayed on the workspace page", 
-			"Geben Sie optional Container-Ports an, die freigegeben werden sollen. Diese Ports werden auf zufällige Ports auf dem Host\ngemappt, die auf der Arbeitsbereichsseite angezeigt werden");
 		m.put("Optionally specify cpu limit for each job/service using this executor. Check <a href='https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/' target='_blank'>Kubernetes resource management</a> for details", 
 			"Optional geben Sie das CPU-Limit für jeden Job/Service an, der diesen Executor verwendet. Überprüfen Sie <a href='https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/' target='_blank'>Kubernetes-Ressourcenmanagement</a> für Details");
 		m.put("Optionally specify cpu limit for workspace containers. This will be used as option <a href='https://docs.docker.com/config/containers/resource_constraints/#cpu' target='_blank'>--cpus</a> of the container", 
@@ -2741,10 +2902,10 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Optionally specify depth for a shallow clone in order to speed up source retrieval", 
 			"Optional geben Sie die Tiefe für einen flachen Klon an, um die Quellabrufgeschwindigkeit zu erhöhen");
 		m.put("Optionally specify description of the issue", "Optional geben Sie die Beschreibung des Problems an");
-		m.put("Optionally specify directories or files relative to cache path to exclude.\nUse '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>.\nMultiple excludes should be separated by space, and single exclude containing space should be quoted", 
-			"Optional Verzeichnisse oder Dateien relativ zum Cache-Pfad angeben, die ausgeschlossen werden sollen.\nVerwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>.\nMehrere Ausnahmen sollten durch Leerzeichen getrennt werden, und einzelne Ausnahmen mit Leerzeichen sollten in Anführungszeichen gesetzt werden");
-		m.put("Optionally specify directories or files relative to data path to exclude.\nUse '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>.\nMultiple excludes should be separated by space, and single exclude containing space should be quoted", 
-			"Optional Verzeichnisse oder Dateien relativ zum Datenpfad angeben, die ausgeschlossen werden sollen.\nVerwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>.\nMehrere Ausnahmen sollten durch Leerzeichen getrennt werden, und einzelne Ausnahmen mit Leerzeichen sollten in Anführungszeichen gesetzt werden");
+		m.put("Optionally specify directories or files relative to cache path to exclude.\nUse '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>.\nMultiple excludes should be separated by space, and single exclude containing space should be quoted", 
+			"Optional können Sie Verzeichnisse oder Dateien relativ zum Cache-Pfad angeben, die ausgeschlossen werden sollen.\nVerwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>.\nMehrere Ausschlüsse sollten durch Leerzeichen getrennt werden, und ein einzelner Ausschluss mit Leerzeichen sollte in Anführungszeichen gesetzt werden");
+		m.put("Optionally specify directories or files relative to data path to exclude.\nUse '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>.\nMultiple excludes should be separated by space, and single exclude containing space should be quoted", 
+			"Optional können Sie Verzeichnisse oder Dateien relativ zum Datenpfad angeben, die ausgeschlossen werden sollen.\nVerwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>.\nMehrere Ausschlüsse sollten durch Leerzeichen getrennt werden, und ein einzelner Ausschluss mit Leerzeichen sollte in Anführungszeichen gesetzt werden");
 		m.put("Optionally specify directories or glob patterns inside scan path to skip. Multiple skips should be separated by space", 
 			"Optional geben Sie Verzeichnisse oder Glob-Muster innerhalb des Scan-Pfads an, die übersprungen werden sollen. Mehrere Übersprünge sollten durch Leerzeichen getrennt werden");
 		m.put("Optionally specify disallowed file types by extensions (hit ENTER to add value), for instance <code>exe</code>, <code>bin</code>. Leave empty to allow all file types", 
@@ -2755,6 +2916,8 @@ public class Translation_de extends TranslationResourceBundle {
 			"Optional geben Sie Docker-Optionen an, um ein Netzwerk zu erstellen. Mehrere Optionen sollten durch Leerzeichen getrennt werden, und einzelne Optionen, die Leerzeichen enthalten, sollten in Anführungszeichen gesetzt werden");
 		m.put("Optionally specify docker options to run container. Multiple options should be separated by space, and single option containing spaces should be quoted", 
 			"Optional geben Sie Docker-Optionen an, um Container auszuführen. Mehrere Optionen sollten durch Leerzeichen getrennt werden, und einzelne Optionen, die Leerzeichen enthalten, sollten in Anführungszeichen gesetzt werden");
+		m.put("Optionally specify docker options to run container. Multiple options should be separated by space, and single option containing spaces should be quoted. File paths must be relative to the job working directory, without '..' or symbolic links. Volume and device mount options are not allowed", 
+			"Optional Docker-Optionen angeben, um den Container auszuführen. Mehrere Optionen sollten durch Leerzeichen getrennt werden, und einzelne Optionen, die Leerzeichen enthalten, sollten in Anführungszeichen gesetzt werden. Dateipfade müssen relativ zum Arbeitsverzeichnis des Jobs sein, ohne '..' oder symbolische Links. Volume- und Geräte-Mount-Optionen sind nicht erlaubt.");
 		m.put("Optionally specify docker sock to use. Defaults to <i>/var/run/docker.sock</i>", "Optional Docker-Sock angeben, der verwendet werden soll. Standardmäßig <i>/var/run/docker.sock</i>");
 		m.put("Optionally specify environment variables", "Optional Umgebungsvariablen angeben");
 		m.put("Optionally specify environment variables for the container", "Optional geben Sie Umgebungsvariablen für den Container an");
@@ -2767,14 +2930,14 @@ public class Translation_de extends TranslationResourceBundle {
 			"Optional Executor für diesen Job angeben. Leer lassen, um den ersten anwendbaren Executor zu verwenden");
 		m.put("Optionally specify extra options for osv source scanner. Multiple options need to be separated with space", 
 			"Optional zusätzliche Optionen für den OSV-Quellscanner angeben. Mehrere Optionen müssen durch Leerzeichen getrennt werden");
-		m.put("Optionally specify files or directories relative to cache path to exclude.\nUse '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>.\nMultiple excludes should be separated by space, and single exclude containing space should be quoted", 
-			"Optional Dateien oder Verzeichnisse relativ zum Cache-Pfad angeben, die ausgeschlossen werden sollen.\nVerwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>.\nMehrere Ausnahmen sollten durch Leerzeichen getrennt werden, und einzelne Ausnahmen mit Leerzeichen sollten in Anführungszeichen gesetzt werden");
+		m.put("Optionally specify files or directories relative to cache path to exclude.\nUse '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>.\nMultiple excludes should be separated by space, and single exclude containing space should be quoted", 
+			"Optional können Sie Dateien oder Verzeichnisse relativ zum Cache-Pfad angeben, die ausgeschlossen werden sollen.\nVerwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>.\nMehrere Ausschlüsse sollten durch Leerzeichen getrennt werden, und ein einzelner Ausschluss mit Leerzeichen sollte in Anführungszeichen gesetzt werden");
 		m.put("Optionally specify files to be excluded when reviewing code with AI user to save tokens", 
 			"Optional Dateien angeben, die beim Überprüfen des Codes mit AI-Benutzer ausgeschlossen werden sollen, um Tokens zu sparen");
-		m.put("Optionally specify files to compute checksum from. This is useful when your project\nhas lock files (package-lock.json, pom.xml, etc.) that represent cache state. When\nchecksum changes, cache can still be loaded as a partial match, but\nwill be re-uploaded with the new checksum if upload strategy is set to <i>Upload If Not Exact Match</i>.\nUse '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>.\nMultiple files should be separated by space, and single file containing space should be quoted.\nNon-absolute file is relative to <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>.<br>\n<b>NOTE: </b> An empty checksum is assumed if this property is empty.", 
-			"Geben Sie optional Dateien an, von denen die Prüfsumme berechnet werden soll. Dies ist nützlich, wenn Ihr Projekt\nSperrdateien (package-lock.json, pom.xml usw.) hat, die den Cache-Zustand darstellen. Wenn\nsich die Prüfsumme ändert, kann der Cache weiterhin als Teilübereinstimmung geladen werden, aber\nwird mit der neuen Prüfsumme erneut hochgeladen, wenn die Upload-Strategie auf <i>Upload If Not Exact Match</i> eingestellt ist.\nVerwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Match</a>.\nMehrere Dateien sollten durch Leerzeichen getrennt werden, und einzelne Dateien mit Leerzeichen sollten in Anführungszeichen gesetzt werden.\nNicht-absoluter Datei ist relativ zum <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job-Arbeitsverzeichnis</a>.<br>\n<b>HINWEIS: </b> Eine leere Prüfsumme wird angenommen, wenn diese Eigenschaft leer ist.");
-		m.put("Optionally specify group search base if you want to retrieve group membership information of the user. For example: <i>cn=Users, dc=example, dc=com</i>. To give appropriate permissions to a Active Directory group, a OneDev group with same name should be defined. Leave empty to manage group memberships at OneDev side", 
-			"Optional geben Sie die Gruppen-Suchbasis an, wenn Sie Gruppenmitgliedschaftsinformationen des Benutzers abrufen möchten. Zum Beispiel: <i>cn=Users, dc=example, dc=com</i>. Um einer Active Directory-Gruppe entsprechende Berechtigungen zu erteilen, sollte eine OneDev-Gruppe mit demselben Namen definiert werden. Lassen Sie das Feld leer, um Gruppenmitgliedschaften auf der OneDev-Seite zu verwalten");
+		m.put("Optionally specify files to compute checksum from. This is useful when your project\nhas lock files (package-lock.json, pom.xml, etc.) that represent cache state. When\nchecksum changes, cache can still be loaded as a partial match, but\nwill be re-uploaded with the new checksum if upload strategy is set to <i>Upload If Not Exact Match</i>.\nUse '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>.\nMultiple files should be separated by space, and single file containing space should be quoted.\nNon-absolute file is relative to <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a>.<br>\n<b>NOTE: </b> An empty checksum is assumed if this property is empty.", 
+			"Optional können Sie Dateien angeben, um eine Prüfsumme zu berechnen. Dies ist nützlich, wenn Ihr Projekt\nLock-Dateien (package-lock.json, pom.xml usw.) enthält, die den Cache-Status darstellen. Wenn\nsich die Prüfsumme ändert, kann der Cache weiterhin als Teilübereinstimmung geladen werden, aber\nwird mit der neuen Prüfsumme erneut hochgeladen, wenn die Upload-Strategie auf <i>Hochladen, wenn keine genaue Übereinstimmung</i> eingestellt ist.\nVerwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>.\nMehrere Dateien sollten durch Leerzeichen getrennt werden, und eine einzelne Datei mit Leerzeichen sollte in Anführungszeichen gesetzt werden.\nNicht absolute Dateien sind relativ zum <a href='${docsite}/concepts#job-workdir' target='_blank'>Job-Arbeitsverzeichnis</a>.<br>\n<b>HINWEIS: </b> Eine leere Prüfsumme wird angenommen, wenn diese Eigenschaft leer ist.");
+		m.put("Optionally specify group search base if you want to retrieve group membership information of the user. For example: <i>cn=Users, dc=example, dc=com</i>. To give appropriate permissions to a Active Directory group, a ${productName} group with same name should be defined. Leave empty to manage group memberships at ${productName} side", 
+			"Optional können Sie eine Gruppen-Suchbasis angeben, wenn Sie Gruppenmitgliedschaftsinformationen des Benutzers abrufen möchten. Zum Beispiel: <i>cn=Users, dc=example, dc=com</i>. Um einer Active Directory-Gruppe entsprechende Berechtigungen zu erteilen, sollte eine ${productName}-Gruppe mit demselben Namen definiert werden. Lassen Sie das Feld leer, um Gruppenmitgliedschaften auf der ${productName}-Seite zu verwalten");
 		m.put("Optionally specify issue links allowed to edit", "Optional geben Sie Problemverknüpfungen an, die bearbeitet werden dürfen");
 		m.put("Optionally specify issues applicable for this template. Leave empty for all", "Optional geben Sie Probleme an, die für diese Vorlage anwendbar sind. Lassen Sie das Feld leer für alle");
 		m.put("Optionally specify issues applicable for this transition in same project as the branch. Leave empty for all issues", 
@@ -2803,22 +2966,22 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Optionally specify name of the attribute inside the user LDAP entry whose values will be taken as user SSH keys. SSH keys will be managed by LDAP only if this field is set", 
 			"Optional geben Sie den Namen des Attributs innerhalb des Benutzer-LDAP-Eintrags an, dessen Werte als Benutzer-SSH-Schlüssel verwendet werden. SSH-Schlüssel werden nur von LDAP verwaltet, wenn dieses Feld gesetzt ist");
 		m.put("Optionally specify node selector of the job pods", "Optional geben Sie den Node-Selector der Job-Pods an");
-		m.put("Optionally specify options for docker builder prune command", "Optional geben Sie Optionen für den Docker-Builder-Prune-Befehl an");
+		m.put("Optionally specify options for docker buildx prune command", "Optional Optionen für den Docker-Buildx-Prune-Befehl angeben");
 		m.put("Optionally specify options for scp command. Multiple options need to be separated with space", 
 			"Optional geben Sie Optionen für den SCP-Befehl an. Mehrere Optionen müssen durch Leerzeichen getrennt werden");
 		m.put("Optionally specify options for ssh command. Multiple options need to be separated with space", 
 			"Optional geben Sie Optionen für den SSH-Befehl an. Mehrere Optionen müssen durch Leerzeichen getrennt werden");
 		m.put("Optionally specify options passed to renovate cli. Multiple options should be separated by space, and single option containing spaces should be quoted", 
 			"Optional geben Sie Optionen an, die an die Renovate-CLI übergeben werden. Mehrere Optionen sollten durch Leerzeichen getrennt werden, und einzelne Optionen, die Leerzeichen enthalten, sollten in Anführungszeichen gesetzt werden");
-		m.put("Optionally specify osv scanner <a href='https://google.github.io/osv-scanner/configuration/' target='_blank'>config file</a> under <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>. You may ignore particular vulnerabilities via this file", 
-			"Optional geben Sie die OSV-Scanner-<a href='https://google.github.io/osv-scanner/configuration/' target='_blank'>Konfigurationsdatei</a> unter <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job-Arbeitsbereich</a> an. Sie können bestimmte Schwachstellen über diese Datei ignorieren");
+		m.put("Optionally specify osv scanner <a href='https://google.github.io/osv-scanner/configuration/' target='_blank'>config file</a> under <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a>. You may ignore particular vulnerabilities via this file", 
+			"Optional können Sie eine OSV-Scanner-<a href='https://google.github.io/osv-scanner/configuration/' target='_blank'>Konfigurationsdatei</a> unter <a href='${docsite}/concepts#job-workdir' target='_blank'>Job-Arbeitsverzeichnis</a> angeben. Sie können bestimmte Schwachstellen über diese Datei ignorieren");
 		m.put("Optionally specify path protection rules", "Optional geben Sie Pfadschutzregeln an");
-		m.put("Optionally specify path relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> to be used as trivy <a href='https://aquasecurity.github.io/trivy/v0.50/docs/configuration/filtering/#by-finding-ids' target='_blank'>ignore file</a>", 
-			"Optional geben Sie einen Pfad relativ zu <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, der als Trivy-<a href='https://aquasecurity.github.io/trivy/v0.50/docs/configuration/filtering/#by-finding-ids' target='_blank'>Ignore-Datei</a> verwendet werden soll");
-		m.put("Optionally specify path relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> to be used as trivy <a href='https://trivy.dev/docs/latest/scanner/secret/#configuration' target='_blank'>secret config</a>", 
-			"Optional Pfad relativ zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> angeben, der als Trivy <a href='https://trivy.dev/docs/latest/scanner/secret/#configuration' target='_blank'>Geheimniskonfiguration</a> verwendet werden soll");
-		m.put("Optionally specify path relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> to publish artifacts from. Leave empty to use job working directory itself", 
-			"Optional geben Sie einen Pfad relativ zu <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, um Artefakte zu veröffentlichen. Lassen Sie das Feld leer, um den Job-Arbeitsbereich selbst zu verwenden");
+		m.put("Optionally specify path relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a> to be used as trivy <a href='https://aquasecurity.github.io/trivy/v0.50/docs/configuration/filtering/#by-finding-ids' target='_blank'>ignore file</a>", 
+			"Optional können Sie einen Pfad relativ zum <a href='${docsite}/concepts#job-workdir'>Job-Arbeitsverzeichnis</a> angeben, der als Trivy-<a href='https://aquasecurity.github.io/trivy/v0.50/docs/configuration/filtering/#by-finding-ids' target='_blank'>Ignore-Datei</a> verwendet werden soll");
+		m.put("Optionally specify path relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a> to be used as trivy <a href='https://trivy.dev/docs/latest/scanner/secret/#configuration' target='_blank'>secret config</a>", 
+			"Optional können Sie einen Pfad relativ zum <a href='${docsite}/concepts#job-workdir'>Job-Arbeitsverzeichnis</a> angeben, der als Trivy-<a href='https://trivy.dev/docs/latest/scanner/secret/#configuration' target='_blank'>Secret-Konfiguration</a> verwendet werden soll");
+		m.put("Optionally specify path relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a> to publish artifacts from. Leave empty to use job working directory itself", 
+			"Optional können Sie einen Pfad relativ zum <a href='${docsite}/concepts#job-workdir'>Job-Arbeitsverzeichnis</a> angeben, um Artefakte zu veröffentlichen. Lassen Sie das Feld leer, um das Job-Arbeitsverzeichnis selbst zu verwenden");
 		m.put("Optionally specify platform to pull, for instance <tt>linux/amd64</tt>. Leave empty to pull all platforms in image", 
 			"Optional geben Sie die Plattform zum Abrufen an, beispielsweise <tt>linux/amd64</tt>. Lassen Sie das Feld leer, um alle Plattformen im Image abzurufen");
 		m.put("Optionally specify project to show builds of. Leave empty to show builds of all projects with permissions", 
@@ -2827,60 +2990,62 @@ public class Translation_de extends TranslationResourceBundle {
 			"Optional geben Sie das Projekt an, um Probleme anzuzeigen. Lassen Sie das Feld leer, um Probleme aller zugänglichen Projekte anzuzeigen");
 		m.put("Optionally specify project to show packages of. Leave empty to show packages of all projects with permissions", 
 			"Optional geben Sie das Projekt an, um Pakete anzuzeigen. Lassen Sie das Feld leer, um Pakete aller Projekte mit Berechtigungen anzuzeigen");
-		m.put("Optionally specify projects applicable for this provider. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Multiple projects should be separated by space", 
-			"Optional Projekte angeben, die für diesen Anbieter zutreffen. Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Match</a>. Mehrere Projekte sollten durch Leerzeichen getrennt werden");
-		m.put("Optionally specify projects applicable for this provisioner. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Multiple projects should be separated by space", 
-			"Optional Projekte angeben, die für diesen Provisionierer zutreffen. Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Match</a>. Mehrere Projekte sollten durch Leerzeichen getrennt werden");
-		m.put("Optionally specify ref of above job, for instance <i>refs/heads/main</i>. Use * for wildcard match", 
-			"Optional geben Sie den Ref des oben genannten Jobs an, beispielsweise <i>refs/heads/main</i>. Verwenden Sie * für Wildcard-Abgleich");
+		m.put("Optionally specify project to show pull requests of. Leave empty to show pull requests of all accessible projects", 
+			"Optional Projekt angeben, um Pull-Requests anzuzeigen. Leer lassen, um Pull-Requests aller zugänglichen Projekte anzuzeigen");
+		m.put("Optionally specify projects applicable for this provider. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Multiple projects should be separated by space", 
+			"Optional können Sie Projekte angeben, die für diesen Anbieter gelten. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>. Mehrere Projekte sollten durch Leerzeichen getrennt werden");
+		m.put("Optionally specify projects applicable for this provisioner. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Multiple projects should be separated by space", 
+			"Optional können Sie Projekte angeben, die für diesen Provisioner gelten. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>. Mehrere Projekte sollten durch Leerzeichen getrennt werden");
 		m.put("Optionally specify registry logins to override those defined in job executor. For built-in registry, use <code>@server_url@</code> for registry url, <code>@job_token@</code> for user name, and access token secret for password secret", 
 			"Optional geben Sie Registrierungsanmeldungen an, um die im Job-Executor definierten zu überschreiben. Für die integrierte Registrierung verwenden Sie <code>@server_url@</code> für die Registrierungs-URL, <code>@job_token@</code> für den Benutzernamen und das Zugriffstoken-Geheimnis für das Passwort-Geheimnis");
 		m.put("Optionally specify registry logins to override those defined in workspace provisioner.\nFor built-in registry, use <code>@server_url@</code> for registry url,\n<code>@workspace_token@</code> for user name, and access token for password\n", 
 			"Geben Sie optional Registry-Logins an, um die in Workspace-Provisioner definierten zu überschreiben.\nFür die integrierte Registry verwenden Sie <code>@server_url@</code> für die Registry-URL,\n<code>@workspace_token@</code> für den Benutzernamen und das Zugriffstoken für das Passwort\n");
-		m.put("Optionally specify relative directory to put uploaded files", "Optional geben Sie ein relatives Verzeichnis an, um hochgeladene Dateien abzulegen");
-		m.put("Optionally specify relative path under <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> to clone code into. Leave empty to use job working directory itself", 
-			"Optional geben Sie einen relativen Pfad unter <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, um Code zu klonen. Lassen Sie das Feld leer, um den Job-Arbeitsbereich selbst zu verwenden");
-		m.put("Optionally specify relative path under <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> to scan. Leave empty to use job working directory itself", 
-			"Optional geben Sie einen relativen Pfad unter <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, um zu scannen. Lassen Sie das Feld leer, um den Job-Arbeitsbereich selbst zu verwenden");
-		m.put("Optionally specify relative paths under <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> to scan dependency vulnerabilities. Multiple paths can be specified and should be separated with space. Leave empty to use job working directory itself", 
-			"Optional geben Sie relative Pfade unter <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, um Schwachstellen in Abhängigkeiten zu scannen. Mehrere Pfade können angegeben und sollten durch Leerzeichen getrennt werden. Lassen Sie das Feld leer, um den Job-Arbeitsbereich selbst zu verwenden");
+		m.put("Optionally specify relative path under <a href='${docsite}/concepts#job-workdir'>job working directory</a> to clone code into. Leave empty to use job working directory itself", 
+			"Optional geben Sie einen relativen Pfad unter <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, in den der Code geklont werden soll. Lassen Sie das Feld leer, um das Arbeitsverzeichnis des Jobs selbst zu verwenden");
+		m.put("Optionally specify relative path under <a href='${docsite}/concepts#job-workdir'>job working directory</a> to scan. Leave empty to use job working directory itself", 
+			"Optional geben Sie einen relativen Pfad unter <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, der gescannt werden soll. Lassen Sie das Feld leer, um das Arbeitsverzeichnis des Jobs selbst zu verwenden");
+		m.put("Optionally specify relative paths under <a href='${docsite}/concepts#job-workdir'>job working directory</a> to scan dependency vulnerabilities. Multiple paths can be specified and should be separated with space. Leave empty to use job working directory itself", 
+			"Optional geben Sie relative Pfade unter <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, um Abhängigkeits-Schwachstellen zu scannen. Mehrere Pfade können angegeben und durch Leerzeichen getrennt werden. Lassen Sie das Feld leer, um das Arbeitsverzeichnis des Jobs selbst zu verwenden");
 		m.put("Optionally specify required reviewers for changes of specified branch", "Optional geben Sie erforderliche Prüfer für Änderungen des angegebenen Zweigs an");
 		m.put("Optionally specify revision to create branch from. Leave empty to create from build commit", 
 			"Optional geben Sie die Revision an, um den Zweig zu erstellen. Lassen Sie das Feld leer, um vom Build-Commit zu erstellen");
+		m.put("Optionally specify sandbox memory, for example 2g", "Optional Sandbox-Speicher angeben, z. B. 2g");
 		m.put("Optionally specify separate directory to store build artifacts. Non-absolute directory is considered to be relative to site directory", 
 			"Optional geben Sie ein separates Verzeichnis an, um Build-Artefakte zu speichern. Nicht absolute Verzeichnisse werden als relativ zum Site-Verzeichnis betrachtet");
 		m.put("Optionally specify separate directory to store git lfs files. Non-absolute directory is considered to be relative to site directory", 
 			"Optional geben Sie ein separates Verzeichnis an, um Git-LFS-Dateien zu speichern. Nicht absolute Verzeichnisse werden als relativ zum Site-Verzeichnis betrachtet");
 		m.put("Optionally specify separate directory to store package files. Non-absolute directory is considered to be relative to site directory", 
 			"Optional geben Sie ein separates Verzeichnis an, um Paketdateien zu speichern. Nicht absolute Verzeichnisse werden als relativ zum Site-Verzeichnis betrachtet");
-		m.put("Optionally specify services required by this job. <b class='text-warning'>NOTE:</b> Services are only supported by docker aware executors (server docker executor, remote docker executor, or kubernetes executor)", 
-			"Optional geben Sie Dienste an, die für diesen Job erforderlich sind. <b class='text-warning'>HINWEIS:</b> Dienste werden nur von Docker-fähigen Executoren unterstützt (Server-Docker-Executor, Remote-Docker-Executor oder Kubernetes-Executor)");
-		m.put("Optionally specify space-separated branches applicable for this transition. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to match all", 
-			"Optional geben Sie durch Leerzeichen getrennte Zweige an, die für diesen Übergang anwendbar sind. Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Abgleich</a>. Präfix mit '-' zum Ausschließen. Lassen Sie das Feld leer, um alle zu entsprechen");
-		m.put("Optionally specify space-separated branches applicable for this trigger. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty for default branch", 
-			"Optional geben Sie durch Leerzeichen getrennte Zweige an, die für diesen Trigger anwendbar sind. Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Abgleich</a>. Präfix mit '-' zum Ausschließen. Lassen Sie das Feld leer für den Standardzweig");
-		m.put("Optionally specify space-separated branches to check. Use '**' or '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to match all branches", 
-			"Optional geben Sie durch Leerzeichen getrennte Zweige an, die überprüft werden sollen. Verwenden Sie '**' oder '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Abgleich</a>. Präfix mit '-' zum Ausschließen. Lassen Sie das Feld leer, um alle Zweige zu entsprechen");
+		m.put("Optionally specify services required by this job. <b class='text-warning'>NOTE:</b> Services are supported by Docker, Kubernetes, and sandbox executors", 
+			"Optional Dienste angeben, die für diesen Job erforderlich sind. <b class='text-warning'>HINWEIS:</b> Dienste werden von Docker-, Kubernetes- und Sandbox-Executors unterstützt");
+		m.put("Optionally specify space-separated accessible site names. Use '*' or '?' for wildcard match. Prefix with '-' to exclude. The public site is always accessible", 
+			"Optional geben Sie durch Leerzeichen getrennte zugängliche Seitennamen an. Verwenden Sie '*' oder '?' für Platzhalter. Mit '-' vorangestellt, um auszuschließen. Die öffentliche Seite ist immer zugänglich");
+		m.put("Optionally specify space-separated branches applicable for this transition. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to match all", 
+			"Optional geben Sie durch Leerzeichen getrennte Branches an, die für diesen Übergang gelten. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Platzhalter-Matching</a>. Mit '-' vorangestellt, um auszuschließen. Lassen Sie das Feld leer, um alle zuzuordnen");
+		m.put("Optionally specify space-separated branches applicable for this trigger. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty for default branch", 
+			"Optional geben Sie durch Leerzeichen getrennte Branches an, die für diesen Trigger gelten. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Platzhalter-Matching</a>. Mit '-' vorangestellt, um auszuschließen. Lassen Sie das Feld leer, um den Standard-Branch zu verwenden");
+		m.put("Optionally specify space-separated branches to check. Use '**' or '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to match all branches", 
+			"Optional geben Sie durch Leerzeichen getrennte Branches an, die überprüft werden sollen. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Platzhalter-Matching</a>. Mit '-' vorangestellt, um auszuschließen. Lassen Sie das Feld leer, um alle Branches zuzuordnen");
 		m.put("Optionally specify space-separated commit messages applicable for this transition. Use '*' or '?' for wildcard match. Prefix with '-' to exclude. Leave empty to match all", 
 			"Optional geben Sie durch Leerzeichen getrennte Commit-Nachrichten an, die für diesen Übergang anwendbar sind. Verwenden Sie '*' oder '?' für Platzhalter. Mit '-' voranstellen, um auszuschließen. Leer lassen, um alle zu matchen");
-		m.put("Optionally specify space-separated files to check. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to match all files", 
-			"Optional geben Sie durch Leerzeichen getrennte Dateien an, die überprüft werden sollen. Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Abgleich</a>. Präfix mit '-' zum Ausschließen. Lassen Sie das Feld leer, um alle Dateien zu entsprechen");
+		m.put("Optionally specify space-separated files to check. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to match all files", 
+			"Optional geben Sie durch Leerzeichen getrennte Dateien an, die überprüft werden sollen. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Platzhalter-Matching</a>. Mit '-' vorangestellt, um auszuschließen. Lassen Sie das Feld leer, um alle Dateien zuzuordnen");
 		m.put("Optionally specify space-separated jobs applicable for this transition. Use '*' or '?' for wildcard match. Prefix with '-' to exclude. Leave empty to match all", 
 			"Optional geben Sie durch Leerzeichen getrennte Jobs an, die für diesen Übergang anwendbar sind. Verwenden Sie '*' oder '?' für Wildcard-Abgleich. Präfix mit '-' zum Ausschließen. Lassen Sie das Feld leer, um alle zu entsprechen");
-		m.put("Optionally specify space-separated projects applicable for this trigger. This is useful for instance when you want to prevent the job from being triggered in forked projects. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to match all projects", 
-			"Optional geben Sie durch Leerzeichen getrennte Projekte an, die für diesen Trigger anwendbar sind. Dies ist nützlich, wenn Sie beispielsweise verhindern möchten, dass der Job in geforkten Projekten ausgelöst wird. Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Abgleich</a>. Präfix mit '-' zum Ausschließen. Lassen Sie das Feld leer, um alle Projekte zu entsprechen");
-		m.put("Optionally specify space-separated projects to search in. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to search in all projects with code read permission", 
-			"Optional geben Sie durch Leerzeichen getrennte Projekte an, in denen gesucht werden soll. Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Abgleich</a>. Präfix mit '-' zum Ausschließen. Lassen Sie das Feld leer, um in allen Projekten mit Leseberechtigung für Code zu suchen");
+		m.put("Optionally specify space-separated projects applicable for this trigger. This is useful for instance when you want to prevent the job from being triggered in forked projects. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to match all projects", 
+			"Optional geben Sie durch Leerzeichen getrennte Projekte an, die für diesen Trigger gelten. Dies ist nützlich, wenn Sie beispielsweise verhindern möchten, dass der Job in geforkten Projekten ausgelöst wird. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Platzhalter-Matching</a>. Mit '-' vorangestellt, um auszuschließen. Lassen Sie das Feld leer, um alle Projekte zuzuordnen");
+		m.put("Optionally specify space-separated projects to search in. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to search in all projects with code read permission", 
+			"Optional geben Sie durch Leerzeichen getrennte Projekte an, in denen gesucht werden soll. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Platzhalter-Matching</a>. Mit '-' vorangestellt, um auszuschließen. Lassen Sie das Feld leer, um in allen Projekten mit Leseberechtigung für den Code zu suchen");
 		m.put("Optionally specify space-separated reports. Use '*' or '?' for wildcard match. Prefix with '-' to exclude", 
 			"Optional geben Sie durch Leerzeichen getrennte Berichte an. Verwenden Sie '*' oder '?' für Platzhalter. Mit '-' voranstellen, um auszuschließen");
-		m.put("Optionally specify space-separated service images applicable for this locator. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to match all", 
-			"Optional geben Sie durch Leerzeichen getrennte Service-Images an, die für diesen Locator gelten. Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Platzhalter</a>. Mit '-' voranstellen, um auszuschließen. Leer lassen, um alle zuzuordnen");
+		m.put("Optionally specify space-separated service images applicable for this locator. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to match all", 
+			"Optional geben Sie durch Leerzeichen getrennte Service-Images an, die für diesen Locator gelten. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Platzhalter-Matching</a>. Mit '-' vorangestellt, um auszuschließen. Lassen Sie das Feld leer, um alle zuzuordnen");
 		m.put("Optionally specify space-separated service names applicable for this locator. Use '*' or '?' for wildcard match. Prefix with '-' to exclude. Leave empty to match all", 
 			"Optional geben Sie durch Leerzeichen getrennte Servicenamen an, die für diesen Locator gelten. Verwenden Sie '*' oder '?' für Platzhalter. Mit '-' voranstellen, um auszuschließen. Leer lassen, um alle zuzuordnen");
-		m.put("Optionally specify space-separated tags to check. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to match all tags", 
-			"Optional geben Sie durch Leerzeichen getrennte Tags an, die überprüft werden sollen. Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Platzhalter</a>. Mit '-' voranstellen, um auszuschließen. Leer lassen, um alle Tags zuzuordnen");
-		m.put("Optionally specify space-separated target branches of the pull requests to check. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to match all branches", 
-			"Optional geben Sie durch Leerzeichen getrennte Zielzweige der Pull-Requests an, die überprüft werden sollen. Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Platzhalter</a>. Mit '-' voranstellen, um auszuschließen. Leer lassen, um alle Zweige zuzuordnen");
+		m.put("Optionally specify space-separated tags to check. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to match all tags", 
+			"Optional geben Sie durch Leerzeichen getrennte Tags an, die überprüft werden sollen. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Platzhalter-Matching</a>. Mit '-' vorangestellt, um auszuschließen. Lassen Sie das Feld leer, um alle Tags zuzuordnen");
+		m.put("Optionally specify space-separated target branches of the pull requests to check. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to match all branches", 
+			"Optional geben Sie durch Leerzeichen getrennte Ziel-Branches der Pull-Requests an, die überprüft werden sollen. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Platzhalter-Matching</a>. Mit '-' vorangestellt, um auszuschließen. Lassen Sie das Feld leer, um alle Branches zuzuordnen");
 		m.put("Optionally specify the OpenID claim to retrieve groups of authenticated user. Depending on the provider, you may need to request additional scopes above to make this claim available", 
 			"Optional geben Sie den OpenID-Anspruch an, um Gruppen des authentifizierten Benutzers abzurufen. Je nach Anbieter müssen Sie möglicherweise zusätzliche Berechtigungen anfordern, um diesen Anspruch verfügbar zu machen");
 		m.put("Optionally specify the maximum value allowed.", "Optional geben Sie den maximal zulässigen Wert an.");
@@ -2904,6 +3069,8 @@ public class Translation_de extends TranslationResourceBundle {
 			"Optional geben Sie an, wo die in der Aufgabe angegebenen Service-Pods ausgeführt werden sollen. Der erste übereinstimmende Locator wird verwendet. Wenn keine Locator gefunden werden, wird der Node-Selector des Executors verwendet");
 		m.put("Optionally specify working directory of the container. Leave empty to use default working directory of the container", 
 			"Optional geben Sie das Arbeitsverzeichnis des Containers an. Leer lassen, um das Standard-Arbeitsverzeichnis des Containers zu verwenden");
+		m.put("Optionally specify workspace ports to expose. These ports will be mapped to random ports on host\nwhich will be displayed on the workspace page", 
+			"Optional Workspace-Ports angeben, die freigegeben werden sollen. Diese Ports werden auf zufällige Ports auf dem Host\ngemappt, die auf der Workspace-Seite angezeigt werden.");
 		m.put("Options", "Optionen");
 		m.put("Or below to build.gradle.kts (Kotlin)", "Oder Folgendes zu build.gradle.kts (Kotlin) hinzufügen");
 		m.put("Or manually enter the secret key below in your authenticator app", "Oder geben Sie den geheimen Schlüssel unten manuell in Ihrer Authentifizierungs-App ein");
@@ -2925,6 +3092,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Overall Spent Time:", "Gesamtaufgewendete Zeit:");
 		m.put("Overview", "Übersicht");
 		m.put("Own:", "Eigene:");
+		m.put("Owner", "Eigentümer");
 		m.put("Ownered By", "Besitz von");
 		m.put("PEM private key begins with '-----BEGIN RSA PRIVATE KEY-----'", "PEM-Privatschlüssel beginnt mit '-----BEGIN RSA PRIVATE KEY-----'");
 		m.put("PENDING", "AUSSTEHEND");
@@ -2962,8 +3130,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Params", "Parameter");
 		m.put("Params & Triggers", "Parameter & Trigger");
 		m.put("Params to Display", "Anzuzeigende Parameter");
+		m.put("Parent ${productName} Project", "Übergeordnetes ${productName}-Projekt");
 		m.put("Parent Bean", "Übergeordnete Bean");
-		m.put("Parent OneDev Project", "Übergeordnetes OneDev-Projekt");
 		m.put("Parent Project", "Übergeordnetes Projekt");
 		m.put("Parent project not found", "Übergeordnetes Projekt nicht gefunden");
 		m.put("Parents", "Eltern");
@@ -2998,6 +3166,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Path containing spaces or starting with dash needs to be quoted", "Pfad mit Leerzeichen oder beginnend mit einem Bindestrich muss in Anführungszeichen gesetzt werden");
 		m.put("Path placeholder", "Pfad-Platzhalter");
 		m.put("Path to kubectl", "Pfad zu kubectl");
+		m.put("Path to the Docker Sandboxes sbx executable", "Pfad zur ausführbaren Datei der Docker-Sandboxes sbx");
 		m.put("Paths", "Pfade");
 		m.put("Pattern", "Muster");
 		m.put("Pause", "Pause");
@@ -3008,6 +3177,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Paused selected agents", "Ausgewählte Agenten pausiert");
 		m.put("Pem Private Key", "Pem-Privatschlüssel");
 		m.put("Pending", "Ausstehend");
+		m.put("Pending review", "Ausstehende Überprüfung");
 		m.put("Performance", "Leistung");
 		m.put("Performance Setting", "Leistungseinstellung");
 		m.put("Performance Settings", "Leistungseinstellungen");
@@ -3028,7 +3198,6 @@ public class Translation_de extends TranslationResourceBundle {
 			"Unscharfe Abfrage wird durchgeführt. Suchtext mit '~' einschließen, um weitere Bedingungen hinzuzufügen, z. B.: ~Suchtext~ und ungelöst");
 		m.put("Performing fuzzy query. Enclosing search text with '~' to add more conditions, for instance: ~text to search~ author(robin)", 
 			"Unscharfe Abfrage wird durchgeführt. Suchtext mit '~' einschließen, um weitere Bedingungen hinzuzufügen, z. B.: ~Suchtext~ Autor(robin)");
-		m.put("Permanent link", "Permanenter Link");
 		m.put("Permanent link of this selection", "Permanenter Link dieser Auswahl");
 		m.put("Permission denied", "Zugriff verweigert");
 		m.put("Permission will be checked upon actual operation", "Berechtigung wird bei der tatsächlichen Operation überprüft");
@@ -3052,6 +3221,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Please confirm", "Bitte bestätigen");
 		m.put("Please confirm the password.", "Bitte bestätigen Sie das Passwort.");
 		m.put("Please enter a commit message", "Bitte geben Sie eine Commit-Nachricht ein");
+		m.put("Please follow <a wicket:id=\"resolveInstructions\" class=\"link-primary\" href=\"#\">this instruction</a> to resolve the conflicts", 
+			"Bitte folgen Sie <a wicket:id=\"resolveInstructions\" class=\"link-primary\" href=\"#\">dieser Anleitung</a>, um die Konflikte zu lösen");
 		m.put("Please follow <a wicket:id=\"resolveInstructions\" class=\"link-primary\" href=\"javascript:void(0);\">this instruction</a> to resolve the conflicts", 
 			"Bitte folgen Sie <a wicket:id=\"resolveInstructions\" class=\"link-primary\" href=\"javascript:void(0);\">dieser Anleitung</a>, um die Konflikte zu lösen");
 		m.put("Please input one of your recovery codes saved when enable two-factor authentication", 
@@ -3106,7 +3277,6 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Populate Tag Mappings", "Tag-Zuordnungen ausfüllen");
 		m.put("Port", "Port");
 		m.put("Port Accessors", "Port-Zugriffssteuerungen");
-		m.put("Port Mappings", "Port-Zuordnungen");
 		m.put("Possible definitions", "Mögliche Definitionen");
 		m.put("Post", "Posten");
 		m.put("Post Build Action", "Post-Build-Aktion");
@@ -3142,8 +3312,6 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Primary email address added", "Primäre E-Mail-Adresse hinzugefügt");
 		m.put("Primary email address changed", "Primäre E-Mail-Adresse geändert");
 		m.put("Primary email address of your account is not specified yet", "Die primäre E-Mail-Adresse Ihres Kontos ist noch nicht angegeben");
-		m.put("Primary email address will be used to receive notifications, show gravatar (if enabled) etc.", 
-			"Die primäre E-Mail-Adresse wird verwendet, um Benachrichtigungen zu erhalten, Gravatar anzuzeigen (falls aktiviert) usw.");
 		m.put("Primary or alias email address of above account to be used as sender address of various email notifications. User can also reply to this address to post issue or pull request comments via email if <code>Check Incoming Email</code> option is enabled below", 
 			"Primäre oder Alias-E-Mail-Adresse des oben genannten Kontos, die als Absenderadresse für verschiedene E-Mail-Benachrichtigungen verwendet wird. Der Benutzer kann auch auf diese Adresse antworten, um Kommentare zu Problemen oder Pull-Anfragen per E-Mail zu posten, wenn die Option <code>Check Incoming Email</code> unten aktiviert ist");
 		m.put("Principal name of the account to login into office 365 mail server to send/receive emails. Make sure this account <b>owns</b> the registered application indicated by application id above", 
@@ -3160,6 +3328,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Project Authorization Bean", "Projekt-Autorisierungs-Bean");
 		m.put("Project Authorizations Bean", "Projekt-Autorisierungen-Bean");
 		m.put("Project Build Setting", "Projekt-Build-Einstellung");
+		m.put("Project Defaults", "Projekteinstellungen");
 		m.put("Project Dependencies", "Projekt-Abhängigkeiten");
 		m.put("Project Dependency", "Projekt-Abhängigkeit");
 		m.put("Project Id", "Projekt-ID");
@@ -3176,6 +3345,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Project does not have any code yet", "Projekt hat noch keinen Code");
 		m.put("Project forked", "Projekt geforkt");
 		m.put("Project id", "Projekt-ID");
+		m.put("Project is in maintenance mode", "Projekt befindet sich im Wartungsmodus");
 		m.put("Project list", "Projektliste");
 		m.put("Project manage privilege required to delete \"{0}\"", "Projekt-Verwaltungsberechtigung erforderlich, um \"{0}\" zu löschen");
 		m.put("Project manage privilege required to modify \"{0}\"", "Projekt-Verwaltungsberechtigung erforderlich, um \"{0}\" zu ändern");
@@ -3186,11 +3356,16 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Project overview", "Projektübersicht");
 		m.put("Project path", "Projektpfad");
 		m.put("Project path can be omitted if reference from current project", "Projektpfad kann weggelassen werden, wenn er vom aktuellen Projekt referenziert wird.");
+		m.put("Project storage directory &quot;site/projects/<span wicket:id=\"projectId\"></span>&quot; cannot be found on any ${productName} servers", 
+			"Das Projekt-Speicherverzeichnis &quot;site/projects/<span wicket:id=\"projectId\"></span>&quot; kann auf keinem ${productName}-Server gefunden werden");
 		m.put("Projects", "Projekte");
 		m.put("Projects Bean", "Projekte-Bean");
+		m.put("Projects and roles", "Projekte und Rollen");
 		m.put("Projects deleted", "Projekte gelöscht");
 		m.put("Projects modified", "Projekte geändert");
 		m.put("Projects moved", "Projekte verschoben");
+		m.put("Projects need to be redistributed when cluster members are added/removed. ${productName} does not do this automatically as this is resource intensive, and you may only want to do it after cluster is finalized and stable.", 
+			"Projekte müssen neu verteilt werden, wenn Cluster-Mitglieder hinzugefügt oder entfernt werden. ${productName} führt dies nicht automatisch aus, da dies ressourcenintensiv ist, und Sie dies möglicherweise erst nach Abschluss und Stabilisierung des Clusters durchführen möchten");
 		m.put("Projects need to be redistributed when cluster members are added/removed. OneDev does not do this automatically as this is resource intensive, and you may only want to do it after cluster is finalized and stable.", 
 			"Projekte müssen neu verteilt werden, wenn Cluster-Mitglieder hinzugefügt/entfernt werden. OneDev macht dies nicht automatisch, da dies ressourcenintensiv ist, und Sie möchten dies möglicherweise erst tun, nachdem der Cluster finalisiert und stabil ist.");
 		m.put("Promotions", "Promotionen");
@@ -3205,14 +3380,16 @@ public class Translation_de extends TranslationResourceBundle {
 			"Aufforderung zur Verwendung beim Zusammenfassen von Pull-Request-Kommentaren. Die Anzeigesprache wird automatisch angehängt");
 		m.put("Properties", "Eigenschaften");
 		m.put("Provide server id (guild id) to restrict access only to server members", "Server-ID (Guild-ID) angeben, um den Zugriff nur auf Servermitglieder zu beschränken");
+		m.put("Provision Mode", "Bereitstellungsmodus");
 		m.put("Provisioner", "Provisionierer");
 		m.put("Proxy", "Proxy");
 		m.put("Prune Builder Cache", "Builder-Cache bereinigen");
-		m.put("Prune image cache of docker buildx builder. This step calls docker builder prune command to remove cache of buildx builder specified in server docker executor or remote docker executor", 
-			"Bild-Cache des Docker-Buildx-Builders bereinigen. Dieser Schritt ruft den Docker-Builder-Prune-Befehl auf, um den Cache des angegebenen Buildx-Builders im Server-Docker-Executor oder Remote-Docker-Executor zu entfernen");
+		m.put("Prune image cache of docker buildx builder. This step calls docker buildx prune command to remove cache of the builder used by the Docker or sandbox executor", 
+			"Bild-Cache des Docker-Buildx-Builders bereinigen. Dieser Schritt ruft den Befehl docker buildx prune auf, um den Cache des Builders zu entfernen, der vom Docker- oder Sandbox-Executor verwendet wird.");
 		m.put("Public", "Öffentlich");
 		m.put("Public Key", "Öffentlicher Schlüssel");
 		m.put("Public Roles", "Öffentliche Rollen");
+		m.put("Public site", "Öffentliche Seite");
 		m.put("Publish", "Veröffentlichen");
 		m.put("Publish Coverage Report Step", "Schritt zur Veröffentlichung des Abdeckungsberichts");
 		m.put("Publish JSON Report As Artifact", "JSON-Bericht als Artefakt veröffentlichen");
@@ -3227,6 +3404,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Published By User", "Veröffentlicht durch Benutzer");
 		m.put("Published File", "Veröffentlicht Datei");
 		m.put("Published site", "Veröffentlichte Seite");
+		m.put("Published sites", "Veröffentlichte Seiten");
 		m.put("Pull", "Pull");
 		m.put("Pull Command", "Pull-Befehl");
 		m.put("Pull Image", "Bild abrufen");
@@ -3285,8 +3463,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Pull request query watch only affects new pull requests. To manage watch status of existing pull requests in batch, filter pull requests by watch status in pull requests page, and then take appropriate action", 
 			"Pull-Request-Abfrageüberwachung betrifft nur neue Pull-Requests. Um den Überwachungsstatus bestehender Pull-Requests in Batch zu verwalten, filtern Sie Pull-Requests nach Überwachungsstatus auf der Pull-Requests-Seite und führen Sie dann die entsprechende Aktion aus");
 		m.put("Pull request settings updated", "Einstellungen für Pull-Requests aktualisiert");
-		m.put("Pull request statistics is an enterprise feature. <a href='https://onedev.io/pricing' target='_blank'>Try free</a> for 30 days", 
-			"Statistiken zu Pull-Requests sind eine Enterprise-Funktion. <a href='https://onedev.io/pricing' target='_blank'>30 Tage kostenlos testen</a>");
+		m.put("Pull request statistics is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days", 
+			"Pull-Request-Statistiken sind eine Enterprise-Funktion. <a href='${website}/pricing' target='_blank'>30 Tage kostenlos testen</a>");
 		m.put("Pull request synchronization submitted", "Pull-Request-Synchronisierung eingereicht");
 		m.put("Pull request will be merged automatically when ready. This option will be disabled upon adding new commits, changing merge strategy, or switching target branch", 
 			"Pull-Request wird automatisch zusammengeführt, wenn bereit. Diese Option wird deaktiviert, wenn neue Commits hinzugefügt, die Zusammenführungsstrategie geändert oder der Zielbranch gewechselt wird");
@@ -3343,13 +3521,15 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Receivers", "Empfänger");
 		m.put("Recovery code", "Wiederherstellungscode");
 		m.put("Recursive", "Rekursiv");
+		m.put("Redirect URI", "Redirect-URI");
+		m.put("Redirect URIs", "Redirect-URIs");
 		m.put("Redundant", "Redundant");
 		m.put("Ref", "Ref");
-		m.put("Ref Name", "Ref-Name");
-		m.put("Refer to this <a href='https://docs.onedev.io/tutorials/security/sso-with-github' target='_blank'>tutorial</a> for an example setup", 
-			"Siehe dieses <a href='https://docs.onedev.io/tutorials/security/sso-with-github' target='_blank'>Tutorial</a> für ein Beispiel-Setup");
-		m.put("Refer to this <a href='https://docs.onedev.io/tutorials/security/sso-with-okta' target='_blank'>tutorial</a> for an example setup", 
-			"Siehe dieses <a href='https://docs.onedev.io/tutorials/security/sso-with-okta' target='_blank'>Tutorial</a> für ein Beispiel-Setup");
+		m.put("Ref Name Provider", "Ref-Name-Anbieter");
+		m.put("Refer to this <a href='${docsite}/tutorials/security/sso-with-github' target='_blank'>tutorial</a> for an example setup", 
+			"Lesen Sie dieses <a href='${docsite}/tutorials/security/sso-with-github' target='_blank'>Tutorial</a> für ein Beispiel-Setup");
+		m.put("Refer to this <a href='${docsite}/tutorials/security/sso-with-okta' target='_blank'>tutorial</a> for an example setup", 
+			"Lesen Sie dieses <a href='${docsite}/tutorials/security/sso-with-okta' target='_blank'>Tutorial</a> für ein Beispiel-Setup");
 		m.put("Reference", "Referenz");
 		m.put("Reference Build", "Referenz-Build");
 		m.put("Reference Issue", "Referenz-Issue");
@@ -3362,6 +3542,9 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Regenerate", "Neu generieren");
 		m.put("Regenerate Private Key", "Privaten Schlüssel neu generieren");
 		m.put("Regenerate this access token", "Diesen Zugriffstoken neu generieren");
+		m.put("Regenerating this key revokes all existing authorizations and replaces the public signing key. Applications need to sign in again and refresh their cached signing key. Type <code>yes</code> below to continue.", 
+			"Das Neugenerieren dieses Schlüssels widerruft alle bestehenden Autorisierungen und ersetzt den öffentlichen Signaturschlüssel. Anwendungen müssen sich erneut anmelden und ihren zwischengespeicherten Signaturschlüssel aktualisieren. Geben Sie <code>yes</code> unten ein, um fortzufahren.");
+		m.put("Register Application", "Anwendung registrieren");
 		m.put("Registry Login", "Registry-Login");
 		m.put("Registry Logins", "Registry-Logins");
 		m.put("Registry Url", "Registry-URL");
@@ -3373,9 +3556,11 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Remember Me", "Angemeldet bleiben");
 		m.put("Remote Docker Executor", "Remote-Docker-Executor");
 		m.put("Remote Docker Provisioner", "Remote-Docker-Provisioner");
+		m.put("Remote Host Executor", "Remote-Host-Executor");
+		m.put("Remote Host Provisioner", "Remote-Host-Provisioner");
 		m.put("Remote Machine", "Remote-Maschine");
-		m.put("Remote Shell Executor", "Remote-Shell-Executor");
-		m.put("Remote Shell Provisioner", "Remote-Shell-Provisioner");
+		m.put("Remote Sandbox Executor", "Remote-Sandbox-Executor");
+		m.put("Remote Sandbox Provisioner", "Remote-Sandbox-Provisioner");
 		m.put("Remote URL", "Remote-URL");
 		m.put("Remote Url", "Remote-URL");
 		m.put("Remove", "Entfernen");
@@ -3406,7 +3591,6 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Reopened pull request \"{0}\" ({1})", "Pull-Request \"{0}\" ({1}) wieder geöffnet");
 		m.put("Replace With", "Ersetzen durch");
 		m.put("Replica Count", "Replikanzahl");
-		m.put("Replicas", "Replikate");
 		m.put("Replied to comment on file \"{0}\" in project \"{1}\"", "Auf Kommentar zur Datei \"{0}\" im Projekt \"{1}\" geantwortet");
 		m.put("Reply", "Antworten");
 		m.put("Report Name", "Berichtsname");
@@ -3420,12 +3604,16 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Request Scopes", "Anforderungsbereiche");
 		m.put("Request Trial Subscription", "Testabonnement anfordern");
 		m.put("Request review again", "Überprüfung erneut anfordern");
+		m.put("Request role scopes to access projects. The user selects projects they have permission to manage during consent, and access is limited to their own permissions.", 
+			"Fordern Sie Rollenscopes an, um auf Projekte zuzugreifen. Der Benutzer wählt während der Zustimmung Projekte aus, die er verwalten darf, und der Zugriff ist auf seine eigenen Berechtigungen beschränkt.");
 		m.put("Request to sync", "Synchronisation anfordern");
+		m.put("Requested Access", "Angeforderter Zugriff");
 		m.put("Requested For changes", "Änderungen angefordert");
 		m.put("Requested changes to pull request \"{0}\" ({1})", "Änderungen am Pull-Request \"{0}\" ({1}) angefordert");
 		m.put("Requested for changes", "Änderungen angefordert");
 		m.put("Requested to sync estimated/spent time", "Angefordert, geschätzte/aufgewendete Zeit zu synchronisieren");
 		m.put("Require Autentication", "Authentifizierung erforderlich");
+		m.put("Require Login for Automatic Indexing", "Login für automatische Indexierung erforderlich");
 		m.put("Require Strict Pull Request Builds", "Strikte Pull-Request-Builds erforderlich");
 		m.put("Require Successful", "Erfolgreich erforderlich");
 		m.put("Required", "Erforderlich");
@@ -3437,6 +3625,9 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Reset", "Zurücksetzen");
 		m.put("Resolution", "Auflösung");
 		m.put("Resolve merge conflicts", "Merge-Konflikte lösen");
+		m.put("Resolve merge conflicts, test changes and push result commit to ${productName}", "Lösen Sie Merge-Konflikte, testen Sie Änderungen und pushen Sie das Ergebnis-Commit zu ${productName}");
+		m.put("Resolve rebase conflicts, test changes and force push result commit to ${productName}", 
+			"Lösen Sie Rebase-Konflikte, testen Sie Änderungen und führen Sie einen Force-Push des Ergebnis-Commits zu ${productName} aus");
 		m.put("Resolved", "Gelöst");
 		m.put("Resolved comment on file \"{0}\" in project \"{1}\"", "Kommentar zur Datei \"{0}\" im Projekt \"{1}\" gelöst");
 		m.put("Resource", "Ressource");
@@ -3474,8 +3665,13 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Reviewers", "Prüfer");
 		m.put("Revision", "Revision");
 		m.put("Revision indexing in progress...", "Revisionsindizierung läuft...");
-		m.put("Revision indexing in progress... (symbol navigation in revisions will be accurate after indexed)", 
-			"Revisionsindizierung läuft... (Symbolnavigation in Revisionen wird nach der Indizierung genau sein)");
+		m.put("Revision indexing in progress... (symbol navigation and context in revisions will be available after indexed)", 
+			"Revisionsindexierung läuft... (Symbolnavigation und Kontext in Revisionen sind nach der Indexierung verfügbar)");
+		m.put("Revoke", "Widerrufen");
+		m.put("Revoke All", "Alle widerrufen");
+		m.put("Revoke All Authorizations", "Alle Autorisierungen widerrufen");
+		m.put("Revoke all tokens for \"{0}\"?", "Alle Tokens für \"{0}\" widerrufen?");
+		m.put("Revoke this token and its refresh token?", "Dieses Token und dessen Refresh-Token widerrufen?");
 		m.put("Right", "Rechts");
 		m.put("Role", "Rolle");
 		m.put("Role \"{0}\" deleted", "Rolle \"{0}\" gelöscht");
@@ -3485,6 +3681,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Roles", "Rollen");
 		m.put("Root Projects", "Root-Projekte");
 		m.put("Roslynator Report", "Roslynator-Bericht");
+		m.put("Rotate Secret", "Geheimnis rotieren");
+		m.put("Rotate the client secret and revoke all authorizations?", "Das Client-Geheimnis rotieren und alle Autorisierungen widerrufen?");
 		m.put("RubyGems(s)", "RubyGems(s)");
 		m.put("Ruff Report", "Ruff-Bericht");
 		m.put("Rule will apply if user operating the tag matches criteria specified here", "Regel wird angewendet, wenn der Benutzer, der das Tag bedient, die hier angegebenen Kriterien erfüllt");
@@ -3502,15 +3700,15 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Run below commands to install this package", "Führen Sie die folgenden Befehle aus, um dieses Paket zu installieren");
 		m.put("Run below commands to use this chart", "Führen Sie die folgenden Befehle aus, um dieses Chart zu verwenden");
 		m.put("Run below commands to use this package", "Führen Sie die folgenden Befehle aus, um dieses Paket zu verwenden");
-		m.put("Run docker buildx imagetools command with specified arguments. This step can only be executed by server docker executor or remote docker executor", 
-			"Führen Sie den Docker-Buildx-Imagetools-Befehl mit den angegebenen Argumenten aus. Dieser Schritt kann nur vom Server-Docker-Executor oder Remote-Docker-Executor ausgeführt werden");
+		m.put("Run docker buildx imagetools command with specified arguments. This step can be executed by Docker or sandbox executors", 
+			"Führen Sie den Befehl docker buildx imagetools mit den angegebenen Argumenten aus. Dieser Schritt kann von Docker- oder Sandbox-Executors ausgeführt werden.");
 		m.put("Run job", "Job ausführen");
 		m.put("Run job in another project", "Job in einem anderen Projekt ausführen");
 		m.put("Run on Bare Metal/Virtual Machine", "Auf Bare Metal/virtueller Maschine ausführen");
 		m.put("Run osv scanner to scan project source for vulnerabilities in <a href='https://google.github.io/osv-scanner/supported-languages-and-lockfiles/' target='_blank'>various lock files</a>. It can only be executed by docker aware executor.", 
 			"OSV-Scanner ausführen, um den Projektquellcode auf Schwachstellen in <a href='https://google.github.io/osv-scanner/supported-languages-and-lockfiles/' target='_blank'>verschiedenen Sperrdateien</a> zu scannen. Es kann nur von einem Docker-fähigen Executor ausgeführt werden.");
-		m.put("Run specified docker container. <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job workdir</a> is mounted into the container and its path is placed in environment variable <code>ONEDEV_WORKDIR</code>. <b class='text-warning'>Note: </b> this step can only be executed by server docker executor or remote docker executor", 
-			"Führen Sie den angegebenen Docker-Container aus. <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job-Arbeitsbereich</a> wird in den Container eingebunden und sein Pfad wird in der Umgebungsvariable <code>ONEDEV_WORKDIR</code> platziert. <b class='text-warning'>Hinweis: </b> Dieser Schritt kann nur vom Server-Docker-Executor oder Remote-Docker-Executor ausgeführt werden");
+		m.put("Run specified docker container. <a href='${docsite}/concepts#job-workdir' target='_blank'>Job workdir</a> is mounted into the container and its path is placed in environment variable <code>ONEDEV_WORKDIR</code>. This step can be executed by Docker or sandbox executors", 
+			"Führen Sie den angegebenen Docker-Container aus. <a href='${docsite}/concepts#job-workdir' target='_blank'>Job-Arbeitsverzeichnis</a> wird in den Container eingebunden und sein Pfad wird in der Umgebungsvariable <code>ONEDEV_WORKDIR</code> platziert. Dieser Schritt kann von Docker- oder Sandbox-Executors ausgeführt werden.");
 		m.put("Run specified step template", "Ausgewählte Schrittvorlage ausführen");
 		m.put("Run this job", "Diesen Job ausführen");
 		m.put("Run trivy container image scanner to find issues in specified image. For vulnerabilities, it checks various <a href='https://aquasecurity.github.io/trivy/v0.50/docs/coverage/language/#supported-languages' target='_blank'>distribution files</a>. It can only be executed by docker aware executor.", 
@@ -3522,12 +3720,19 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Run via Docker Container", "Ausführung über Docker-Container");
 		m.put("Running", "Wird ausgeführt");
 		m.put("Running Takes", "Ausführung dauert");
+		m.put("Runs shell and Docker steps in a fresh Docker Sandbox on an <a href='/~administration/agents' target='_blank'>agent</a> host. Job services run inside the sandbox and are accessible by service name from shell and container steps. The sandbox and its services are deleted after each job. Follow <a href='${docsite}/tutorials/sandbox/working-with-sandbox' target='_blank'>Working with Sandbox</a> to set up each agent host.", 
+			"Führt Shell- und Docker-Schritte in einer neuen Docker-Sandbox auf einem <a href='/~administration/agents' target='_blank'>Agent</a>-Host aus. Job-Dienste laufen innerhalb der Sandbox und sind über den Dienstnamen von Shell- und Container-Schritten aus zugänglich. Die Sandbox und ihre Dienste werden nach jedem Job gelöscht. Folgen Sie <a href='${docsite}/tutorials/sandbox/working-with-sandbox' target='_blank'>Arbeiten mit Sandbox</a>, um jeden Agent-Host einzurichten.");
+		m.put("Runs shell and Docker steps in a fresh Docker Sandbox on the server. Job services run inside the sandbox and are accessible by service name from shell and container steps. The sandbox and its services are deleted after each job. Follow <a href='${docsite}/tutorials/sandbox/working-with-sandbox' target='_blank'>Working with Sandbox</a> to set up the server host. <b class='text-warning'>WARNING:</b> For better security, use a Remote Sandbox Executor on a dedicated agent host, especially for untrusted jobs.", 
+			"Führt Shell- und Docker-Schritte in einer neuen Docker-Sandbox auf dem Server aus. Job-Dienste laufen innerhalb der Sandbox und sind über den Dienstnamen von Shell- und Container-Schritten aus zugänglich. Die Sandbox und ihre Dienste werden nach jedem Job gelöscht. Folgen Sie <a href='${docsite}/tutorials/sandbox/working-with-sandbox' target='_blank'>Arbeiten mit Sandbox</a>, um den Server-Host einzurichten. <b class='text-warning'>WARNUNG:</b> Für bessere Sicherheit verwenden Sie einen Remote-Sandbox-Executor auf einem dedizierten Agent-Host, insbesondere für nicht vertrauenswürdige Jobs.");
+		m.put("Runs workspaces directly in a Docker Sandbox on an <a href='/~administration/agents' target='_blank'>agent</a> host. Setup commands and terminals run as the template image's default user. The sandbox is removed when the workspace is deleted. Follow <a href='${docsite}/tutorials/sandbox/working-with-sandbox' target='_blank'>Working with Sandbox</a> to set up each agent host.", 
+			"Führt Workspaces direkt in einer Docker-Sandbox auf einem <a href='/~administration/agents' target='_blank'>Agent</a>-Host aus. Setup-Befehle und Terminals werden als Standardbenutzer des Vorlagen-Images ausgeführt. Die Sandbox wird entfernt, wenn der Workspace gelöscht wird. Folgen Sie <a href='${docsite}/tutorials/sandbox/working-with-sandbox' target='_blank'>Arbeiten mit Sandbox</a>, um jeden Agent-Host einzurichten.");
+		m.put("Runs workspaces directly in a Docker Sandbox on the server. Setup commands and terminals run as the template image's default user.\nThe sandbox is removed when the workspace is deleted.\nSelect <b>Sandbox</b> as the workspace spec's provision mode. To use Docker in workspace commands,\nselect a sandbox template that provides Docker in the workspace spec.\nFollow <a href='${docsite}/tutorials/sandbox/working-with-sandbox' target='_blank'>Working with Sandbox</a>\nto set up the server host. For untrusted workspaces, use a Remote Sandbox Provisioner on a dedicated agent host.", 
+			"Führt Workspaces direkt in einer Docker-Sandbox auf dem Server aus. Setup-Befehle und Terminals werden als Standardbenutzer des Vorlagen-Images ausgeführt.\nDie Sandbox wird entfernt, wenn der Workspace gelöscht wird.\nWählen Sie <b>Sandbox</b> als Bereitstellungsmodus der Workspace-Spezifikation. Um Docker in Workspace-Befehlen zu verwenden,\nwählen Sie ein Sandbox-Vorlagen-Image, das Docker in der Workspace-Spezifikation bereitstellt.\nFolgen Sie <a href='${docsite}/tutorials/sandbox/working-with-sandbox' target='_blank'>Arbeiten mit Sandbox</a>\num den Server-Host einzurichten. Für nicht vertrauenswürdige Workspaces verwenden Sie einen Remote-Sandbox-Provisioner auf einem dedizierten Agent-Host.");
 		m.put("SMTP Host", "SMTP-Host");
 		m.put("SMTP Password", "SMTP-Passwort");
 		m.put("SMTP User", "SMTP-Benutzer");
 		m.put("SMTP/IMAP", "SMTP/IMAP");
 		m.put("SSH", "SSH");
-		m.put("SSH & GPG Keys", "SSH- & GPG-Schlüssel");
 		m.put("SSH Clone URL", "SSH-Klon-URL");
 		m.put("SSH Keys", "SSH-Schlüssel");
 		m.put("SSH Root URL", "SSH-Root-URL");
@@ -3543,6 +3748,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("SSO provider updated", "SSO-Anbieter aktualisiert");
 		m.put("STAGED", "GESTAGT");
 		m.put("SUCCESSFUL", "ERFOLGREICH");
+		m.put("Sandbox Executable", "Sandbox-Ausführbare Datei");
+		m.put("Sandbox Template", "Sandbox-Vorlage");
 		m.put("Save", "Speichern");
 		m.put("Save Prompt", "Eingabeaufforderung speichern");
 		m.put("Save Query", "Abfrage speichern");
@@ -3557,6 +3764,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Scan Paths", "Scan-Pfade");
 		m.put("Scan below QR code with your TOTP authenticators", "Scannen Sie den unten stehenden QR-Code mit Ihren TOTP-Authentifikatoren");
 		m.put("Schedule Issues", "Probleme planen");
+		m.put("Scope", "Bereich");
+		m.put("Scopes", "Bereiche");
 		m.put("Script Name", "Skriptname");
 		m.put("Scripting Value", "Skriptwert");
 		m.put("Search", "Suchen");
@@ -3580,6 +3789,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Security Settings", "Sicherheitseinstellungen");
 		m.put("Security settings have been updated", "Sicherheitseinstellungen wurden aktualisiert");
 		m.put("Select", "Auswählen");
+		m.put("Select <code>~default</code> to apply the selected roles to all projects, including projects created later", 
+			"Wählen Sie <code>~default</code>, um die ausgewählten Rollen auf alle Projekte anzuwenden, einschließlich später erstellter Projekte.");
 		m.put("Select Branch to Cherry Pick to", "Branch auswählen, zu dem Cherry-Pick erfolgen soll");
 		m.put("Select Branch to Revert on", "Branch auswählen, auf dem zurückgesetzt werden soll");
 		m.put("Select Branch/Tag", "Branch/Tag auswählen");
@@ -3612,12 +3823,14 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Server", "Server");
 		m.put("Server Docker Executor", "Server-Docker-Executor");
 		m.put("Server Docker Provisioner", "Server-Docker-Provisioner");
+		m.put("Server Host Executor", "Server-Host-Executor");
+		m.put("Server Host Provisioner", "Server-Host-Provisioner");
 		m.put("Server Id", "Server-ID");
 		m.put("Server Information", "Server-Informationen");
 		m.put("Server Log", "Server-Log");
+		m.put("Server Sandbox Executor", "Server-Sandbox-Executor");
+		m.put("Server Sandbox Provisioner", "Server-Sandbox-Provisioner");
 		m.put("Server Setup", "Server-Setup");
-		m.put("Server Shell Executor", "Server-Shell-Executor");
-		m.put("Server Shell Provisioner", "Server-Shell-Provisioner");
 		m.put("Server URL", "Server-URL");
 		m.put("Server fingerprint", "Server-Fingerabdruck");
 		m.put("Server host", "Server-Host");
@@ -3667,8 +3880,8 @@ public class Translation_de extends TranslationResourceBundle {
 			"Microsoft Teams-Benachrichtigungseinstellungen einrichten. Einstellungen werden von untergeordneten Projekten geerbt und können durch Definition von Einstellungen mit derselben Webhook-URL überschrieben werden.");
 		m.put("Set up discord notification settings. Settings will be inherited by child projects, and can be overridden by defining settings with same webhook url", 
 			"Discord-Benachrichtigungseinstellungen einrichten. Einstellungen werden von untergeordneten Projekten geerbt und können durch Definition von Einstellungen mit derselben Webhook-URL überschrieben werden.");
-		m.put("Set up job cache to speed up job execution. Check <a href='https://docs.onedev.io/tutorials/cicd/job-cache' target='_blank'>this tutorial</a> on how to use job cache", 
-			"Job-Cache einrichten, um die Ausführung von Jobs zu beschleunigen. Siehe <a href='https://docs.onedev.io/tutorials/cicd/job-cache' target='_blank'>dieses Tutorial</a>, wie man den Job-Cache verwendet.");
+		m.put("Set up job cache to speed up job execution. Check <a href='${docsite}/tutorials/cicd/job-cache' target='_blank'>this tutorial</a> on how to use job cache", 
+			"Richten Sie einen Job-Cache ein, um die Ausführung des Jobs zu beschleunigen. Lesen Sie <a href='${docsite}/tutorials/cicd/job-cache' target='_blank'>dieses Tutorial</a>, um zu erfahren, wie Sie den Job-Cache verwenden");
 		m.put("Set up ntfy.sh notification settings. Settings will be inherited by child projects, and can be overridden by defining settings with same webhook url", 
 			"ntfy.sh-Benachrichtigungseinstellungen einrichten. Einstellungen werden von untergeordneten Projekten geerbt und können durch Definition von Einstellungen mit derselben Webhook-URL überschrieben werden.");
 		m.put("Set up slack notification settings. Settings will be inherited by child projects, and can be overridden by defining settings with same webhook url", 
@@ -3727,6 +3940,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Show test cases of this test suite", "Testfälle dieser Test-Suite anzeigen");
 		m.put("Show total estimated/spent time", "Gesamte geschätzte/aufgewendete Zeit anzeigen");
 		m.put("Showing first {0} files as there are too many", "Zeige die ersten {0} Dateien, da es zu viele gibt");
+		m.put("Showing the latest {0} entries. Download the log for all entries.", "Die neuesten {0} Einträge werden angezeigt. Laden Sie das Protokoll herunter, um alle Einträge zu sehen.");
 		m.put("Sign In", "Anmelden");
 		m.put("Sign In To", "Anmelden bei");
 		m.put("Sign Out", "Abmelden");
@@ -3736,12 +3950,13 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Sign in", "Anmelden");
 		m.put("Signature required for this change, but no signing key is specified", "Signatur erforderlich für diese Änderung, aber kein Signaturschlüssel angegeben");
 		m.put("Signature required for this change, please generate system GPG signing key first", "Signatur erforderlich für diese Änderung, bitte zuerst den System-GPG-Signierschlüssel generieren");
-		m.put("Signature verified successfully with OneDev GPG key", "Signatur erfolgreich mit OneDev GPG-Schlüssel verifiziert");
+		m.put("Signature verified successfully with ${productName} GPG key", "Signatur erfolgreich mit ${productName}-GPG-Schlüssel verifiziert");
 		m.put("Signature verified successfully with committer's GPG key", "Signatur erfolgreich mit dem GPG-Schlüssel des Committers verifiziert");
 		m.put("Signature verified successfully with committer's SSH key", "Signatur erfolgreich mit dem SSH-Schlüssel des Committers verifiziert");
 		m.put("Signature verified successfully with tagger's GPG key", "Signatur erfolgreich mit dem GPG-Schlüssel des Taggers verifiziert");
 		m.put("Signature verified successfully with tagger's SSH key", "Signatur erfolgreich mit dem SSH-Schlüssel des Taggers verifiziert");
 		m.put("Signature verified successfully with trusted GPG key", "Signatur erfolgreich mit einem vertrauenswürdigen GPG-Schlüssel verifiziert");
+		m.put("Signed in as", "Angemeldet als");
 		m.put("Signed with an unknown GPG key ", "Mit einem unbekannten GPG-Schlüssel signiert");
 		m.put("Signed with an unknown ssh key", "Mit einem unbekannten SSH-Schlüssel signiert");
 		m.put("Signer Email Addresses", "Signer-E-Mail-Adressen");
@@ -3752,14 +3967,16 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Single sign on via discord.com", "Single Sign-On über discord.com");
 		m.put("Single sign on via twitch.tv", "Single Sign-On über twitch.tv");
 		m.put("Site", "Website");
+		m.put("Site Files", "Seiten-Dateien");
+		m.put("Site Name", "Seitenname");
 		m.put("Six months", "Sechs Monate");
 		m.put("Size", "Größe");
 		m.put("Size invalid", "Ungültige Größe");
+		m.put("Skipped", "Übersprungen");
 		m.put("Slack Notifications", "Slack-Benachrichtigungen");
 		m.put("Smtp Ssl Setting", "Smtp-SSL-Einstellung");
 		m.put("Smtp With Ssl", "Smtp mit SSL");
 		m.put("Some builds are {0}", "Einige Builds sind {0}");
-		m.put("Some jobs are hidden due to permission policy", "Einige Jobs sind aufgrund der Berechtigungsrichtlinie ausgeblendet");
 		m.put("Some local changes would be overwritten by merge", "Einige lokale Änderungen würden durch die Zusammenführung überschrieben");
 		m.put("Some one changed the content you are editing. Reload the page and try again.", "Jemand hat den Inhalt geändert, den Sie bearbeiten. Laden Sie die Seite neu und versuchen Sie es erneut.");
 		m.put("Some other pull requests are opening to this branch", "Einige andere Pull-Requests werden für diesen Branch geöffnet");
@@ -3790,62 +4007,68 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Specified Value", "Angegebener Wert");
 		m.put("Specified choices", "Angegebene Auswahlmöglichkeiten");
 		m.put("Specified default value", "Angegebener Standardwert");
+		m.put("Specified directory should be either under site directory or outside of ${productName} installation directory", 
+			"Das angegebene Verzeichnis sollte entweder unter dem Seitenverzeichnis oder außerhalb des ${productName}-Installationsverzeichnisses liegen");
 		m.put("Specified fields", "Angegebene Felder");
-		m.put("Specifies LDAP URL of the Active Directory server, for example: <i>ldap://ad-server</i>, or <i>ldaps://ad-server</i>. In case your ldap server is using a self-signed certificate for ldaps connection, you will need to <a href='https://docs.onedev.io/administration-guide/trust-self-signed-certificates' target='_blank'>configure OneDev to trust the certificate</a>", 
-			"Gibt die LDAP-URL des Active Directory-Servers an, z. B. <i>ldap://ad-server</i> oder <i>ldaps://ad-server</i>. Falls Ihr LDAP-Server ein selbstsigniertes Zertifikat für die LDAPS-Verbindung verwendet, müssen Sie <a href='https://docs.onedev.io/administration-guide/trust-self-signed-certificates' target='_blank'>OneDev konfigurieren, um das Zertifikat zu vertrauen</a>");
-		m.put("Specifies LDAP URL, for example: <i>ldap://localhost</i>, or <i>ldaps://localhost</i>. In caseyour ldap server is using a self-signed certificate for ldaps connection, you will need to <a href='https://docs.onedev.io/administration-guide/trust-self-signed-certificates' target='_blank'>configure OneDev to trust the certificate</a>", 
-			"Gibt die LDAP-URL an, z. B. <i>ldap://localhost</i> oder <i>ldaps://localhost</i>. Falls Ihr LDAP-Server ein selbstsigniertes Zertifikat für die LDAPS-Verbindung verwendet, müssen Sie <a href='https://docs.onedev.io/administration-guide/trust-self-signed-certificates' target='_blank'>OneDev konfigurieren, um das Zertifikat zu vertrauen</a>");
+		m.put("Specifies LDAP URL of the Active Directory server, for example: <i>ldap://ad-server</i>, or <i>ldaps://ad-server</i>. In case your ldap server is using a self-signed certificate for ldaps connection, you will need to <a href='${docsite}/administration-guide/trust-self-signed-certificates' target='_blank'>configure ${productName} to trust the certificate</a>", 
+			"Geben Sie die LDAP-URL des Active-Directory-Servers an, zum Beispiel: <i>ldap://ad-server</i> oder <i>ldaps://ad-server</i>. Falls Ihr LDAP-Server ein selbstsigniertes Zertifikat für die LDAPS-Verbindung verwendet, müssen Sie <a href='${docsite}/administration-guide/trust-self-signed-certificates' target='_blank'>${productName} so konfigurieren, dass das Zertifikat vertraut wird</a>");
+		m.put("Specifies LDAP URL, for example: <i>ldap://localhost</i>, or <i>ldaps://localhost</i>. In caseyour ldap server is using a self-signed certificate for ldaps connection, you will need to <a href='${docsite}/administration-guide/trust-self-signed-certificates' target='_blank'>configure ${productName} to trust the certificate</a>", 
+			"Gibt die LDAP-URL an, zum Beispiel: <i>ldap://localhost</i> oder <i>ldaps://localhost</i>. Falls Ihr LDAP-Server ein selbstsigniertes Zertifikat für die LDAPS-Verbindung verwendet, müssen Sie <a href='${docsite}/administration-guide/trust-self-signed-certificates' target='_blank'>${productName} so konfigurieren, dass das Zertifikat vertraut wird</a>");
 		m.put("Specifies base nodes for user search. For example: <i>ou=users, dc=example, dc=com</i>", 
 			"Gibt Basisknoten für die Benutzersuche an. Zum Beispiel: <i>ou=users, dc=example, dc=com</i>");
 		m.put("Specifies name of the attribute inside the user LDAP entry whose value contains distinguished names of belonging groups. For instance some LDAP servers uses attribute <i>memberOf</i> to list groups", 
 			"Gibt den Namen des Attributs innerhalb des Benutzer-LDAP-Eintrags an, dessen Wert die Distinguished Names der zugehörigen Gruppen enthält. Beispielsweise verwenden einige LDAP-Server das Attribut <i>memberOf</i>, um Gruppen aufzulisten");
 		m.put("Specifies password of above manager DN", "Gibt das Passwort des oben genannten Manager-DN an");
-		m.put("Specifies the attribute containing group name inside the found group LDAP entry. Value of this attribute will be mapped to a OneDev group. This attribute is normally set to <i>cn</i>", 
-			"Gibt das Attribut an, das den Gruppennamen innerhalb des gefundenen Gruppen-LDAP-Eintrags enthält. Der Wert dieses Attributs wird einer OneDev-Gruppe zugeordnet. Dieses Attribut wird normalerweise auf <i>cn</i> gesetzt");
+		m.put("Specifies the attribute containing group name inside the found group LDAP entry. Value of this attribute will be mapped to a ${productName} group. This attribute is normally set to <i>cn</i>", 
+			"Gibt das Attribut an, das den Gruppennamen im gefundenen LDAP-Gruppeneintrag enthält. Der Wert dieses Attributs wird einer ${productName}-Gruppe zugeordnet. Dieses Attribut ist normalerweise auf <i>cn</i> gesetzt");
 		m.put("Specifies who can access this AI service. AI service can be accessed in below approaches:", 
 			"Gibt an, wer auf diesen KI-Dienst zugreifen kann. Der KI-Dienst kann auf folgende Weise zugegriffen werden:");
-		m.put("Specify .net TRX test result file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, for instance <tt>TestResults/*.trx</tt>. Use * or ? for pattern match", 
-			"Gibt die relative .net TRX-Testergebnisdatei zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, z. B. <tt>TestResults/*.trx</tt>. Verwenden Sie * oder ? für Musterabgleich");
-		m.put("Specify <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> whose value is access token with code write permission over above projects. Commits, issues, and pull requests will also be created under name of the access token owner", 
-			"Gibt ein <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, dessen Wert ein Zugriffstoken mit Schreibberechtigung für Code über die oben genannten Projekte ist. Commits, Issues und Pull-Requests werden auch unter dem Namen des Zugriffstoken-Besitzers erstellt");
-		m.put("Specify <a href='https://github.com/rust-lang/rust-clippy'>rust clippy</a> json output file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. This file can be generated with clippy json output option, for instance <code>cargo clippy --message-format json>check-result.json</code>. Use * or ? for pattern match", 
-			"Gibt die relative <a href='https://github.com/rust-lang/rust-clippy'>Rust Clippy</a>-JSON-Ausgabedatei zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an. Diese Datei kann mit der Clippy-JSON-Ausgabeoption generiert werden, z. B. <code>cargo clippy --message-format json>check-result.json</code>. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify .net TRX test result file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, for instance <tt>TestResults/*.trx</tt>. Use * or ? for pattern match", 
+			"Geben Sie die relative .net TRX-Testergebnisdatei zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, zum Beispiel <tt>TestResults/*.trx</tt>. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> whose value is access token with code write permission over above projects. Commits, issues, and pull requests will also be created under name of the access token owner", 
+			"Geben Sie ein <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, dessen Wert ein Zugriffstoken mit Schreibberechtigung für den obigen Code ist. Commits, Issues und Pull-Requests werden ebenfalls unter dem Namen des Zugriffstoken-Besitzers erstellt");
+		m.put("Specify <a href='https://github.com/rust-lang/rust-clippy'>rust clippy</a> json output file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>. This file can be generated with clippy json output option, for instance <code>cargo clippy --message-format json>check-result.json</code>. Use * or ? for pattern match", 
+			"Geben Sie die relative JSON-Ausgabedatei von <a href='https://github.com/rust-lang/rust-clippy'>rust clippy</a> zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an. Diese Datei kann mit der JSON-Ausgabeoption von Clippy generiert werden, zum Beispiel <code>cargo clippy --message-format json>check-result.json</code>. Verwenden Sie * oder ? für Musterabgleich");
 		m.put("Specify Build Options", "Gibt Build-Optionen an");
-		m.put("Specify CPD result xml file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, for instance, <tt>target/cpd.xml</tt>. Use * or ? for pattern match", 
-			"Gibt die relative CPD-Ergebnis-XML-Datei zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, z. B. <tt>target/cpd.xml</tt>. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify Buildx builder used to build docker image. ${productName} will create the builder automatically if it does not exist. Check <a href='${docsite}/tutorials/cicd/insecure-docker-registry' target='_blank'>this tutorial</a> on how to customize the builder for instance to allow publishing to insecure registries", 
+			"Geben Sie den Buildx-Builder an, der zum Erstellen des Docker-Images verwendet wird. ${productName} erstellt den Builder automatisch, falls er nicht existiert. Lesen Sie <a href='${docsite}/tutorials/cicd/insecure-docker-registry' target='_blank'>dieses Tutorial</a>, um zu erfahren, wie der Builder angepasst werden kann, beispielsweise um das Veröffentlichen in unsicheren Registries zu ermöglichen");
+		m.put("Specify CPD result xml file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, for instance, <tt>target/cpd.xml</tt>. Use * or ? for pattern match", 
+			"Geben Sie die relative CPD-Ergebnis-XML-Datei zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, zum Beispiel <tt>target/cpd.xml</tt>. Verwenden Sie * oder ? für Musterabgleich");
 		m.put("Specify Commit Message", "Gibt die Commit-Nachricht an");
-		m.put("Specify ESLint report file in checkstyle format under <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. This file can be generated with ESLint option <tt>'-f checkstyle'</tt> and <tt>'-o'</tt>. Use * or ? for pattern match", 
-			"Gibt die ESLint-Berichtsdatei im Checkstyle-Format unter <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an. Diese Datei kann mit der ESLint-Option <tt>'-f checkstyle'</tt> und <tt>'-o'</tt> generiert werden. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify Docker image to test against. The image must have shell, Git, Git LFS, and tmux installed", 
+			"Geben Sie ein Docker-Image an, gegen das getestet werden soll. Das Image muss Shell, Git, Git LFS und tmux installiert haben.");
+		m.put("Specify ESLint report file in checkstyle format under <a href='${docsite}/concepts#job-workdir'>job working directory</a>. This file can be generated with ESLint option <tt>'-f checkstyle'</tt> and <tt>'-o'</tt>. Use * or ? for pattern match", 
+			"Geben Sie die ESLint-Berichtsdatei im Checkstyle-Format unter <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an. Diese Datei kann mit der ESLint-Option <tt>'-f checkstyle'</tt> und <tt>'-o'</tt> generiert werden. Verwenden Sie * oder ? für Musterabgleich");
 		m.put("Specify GitHub API url, for instance <tt>https://api.github.com</tt>", "Gibt die GitHub-API-URL an, z. B. <tt>https://api.github.com</tt>");
 		m.put("Specify GitLab API url, for instance <tt>https://gitlab.example.com/api/v4</tt>", "Gibt die GitLab-API-URL an, z. B. <tt>https://gitlab.example.com/api/v4</tt>");
 		m.put("Specify Gitea API url, for instance <tt>https://gitea.example.com/api/v1</tt>", "Gibt die Gitea-API-URL an, z. B. <tt>https://gitea.example.com/api/v1</tt>");
-		m.put("Specify GoogleTest XML result file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. This report can be generated with environment variable <tt>GTEST_OUTPUT</tt> when running tests, For instance, <code>export GTEST_OUTPUT=&quot;xml:gtest-result.xml&quot;</code>. Use * or ? for pattern match", 
-			"Gibt die relative GoogleTest-XML-Ergebnisdatei zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an. Dieser Bericht kann mit der Umgebungsvariable <tt>GTEST_OUTPUT</tt> beim Testen generiert werden, z. B. <code>export GTEST_OUTPUT=&quot;xml:gtest-result.xml&quot;</code>. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify GoogleTest XML result file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>. This report can be generated with environment variable <tt>GTEST_OUTPUT</tt> when running tests, For instance, <code>export GTEST_OUTPUT=&quot;xml:gtest-result.xml&quot;</code>. Use * or ? for pattern match", 
+			"Geben Sie die relative GoogleTest-XML-Ergebnisdatei zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an. Dieser Bericht kann mit der Umgebungsvariable <tt>GTEST_OUTPUT</tt> beim Ausführen von Tests generiert werden, zum Beispiel <code>export GTEST_OUTPUT=&quot;xml:gtest-result.xml&quot;</code>. Verwenden Sie * oder ? für Musterabgleich");
 		m.put("Specify IMAP user name.<br><b class='text-danger'>NOTE: </b> This account should be able to receive emails sent to system email address specified above", 
 			"Gibt den IMAP-Benutzernamen an.<br><b class='text-danger'>HINWEIS: </b> Dieses Konto sollte in der Lage sein, E-Mails zu empfangen, die an die oben angegebene System-E-Mail-Adresse gesendet werden");
-		m.put("Specify JUnit test result file in XML format relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, for instance <tt>target/surefire-reports/TEST-*.xml</tt>. Use * or ? for pattern match", 
-			"Gibt die JUnit-Testergebnisdatei im XML-Format relativ zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, z. B. <tt>target/surefire-reports/TEST-*.xml</tt>. Verwenden Sie * oder ? für Musterabgleich");
-		m.put("Specify JaCoCo coverage xml report file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, for instance, <tt>target/site/jacoco/jacoco.xml</tt>. Use * or ? for pattern match", 
-			"Gibt die relative JaCoCo-Abdeckungs-XML-Berichtsdatei zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, z. B. <tt>target/site/jacoco/jacoco.xml</tt>. Verwenden Sie * oder ? für Musterabgleich");
-		m.put("Specify Jest coverage report file in clover format relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, for instance <tt>coverage/clover.xml</tt>. This file can be generated with Jest option <tt>'--coverage'</tt>. Use * or ? for pattern match", 
-			"Gibt die relative Jest-Abdeckungs-Berichtsdatei im Clover-Format zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, z. B. <tt>coverage/clover.xml</tt>. Diese Datei kann mit der Jest-Option <tt>'--coverage'</tt> generiert werden. Verwenden Sie * oder ? für Musterabgleich");
-		m.put("Specify Jest test result file in json format relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. This file can be generated via Jest option <tt>'--json'</tt> and <tt>'--outputFile'</tt>. Use * or ? for pattern match", 
-			"Gibt die relative Jest-Testergebnisdatei im JSON-Format zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an. Diese Datei kann über die Jest-Option <tt>'--json'</tt> und <tt>'--outputFile'</tt> generiert werden. Verwenden Sie * oder ? für Musterabgleich");
-		m.put("Specify OCI layout directory of the image to scan. This directory can be generated via build image step or pull image step. It should be relative to <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>", 
-			"Gibt das OCI-Layout-Verzeichnis des zu scannenden Images an. Dieses Verzeichnis kann über den Build-Image-Schritt oder den Pull-Image-Schritt generiert werden. Es sollte relativ zum <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job-Arbeitsbereich</a> sein");
-		m.put("Specify OCI layout directory relative to <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a> to push from", 
-			"Gibt das relative OCI-Layout-Verzeichnis zum <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job-Arbeitsbereich</a> an, von dem aus gepusht werden soll");
+		m.put("Specify JUnit test result file in XML format relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, for instance <tt>target/surefire-reports/TEST-*.xml</tt>. Use * or ? for pattern match", 
+			"Geben Sie die JUnit-Testergebnisdatei im XML-Format relativ zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, zum Beispiel <tt>target/surefire-reports/TEST-*.xml</tt>. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify JaCoCo coverage xml report file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, for instance, <tt>target/site/jacoco/jacoco.xml</tt>. Use * or ? for pattern match", 
+			"Geben Sie die JaCoCo-Coverage-XML-Berichtsdatei relativ zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, zum Beispiel <tt>target/site/jacoco/jacoco.xml</tt>. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify Jest coverage report file in clover format relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, for instance <tt>coverage/clover.xml</tt>. This file can be generated with Jest option <tt>'--coverage'</tt>. Use * or ? for pattern match", 
+			"Geben Sie die Jest-Coverage-Berichtsdatei im Clover-Format relativ zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, zum Beispiel <tt>coverage/clover.xml</tt>. Diese Datei kann mit der Jest-Option <tt>'--coverage'</tt> generiert werden. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify Jest test result file in json format relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>. This file can be generated via Jest option <tt>'--json'</tt> and <tt>'--outputFile'</tt>. Use * or ? for pattern match", 
+			"Geben Sie die Jest-Testergebnisdatei im JSON-Format relativ zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an. Diese Datei kann mit der Jest-Option <tt>'--json'</tt> und <tt>'--outputFile'</tt> generiert werden. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify OCI layout directory of the image to scan. This directory can be generated via build image step or pull image step. It should be relative to <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a>", 
+			"Geben Sie das OCI-Layout-Verzeichnis des zu scannenden Images an. Dieses Verzeichnis kann über den Build-Image-Schritt oder den Pull-Image-Schritt generiert werden. Es sollte relativ zum <a href='${docsite}/concepts#job-workdir' target='_blank'>Arbeitsverzeichnis des Jobs</a> sein");
+		m.put("Specify OCI layout directory relative to <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a> to push from", 
+			"Geben Sie das relative OCI-Layout-Verzeichnis zum <a href='${docsite}/concepts#job-workdir' target='_blank'>Arbeitsverzeichnis des Jobs</a> an, von dem aus gepusht werden soll");
 		m.put("Specify OpenID scopes to request", "Gibt die OpenID-Bereiche an, die angefordert werden sollen");
-		m.put("Specify PMD result xml file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, for instance, <tt>target/pmd.xml</tt>. Use * or ? for pattern match", 
-			"Gibt die relative PMD-Ergebnis-XML-Datei zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, z. B. <tt>target/pmd.xml</tt>. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify PMD result xml file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, for instance, <tt>target/pmd.xml</tt>. Use * or ? for pattern match", 
+			"Geben Sie die relative PMD-Ergebnis-XML-Datei zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, zum Beispiel <tt>target/pmd.xml</tt>. Verwenden Sie * oder ? für Musterabgleich");
 		m.put("Specify POSIX shell executable to be used", "POSIX-Shell-Executable angeben, die verwendet werden soll");
-		m.put("Specify PowerShell commands to execute under the <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>.<br><b class='text-warning'>NOTE: </b> OneDev checks exit code of the script to determine if step is successful. Since PowerShell always exit with 0 even if there are script errors, you should handle errors in the script and exit with non-zero code, or add line <code>$ErrorActionPreference = &quot;Stop&quot;</code> at start of your script<br>", 
-			"Gibt die PowerShell-Befehle an, die unter dem <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job-Arbeitsbereich</a> ausgeführt werden sollen.<br><b class='text-warning'>HINWEIS: </b> OneDev überprüft den Exit-Code des Skripts, um festzustellen, ob der Schritt erfolgreich ist. Da PowerShell immer mit 0 beendet wird, auch wenn Skriptfehler vorliegen, sollten Sie Fehler im Skript behandeln und mit einem Nicht-Null-Code beenden oder die Zeile <code>$ErrorActionPreference = &quot;Stop&quot;</code> am Anfang Ihres Skripts hinzufügen<br>");
-		m.put("Specify Roslynator diagnostics output file in XML format relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. This file can be generated with <i>-o</i> option. Use * or ? for pattern match", 
-			"Gibt die relative Roslynator-Diagnose-Ausgabedatei im XML-Format zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an. Diese Datei kann mit der Option <i>-o</i> generiert werden. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify PowerShell commands to execute under the <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a>.<br><b class='text-warning'>NOTE: </b> ${productName} checks exit code of the script to determine if step is successful. Since PowerShell always exit with 0 even if there are script errors, you should handle errors in the script and exit with non-zero code, or add line <code>$ErrorActionPreference = &quot;Stop&quot;</code> at start of your script<br>", 
+			"Geben Sie PowerShell-Befehle an, die im <a href='${docsite}/concepts#job-workdir' target='_blank'>Arbeitsverzeichnis des Jobs</a> ausgeführt werden sollen.<br><b class='text-warning'>HINWEIS: </b> ${productName} überprüft den Exit-Code des Skripts, um festzustellen, ob der Schritt erfolgreich ist. Da PowerShell immer mit 0 beendet wird, selbst wenn Skriptfehler vorliegen, sollten Sie Fehler im Skript behandeln und mit einem Nicht-Null-Code beenden oder die Zeile <code>$ErrorActionPreference = &quot;Stop&quot;</code> am Anfang Ihres Skripts hinzufügen<br>");
+		m.put("Specify Roslynator diagnostics output file in XML format relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>. This file can be generated with <i>-o</i> option. Use * or ? for pattern match", 
+			"Geben Sie die Roslynator-Diagnoseausgabedatei im XML-Format relativ zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an. Diese Datei kann mit der Option <i>-o</i> generiert werden. Verwenden Sie * oder ? für Musterabgleich");
 		m.put("Specify Shell/Batch Commands to Run", "Gibt Shell-/Batch-Befehle zum Ausführen an");
-		m.put("Specify SpotBugs result xml file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, for instance, <tt>target/spotbugsXml.xml</tt>. Use * or ? for pattern match", 
-			"Gibt die relative SpotBugs-Ergebnis-XML-Datei zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, z. B. <tt>target/spotbugsXml.xml</tt>. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify SpotBugs result xml file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, for instance, <tt>target/spotbugsXml.xml</tt>. Use * or ? for pattern match", 
+			"Geben Sie die relative SpotBugs-Ergebnis-XML-Datei zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, zum Beispiel <tt>target/spotbugsXml.xml</tt>. Verwenden Sie * oder ? für Musterabgleich");
 		m.put("Specify System Settings", "Gibt Systemeinstellungen an");
 		m.put("Specify URL of remote git repository. Only http/https protocol is supported", "Gibt die URL des Remote-Git-Repositorys an. Es wird nur das http/https-Protokoll unterstützt");
 		m.put("Specify YouTrack login name. This account should have permission to:<ul><li>Read full information and issues of the projects you want to import<li>Read issue tags<li>Read user basic information</ul>", 
@@ -3853,44 +4076,52 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Specify YouTrack password or access token for above user", "Gibt das YouTrack-Passwort oder Zugriffstoken für den oben genannten Benutzer an");
 		m.put("Specify a &lt;a href='http://docs.oracle.com/javase/6/docs/api/java/util/regex/Pattern.html'&gt;regular expression&lt;/a&gt; to match issue references. For instance:&lt;br&gt; &lt;em&gt;(^|\\W)([A-Z][A-Z]+-\\d+)(?=\\W|$)&lt;/em&gt;", 
 			"Gibt einen &lt;a href='http://docs.oracle.com/javase/6/docs/api/java/util/regex/Pattern.html'&gt;regulären Ausdruck&lt;/a&gt; an, um Issue-Referenzen zu finden. Zum Beispiel:&lt;br&gt; &lt;em&gt;(^|\\W)([A-Z][A-Z]+-\\d+)(?=\\W|$)&lt;/em&gt;");
+		m.put("Specify a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a>\nwhose value is an access token with upload cache permission for above project.\nNote that this property is not required if upload cache to current or child\nproject and build commit is reachable from default branch", 
+			"Geben Sie ein <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a>\nan, dessen Wert ein Zugriffstoken mit Berechtigung zum Hochladen von Caches für das obige Projekt ist.\nBeachten Sie, dass diese Eigenschaft nicht erforderlich ist, wenn der Cache in das aktuelle oder ein untergeordnetes\nProjekt hochgeladen wird und der Build-Commit vom Standardbranch erreichbar ist");
+		m.put("Specify a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as SSH private key", 
+			"Geben Sie ein <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, das als privater SSH-Schlüssel verwendet werden soll");
+		m.put("Specify a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as access token", 
+			"Geben Sie ein <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, das als Zugriffstoken verwendet werden soll");
+		m.put("Specify a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as access token to import build spec from above project if its code is not publicly accessible", 
+			"Geben Sie ein <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, das als Zugriffstoken verwendet werden soll, um die Build-Spezifikation aus dem obigen Projekt zu importieren, falls dessen Code nicht öffentlich zugänglich ist");
+		m.put("Specify a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as password or access token of the registry", 
+			"Geben Sie ein <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, das als Passwort oder Zugriffstoken für die Registry verwendet werden soll");
+		m.put("Specify a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as password or access token to access remote repository", 
+			"Geben Sie ein <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, das als Passwort oder Zugriffstoken für den Zugriff auf das Remote-Repository verwendet werden soll");
+		m.put("Specify a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as private key for SSH authentication. <b class='text-info'>NOTE:</b> Private key with passphrase is not supported", 
+			"Geben Sie ein <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, das als privater Schlüssel für die SSH-Authentifizierung verwendet werden soll. <b class='text-info'>HINWEIS:</b> Private Schlüssel mit Passphrase werden nicht unterstützt");
+		m.put("Specify a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as private key of above user for SSH authentication. <b class='text-info'>NOTE:</b> Private key with passphrase is not supported", 
+			"Geben Sie ein <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, das als privater Schlüssel des oben genannten Benutzers für die SSH-Authentifizierung verwendet werden soll. <b class='text-info'>HINWEIS:</b> Private Schlüssel mit Passphrase werden nicht unterstützt");
+		m.put("Specify a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> whose value is an access token with management permission for above project. Note that access token is not required if sync to current or child project and build commit is reachable from default branch", 
+			"Geben Sie ein <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, dessen Wert ein Zugriffstoken mit Verwaltungsberechtigung für das obige Projekt ist. Beachten Sie, dass ein Zugriffstoken nicht erforderlich ist, wenn die Synchronisierung mit dem aktuellen oder einem untergeordneten Projekt erfolgt und der Build-Commit vom Standardbranch erreichbar ist");
 		m.put("Specify a <a href='http://docs.oracle.com/javase/6/docs/api/java/util/regex/Pattern.html'>regular expression</a> after issue number", 
 			"Gibt einen <a href='http://docs.oracle.com/javase/6/docs/api/java/util/regex/Pattern.html'>regulären Ausdruck</a> nach der Issue-Nummer an");
 		m.put("Specify a <a href='http://docs.oracle.com/javase/6/docs/api/java/util/regex/Pattern.html'>regular expression</a> before issue number", 
 			"Gibt einen <a href='http://docs.oracle.com/javase/6/docs/api/java/util/regex/Pattern.html'>regulären Ausdruck</a> vor der Issue-Nummer an");
-		m.put("Specify a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a>\nwhose value is an access token with upload cache permission for above project.\nNote that this property is not required if upload cache to current or child\nproject and build commit is reachable from default branch", 
-			"Geben Sie ein <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an,\ndessen Wert ein Zugriffstoken mit Upload-Cache-Berechtigung für das oben genannte Projekt ist.\nBeachten Sie, dass diese Eigenschaft nicht erforderlich ist, wenn der Cache in das aktuelle oder ein untergeordnetes\nProjekt hochgeladen wird und der Build-Commit vom Standardzweig erreichbar ist");
-		m.put("Specify a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as SSH private key", 
-			"Gibt ein <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, das als privater SSH-Schlüssel verwendet werden soll");
-		m.put("Specify a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as access token", 
-			"Gibt ein <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, das als Zugriffstoken verwendet werden soll");
-		m.put("Specify a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as access token to import build spec from above project if its code is not publicly accessible", 
-			"Gibt ein <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, das als Zugriffstoken verwendet werden soll, um die Build-Spezifikation aus dem oben genannten Projekt zu importieren, falls dessen Code nicht öffentlich zugänglich ist");
-		m.put("Specify a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as password or access token of the registry", 
-			"Gibt ein <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, das als Passwort oder Zugriffstoken des Registrierungsdienstes verwendet werden soll");
-		m.put("Specify a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as password or access token to access remote repository", 
-			"Gibt ein <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, das als Passwort oder Zugriffstoken für den Zugriff auf das Remote-Repository verwendet werden soll");
-		m.put("Specify a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as private key for SSH authentication. <b class='text-info'>NOTE:</b> Private key with passphrase is not supported", 
-			"Gibt ein <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, das als privater Schlüssel für die SSH-Authentifizierung verwendet werden soll. <b class='text-info'>HINWEIS:</b> Privater Schlüssel mit Passphrase wird nicht unterstützt");
-		m.put("Specify a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as private key of above user for SSH authentication. <b class='text-info'>NOTE:</b> Private key with passphrase is not supported", 
-			"Gibt ein <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, das als privater Schlüssel des oben genannten Benutzers für die SSH-Authentifizierung verwendet werden soll. <b class='text-info'>HINWEIS:</b> Privater Schlüssel mit Passphrase wird nicht unterstützt");
-		m.put("Specify a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> whose value is an access token with management permission for above project. Note that access token is not required if sync to current or child project and build commit is reachable from default branch", 
-			"Gibt ein <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>Job-Geheimnis</a> an, dessen Wert ein Zugriffstoken mit Verwaltungsberechtigung für das oben genannte Projekt ist. Beachten Sie, dass das Zugriffstoken nicht erforderlich ist, wenn die Synchronisierung mit dem aktuellen oder einem untergeordneten Projekt erfolgt und der Build-Commit vom Standardbranch erreichbar ist");
 		m.put("Specify a <a href='https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html'>Java regular expression</a> pattern to validate the entire commit message. Use <code>(?s)</code> flag at the beginning for multi-line matching", 
 			"Einen <a href='https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html'>Java-Regulärausdruck</a> angeben, um die gesamte Commit-Nachricht zu validieren. Verwenden Sie das <code>(?s)</code>-Flag am Anfang für mehrzeiliges Matching");
 		m.put("Specify a <a target='_blank' href='http://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html#format'>cron schedule</a> to fire the job automatically. <b class='text-info'>Note:</b> To save resource, seconds in cron expression will be ignored, and the minimum schedule interval is one minute", 
 			"Gibt einen <a target='_blank' href='http://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html#format'>Cron-Zeitplan</a> an, um den Job automatisch auszulösen. <b class='text-info'>Hinweis:</b> Um Ressourcen zu sparen, werden Sekunden in der Cron-Ausdruck ignoriert, und das minimale Zeitplanintervall beträgt eine Minute");
 		m.put("Specify a Container Image to Test Against", "Geben Sie ein Container-Image an, gegen das getestet werden soll.");
 		m.put("Specify a Docker Image to Test Against", "Gibt ein Docker-Image an, gegen das getestet werden soll");
+		m.put("Specify a Docker image to test against. The image must have shell installed", "Geben Sie ein Docker-Image an, gegen das getestet werden soll. Das Image muss Shell installiert haben.");
+		m.put("Specify a Docker image to test against. The image must have shell, Git, Git LFS, and tmux installed", 
+			"Geben Sie ein Docker-Image an, gegen das getestet werden soll. Das Image muss Shell, Git, Git LFS und tmux installiert haben.");
+		m.put("Specify a Docker sandbox shell template image to test against. The image must have shell, Git, Git LFS, and Python 3 installed. To also test a container, Docker must be configured in the image, and a non-root default user must have passwordless sudo access. See the <a href='${docsite}/tutorials/cicd/build-sandbox-template' target='_blank'>template setup guide</a>.", 
+			"Geben Sie ein Docker-Sandbox-Shell-Vorlagen-Image an, gegen das getestet werden soll. Das Image muss Shell, Git, Git LFS und Python 3 installiert haben. Um auch einen Container zu testen, muss Docker im Image konfiguriert sein, und ein nicht-root Standardbenutzer muss passwortlosen sudo-Zugriff haben. Siehe den <a href='${docsite}/tutorials/cicd/build-sandbox-template' target='_blank'>Vorlagen-Einrichtungsleitfaden</a>.");
+		m.put("Specify a Docker sandbox template image to test against. The image must have shell, Git, Git LFS, Python 3, and tmux installed. See the <a href='${docsite}/tutorials/workspace/build-sandbox-template' target='_blank'>template setup guide</a>.", 
+			"Geben Sie ein Docker-Sandbox-Vorlagen-Image an, gegen das getestet werden soll. Das Image muss Shell, Git, Git LFS, Python 3 und tmux installiert haben. Siehe den <a href='${docsite}/tutorials/workspace/build-sandbox-template' target='_blank'>Vorlagen-Einrichtungsleitfaden</a>.");
+		m.put("Specify a Sandbox Template to Test Against", "Geben Sie eine Sandbox-Vorlage an, gegen die getestet werden soll.");
 		m.put("Specify a custom field of Enum type", "Gibt ein benutzerdefiniertes Feld vom Typ Enum an");
 		m.put("Specify a default query to filter/order fixed issues of specified jobs", "Gibt eine Standardabfrage an, um behobene Issues der angegebenen Jobs zu filtern/zu sortieren");
 		m.put("Specify a folder relative to the repository root. Leave empty to upload to the root folder.", 
 			"Geben Sie einen Ordner relativ zum Repository-Stamm an. Lassen Sie das Feld leer, um in den Stammordner hochzuladen.");
 		m.put("Specify a key to identify the user data. Data with same key will be shared across workspaces\neven if project is different", 
 			"Geben Sie einen Schlüssel an, um die Benutzerdaten zu identifizieren. Daten mit demselben Schlüssel werden über Arbeitsbereiche hinweg geteilt\nauch wenn das Projekt unterschiedlich ist");
-		m.put("Specify a multi-value user field to hold assignees information.<b>NOTE: </b> You may customize OneDev issue fields in case there is no appropriate option here", 
-			"Gibt ein mehrwertiges Benutzerfeld an, um Informationen zu den Zuweisungen zu speichern.<b>HINWEIS: </b> Sie können die OneDev-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist");
-		m.put("Specify a multi-value user field to hold assignees information.<br><b>NOTE: </b> You may customize OneDev issue fields in case there is no appropriate option here", 
-			"Gibt ein mehrwertiges Benutzerfeld an, um Informationen zu den Zuweisungen zu speichern.<br><b>HINWEIS: </b> Sie können die OneDev-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist");
+		m.put("Specify a multi-value user field to hold assignees information.<b>NOTE: </b> You may customize ${productName} issue fields in case there is no appropriate option here", 
+			"Geben Sie ein mehrwertiges Benutzerfeld an, um Informationen zu den Zuweisungen zu speichern.<b>HINWEIS: </b> Sie können die ${productName}-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist");
+		m.put("Specify a multi-value user field to hold assignees information.<br><b>NOTE: </b> You may customize ${productName} issue fields in case there is no appropriate option here", 
+			"Geben Sie ein mehrwertiges Benutzerfeld an, um Informationen zu den Zuweisungen zu speichern.<br><b>HINWEIS: </b> Sie können die ${productName}-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist");
 		m.put("Specify a name to identify this workspace spec", "Geben Sie einen Namen an, um diese Arbeitsbereichsspezifikation zu identifizieren");
 		m.put("Specify a path inside container to be used as mount target", "Gibt einen Pfad innerhalb des Containers an, der als Mount-Ziel verwendet werden soll");
 		m.put("Specify a path relative to job working directory to be used as mount source. Leave empty to mount job working directory itself", 
@@ -3902,10 +4133,10 @@ public class Translation_de extends TranslationResourceBundle {
 			"Gibt ein Geheimnis an, dessen Wert ein Zugriffstoken mit Berechtigung zum Hochladen von Cache für das oben genannte Projekt ist. Beachten Sie, dass diese Eigenschaft nicht erforderlich ist, wenn der Cache in das aktuelle oder ein untergeordnetes Projekt hochgeladen wird und der Build-Commit vom Standardbranch erreichbar ist");
 		m.put("Specify absolute path to the config file used by kubectl to access the cluster. Leave empty to have kubectl determining cluster access information automatically", 
 			"Gibt den absoluten Pfad zur Konfigurationsdatei an, die von kubectl verwendet wird, um auf den Cluster zuzugreifen. Lassen Sie das Feld leer, damit kubectl die Cluster-Zugriffsinformationen automatisch bestimmt");
-		m.put("Specify absolute path to the kubectl utility, for instance: <i>/usr/bin/kubectl</i>. If left empty, OneDev will try to find the utility from system path", 
-			"Gibt den absoluten Pfad zum kubectl-Dienstprogramm an, z. B. <i>/usr/bin/kubectl</i>. Falls leer gelassen, versucht OneDev, das Dienstprogramm aus dem Systempfad zu finden");
-		m.put("Specify access token with upload cache permission for above project.\nNote that this property is not required if upload cache to current project", 
-			"Geben Sie ein Zugriffstoken mit Upload-Cache-Berechtigung für das oben genannte Projekt an.\nBeachten Sie, dass diese Eigenschaft nicht erforderlich ist, wenn der Cache in das aktuelle Projekt hochgeladen wird");
+		m.put("Specify absolute path to the kubectl utility, for instance: <i>/usr/bin/kubectl</i>. If left empty, ${productName} will try to find the utility from system path", 
+			"Geben Sie den absoluten Pfad zum kubectl-Dienstprogramm an, zum Beispiel: <i>/usr/bin/kubectl</i>. Wenn dieses Feld leer bleibt, versucht ${productName}, das Dienstprogramm im Systempfad zu finden");
+		m.put("Specify access token with upload cache permission for above project.\nThis property is not required if the workspace owner has upload cache permission for above project", 
+			"Zugriffstoken mit Berechtigung zum Hochladen des Caches für das oben genannte Projekt angeben.\nDiese Eigenschaft ist nicht erforderlich, wenn der Arbeitsbereichsbesitzer die Berechtigung zum Hochladen des Caches für das oben genannte Projekt hat.");
 		m.put("Specify account name to login to Gmail to send/receive email", "Gibt den Kontonamen an, um sich bei Gmail anzumelden, um E-Mails zu senden/empfangen");
 		m.put("Specify additional users able to access this confidential issue besides those granted via role. Users mentioned in the issue will be authorized automatically", 
 			"Gibt zusätzliche Benutzer an, die auf dieses vertrauliche Issue zugreifen können, zusätzlich zu denjenigen, die über die Rolle berechtigt sind. Benutzer, die im Issue erwähnt werden, werden automatisch autorisiert");
@@ -3915,68 +4146,70 @@ public class Translation_de extends TranslationResourceBundle {
 			"Zulässige <a href='https://spdx.org/licenses/'>SPDX-Lizenzkennungen</a> durch Komma getrennt angeben");
 		m.put("Specify an email address sharing same inbox as the system email address in mail setting definition. Emails sent to this address will be created as issues in this project. The default value takes form of <tt>&lt;system email address name&gt;+&lt;project path&gt;@&lt;system email address domain&gt;</tt>", 
 			"Gibt eine E-Mail-Adresse an, die denselben Posteingang wie die System-E-Mail-Adresse in der Mail-Einstellung-Definition teilt. E-Mails, die an diese Adresse gesendet werden, werden als Issues in diesem Projekt erstellt. Der Standardwert hat die Form <tt>&lt;System-E-Mail-Adresse-Name&gt;+&lt;Projektpfad&gt;@&lt;System-E-Mail-Adresse-Domain&gt;</tt>");
-		m.put("Specify applicable jobs of this executor.\n<b class='text-danger'>WARNING</b>: Jobs running with this executor has same privilege as OneDev process.\nPlease make sure that only trusted jobs can use this executor", 
-			"Geben Sie die anwendbaren Jobs dieses Executors an.\n<b class='text-danger'>WARNUNG</b>: Jobs, die mit diesem Executor ausgeführt werden, haben dieselben Privilegien wie der OneDev-Prozess.\nBitte stellen Sie sicher, dass nur vertrauenswürdige Jobs diesen Executor verwenden können");
-		m.put("Specify applicable projects for above option. Multiple projects should be separated by space. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty for all projects", 
-			"Gibt anwendbare Projekte für die oben genannte Option an. Mehrere Projekte sollten durch Leerzeichen getrennt werden. Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Abgleich</a>. Mit '-' vorangestellt, um auszuschließen. Lassen Sie das Feld leer für alle Projekte");
-		m.put("Specify applicable projects separated by space. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty for all projects", 
-			"Gibt anwendbare Projekte durch Leerzeichen getrennt an. Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Abgleich</a>. Mit '-' vorangestellt, um auszuschließen. Lassen Sie das Feld leer für alle Projekte");
+		m.put("Specify applicable jobs of this executor.\n<b class='text-danger'>WARNING</b>: Jobs running with this executor has same privilege as ${productName} process.\nPlease make sure that only trusted jobs can use this executor", 
+			"Geben Sie die anwendbaren Jobs dieses Executors an.\n<b class='text-danger'>WARNUNG</b>: Jobs, die mit diesem Executor ausgeführt werden, haben dieselben Berechtigungen wie der ${productName}-Prozess.\nStellen Sie sicher, dass nur vertrauenswürdige Jobs diesen Executor verwenden können");
+		m.put("Specify applicable projects for above option. Multiple projects should be separated by space. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty for all projects", 
+			"Geben Sie die anwendbaren Projekte für die obige Option an. Mehrere Projekte sollten durch Leerzeichen getrennt werden. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Pfad-Musterabgleich</a>. Mit '-' vorangestellt, um auszuschließen. Lassen Sie das Feld leer für alle Projekte");
+		m.put("Specify applicable projects separated by space. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty for all projects", 
+			"Geben Sie die anwendbaren Projekte durch Leerzeichen getrennt an. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Pfad-Musterabgleich</a>. Mit '-' vorangestellt, um auszuschließen. Lassen Sie das Feld leer für alle Projekte");
 		m.put("Specify application (client) ID of the app registered in Entra ID", "Gibt die Anwendungs-(Client)-ID der in Entra ID registrierten App an");
 		m.put("Specify arguments for imagetools. For instance <code>create -t myorg/myrepo:1.0.0 myorg/myrepo@&lt;arm64 manifest digest&gt; myorg/myrepo@&lt;amd64 manifest digest&gt;</code>", 
 			"Gibt Argumente für Imagetools an. Zum Beispiel <code>create -t myorg/myrepo:1.0.0 myorg/myrepo@&lt;arm64 manifest digest&gt; myorg/myrepo@&lt;amd64 manifest digest&gt;</code>");
-		m.put("Specify artifacts to retrieve into <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. Only published artifacts (via artifact publish step) can be retrieved.", 
-			"Gibt Artefakte an, die in den <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> abgerufen werden sollen. Nur veröffentlichte Artefakte (über den Artefakt-Veröffentlichungsschritt) können abgerufen werden");
-		m.put("Specify at least 10 alphanumeric chars to be used as secret, and then add an inbound parse entry at SendGrid side:<ul><li><code>Destination URL</code> should be set to <i>&lt;OneDev root url&gt;/~sendgrid/&lt;secret&gt;</i>, for instance, <i>https://onedev.example.com/~sendgrid/1234567890</i>. Note that in production environment, <a href='https://docs.onedev.io/administration-guide/https-setup' target='_blank'>https should be enabled</a> to protect the secret</li><li><code>Receiving domain</code> should be the same as domain part of system email address specified above</li><li>Option <code>POST the raw, full MIME message</code> is enabled</li></ul>", 
-			"Gibt mindestens 10 alphanumerische Zeichen an, die als Geheimnis verwendet werden sollen, und fügt dann einen eingehenden Parse-Eintrag auf der SendGrid-Seite hinzu:<ul><li><code>Destination URL</code> sollte auf <i>&lt;OneDev root url&gt;/~sendgrid/&lt;secret&gt;</i> gesetzt werden, z. B. <i>https://onedev.example.com/~sendgrid/1234567890</i>. Beachten Sie, dass in einer Produktionsumgebung <a href='https://docs.onedev.io/administration-guide/https-setup' target='_blank'>HTTPS aktiviert sein sollte</a>, um das Geheimnis zu schützen</li><li><code>Receiving domain</code> sollte mit dem Domain-Teil der oben angegebenen System-E-Mail-Adresse übereinstimmen</li><li>Option <code>POST the raw, full MIME message</code> ist aktiviert</li></ul>");
+		m.put("Specify at least 10 alphanumeric chars to be used as secret, and then add an inbound parse entry at SendGrid side:<ul><li><code>Destination URL</code> should be set to <i>&lt;${productName} root url&gt;/~sendgrid/&lt;secret&gt;</i>, for instance, <i>https://onedev.example.com/~sendgrid/1234567890</i>. Note that in production environment, <a href='${docsite}/administration-guide/https-setup' target='_blank'>https should be enabled</a> to protect the secret</li><li><code>Receiving domain</code> should be the same as domain part of system email address specified above</li><li>Option <code>POST the raw, full MIME message</code> is enabled</li></ul>", 
+			"Geben Sie mindestens 10 alphanumerische Zeichen an, die als Geheimnis verwendet werden sollen, und fügen Sie dann einen eingehenden Parse-Eintrag auf der SendGrid-Seite hinzu:<ul><li><code>Destination URL</code> sollte auf <i>&lt;${productName} root url&gt;/~sendgrid/&lt;secret&gt;</i> gesetzt werden, zum Beispiel <i>https://onedev.example.com/~sendgrid/1234567890</i>. Beachten Sie, dass in Produktionsumgebungen <a href='${docsite}/administration-guide/https-setup' target='_blank'>https aktiviert sein sollte</a>, um das Geheimnis zu schützen</li><li><code>Receiving domain</code> sollte mit dem Domain-Teil der oben angegebenen System-E-Mail-Adresse übereinstimmen</li><li>Option <code>POST the raw, full MIME message</code> ist aktiviert</li></ul>");
 		m.put("Specify base nodes for user search. For example: <i>cn=Users, dc=example, dc=com</i>", 
 			"Gibt Basisknoten für die Benutzersuche an. Zum Beispiel: <i>cn=Users, dc=example, dc=com</i>");
-		m.put("Specify batch commands to execute under the <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>", 
-			"Batch-Befehle angeben, die im <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job-Arbeitsverzeichnis</a> ausgeführt werden sollen");
+		m.put("Specify batch commands to execute under the <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a>", 
+			"Geben Sie Batch-Befehle an, die im <a href='${docsite}/concepts#job-workdir' target='_blank'>Arbeitsverzeichnis des Jobs</a> ausgeführt werden sollen");
+		m.put("Specify branch name. Use * for wildcard match", "Geben Sie den Branch-Namen an. Verwenden Sie * für Musterabgleich");
 		m.put("Specify branch to commit suggested change", "Gibt den Branch an, um die vorgeschlagene Änderung zu committen");
 		m.put("Specify branch to run the job against. Either branch or tag can be specified, but not both. Default branch will be used if both not specified", 
 			"Geben Sie den Branch an, gegen den der Job ausgeführt werden soll. Entweder Branch oder Tag kann angegeben werden, aber nicht beides. Der Standard-Branch wird verwendet, wenn beides nicht angegeben ist");
 		m.put("Specify branch, tag or commit in above project to import build spec from", "Gibt den Branch, Tag oder Commit im oben genannten Projekt an, um die Build-Spezifikation zu importieren");
 		m.put("Specify by Build Number", "Gibt nach Build-Nummer an");
 		m.put("Specify cache entries", "Cache-Einträge angeben");
-		m.put("Specify cache path. Non-absolute path is considered to be relative to\n<a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>.\nNote that shell related executors runs directly on host machine, and only accept relative paths", 
-			"Cache-Pfad angeben. Nicht absolute Pfade werden relativ zu\n<a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job-Arbeitsverzeichnis</a> betrachtet.\nBeachten Sie, dass Shell-bezogene Executor direkt auf dem Hostsystem ausgeführt werden und nur relative Pfade akzeptieren");
-		m.put("Specify cache path. Non-absolute path is considered to be relative to working directory.\nNote that shell related executors only accept relative paths", 
-			"Cache-Pfad angeben. Nicht absolute Pfade werden relativ zum Arbeitsverzeichnis betrachtet.\nBeachten Sie, dass Shell-bezogene Executor nur relative Pfade akzeptieren");
+		m.put("Specify cache path. Non-absolute path is considered to be relative to\n<a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a>.\nHost executors run directly on the host machine and only accept relative paths", 
+			"Geben Sie den Cache-Pfad an. Ein nicht absoluter Pfad wird als relativ zu\n<a href='${docsite}/concepts#job-workdir' target='_blank'>Job-Arbeitsverzeichnis</a> betrachtet.\nHost-Executors laufen direkt auf der Host-Maschine und akzeptieren nur relative Pfade.");
+		m.put("Specify cache path. Non-absolute path is considered to be relative to working directory.\nHost provisioners only accept relative paths", 
+			"Geben Sie den Cache-Pfad an. Ein nicht absoluter Pfad wird als relativ zum Arbeitsverzeichnis betrachtet.\nHost-Provisioners akzeptieren nur relative Pfade.");
 		m.put("Specify cache upload strategy after build successful. <i>Upload If Not Exact Match</i>\nmeans to upload when no cache found with matching key and checksum , and\n<i>Upload If Changed</i> means to upload if some files in cache path are changed", 
 			"Geben Sie die Cache-Upload-Strategie nach erfolgreichem Build an. <i>Upload If Not Exact Match</i>\nbedeutet, hochzuladen, wenn kein Cache mit übereinstimmendem Schlüssel und Prüfsumme gefunden wird, und\n<i>Upload If Changed</i> bedeutet, hochzuladen, wenn sich einige Dateien im Cache-Pfad geändert haben");
+		m.put("Specify cache upload strategy before deleting an active workspace. <i>Upload If Not Exact Match</i>\nmeans to upload when no cache found with matching key and checksum , and\n<i>Upload If Changed</i> means to upload if some files in cache path are changed", 
+			"Geben Sie die Cache-Upload-Strategie an, bevor ein aktiver Workspace gelöscht wird. <i>Hochladen, wenn keine exakte Übereinstimmung</i>\nbedeutet, hochzuladen, wenn kein Cache mit übereinstimmendem Schlüssel und Prüfsumme gefunden wird, und\n<i>Hochladen, wenn geändert</i> bedeutet, hochzuladen, wenn einige Dateien im Cache-Pfad geändert wurden.");
 		m.put("Specify certificate to trust if you are using self-signed certificate for remote repository", 
 			"Gibt das Zertifikat an, dem vertraut werden soll, falls Sie ein selbstsigniertes Zertifikat für das Remote-Repository verwenden");
 		m.put("Specify certificates to trust if you are using self-signed certificates for your docker registries", 
 			"Gibt Zertifikate an, denen vertraut werden soll, falls Sie selbstsignierte Zertifikate für Ihre Docker-Registrierungen verwenden");
-		m.put("Specify checkstyle result xml file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, for instance, <tt>target/checkstyle-result.xml</tt>. Refer to <a href='https://checkstyle.org/'>checkstyle documentation</a> on how to generate the result xml file. Use * or ? for pattern match", 
-			"Gibt die relative Checkstyle-Ergebnis-XML-Datei zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, z. B. <tt>target/checkstyle-result.xml</tt>. Siehe <a href='https://checkstyle.org/'>Checkstyle-Dokumentation</a>, wie die Ergebnis-XML-Datei generiert wird. Verwenden Sie * oder ? für Musterabgleich");
-		m.put("Specify child project to import into at OneDev side", "Unterprojekt angeben, das auf der OneDev-Seite importiert werden soll");
+		m.put("Specify checkstyle result xml file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, for instance, <tt>target/checkstyle-result.xml</tt>. Refer to <a href='https://checkstyle.org/'>checkstyle documentation</a> on how to generate the result xml file. Use * or ? for pattern match", 
+			"Geben Sie die Checkstyle-Ergebnis-XML-Datei relativ zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, zum Beispiel <tt>target/checkstyle-result.xml</tt>. Lesen Sie die <a href='https://checkstyle.org/'>Checkstyle-Dokumentation</a>, um zu erfahren, wie die Ergebnis-XML-Datei generiert wird. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify child project to import into at ${productName} side", "Geben Sie das untergeordnete Projekt an, das auf der ${productName}-Seite importiert werden soll");
 		m.put("Specify client secret of the app registered in Entra ID", "Gibt das Client-Geheimnis der in Entra ID registrierten App an");
-		m.put("Specify clover coverage xml report file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, for instance, <tt>target/site/clover/clover.xml</tt>. Refer to <a href='https://openclover.org/documentation'>OpenClover documentation</a> on how to generate clover xml file. Use * or ? for pattern match", 
-			"Gibt die relative Clover-Abdeckungs-XML-Berichtsdatei zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, z. B. <tt>target/site/clover/clover.xml</tt>. Siehe <a href='https://openclover.org/documentation'>OpenClover-Dokumentation</a>, wie die Clover-XML-Datei generiert wird. Verwenden Sie * oder ? für Musterabgleich");
-		m.put("Specify cobertura coverage xml report file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, for instance, <tt>target/site/cobertura/coverage.xml</tt>. Use * or ? for pattern match", 
-			"Gibt die relative Cobertura-Abdeckungs-XML-Berichtsdatei zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, z. B. <tt>target/site/cobertura/coverage.xml</tt>. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify clover coverage xml report file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, for instance, <tt>target/site/clover/clover.xml</tt>. Refer to <a href='https://openclover.org/documentation'>OpenClover documentation</a> on how to generate clover xml file. Use * or ? for pattern match", 
+			"Geben Sie die Clover-Coverage-XML-Berichtsdatei relativ zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, zum Beispiel <tt>target/site/clover/clover.xml</tt>. Lesen Sie die <a href='https://openclover.org/documentation'>OpenClover-Dokumentation</a>, um zu erfahren, wie die Clover-XML-Datei generiert wird. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify cobertura coverage xml report file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, for instance, <tt>target/site/cobertura/coverage.xml</tt>. Use * or ? for pattern match", 
+			"Geben Sie die Cobertura-Coverage-XML-Berichtsdatei relativ zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, zum Beispiel <tt>target/site/cobertura/coverage.xml</tt>. Verwenden Sie * oder ? für Musterabgleich");
 		m.put("Specify color of the state for displaying purpose", "Gibt die Farbe des Status für Anzeigezwecke an");
 		m.put("Specify columns of the board. Each column corresponds to a value of the issue field specified above", 
 			"Gibt die Spalten des Boards an. Jede Spalte entspricht einem Wert des oben angegebenen Issue-Felds");
 		m.put("Specify command to check readiness of the service. This command will be interpretated by cmd.exe on Windows images, and by shell on Linux images. It will be executed repeatedly until a zero code is returned to indicate service ready", 
 			"Gibt den Befehl an, um die Bereitschaft des Dienstes zu überprüfen. Dieser Befehl wird unter Windows-Images von cmd.exe und unter Linux-Images von Shell interpretiert. Er wird wiederholt ausgeführt, bis ein Null-Code zurückgegeben wird, um anzuzeigen, dass der Dienst bereit ist");
-		m.put("Specify command to launch coding agent in headless mode to run assigned task in form of\nprompt. The combined prompt is stored in environment variable <code>$TASK_PROMPT</code>.\nThe system prompt and user prompt are also available separately as\n<code>$TASK_SYSTEM_PROMPT</code> and <code>$TASK_USER_PROMPT</code>.<br>\n<b>NOTE: </b> <a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>OneDev tod CLI and companion skills</a> must also be installed to make task\nautomation work. OneDev workspace images ship these components out of the box", 
-			"Geben Sie den Befehl an, um den Coding-Agent im Headless-Modus zu starten, um die zugewiesene Aufgabe in Form von\nPrompt auszuführen. Der kombinierte Prompt wird in der Umgebungsvariable <code>$TASK_PROMPT</code> gespeichert.\nDer System-Prompt und der Benutzer-Prompt sind auch separat verfügbar als\n<code>$TASK_SYSTEM_PROMPT</code> und <code>$TASK_USER_PROMPT</code>.<br>\n<b>HINWEIS: </b> <a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>OneDev tod CLI und zugehörige Skills</a> müssen ebenfalls installiert sein, damit die\nAufgabenautomatisierung funktioniert. OneDev-Workspace-Images enthalten diese Komponenten standardmäßig.");
+		m.put("Specify command to launch coding agent in headless mode to run assigned task in form of\nprompt. The combined prompt is stored in environment variable <code>$TASK_PROMPT</code>.\nThe system prompt and user prompt are also available separately as\n<code>$TASK_SYSTEM_PROMPT</code> and <code>$TASK_USER_PROMPT</code>.<br>\n<b>NOTE: </b> <a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>${productName} tod CLI and companion skills</a> must also be installed to make task\nautomation work. ${productName} workspace images ship these components out of the box", 
+			"Geben Sie den Befehl an, um den Coding-Agent im Headless-Modus zu starten, um die zugewiesene Aufgabe in Form eines\nPrompts auszuführen. Der kombinierte Prompt wird in der Umgebungsvariable <code>$TASK_PROMPT</code> gespeichert.\nDer System-Prompt und der Benutzer-Prompt sind ebenfalls separat verfügbar als\n<code>$TASK_SYSTEM_PROMPT</code> und <code>$TASK_USER_PROMPT</code>.<br>\n<b>HINWEIS: </b> <a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>${productName} tod CLI und Begleit-Skills</a> müssen ebenfalls installiert sein, damit die Aufgaben\nAutomatisierung funktioniert. ${productName}-Workspace-Images enthalten diese Komponenten standardmäßig");
 		m.put("Specify command to run if this shortcut is opened, for instance <i>opencode</i>, <i>npm run dev</i>", 
 			"Geben Sie den Befehl an, der ausgeführt werden soll, wenn dieser Shortcut geöffnet wird, zum Beispiel <i>opencode</i>, <i>npm run dev</i>");
 		m.put("Specify commands to be executed on remote machine. <b class='text-warning'>Note:</b> user environments will not be picked up when execute these commands, set up them explicitly in commands if necessary", 
 			"Geben Sie Befehle an, die auf der Remote-Maschine ausgeführt werden sollen. <b class='text-warning'>Hinweis:</b> Benutzerumgebungen werden beim Ausführen dieser Befehle nicht übernommen, richten Sie sie bei Bedarf explizit in den Befehlen ein.");
 		m.put("Specify condition to retry build upon failure", "Geben Sie eine Bedingung an, um den Build bei einem Fehler erneut zu versuchen.");
-		m.put("Specify configuration discovery url of your OpenID provider, for instance: <code>https://openid.example.com/.well-known/openid-configuration</code>. Make sure to use HTTPS protocol as OneDev relies on TLS encryption to ensure token validity", 
-			"Geben Sie die Konfigurations-Discovery-URL Ihres OpenID-Anbieters an, beispielsweise: <code>https://openid.example.com/.well-known/openid-configuration</code>. Stellen Sie sicher, dass Sie das HTTPS-Protokoll verwenden, da OneDev auf TLS-Verschlüsselung angewiesen ist, um die Token-Gültigkeit zu gewährleisten.");
-		m.put("Specify container image to create workspace inside. Note that this image should\nhave <a href='https://git-scm.com' target='_blank'>git</a>, <a href='https://git-lfs.com' target='_blank'>git-lfs</a>, <a href='https://curl.se' target='_blank'>curl</a>, and <a href='https://github.com/tmux/tmux' target='_blank'>tmux</a> installed\n", 
-			"Geben Sie das Container-Image an, um den Arbeitsbereich darin zu erstellen. Beachten Sie, dass dieses Image\n<a href='https://git-scm.com' target='_blank'>git</a>, <a href='https://git-lfs.com' target='_blank'>git-lfs</a>, <a href='https://curl.se' target='_blank'>curl</a> und <a href='https://github.com/tmux/tmux' target='_blank'>tmux</a> installiert haben sollte\n");
-		m.put("Specify container image to execute commands inside", "Geben Sie ein Container-Image an, um Befehle darin auszuführen.");
+		m.put("Specify configuration discovery url of your OpenID provider, for instance: <code>https://openid.example.com/.well-known/openid-configuration</code>. Make sure to use HTTPS protocol as ${productName} relies on TLS encryption to ensure token validity", 
+			"Geben Sie die URL zur Konfigurationsentdeckung Ihres OpenID-Anbieters an, zum Beispiel: <code>https://openid.example.com/.well-known/openid-configuration</code>. Stellen Sie sicher, dass Sie das HTTPS-Protokoll verwenden, da ${productName} auf TLS-Verschlüsselung angewiesen ist, um die Token-Gültigkeit sicherzustellen");
+		m.put("Specify container image to create workspace inside. The image must have shell, Git, Git LFS, and tmux installed", 
+			"Geben Sie ein Container-Image an, um den Workspace darin zu erstellen. Das Image muss Shell, Git, Git LFS und tmux installiert haben.");
+		m.put("Specify container image to execute commands inside. The image must have shell installed", 
+			"Geben Sie ein Container-Image an, um Befehle darin auszuführen. Das Image muss Shell installiert haben.");
 		m.put("Specify container image to run", "Geben Sie ein Container-Image zum Ausführen an.");
 		m.put("Specify content of the config file", "Geben Sie den Inhalt der Konfigurationsdatei an");
-		m.put("Specify cppcheck xml result file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. This file can be generated with cppcheck xml output option, for instance <code>cppcheck src --xml 2>check-result.xml</code>. Use * or ? for pattern match", 
-			"Geben Sie die cppcheck-XML-Ergebnisdatei relativ zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an. Diese Datei kann mit der cppcheck-XML-Ausgabeoption generiert werden, beispielsweise <code>cppcheck src --xml 2>check-result.xml</code>. Verwenden Sie * oder ? für Musterabgleich.");
+		m.put("Specify cppcheck xml result file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>. This file can be generated with cppcheck xml output option, for instance <code>cppcheck src --xml 2>check-result.xml</code>. Use * or ? for pattern match", 
+			"Geben Sie die Cppcheck-XML-Ergebnisdatei relativ zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an. Diese Datei kann mit der Cppcheck-XML-Ausgabeoption generiert werden, zum Beispiel <code>cppcheck src --xml 2>check-result.xml</code>. Verwenden Sie * oder ? für Musterabgleich");
 		m.put("Specify cpu request for each job/service using this executor. Check <a href='https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/' target='_blank'>Kubernetes resource management</a> for details", 
 			"Geben Sie die CPU-Anforderung für jeden Job/Dienst an, der diesen Executor verwendet. Weitere Informationen finden Sie unter <a href='https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/' target='_blank'>Kubernetes-Ressourcenmanagement</a>.");
 		m.put("Specify data entries to persist across workspaces", "Daten-Einträge angeben, die über Workspaces hinweg beibehalten werden sollen");
@@ -3987,11 +4220,9 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Specify destinations, for instance <tt>registry-server:5000/myorg/myrepo:latest</tt>. Make sure to use <b>same host</b> as specified in server url of system settings if you want to push to built-in registry, or simply use the form <tt>@server@/&lt;project path&gt;/&lt;repo name&gt;:&lt;tag name&gt;</tt>. Multiple destinations should be separated with space", 
 			"Geben Sie Ziele an, beispielsweise <tt>registry-server:5000/myorg/myrepo:latest</tt>. Stellen Sie sicher, dass Sie <b>denselben Host</b> verwenden, wie in der Server-URL der Systemeinstellungen angegeben, wenn Sie in das integrierte Registry pushen möchten, oder verwenden Sie einfach die Form <tt>@server@/&lt;project path&gt;/&lt;repo name&gt;:&lt;tag name&gt;</tt>. Mehrere Ziele sollten durch Leerzeichen getrennt werden.");
 		m.put("Specify directory (tenant) ID of the app registered in Entra ID", "Geben Sie die Verzeichnis-(Mandanten-)ID der in Entra ID registrierten App an.");
-		m.put("Specify directory relative to <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a> to store OCI layout", 
-			"Geben Sie ein Verzeichnis relativ zum <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job-Arbeitsbereich</a> an, um das OCI-Layout zu speichern.");
+		m.put("Specify directory relative to <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a> to store OCI layout", 
+			"Geben Sie das Verzeichnis relativ zum <a href='${docsite}/concepts#job-workdir' target='_blank'>Arbeitsverzeichnis des Jobs</a> an, um das OCI-Layout zu speichern");
 		m.put("Specify docker image of the service", "Geben Sie das Docker-Image des Dienstes an.");
-		m.put("Specify dockerx builder used to build docker image. OneDev will create the builder automatically if it does not exist. Check <a href='https://docs.onedev.io/tutorials/cicd/insecure-docker-registry' target='_blank'>this tutorial</a> on how to customize the builder for instance to allow publishing to insecure registries", 
-			"Geben Sie den dockerx-Builder an, der zum Erstellen des Docker-Images verwendet wird. OneDev erstellt den Builder automatisch, wenn er nicht existiert. Weitere Informationen zur Anpassung des Builders, beispielsweise um das Veröffentlichen in unsicheren Registries zu ermöglichen, finden Sie in <a href='https://docs.onedev.io/tutorials/cicd/insecure-docker-registry' target='_blank'>diesem Tutorial</a>.");
 		m.put("Specify domain of various noreply email addresses for git operations if users want\nto keep their own email addresses private", 
 			"Geben Sie die Domain verschiedener noreply-E-Mail-Adressen für Git-Operationen an, wenn Benutzer\nihre eigenen E-Mail-Adressen privat halten möchten");
 		m.put("Specify email addresses to send invitations, with one per line", "Geben Sie E-Mail-Adressen an, um Einladungen zu senden, jeweils eine pro Zeile.");
@@ -4001,10 +4232,10 @@ public class Translation_de extends TranslationResourceBundle {
 			"Geben Sie Felder für verschiedene Probleme an, die von Renovate erstellt wurden, um die Abhängigkeitsaktualisierung zu orchestrieren.");
 		m.put("Specify fields to be displayed in the issue list", "Geben Sie die Felder an, die in der Problemliste angezeigt werden sollen.");
 		m.put("Specify fields to display in board card", "Geben Sie die Felder an, die auf der Board-Karte angezeigt werden sollen.");
-		m.put("Specify files relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> to be published. Use * or ? for pattern match", 
-			"Geben Sie Dateien relativ zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, die veröffentlicht werden sollen. Verwenden Sie * oder ? für Musterabgleich.");
-		m.put("Specify files to publish relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>.\nPublished files should include the Playwright JSON report and all referenced artifacts, such as screenshots and traces.\nFor example, run <code>CI=true PLAYWRIGHT_JSON_OUTPUT_NAME=test-results/report.json npx playwright test --reporter=json --output=test-results</code>\nfrom the job working directory, and use <code>test-results/**</code> as the file pattern to publish the report and artifacts together.\nUse * or ? for pattern matching", 
-			"Geben Sie Dateien an, die relativ zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsverzeichnis</a> veröffentlicht werden sollen.\nVeröffentlichte Dateien sollten den Playwright-JSON-Bericht und alle referenzierten Artefakte wie Screenshots und Traces enthalten.\nFühren Sie beispielsweise <code>CI=true PLAYWRIGHT_JSON_OUTPUT_NAME=test-results/report.json npx playwright test --reporter=json --output=test-results</code>\naus dem Job-Arbeitsverzeichnis aus und verwenden Sie <code>test-results/**</code> als Dateimuster, um den Bericht und die Artefakte zusammen zu veröffentlichen.\nVerwenden Sie * oder ? für die Mustererkennung");
+		m.put("Specify files relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a> to be published. Use * or ? for pattern match", 
+			"Geben Sie Dateien relativ zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, die veröffentlicht werden sollen. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify files to publish relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>.\nPublished files should include the Playwright JSON report and all referenced artifacts, such as screenshots and traces.\nFor example, run <code>CI=true PLAYWRIGHT_JSON_OUTPUT_NAME=test-results/report.json npx playwright test --reporter=json --output=test-results</code>\nfrom the job working directory, and use <code>test-results/**</code> as the file pattern to publish the report and artifacts together.\nUse * or ? for pattern matching", 
+			"Geben Sie Dateien an, die relativ zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> veröffentlicht werden sollen.\nVeröffentlichte Dateien sollten den Playwright-JSON-Bericht und alle referenzierten Artefakte wie Screenshots und Traces enthalten.\nFühren Sie beispielsweise <code>CI=true PLAYWRIGHT_JSON_OUTPUT_NAME=test-results/report.json npx playwright test --reporter=json --output=test-results</code>\naus dem Arbeitsverzeichnis des Jobs aus und verwenden Sie <code>test-results/**</code> als Dateimuster, um den Bericht und die Artefakte zusammen zu veröffentlichen.\nVerwenden Sie * oder ? für Musterabgleich");
 		m.put("Specify files under above directory to be published", "Geben Sie Dateien im obigen Verzeichnis an, die veröffentlicht werden sollen");
 		m.put("Specify files under above directory to be published. Use * or ? for pattern match. <b>NOTE:</b> If <code>index.html</code> is included, it will be served as the site start page; otherwise a listing of published files will be shown", 
 			"Dateien im obigen Verzeichnis angeben, die veröffentlicht werden sollen. Verwenden Sie * oder ? für Musterabgleich. <b>HINWEIS:</b> Wenn <code>index.html</code> enthalten ist, wird es als Startseite der Seite angezeigt; andernfalls wird eine Liste der veröffentlichten Dateien angezeigt");
@@ -4013,26 +4244,26 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Specify how coding agents should reference an issue in commit messages when the commit is intended to fix an issue", 
 			"Geben Sie an, wie Codierungsagenten ein Problem in Commit-Nachrichten referenzieren sollen, wenn der Commit dazu dient, ein Problem zu beheben");
 		m.put("Specify how long to wait for the model response in seconds", "Angeben, wie lange auf die Modellantwort in Sekunden gewartet werden soll");
-		m.put("Specify how to map GitHub issue labels to OneDev custom fields.<br><b>NOTE: </b> You may customize OneDev issue fields in case there is no appropriate option here", 
-			"Geben Sie an, wie GitHub-Issue-Labels auf OneDev-Benutzerdefinierte Felder abgebildet werden sollen.<br><b>HINWEIS: </b> Sie können OneDev-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist.");
-		m.put("Specify how to map GitLab issue labels to OneDev custom fields.<br><b>NOTE: </b> You may customize OneDev issue fields in case there is no appropriate option here", 
-			"Geben Sie an, wie GitLab-Issue-Labels auf OneDev-Benutzerdefinierte Felder abgebildet werden sollen.<br><b>HINWEIS: </b> Sie können OneDev-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist.");
-		m.put("Specify how to map Gitea issue labels to OneDev custom fields.<br><b>NOTE: </b> You may customize OneDev issue fields in case there is no appropriate option here", 
-			"Geben Sie an, wie Gitea-Issue-Labels auf OneDev-Benutzerdefinierte Felder abgebildet werden sollen.<br><b>HINWEIS: </b> Sie können OneDev-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist.");
-		m.put("Specify how to map JIRA issue priorities to OneDev custom fields.<br><b>NOTE: </b> You may customize OneDev issue fields in case there is no appropriate option here", 
-			"Geben Sie an, wie JIRA-Issue-Prioritäten auf OneDev-Benutzerdefinierte Felder abgebildet werden sollen.<br><b>HINWEIS: </b> Sie können OneDev-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist.");
-		m.put("Specify how to map JIRA issue statuses to OneDev custom fields.<br><b>NOTE: </b> You may customize OneDev issue states in case there is no appropriate option here", 
-			"Geben Sie an, wie JIRA-Issue-Status auf OneDev-Benutzerdefinierte Felder abgebildet werden sollen.<br><b>HINWEIS: </b> Sie können OneDev-Issue-Zustände anpassen, falls hier keine geeignete Option vorhanden ist.");
-		m.put("Specify how to map JIRA issue types to OneDev custom fields.<br><b>NOTE: </b> You may customize OneDev issue fields in case there is no appropriate option here", 
-			"Geben Sie an, wie JIRA-Issue-Typen auf OneDev-Benutzerdefinierte Felder abgebildet werden sollen.<br><b>HINWEIS: </b> Sie können OneDev-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist.");
-		m.put("Specify how to map YouTrack issue fields to OneDev. Unmapped fields will be reflected in issue description.<br><b>Note: </b><ul><li>Enum field needs to be mapped in form of <tt>&lt;Field Name&gt;::&lt;Field Value&gt;</tt>, for instance <tt>Priority::Critical</tt><li>You may customize OneDev issue fields in case there is no appropriate option here</ul>", 
-			"Geben Sie an, wie YouTrack-Issue-Felder auf OneDev abgebildet werden sollen. Nicht abgebildete Felder werden in der Problembeschreibung reflektiert.<br><b>Hinweis: </b><ul><li>Enum-Felder müssen in der Form <tt>&lt;Field Name&gt;::&lt;Field Value&gt;</tt> abgebildet werden, beispielsweise <tt>Priority::Critical</tt><li>Sie können OneDev-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist</ul>.");
-		m.put("Specify how to map YouTrack issue links to OneDev issue links.<br><b>NOTE: </b> You may customize OneDev issue links in case there is no appropriate option here", 
-			"Geben Sie an, wie YouTrack-Issue-Links auf OneDev-Issue-Links abgebildet werden sollen.<br><b>HINWEIS: </b> Sie können OneDev-Issue-Links anpassen, falls hier keine geeignete Option vorhanden ist.");
-		m.put("Specify how to map YouTrack issue state to OneDev issue state. Unmapped states will use the initial state in OneDev.<br><b>NOTE: </b> You may customize OneDev issue states in case there is no appropriate option here", 
-			"Geben Sie an, wie YouTrack-Issue-Zustände auf OneDev-Issue-Zustände abgebildet werden sollen. Nicht abgebildete Zustände verwenden den Anfangszustand in OneDev.<br><b>HINWEIS: </b> Sie können OneDev-Issue-Zustände anpassen, falls hier keine geeignete Option vorhanden ist.");
-		m.put("Specify how to map YouTrack issue tags to OneDev issue custom fields.<br><b>NOTE: </b> You may customize OneDev issue fields in case there is no appropriate option here", 
-			"Geben Sie an, wie YouTrack-Issue-Tags auf OneDev-Benutzerdefinierte Felder abgebildet werden sollen.<br><b>HINWEIS: </b> Sie können OneDev-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist.");
+		m.put("Specify how to map GitHub issue labels to ${productName} custom fields.<br><b>NOTE: </b> You may customize ${productName} issue fields in case there is no appropriate option here", 
+			"Geben Sie an, wie GitHub-Issue-Labels auf ${productName}-benutzerdefinierte Felder abgebildet werden sollen.<br><b>HINWEIS: </b> Sie können die ${productName}-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist");
+		m.put("Specify how to map GitLab issue labels to ${productName} custom fields.<br><b>NOTE: </b> You may customize ${productName} issue fields in case there is no appropriate option here", 
+			"Geben Sie an, wie GitLab-Issue-Labels auf ${productName}-benutzerdefinierte Felder abgebildet werden sollen.<br><b>HINWEIS: </b> Sie können die ${productName}-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist");
+		m.put("Specify how to map Gitea issue labels to ${productName} custom fields.<br><b>NOTE: </b> You may customize ${productName} issue fields in case there is no appropriate option here", 
+			"Geben Sie an, wie Gitea-Issue-Labels auf ${productName}-benutzerdefinierte Felder abgebildet werden sollen.<br><b>HINWEIS: </b> Sie können die ${productName}-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist");
+		m.put("Specify how to map JIRA issue priorities to ${productName} custom fields.<br><b>NOTE: </b> You may customize ${productName} issue fields in case there is no appropriate option here", 
+			"Geben Sie an, wie JIRA-Issue-Prioritäten auf ${productName}-benutzerdefinierte Felder abgebildet werden sollen.<br><b>HINWEIS: </b> Sie können die ${productName}-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist");
+		m.put("Specify how to map JIRA issue statuses to ${productName} custom fields.<br><b>NOTE: </b> You may customize ${productName} issue states in case there is no appropriate option here", 
+			"Geben Sie an, wie JIRA-Issue-Status auf ${productName}-benutzerdefinierte Felder abgebildet werden sollen.<br><b>HINWEIS: </b> Sie können die ${productName}-Issue-Status anpassen, falls hier keine geeignete Option vorhanden ist");
+		m.put("Specify how to map JIRA issue types to ${productName} custom fields.<br><b>NOTE: </b> You may customize ${productName} issue fields in case there is no appropriate option here", 
+			"Geben Sie an, wie JIRA-Issue-Typen auf ${productName}-benutzerdefinierte Felder abgebildet werden sollen.<br><b>HINWEIS: </b> Sie können die ${productName}-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist");
+		m.put("Specify how to map YouTrack issue fields to ${productName}. Unmapped fields will be reflected in issue description.<br><b>Note: </b><ul><li>Enum field needs to be mapped in form of <tt>&lt;Field Name&gt;::&lt;Field Value&gt;</tt>, for instance <tt>Priority::Critical</tt><li>You may customize ${productName} issue fields in case there is no appropriate option here</ul>", 
+			"Geben Sie an, wie YouTrack-Issue-Felder auf ${productName} abgebildet werden sollen. Nicht zugeordnete Felder werden in der Issue-Beschreibung angezeigt.<br><b>Hinweis: </b><ul><li>Ein Enum-Feld muss in der Form <tt>&lt;Feldname&gt;::&lt;Feldwert&gt;</tt> abgebildet werden, zum Beispiel <tt>Priority::Critical</tt><li>Sie können die ${productName}-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist</ul>");
+		m.put("Specify how to map YouTrack issue links to ${productName} issue links.<br><b>NOTE: </b> You may customize ${productName} issue links in case there is no appropriate option here", 
+			"Geben Sie an, wie YouTrack-Issue-Links auf ${productName}-Issue-Links abgebildet werden sollen.<br><b>HINWEIS: </b> Sie können die ${productName}-Issue-Links anpassen, falls hier keine geeignete Option vorhanden ist");
+		m.put("Specify how to map YouTrack issue state to ${productName} issue state. Unmapped states will use the initial state in ${productName}.<br><b>NOTE: </b> You may customize ${productName} issue states in case there is no appropriate option here", 
+			"Geben Sie an, wie der YouTrack-Issue-Status auf den ${productName}-Issue-Status abgebildet werden soll. Nicht zugeordnete Status verwenden den Anfangsstatus in ${productName}.<br><b>HINWEIS: </b> Sie können die ${productName}-Issue-Status anpassen, falls hier keine geeignete Option vorhanden ist");
+		m.put("Specify how to map YouTrack issue tags to ${productName} issue custom fields.<br><b>NOTE: </b> You may customize ${productName} issue fields in case there is no appropriate option here", 
+			"Geben Sie an, wie YouTrack-Issue-Tags auf ${productName}-benutzerdefinierte Felder abgebildet werden sollen.<br><b>HINWEIS: </b> Sie können die ${productName}-Issue-Felder anpassen, falls hier keine geeignete Option vorhanden ist");
 		m.put("Specify image on the login button", "Geben Sie das Bild auf der Login-Schaltfläche an.");
 		m.put("Specify image tag to pull from, for instance <tt>registry-server:5000/myorg/myrepo:latest</tt>. Make sure to use <b>same host</b> as specified in server url of system settings if you want to pull from built-in registry, or simply use the form <tt>@server@/&lt;project path&gt;/&lt;repo name&gt;:&lt;tag name&gt;</tt>", 
 			"Geben Sie den Image-Tag an, der abgerufen werden soll, beispielsweise <tt>registry-server:5000/myorg/myrepo:latest</tt>. Stellen Sie sicher, dass Sie <b>denselben Host</b> verwenden, wie in der Server-URL der Systemeinstellungen angegeben, wenn Sie aus dem integrierten Registry abrufen möchten, oder verwenden Sie einfach die Form <tt>@server@/&lt;project path&gt;/&lt;repo name&gt;:&lt;tag name&gt;</tt>.");
@@ -4048,11 +4279,11 @@ public class Translation_de extends TranslationResourceBundle {
 			"Geben Sie das Issue-Feld an, um verschiedene Spalten des Boards zu identifizieren. Es können nur Zustands- und Einzelwert-Enum-Felder verwendet werden.");
 		m.put("Specify links to be displayed in the issue list", "Geben Sie Links an, die in der Problemliste angezeigt werden sollen.");
 		m.put("Specify links to display in board card", "Geben Sie Links an, die auf der Board-Karte angezeigt werden sollen.");
-		m.put("Specify manager DN to authenticate OneDev itself to Active Directory. The manager DN should be specified in form of <i>&lt;account name&gt;@&lt;domain&gt;</i>, for instance: <i>manager@example.com</i>", 
-			"Geben Sie den Manager-DN an, um OneDev selbst gegenüber Active Directory zu authentifizieren. Der Manager-DN sollte in der Form <i>&lt;account name&gt;@&lt;domain&gt;</i> angegeben werden, beispielsweise: <i>manager@example.com</i>.");
-		m.put("Specify manager DN to authenticate OneDev itself to LDAP server", "Geben Sie den Manager-DN an, um OneDev selbst gegenüber dem LDAP-Server zu authentifizieren.");
-		m.put("Specify markdown file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> to be published", 
-			"Geben Sie die Markdown-Datei relativ zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, die veröffentlicht werden soll.");
+		m.put("Specify manager DN to authenticate ${productName} itself to Active Directory. The manager DN should be specified in form of <i>&lt;account name&gt;@&lt;domain&gt;</i>, for instance: <i>manager@example.com</i>", 
+			"Geben Sie den Manager-DN an, um ${productName} selbst bei Active Directory zu authentifizieren. Der Manager-DN sollte in der Form <i>&lt;Kontoname&gt;@&lt;Domain&gt;</i> angegeben werden, zum Beispiel: <i>manager@example.com</i>");
+		m.put("Specify manager DN to authenticate ${productName} itself to LDAP server", "Geben Sie den Manager-DN an, um ${productName} selbst beim LDAP-Server zu authentifizieren");
+		m.put("Specify markdown file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a> to be published", 
+			"Geben Sie die relative Markdown-Datei zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, die veröffentlicht werden soll");
 		m.put("Specify max git LFS file size in mega bytes", "Geben Sie die maximale Git-LFS-Dateigröße in Megabyte an.");
 		m.put("Specify max number of CPU intensive tasks the server can run concurrently, such as Git repository pull/push, repository index, etc.", 
 			"Geben Sie die maximale Anzahl von CPU-intensiven Aufgaben an, die der Server gleichzeitig ausführen kann, wie das Abrufen/Pushen von Git-Repositories, Repository-Indexierung usw.");
@@ -4077,8 +4308,8 @@ public class Translation_de extends TranslationResourceBundle {
 			"Geben Sie die Speicheranforderung für jeden Job/Dienst an, der diesen Executor verwendet. Weitere Informationen finden Sie unter <a href='https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/' target='_blank'>Kubernetes-Ressourcenmanagement</a>.");
 		m.put("Specify merge strategy of the pull request. Leave empty to use default merge strategy of the project", 
 			"Geben Sie die Merge-Strategie des Pull-Requests an. Lassen Sie das Feld leer, um die Standard-Merge-Strategie des Projekts zu verwenden");
-		m.put("Specify mypy output file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. This file can be generated by redirecting mypy output <b>without option '--pretty'</b>, for instance <code>mypy --exclude=.git --exclude=.venv . > mypy-output</code>. Use * or ? for pattern match", 
-			"Geben Sie die mypy-Ausgabedatei relativ zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an. Diese Datei kann durch Umleitung der mypy-Ausgabe <b>ohne die Option '--pretty'</b> generiert werden, beispielsweise <code>mypy --exclude=.git --exclude=.venv . > mypy-output</code>. Verwenden Sie * oder ? für Musterabgleich.");
+		m.put("Specify mypy output file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>. This file can be generated by redirecting mypy output <b>without option '--pretty'</b>, for instance <code>mypy --exclude=.git --exclude=.venv . > mypy-output</code>. Use * or ? for pattern match", 
+			"Geben Sie die mypy-Ausgabedatei relativ zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an. Diese Datei kann durch Umleitung der mypy-Ausgabe <b>ohne die Option '--pretty'</b> generiert werden, zum Beispiel <code>mypy --exclude=.git --exclude=.venv . > mypy-output</code>. Verwenden Sie * oder ? für Musterabgleich");
 		m.put("Specify name of the branch", "Geben Sie den Namen des Branches an.");
 		m.put("Specify name of the environment variable", "Geben Sie den Namen der Umgebungsvariable an.");
 		m.put("Specify name of the iteration", "Geben Sie den Namen der Iteration an.");
@@ -4094,6 +4325,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Specify name of the workspace spec", "Geben Sie den Namen der Arbeitsbereichsspezifikation an");
 		m.put("Specify network timeout in seconds when authenticate through this system", "Geben Sie die Netzwerk-Timeout-Zeit in Sekunden an, wenn Sie sich über dieses System authentifizieren.");
 		m.put("Specify node selector of this locator", "Geben Sie den Node-Selector dieses Locators an.");
+		m.put("Specify one URI per line. Use HTTPS, loopback HTTP, or a native application scheme for public clients. URIs must match exactly, except public clients may choose any port for HTTP callbacks to 127.0.0.1 or [::1].", 
+			"Geben Sie eine URI pro Zeile an. Verwenden Sie HTTPS, Loopback-HTTP oder ein natives Anwendungsschema für öffentliche Clients. URIs müssen genau übereinstimmen, außer öffentliche Clients können jeden Port für HTTP-Callbacks zu 127.0.0.1 oder [::1] wählen.");
 		m.put("Specify password or access token of specified registry", "Geben Sie das Passwort oder den Zugriffstoken des angegebenen Registrys an.");
 		m.put("Specify password or access token of the registry", "Geben Sie das Passwort oder Zugriffstoken des Registrys an");
 		m.put("Specify password to authenticate with", "Geben Sie das Passwort zur Authentifizierung an.");
@@ -4104,47 +4337,49 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Specify prefix/suffix patterns to detect fixed issues in commit messages. Each line of the commit message will be matched against each entry defined here", 
 			"Geben Sie Präfix-/Suffixmuster an, um behobene Probleme in Commit-Nachrichten zu erkennen. Jede Zeile der Commit-Nachricht wird mit jedem hier definierten Eintrag abgeglichen");
 		m.put("Specify project to import build spec from", "Geben Sie das Projekt an, aus dem die Build-Spezifikation importiert werden soll.");
-		m.put("Specify project to import into at OneDev side", "Geben Sie das Projekt an, in das auf der OneDev-Seite importiert werden soll.");
+		m.put("Specify project to import into at ${productName} side", "Geben Sie das Projekt an, das auf der ${productName}-Seite importiert werden soll");
 		m.put("Specify project to retrieve artifacts from", "Geben Sie das Projekt an, aus dem Artefakte abgerufen werden sollen.");
 		m.put("Specify project to run job in", "Geben Sie das Projekt an, in dem der Job ausgeführt werden soll");
 		m.put("Specify projects", "Geben Sie Projekte an.");
 		m.put("Specify projects to update dependencies. Leave empty for current project", "Geben Sie Projekte an, deren Abhängigkeiten aktualisiert werden sollen. Lassen Sie das Feld leer für das aktuelle Projekt.");
-		m.put("Specify pylint json result file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. This file can be generated with pylint json output format option, for instance <code>--exit-zero --output-format=json:pylint-result.json</code>. Note that we do not fail pylint command upon violations, as this step will fail build based on configured threshold. Use * or ? for pattern match", 
-			"Geben Sie die pylint-JSON-Ergebnisdatei relativ zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an. Diese Datei kann mit der pylint-JSON-Ausgabeformatoption generiert werden, beispielsweise <code>--exit-zero --output-format=json:pylint-result.json</code>. Beachten Sie, dass wir den pylint-Befehl bei Verstößen nicht fehlschlagen lassen, da dieser Schritt den Build basierend auf der konfigurierten Schwelle fehlschlagen lässt. Verwenden Sie * oder ? für Musterabgleich.");
+		m.put("Specify pylint json result file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>. This file can be generated with pylint json output format option, for instance <code>--exit-zero --output-format=json:pylint-result.json</code>. Note that we do not fail pylint command upon violations, as this step will fail build based on configured threshold. Use * or ? for pattern match", 
+			"Geben Sie die pylint-JSON-Ergebnisdatei relativ zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an. Diese Datei kann mit der pylint-JSON-Ausgabeformatoption generiert werden, zum Beispiel <code>--exit-zero --output-format=json:pylint-result.json</code>. Beachten Sie, dass wir den pylint-Befehl bei Verstößen nicht abbrechen, da dieser Schritt den Build basierend auf der konfigurierten Schwelle fehlschlagen lässt. Verwenden Sie * oder ? für Musterabgleich");
 		m.put("Specify registry logins if necessary. For built-in registry, use <code>@server_url@</code> for registry url, <code>@job_token@</code> for user name, and access token for password", 
 			"Geben Sie Registry-Logins an, falls erforderlich. Für das integrierte Registry verwenden Sie <code>@server_url@</code> für die Registry-URL, <code>@job_token@</code> für den Benutzernamen und den Zugriffstoken für das Passwort.");
 		m.put("Specify registry logins if necessary. For built-in registry, use <code>@server_url@</code> for registry url, <code>@workspace_token@</code> for user name, and access token for password.", 
 			"Geben Sie bei Bedarf Registry-Logins an. Für die integrierte Registry verwenden Sie <code>@server_url@</code> für die Registry-URL, <code>@workspace_token@</code> für den Benutzernamen und das Zugriffstoken für das Passwort.");
 		m.put("Specify registry url. Leave empty for official registry", "Geben Sie die Registry-URL an. Lassen Sie das Feld leer für das offizielle Registry.");
-		m.put("Specify relative path under <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a> to store OCI layout", 
-			"Geben Sie den relativen Pfad unter <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job-Arbeitsbereich</a> an, um das OCI-Layout zu speichern.");
+		m.put("Specify relative path under <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a> to store OCI layout", 
+			"Geben Sie den relativen Pfad unter <a href='${docsite}/concepts#job-workdir' target='_blank'>Arbeitsverzeichnis des Jobs</a> an, um das OCI-Layout zu speichern");
 		m.put("Specify repositories", "Geben Sie Repositories an.");
 		m.put("Specify required reviewers if specified path is changed. Note that the user submitting the change is considered to reviewed the change automatically", 
 			"Geben Sie die erforderlichen Reviewer an, falls der angegebene Pfad geändert wird. Beachten Sie, dass der Benutzer, der die Änderung übermittelt, automatisch als Reviewer der Änderung gilt.");
 		m.put("Specify root URL to access this server", "Geben Sie die Root-URL an, um auf diesen Server zuzugreifen.");
-		m.put("Specify ruff json result file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. This file can be generated with ruff json output format option, for instance <code>--exit-zero --output-format json --output-file ruff-result.json</code>. Note that we do not fail ruff command upon violations, as this step will fail build based on configured threshold. Use * or ? for pattern match", 
-			"Geben Sie die ruff-JSON-Ergebnisdatei relativ zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an. Diese Datei kann mit der ruff-JSON-Ausgabeformatoption generiert werden, beispielsweise <code>--exit-zero --output-format json --output-file ruff-result.json</code>. Beachten Sie, dass wir den ruff-Befehl bei Verstößen nicht fehlschlagen lassen, da dieser Schritt den Build basierend auf der konfigurierten Schwelle fehlschlagen lässt. Verwenden Sie * oder ? für Musterabgleich.");
-		m.put("Specify shell commands to execute under the <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>", 
-			"Geben Sie Shell-Befehle an, die unter dem <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job-Arbeitsbereich</a> ausgeführt werden sollen.");
+		m.put("Specify ruff json result file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>. This file can be generated with ruff json output format option, for instance <code>--exit-zero --output-format json --output-file ruff-result.json</code>. Note that we do not fail ruff command upon violations, as this step will fail build based on configured threshold. Use * or ? for pattern match", 
+			"Geben Sie die ruff-JSON-Ergebnisdatei relativ zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an. Diese Datei kann mit der ruff-JSON-Ausgabeformatoption generiert werden, zum Beispiel <code>--exit-zero --output-format json --output-file ruff-result.json</code>. Beachten Sie, dass wir den ruff-Befehl bei Verstößen nicht abbrechen, da dieser Schritt den Build basierend auf der konfigurierten Schwelle fehlschlagen lässt. Verwenden Sie * oder ? für Musterabgleich");
+		m.put("Specify sandbox template image to create workspace from. The image must have shell, Git, Python 3, and tmux installed. See the <a href='${docsite}/tutorials/workspace/build-sandbox-template' target='_blank'>template setup guide</a>.", 
+			"Geben Sie ein Sandbox-Vorlagen-Image an, um den Workspace daraus zu erstellen. Das Image muss Shell, Git, Python 3 und tmux installiert haben. Siehe den <a href='${docsite}/tutorials/workspace/build-sandbox-template' target='_blank'>Vorlagen-Einrichtungsleitfaden</a>.");
+		m.put("Specify shell commands to execute under the <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a>", 
+			"Geben Sie Shell-Befehle an, die im <a href='${docsite}/concepts#job-workdir' target='_blank'>Arbeitsverzeichnis des Jobs</a> ausgeführt werden sollen");
 		m.put("Specify source param for SCP command, for instance <code>app.tar.gz</code>", "Geben Sie die Quellparameter für den SCP-Befehl an, beispielsweise <code>app.tar.gz</code>.");
 		m.put("Specify space separated refs to pull from remote. '*' can be used in ref name for wildcard match<br><b class='text-danger'>NOTE:</b> branch/tag protection rule will be ignored when update branches/tags via this step", 
 			"Geben Sie durch Leerzeichen getrennte Refs an, die vom Remote abgerufen werden sollen. '*' kann im Ref-Namen für Wildcard-Abgleich verwendet werden.<br><b class='text-danger'>HINWEIS:</b> Die Regel zum Schutz von Branches/Tags wird ignoriert, wenn Branches/Tags über diesen Schritt aktualisiert werden.");
-		m.put("Specify space-separated branches to be protected. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude", 
-			"Geben Sie durch Leerzeichen getrennte Branches an, die geschützt werden sollen. Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Abgleich</a>. Präfix mit '-', um auszuschließen.");
+		m.put("Specify space-separated branches to be protected. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude", 
+			"Geben Sie durch Leerzeichen getrennte Branches an, die geschützt werden sollen. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Pfad-Musterabgleich</a>. Mit '-' vorangestellt, um auszuschließen");
 		m.put("Specify space-separated jobs. Use '*' or '?' for wildcard match. Prefix with '-' to exclude", 
 			"Geben Sie durch Leerzeichen getrennte Jobs an. Verwenden Sie '*' oder '?' für Wildcard-Abgleich. Präfix mit '-', um auszuschließen.");
-		m.put("Specify space-separated paths to be protected. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude", 
-			"Geben Sie durch Leerzeichen getrennte Pfade an, die geschützt werden sollen. Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Abgleich</a>. Präfix mit '-', um auszuschließen.");
+		m.put("Specify space-separated paths to be protected. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude", 
+			"Geben Sie durch Leerzeichen getrennte Pfade an, die geschützt werden sollen. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>. Mit '-' vorangestellt, um auszuschließen");
 		m.put("Specify space-separated projects applicable for this entry. Use '*' or '?' for wildcard match. Prefix with '-' to exclude. Leave empty to match all projects", 
 			"Geben Sie durch Leerzeichen getrennte Projekte an, die für diesen Eintrag gelten. Verwenden Sie '*' oder '?' für Wildcard-Abgleich. Präfix mit '-', um auszuschließen. Lassen Sie das Feld leer, um alle Projekte zuzuordnen.");
 		m.put("Specify space-separated sender email addresses applicable for this entry. Use '*' or '?' for wildcard match. Prefix with '-' to exclude. Leave empty to match all senders", 
 			"Geben Sie durch Leerzeichen getrennte Absender-E-Mail-Adressen an, die für diesen Eintrag gelten. Verwenden Sie '*' oder '?' für Wildcard-Abgleich. Präfix mit '-', um auszuschließen. Lassen Sie das Feld leer, um alle Absender zuzuordnen.");
-		m.put("Specify space-separated tags to be protected. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude", 
-			"Geben Sie durch Leerzeichen getrennte Tags an, die geschützt werden sollen. Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Abgleich</a>. Präfix mit '-', um auszuschließen.");
-		m.put("Specify start page of the report relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, for instance: <tt>manual/index.md</tt>", 
-			"Geben Sie die Startseite des Berichts relativ zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, beispielsweise: <tt>manual/index.md</tt>.");
-		m.put("Specify start page of the report relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, for instance: api/index.html", 
-			"Geben Sie die Startseite des Berichts relativ zum <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a> an, beispielsweise: api/index.html.");
+		m.put("Specify space-separated tags to be protected. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude", 
+			"Geben Sie durch Leerzeichen getrennte Tags an, die geschützt werden sollen. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>. Mit '-' vorangestellt, um auszuschließen");
+		m.put("Specify start page of the report relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, for instance: <tt>manual/index.md</tt>", 
+			"Geben Sie die Startseite des Berichts relativ zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, z. B.: <tt>manual/index.md</tt>");
+		m.put("Specify start page of the report relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, for instance: api/index.html", 
+			"Geben Sie die Startseite des Berichts relativ zum <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a> an, z. B.: api/index.html");
 		m.put("Specify storage size to request for the build volume. The size should conform to <a href='https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#setting-requests-and-limits-for-local-ephemeral-storage' target='_blank'>Kubernetes resource capacity format</a>, for instance <i>10Gi</i>", 
 			"Geben Sie die Speichergröße an, die für das Build-Volume angefordert werden soll. Die Größe sollte dem <a href='https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#setting-requests-and-limits-for-local-ephemeral-storage' target='_blank'>Kubernetes-Ressourcenkapazitätsformat</a> entsprechen, beispielsweise <i>10Gi</i>.");
 		m.put("Specify storage size to request for the workspace PVC. The size should conform to <a href='https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#setting-requests-and-limits-for-local-ephemeral-storage' target='_blank'>Kubernetes resource capacity format</a>, for instance <i>10Gi</i>", 
@@ -4153,6 +4388,7 @@ public class Translation_de extends TranslationResourceBundle {
 			"Geben Sie die Tab-Breite an, die zur Berechnung des Spaltenwerts der gefundenen Probleme im bereitgestellten Bericht verwendet wird.");
 		m.put("Specify tag to run the job against. Either branch or tag can be specified, but not both. Default branch will be used if both not specified", 
 			"Geben Sie das Tag an, gegen das der Job ausgeführt werden soll. Entweder Branch oder Tag kann angegeben werden, aber nicht beides. Der Standard-Branch wird verwendet, wenn beides nicht angegeben ist");
+		m.put("Specify tag. Use * for wildcard match", "Geben Sie ein Tag an. Verwenden Sie * für Wildcard-Matching");
 		m.put("Specify target param for SCP command, for instance <code>user@@host:/app</code>. <b class='text-info'>NOTE:</b> Make sure that scp command is installed on remote host", 
 			"Geben Sie das Zielparameter für den SCP-Befehl an, zum Beispiel <code>user@@host:/app</code>. <b class='text-info'>HINWEIS:</b> Stellen Sie sicher, dass der SCP-Befehl auf dem Remote-Host installiert ist");
 		m.put("Specify text to replace matched issue references with, for instance: &lt;br&gt;&lt;em&gt;$1&amp;lt;a href='http://track.example.com/issues/$2'&amp;gt;$2&amp;lt;/a&amp;gt;&lt;/em&gt; &lt;br&gt;Here $1 and $2 represent catpure groups in the example issue pattern (see issue pattern help)", 
@@ -4161,18 +4397,22 @@ public class Translation_de extends TranslationResourceBundle {
 			"Code-Berechtigung für die Rolle angeben. Die Schreibberechtigung impliziert die CreateWorkspaces-Berechtigung");
 		m.put("Specify the condition current build must satisfy to execute this action", "Geben Sie die Bedingung an, die der aktuelle Build erfüllen muss, um diese Aktion auszuführen");
 		m.put("Specify the condition preserved builds must match", "Geben Sie die Bedingung an, die erhaltene Builds erfüllen müssen");
-		m.put("Specify the kubernetes namespace to host workspaces of this provisioner. OneDev creates the namespace if it does not yet exist.", 
-			"Geben Sie den Kubernetes-Namespace an, um Workspaces dieses Provisioners zu hosten. OneDev erstellt den Namespace, falls er noch nicht existiert.");
-		m.put("Specify the model name to use. <b class='text-danger'>NOTE: </b> Right now OneDev only supports\nmodels with chat completions API. OpenAI models with the new responses API is not supported yet", 
-			"Geben Sie den zu verwendenden Modellnamen an. <b class='text-danger'>HINWEIS: </b> Derzeit unterstützt OneDev nur\nModelle mit Chat-Vervollständigungs-API. OpenAI-Modelle mit der neuen Antwort-API werden noch nicht unterstützt");
+		m.put("Specify the container image to test against. The image must have shell installed", "Geben Sie das Container-Image an, gegen das getestet werden soll. Das Image muss Shell installiert haben.");
+		m.put("Specify the kubernetes namespace to host workspaces of this provisioner. ${productName} creates the namespace if it does not yet exist.", 
+			"Geben Sie den Kubernetes-Namespace an, um Arbeitsbereiche dieses Provisioners zu hosten. ${productName} erstellt den Namespace, falls er noch nicht existiert.");
+		m.put("Specify the model name to use. <b class='text-danger'>NOTE: </b> Right now ${productName} only supports\nmodels with chat completions API. OpenAI models with the new responses API is not supported yet", 
+			"Geben Sie den zu verwendenden Modellnamen an. <b class='text-danger'>HINWEIS: </b> Derzeit unterstützt ${productName} nur\nModelle mit Chat-Completions-API. OpenAI-Modelle mit der neuen Responses-API werden noch nicht unterstützt");
 		m.put("Specify the private key (in PEM format) used by SSH server to establish connections with client", 
 			"Geben Sie den privaten Schlüssel (im PEM-Format) an, der vom SSH-Server verwendet wird, um Verbindungen mit dem Client herzustellen");
-		m.put("Specify the repository folder to store wiki pages. Leave empty to inherit from parent.\nIf you do not want to store wiki pages in the project repository, the specified folder\ncan be a Git submodule", 
-			"Geben Sie den Repository-Ordner an, um Wiki-Seiten zu speichern. Lassen Sie das Feld leer, um vom übergeordneten Element zu erben.\nWenn Sie keine Wiki-Seiten im Projekt-Repository speichern möchten, kann der angegebene Ordner\nein Git-Submodul sein.");
-		m.put("Specify the strategy to retrieve group membership information. To give appropriate permissions to a LDAP group, a OneDev group with same name should be defined. Use strategy <tt>Do Not Retrieve Groups</tt> if you want to manage group memberships at OneDev side", 
-			"Geben Sie die Strategie an, um Informationen zur Gruppenmitgliedschaft abzurufen. Um einer LDAP-Gruppe entsprechende Berechtigungen zu erteilen, sollte eine OneDev-Gruppe mit demselben Namen definiert werden. Verwenden Sie die Strategie <tt>Gruppen nicht abrufen</tt>, wenn Sie die Gruppenmitgliedschaften auf der OneDev-Seite verwalten möchten");
+		m.put("Specify the repository folder to store wiki pages.\nIf you do not want to store wiki pages in the project repository, the specified folder\ncan be a Git submodule. To exclude files from the wiki Pages panel, add a <code>.wikiignore</code>\nfile in the wiki root folder with Git ignore patterns relative to that folder", 
+			"Geben Sie den Repository-Ordner an, um Wiki-Seiten zu speichern.\nWenn Sie keine Wiki-Seiten im Projekt-Repository speichern möchten, kann der angegebene Ordner\nein Git-Submodul sein. Um Dateien aus dem Wiki-Seiten-Panel auszuschließen, fügen Sie eine <code>.wikiignore</code>\nDatei im Wiki-Stammordner mit Git-Ignoriermustern relativ zu diesem Ordner hinzu.");
+		m.put("Specify the sandbox CLI executable", "Geben Sie die ausführbare Sandbox-CLI-Datei an.");
+		m.put("Specify the sandbox template image used to run this job. The image must have shell, Git, Git LFS, and Python 3 installed. If the job runs Docker-related steps or services, Docker must be configured in the image, and a non-root default user must have passwordless sudo access. See the <a href='${docsite}/tutorials/cicd/build-sandbox-template' target='_blank'>template setup guide</a>.", 
+			"Geben Sie das Sandbox-Vorlagen-Image an, das für diesen Job verwendet wird. Das Image muss Shell, Git, Git LFS und Python 3 installiert haben. Wenn der Job Docker-bezogene Schritte oder Dienste ausführt, muss Docker im Image konfiguriert sein, und ein nicht-root Standardbenutzer muss passwortlosen sudo-Zugriff haben. Siehe den <a href='${docsite}/tutorials/cicd/build-sandbox-template' target='_blank'>Vorlagen-Einrichtungsleitfaden</a>.");
+		m.put("Specify the strategy to retrieve group membership information. To give appropriate permissions to a LDAP group, a ${productName} group with same name should be defined. Use strategy <tt>Do Not Retrieve Groups</tt> if you want to manage group memberships at ${productName} side", 
+			"Geben Sie die Strategie an, um Gruppenmitgliedschaftsinformationen abzurufen. Um einer LDAP-Gruppe entsprechende Berechtigungen zu erteilen, sollte eine ${productName}-Gruppe mit demselben Namen definiert werden. Verwenden Sie die Strategie <tt>Gruppen nicht abrufen</tt>, wenn Sie die Gruppenmitgliedschaften auf der ${productName}-Seite verwalten möchten");
 		m.put("Specify timeout in seconds when communicating with mail server", "Geben Sie das Timeout in Sekunden an, wenn mit dem Mailserver kommuniziert wird");
-		m.put("Specify timeout in seconds. It counts from the time when job is submitted", "Geben Sie das Timeout in Sekunden an. Es zählt ab dem Zeitpunkt, an dem der Job eingereicht wird");
+		m.put("Specify timeout in seconds. It counts from the time when job starts running", "Timeout in Sekunden angeben. Es zählt ab dem Zeitpunkt, an dem der Job gestartet wird");
 		m.put("Specify title of the issue", "Geben Sie den Titel des Problems an");
 		m.put("Specify uid:gid to run container as", "Geben Sie uid:gid an, um den Container auszuführen als");
 		m.put("Specify url of YouTrack API. For instance <tt>http://localhost:8080/api</tt>", "Geben Sie die URL der YouTrack-API an. Zum Beispiel <tt>http://localhost:8080/api</tt>");
@@ -4185,18 +4425,23 @@ public class Translation_de extends TranslationResourceBundle {
 			"Geben Sie das Timeout für die Web-UI-Sitzung in Minuten an. Lassen Sie es leer, um niemals zu verfallen, wenn der Browser geöffnet ist. Bestehende Sitzungen werden nach Änderung dieses Wertes nicht beeinflusst.");
 		m.put("Specify webhook url to post events", "Geben Sie die Webhook-URL an, um Ereignisse zu posten");
 		m.put("Specify whether to create a work in progress pull request", "Geben Sie an, ob ein Pull-Request in Arbeit erstellt werden soll");
-		m.put("Specify which issue state to use for closed GitHub issues.<br><b>NOTE: </b> You may customize OneDev issue states in case there is no appropriate option here", 
-			"Geben Sie den Problemstatus an, der für geschlossene GitHub-Probleme verwendet werden soll.<br><b>HINWEIS: </b> Sie können die OneDev-Problemstatus anpassen, falls hier keine geeignete Option vorhanden ist");
-		m.put("Specify which issue state to use for closed GitLab issues.<br><b>NOTE: </b> You may customize OneDev issue states in case there is no appropriate option here", 
-			"Geben Sie den Problemstatus an, der für geschlossene GitLab-Probleme verwendet werden soll.<br><b>HINWEIS: </b> Sie können die OneDev-Problemstatus anpassen, falls hier keine geeignete Option vorhanden ist");
-		m.put("Specify which issue state to use for closed Gitea issues.<br><b>NOTE: </b> You may customize OneDev issue states in case there is no appropriate option here", 
-			"Geben Sie den Problemstatus an, der für geschlossene Gitea-Probleme verwendet werden soll.<br><b>HINWEIS: </b> Sie können die OneDev-Problemstatus anpassen, falls hier keine geeignete Option vorhanden ist");
-		m.put("Specify which states are considered as closed for various issues created by Renovate to orchestrate dependency update. Additionally, when Renovate closes the issue, OneDev will transit the issue to first state specified here", 
-			"Geben Sie an, welche Status als geschlossen für verschiedene Probleme betrachtet werden, die von Renovate zur Orchestrierung von Abhängigkeitsaktualisierungen erstellt wurden. Zusätzlich wird OneDev das Problem in den ersten hier angegebenen Status versetzen, wenn Renovate das Problem schließt");
+		m.put("Specify whether to provision the workspace in a sandbox, Docker container, or directly on the host (barebone)", 
+			"Geben Sie an, ob der Workspace in einer Sandbox, einem Docker-Container oder direkt auf dem Host (Barebone) bereitgestellt werden soll.");
+		m.put("Specify which issue state to use for closed GitHub issues.<br><b>NOTE: </b> You may customize ${productName} issue states in case there is no appropriate option here", 
+			"Geben Sie den Status an, der für geschlossene GitHub-Issues verwendet werden soll.<br><b>HINWEIS: </b> Sie können die ${productName}-Issue-Status anpassen, falls hier keine passende Option verfügbar ist");
+		m.put("Specify which issue state to use for closed GitLab issues.<br><b>NOTE: </b> You may customize ${productName} issue states in case there is no appropriate option here", 
+			"Geben Sie den Status an, der für geschlossene GitLab-Issues verwendet werden soll.<br><b>HINWEIS: </b> Sie können die ${productName}-Issue-Status anpassen, falls hier keine passende Option verfügbar ist");
+		m.put("Specify which issue state to use for closed Gitea issues.<br><b>NOTE: </b> You may customize ${productName} issue states in case there is no appropriate option here", 
+			"Geben Sie den Status an, der für geschlossene Gitea-Issues verwendet werden soll.<br><b>HINWEIS: </b> Sie können die ${productName}-Issue-Status anpassen, falls hier keine passende Option verfügbar ist");
+		m.put("Specify which repository files ${productName} should index. During indexing, ${productName} analyzes these files for code search, line statistics, and code contribution statistics.\n<b>NOTE: </b> Changing this setting only affects new commits. To apply the change to history commits, please stop the server and delete folder\n<code>index</code> and <code>info/commit</code> under <a href='${docsite}/concepts#project-storage' target='_blank'>project's storage directory</a>.\nThe repository will be re-indexed when the server is started", 
+			"Geben Sie an, welche Repository-Dateien ${productName} indexieren soll. Während der Indexierung analysiert ${productName} diese Dateien für Codesuche, Zeilenstatistiken und Codebeitragsstatistiken.\n<b>HINWEIS: </b> Änderungen an dieser Einstellung wirken sich nur auf neue Commits aus. Um die Änderung auf historische Commits anzuwenden, stoppen Sie bitte den Server und löschen Sie den Ordner\n<code>index</code> und <code>info/commit</code> im <a href='${docsite}/concepts#project-storage' target='_blank'>Speicherverzeichnis des Projekts</a>.\nDas Repository wird neu indexiert, wenn der Server gestartet wird");
+		m.put("Specify which states are considered as closed for various issues created by Renovate to orchestrate dependency update. Additionally, when Renovate closes the issue, ${productName} will transit the issue to first state specified here", 
+			"Geben Sie an, welche Zustände als geschlossen für verschiedene von Renovate erstellte Issues betrachtet werden. Wenn Renovate das Issue schließt, wird ${productName} das Issue in den ersten hier angegebenen Zustand überführen");
 		m.put("Specify working days per week. This will affect parsing and displaying of working periods. For instance <tt>1w</tt> is the same as <tt>5d</tt> if this property is set to <tt>5</tt>", 
 			"Geben Sie die Arbeitstage pro Woche an. Dies wirkt sich auf das Parsen und Anzeigen von Arbeitsperioden aus. Zum Beispiel ist <tt>1w</tt> dasselbe wie <tt>5d</tt>, wenn diese Eigenschaft auf <tt>5</tt> gesetzt ist");
 		m.put("Specify working hours per day. This will affect parsing and displaying of working periods. For instance <tt>1d</tt> is the same as <tt>8h</tt> if this property is set to <tt>8</tt>", 
 			"Geben Sie die Arbeitsstunden pro Tag an. Dies wirkt sich auf das Parsen und Anzeigen von Arbeitsperioden aus. Zum Beispiel ist <tt>1d</tt> dasselbe wie <tt>8h</tt>, wenn diese Eigenschaft auf <tt>8</tt> gesetzt ist");
+		m.put("Specify your Jev API key for authentication", "Geben Sie Ihren Jev-API-Schlüssel zur Authentifizierung an");
 		m.put("Spent", "Verbraucht");
 		m.put("Spent Time", "Verbrauchte Zeit");
 		m.put("Spent Time Issue Field", "Feld für verbrauchte Zeit im Problem");
@@ -4244,8 +4489,9 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Step Templates", "Schrittvorlagen");
 		m.put("Step {0} of {1}: ", "Schritt {0} von {1}:");
 		m.put("Steps", "Schritte");
-		m.put("Steps will be executed serially on same node, sharing the same <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>", 
-			"Schritte werden seriell auf demselben Knoten ausgeführt und teilen sich denselben <a href='https://docs.onedev.io/concepts#job-workdir'>Job-Arbeitsbereich</a>");
+		m.put("Steps and logs are updating and scrolling automatically. Click to pause.", "Schritte und Protokolle werden automatisch aktualisiert und gescrollt. Klicken Sie, um zu pausieren.");
+		m.put("Steps will be executed serially on same node, sharing the same <a href='${docsite}/concepts#job-workdir'>job working directory</a>", 
+			"Schritte werden seriell auf demselben Knoten ausgeführt und teilen sich das gleiche <a href='${docsite}/concepts#job-workdir'>Arbeitsverzeichnis des Jobs</a>");
 		m.put("Stop", "Stopp");
 		m.put("Stop work", "Arbeit beenden");
 		m.put("Stopwatch Overdue", "Stoppuhr überfällig");
@@ -4284,6 +4530,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Suggested change", "Vorgeschlagene Änderung");
 		m.put("Suggesting description...", "Beschreibung wird vorgeschlagen...");
 		m.put("Suggesting title...", "Titel wird vorgeschlagen...");
+		m.put("Suggesting...", "Vorschläge werden gemacht...");
 		m.put("Suggestion is outdated either due to code change or pull request close", "Vorschlag ist veraltet, entweder aufgrund von Codeänderungen oder Schließung der Pull-Anfrage");
 		m.put("Suggestions", "Vorschläge");
 		m.put("Summarize comments with AI", "Kommentare mit KI zusammenfassen");
@@ -4305,6 +4552,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Sync successful", "Synchronisierung erfolgreich");
 		m.put("Synchronize", "Synchronisieren");
 		m.put("System", "System");
+		m.put("System Account", "Systemkonto");
 		m.put("System Alert", "Systemwarnung");
 		m.put("System Alert Template", "Systemwarnungsvorlage");
 		m.put("System Date", "Systemdatum");
@@ -4313,6 +4561,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("System Prompt", "Systemaufforderung");
 		m.put("System Setting", "Systemeinstellung");
 		m.put("System Settings", "Systemeinstellungen");
+		m.put("System email address defined in mail setting should be used as recipient of such email, and project name may be appended to this address using to indicate where to create issues. For instance, if system email address is specified as <tt>support@example.com</tt>, sending email to <tt>support+myproject@example.com</tt> will create issue in <tt>myproject</tt>. If project name is not appended, ${productName} will look up the project using project designation information below", 
+			"Die in der Mail-Einstellung definierte System-E-Mail-Adresse sollte als Empfänger solcher E-Mails verwendet werden, und der Projektname kann an diese Adresse angehängt werden, um anzugeben, wo Issues erstellt werden sollen. Wenn beispielsweise die System-E-Mail-Adresse als <tt>support@example.com</tt> angegeben ist, wird durch das Senden einer E-Mail an <tt>support+myproject@example.com</tt> ein Issue in <tt>myproject</tt> erstellt. Wenn kein Projektname angehängt ist, sucht ${productName} das Projekt anhand der unten stehenden Projektbezeichnungsinformationen");
 		m.put("System email address defined in mail setting should be used as recipient of such email, and project name may be appended to this address using to indicate where to create issues. For instance, if system email address is specified as <tt>support@example.com</tt>, sending email to <tt>support+myproject@example.com</tt> will create issue in <tt>myproject</tt>. If project name is not appended, OneDev will look up the project using project designation information below", 
 			"Die in den Mail-Einstellungen definierte System-E-Mail-Adresse sollte als Empfänger solcher E-Mails verwendet werden, und der Projektname kann an diese Adresse angehängt werden, um anzugeben, wo Issues erstellt werden sollen. Wenn beispielsweise die System-E-Mail-Adresse als <tt>support@example.com</tt> angegeben ist, wird durch das Senden einer E-Mail an <tt>support+myproject@example.com</tt> ein Issue in <tt>myproject</tt> erstellt. Wenn der Projektname nicht angehängt wird, sucht OneDev das Projekt anhand der unten angegebenen Projektbezeichnungsinformationen.");
 		m.put("System settings have been saved", "Systemeinstellungen wurden gespeichert");
@@ -4327,6 +4577,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Tag \"{0}\" deleted", "Tag \"{0}\" gelöscht");
 		m.put("Tag Message", "Tag-Nachricht");
 		m.put("Tag Name", "Tag-Name");
+		m.put("Tag Pattern", "Tag-Muster");
 		m.put("Tag Protection", "Tag-Schutz");
 		m.put("Tag creation", "Tag-Erstellung");
 		m.put("Tags", "Tags");
@@ -4353,6 +4604,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Test", "Test");
 		m.put("Test Case", "Testfall");
 		m.put("Test Cases", "Testfälle");
+		m.put("Test Container", "Container testen");
+		m.put("Test Sandbox Executor", "Sandbox-Executor testen");
 		m.put("Test Settings", "Testeinstellungen");
 		m.put("Test Suite", "Test-Suite");
 		m.put("Test Suites", "Test-Suites");
@@ -4375,10 +4628,12 @@ public class Translation_de extends TranslationResourceBundle {
 			"Die Berechtigung, einen Job manuell auszuführen. Dies impliziert auch die Berechtigung, auf das Build-Log, die Build-Pipeline und alle veröffentlichten Berichte zuzugreifen");
 		m.put("The primary email address is used to receive notifications and show your gravatar (if enabled). It is also used for web-based Git operations unless email addresses are kept private.", 
 			"Die primäre E-Mail-Adresse wird verwendet, um Benachrichtigungen zu erhalten und Ihren Gravatar anzuzeigen (falls aktiviert). Sie wird auch für webbasierte Git-Operationen verwendet, es sei denn, E-Mail-Adressen werden privat gehalten.");
-		m.put("The secret which allows you to ensure that POST requests sent to the payload URL are from OneDev. When you set a secret you'll receive the X-OneDev-Signature header in the webhook POST request", 
-			"Das Geheimnis, mit dem Sie sicherstellen können, dass die an die Payload-URL gesendeten POST-Anfragen von OneDev stammen. Wenn Sie ein Geheimnis festlegen, erhalten Sie den X-OneDev-Signature-Header in der Webhook-POST-Anfrage");
+		m.put("The service desk feature enables user to create issues by sending emails to ${productName}. Issues can be discussed over email completely, without the need of logging to ${productName}.", 
+			"Die Service-Desk-Funktion ermöglicht es Benutzern, Issues zu erstellen, indem sie E-Mails an ${productName} senden. Issues können vollständig per E-Mail diskutiert werden, ohne dass ein Login bei ${productName} erforderlich ist.");
 		m.put("The service desk feature enables user to create issues by sending emails to OneDev. Issues can be discussed over email completely, without the need of logging to OneDev.", 
 			"Die Service-Desk-Funktion ermöglicht es Benutzern, Issues zu erstellen, indem sie E-Mails an OneDev senden. Issues können vollständig per E-Mail diskutiert werden, ohne dass eine Anmeldung bei OneDev erforderlich ist.");
+		m.put("The shared secret used to verify webhook POST requests from ${productName}. X-OneDev-Signature contains the lowercase hexadecimal HMAC-SHA256 of the raw request body, using the UTF-8 encoded secret as the key. Verify it with a constant-time comparison before parsing the body. The secret itself is not sent. Use HTTPS to protect the webhook payload", 
+			"Das gemeinsame Geheimnis, das verwendet wird, um Webhook-POST-Anfragen von ${productName} zu verifizieren. X-OneDev-Signature enthält den hexadezimalen HMAC-SHA256 der rohen Anfragetextdaten in Kleinbuchstaben, wobei das UTF-8-codierte Geheimnis als Schlüssel verwendet wird. Überprüfen Sie es mit einem zeitkonstanten Vergleich, bevor Sie den Text analysieren. Das Geheimnis selbst wird nicht gesendet. Verwenden Sie HTTPS, um die Webhook-Nutzlast zu schützen");
 		m.put("Then add the package", "Fügen Sie dann das Paket hinzu");
 		m.put("Then enter the passcode shown in the TOTP authenticator to verify", "Geben Sie dann den im TOTP-Authenticator angezeigten Passcode ein, um zu verifizieren");
 		m.put("Then publish package from project directory like below", "Veröffentlichen Sie dann das Paket aus dem Projektverzeichnis wie unten gezeigt");
@@ -4397,6 +4652,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("There are unsaved changes, discard and continue?", "Es gibt ungespeicherte Änderungen, verwerfen und fortfahren?");
 		m.put("These authenticators normally run on your mobile phone, some examples are Google Authenticator, Microsoft Authenticator, Authy, 1Password etc.", 
 			"Diese Authenticatoren laufen normalerweise auf Ihrem Mobiltelefon, einige Beispiele sind Google Authenticator, Microsoft Authenticator, Authy, 1Password usw.");
+		m.put("These settings are only used when running Docker containers inside the sandbox VM.", 
+			"Diese Einstellungen werden nur verwendet, wenn Docker-Container innerhalb der Sandbox-VM ausgeführt werden.");
 		m.put("This <span wicket:id=\"elementTypeName\"></span> is imported from <a wicket:id=\"link\" class=\"alert-link\"><span wicket:id=\"label\"></span></a>", 
 			"Dieses <span wicket:id=\"elementTypeName\"></span> wird importiert von <a wicket:id=\"link\" class=\"alert-link\"><span wicket:id=\"label\"></span></a>");
 		m.put("This Month", "Diesen Monat");
@@ -4406,6 +4663,8 @@ public class Translation_de extends TranslationResourceBundle {
 			"Diese Adresse sollte ein <code>verifizierter Absender</code> in SendGrid sein und wird als Absenderadresse für verschiedene E-Mail-Benachrichtigungen verwendet. Man kann auch auf diese Adresse antworten, um Issue- oder Pull-Request-Kommentare zu posten, wenn die Option <code>Eingehende E-Mail empfangen</code> unten aktiviert ist.");
 		m.put("This address will be used as sender address of various email notifications. User can also reply to this address to post issue or pull request comments via email if <code>Check Incoming Email</code> option is enabled below", 
 			"Diese Adresse wird als Absenderadresse für verschiedene E-Mail-Benachrichtigungen verwendet. Benutzer können auch auf diese Adresse antworten, um Issue- oder Pull-Request-Kommentare per E-Mail zu posten, wenn die Option <code>Eingehende E-Mail überprüfen</code> unten aktiviert ist.");
+		m.put("This callback url will be required when registering ${productName} to OpenID provider", 
+			"Diese Callback-URL wird benötigt, wenn ${productName} beim OpenID-Anbieter registriert wird");
 		m.put("This change is already opened for merge by pull request {0}", "Diese Änderung ist bereits durch Pull-Request {0} zum Merge geöffnet");
 		m.put("This change is squashed/rebased onto base branch via a pull request", "Diese Änderung wird durch einen Pull-Request auf den Basis-Branch zusammengeführt/umgeschrieben");
 		m.put("This change is squashed/rebased onto base branch via pull request {0}", "Diese Änderung wird durch Pull-Request {0} auf den Basis-Branch zusammengeführt/umgeschrieben");
@@ -4415,17 +4674,21 @@ public class Translation_de extends TranslationResourceBundle {
 			"Dieses Datum verwendet das <a href=\"https://www.w3.org/TR/NOTE-datetime\">ISO 8601-Format</a>");
 		m.put("This email address is being used", "Diese E-Mail-Adresse wird bereits verwendet");
 		m.put("This email address is not verified", "Diese E-Mail-Adresse ist nicht verifiziert");
-		m.put("This executor runs build jobs as docker containers on OneDev server", "Dieser Executor führt Build-Jobs als Docker-Container auf dem OneDev-Server aus");
+		m.put("This executor runs build jobs as Docker containers on ${productName} server. <b class='text-warning'>WARNING:</b> For better security, use a Remote Docker Executor on a dedicated agent host, especially for untrusted jobs.", 
+			"Dieser Executor führt Build-Jobs als Docker-Container auf dem ${productName}-Server aus. <b class='text-warning'>WARNUNG:</b> Für bessere Sicherheit verwenden Sie einen Remote-Docker-Executor auf einem dedizierten Agent-Host, insbesondere für nicht vertrauenswürdige Jobs.");
 		m.put("This executor runs build jobs as docker containers on remote machines via <a href='/~administration/agents' target='_blank'>agents</a>", 
 			"Dieser Executor führt Build-Jobs als Docker-Container auf Remote-Maschinen über <a href='/~administration/agents' target='_blank'>Agents</a> aus");
 		m.put("This executor runs build jobs as pods in a kubernetes cluster. No any agents are required.<b class='text-danger'>Note:</b> Make sure server url is specified correctly in system settings as job pods need to access it to download source and artifacts", 
 			"Dieser Executor führt Build-Jobs als Pods in einem Kubernetes-Cluster aus. Es werden keine Agents benötigt.<b class='text-danger'>Hinweis:</b> Stellen Sie sicher, dass die Server-URL in den Systemeinstellungen korrekt angegeben ist, da Job-Pods darauf zugreifen müssen, um Quellcode und Artefakte herunterzuladen");
-		m.put("This executor runs build jobs with OneDev server's shell facility", "Dieser Executor führt Build-Jobs mit der Shell-Funktionalität des OneDev-Servers aus");
-		m.put("This executor runs build jobs with remote machines's shell facility via <a href='/~administration/agents' target='_blank'>agents</a>", 
-			"Dieser Executor führt Build-Jobs mit der Shell-Funktionalität von Remote-Maschinen über <a href='/~administration/agents' target='_blank'>Agenten</a> aus");
+		m.put("This executor runs build jobs directly on remote hosts via <a href='/~administration/agents' target='_blank'>agents</a>", 
+			"Dieser Executor führt Build-Jobs direkt auf Remote-Hosts über <a href='/~administration/agents' target='_blank'>Agents</a> aus.");
+		m.put("This executor runs build jobs directly on the ${productName} server host. <b class='text-warning'>WARNING:</b> For better security, use a Remote Host Executor on a dedicated agent host, especially for untrusted jobs.", 
+			"Dieser Executor führt Build-Jobs direkt auf dem ${productName}-Server-Host aus. <b class='text-warning'>WARNUNG:</b> Für bessere Sicherheit verwenden Sie einen Remote-Host-Executor auf einem dedizierten Agent-Host, insbesondere für nicht vertrauenswürdige Jobs.");
 		m.put("This field is required", "Dieses Feld ist erforderlich");
 		m.put("This filter is used to determine the LDAP entry for current user. For example: <i>(&(uid={0})(objectclass=person))</i>. In this example, <i>{0}</i> represents login name of current user.", 
 			"Dieser Filter wird verwendet, um den LDAP-Eintrag für den aktuellen Benutzer zu bestimmen. Zum Beispiel: <i>(&(uid={0})(objectclass=person))</i>. In diesem Beispiel repräsentiert <i>{0}</i> den Anmeldenamen des aktuellen Benutzers.");
+		m.put("This installation does not have an active subscription and runs as community edition. To access <a href=\"${website}/pricing\">enterprise features</a>, an active subscription is required", 
+			"Diese Installation hat kein aktives Abonnement und läuft als Community-Edition. Um auf <a href=\"${website}/pricing\">Enterprise-Funktionen</a> zuzugreifen, ist ein aktives Abonnement erforderlich");
 		m.put("This installation does not have an active subscription and runs as community edition. To access <a href=\"https://onedev.io/pricing\">enterprise features</a>, an active subscription is required", 
 			"Diese Installation hat kein aktives Abonnement und läuft als Community-Edition. Um auf <a href=\"https://onedev.io/pricing\">Enterprise-Funktionen</a> zuzugreifen, ist ein aktives Abonnement erforderlich");
 		m.put("This installation has a trial subscription and is now running as enterprise edition", 
@@ -4444,8 +4707,8 @@ public class Translation_de extends TranslationResourceBundle {
 			"Dies ist ein Layer-Cache. Um den Cache zu verwenden, fügen Sie die folgende Option zu Ihrem Docker-Buildx-Befehl hinzu");
 		m.put("This is a service account for task automation purpose", "Dies ist ein Servicekonto für Automatisierungsaufgaben");
 		m.put("This is an AI account", "Dies ist ein AI-Konto");
-		m.put("This is an enterprise feature. <a href='https://onedev.io/pricing' target='_blank'>Try free</a> for 30 days", 
-			"Dies ist eine Enterprise-Funktion. <a href='https://onedev.io/pricing' target='_blank'>30 Tage kostenlos testen</a>");
+		m.put("This is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days", 
+			"Dies ist eine Enterprise-Funktion. <a href='${website}/pricing' target='_blank'>30 Tage kostenlos testen</a>");
 		m.put("This key has already been used by another project", "Dieser Schlüssel wurde bereits von einem anderen Projekt verwendet");
 		m.put("This key is associated with {0}, however it is NOT a verified email address of this user", 
 			"Dieser Schlüssel ist mit {0} verknüpft, jedoch ist er KEINE verifizierte E-Mail-Adresse dieses Benutzers");
@@ -4474,6 +4737,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("This name has already been used by another state", "Dieser Name wurde bereits von einem anderen Zustand verwendet");
 		m.put("This name has already been used by another workspace provisioner", "Dieser Name wurde bereits von einem anderen Workspace-Provisioner verwendet");
 		m.put("This operation is disallowed by branch protection rule", "Diese Operation ist durch die Branch-Schutzregel nicht erlaubt");
+		m.put("This page lists changes since previous build on <a href=\"${docsite}/concepts#build-stream\" class=\"link-primary\" target=\"_blank\">same stream</a>", 
+			"Diese Seite listet Änderungen seit dem vorherigen Build im <a href=\"${docsite}/concepts#build-stream\" class=\"link-primary\" target=\"_blank\">gleichen Stream</a> auf");
 		m.put("This page lists changes since previous build on <a href=\"https://docs.onedev.io/concepts#build-stream\" class=\"link-primary\" target=\"_blank\">same stream</a>", 
 			"Diese Seite listet Änderungen seit dem vorherigen Build auf <a href=\"https://docs.onedev.io/concepts#build-stream\" class=\"link-primary\" target=\"_blank\">dem gleichen Stream</a> auf");
 		m.put("This page lists recent commits fixing the issue", "Diese Seite listet die letzten Commits auf, die das Problem beheben");
@@ -4481,16 +4746,19 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("This permission enables one to schedule issues into iterations", "Diese Berechtigung ermöglicht das Planen von Issues in Iterationen");
 		m.put("This property is imported from {0}", "Diese Eigenschaft wird aus {0} importiert");
 		m.put("This provisioner creates workspaces as pods inside Kubernetes cluster", "Dieser Provisioner erstellt Arbeitsbereiche als Pods im Kubernetes-Cluster");
-		m.put("This provisioner creates workspaces inside Docker containers on OneDev server", "Dieser Provisioner erstellt Arbeitsbereiche in Docker-Containern auf dem OneDev-Server");
+		m.put("This provisioner creates workspaces directly on remote agent hosts, and requires tmux to be installed on matched agents", 
+			"Dieser Provisioner erstellt Workspaces direkt auf Remote-Agent-Hosts und erfordert, dass tmux auf den passenden Agents installiert ist.");
+		m.put("This provisioner creates workspaces directly on the ${productName} server host, and requires\ntmux to be installed on ${productName} server.\n<b class='text-warning'>WARNING:</b> For better security, use a Remote Host Provisioner\non a dedicated agent host, especially for untrusted workspaces.", 
+			"Dieser Provisioner erstellt Workspaces direkt auf dem ${productName}-Server-Host und erfordert\ndass tmux auf dem ${productName}-Server installiert ist.\n<b class='text-warning'>WARNUNG:</b> Für bessere Sicherheit verwenden Sie einen Remote-Host-Provisioner\nauf einem dedizierten Agent-Host, insbesondere für nicht vertrauenswürdige Workspaces.");
+		m.put("This provisioner creates workspaces inside Docker containers on ${productName} server.\n<b class='text-warning'>WARNING:</b> For better security, use a Remote Docker Provisioner\non a dedicated agent host, especially for untrusted workspaces.", 
+			"Dieser Provisioner erstellt Workspaces innerhalb von Docker-Containern auf dem ${productName}-Server.\n<b class='text-warning'>WARNUNG:</b> Für bessere Sicherheit verwenden Sie einen Remote-Docker-Provisioner\nauf einem dedizierten Agent-Host, insbesondere für nicht vertrauenswürdige Workspaces.");
 		m.put("This provisioner creates workspaces inside Docker containers on remote machine via\n<a href='/~administration/agents' target='_blank'>agents</a>.", 
 			"Dieser Provisioner erstellt Arbeitsbereiche in Docker-Containern auf einer Remote-Maschine über\n<a href='/~administration/agents' target='_blank'>Agents</a>.");
-		m.put("This provisioner creates workspaces with OneDev server's shell facility, and requires\ntmux to be installed on OneDev server", 
-			"Dieser Bereitsteller erstellt Arbeitsbereiche mit der Shell-Funktionalität des OneDev-Servers und erfordert\ndass tmux auf dem OneDev-Server installiert ist");
-		m.put("This provisioner creates workspaces with remote agents' shell facility, and requires tmux to be installed on matched agents", 
-			"Dieser Provisioner erstellt Arbeitsbereiche mit der Shell-Funktionalität von Remote-Agents und erfordert, dass tmux auf den zugeordneten Agents installiert ist");
 		m.put("This pull request has been discarded", "Dieser Pull-Request wurde verworfen");
 		m.put("This report will be displayed in pull request overview page if build is triggered by pull request", 
 			"Dieser Bericht wird auf der Übersichtsseite des Pull-Requests angezeigt, wenn der Build durch den Pull-Request ausgelöst wird");
+		m.put("This server is currently accessed via http protocol, please configure your docker daemon or buildx builder to <a href=\"${docsite}/tutorials/cicd/insecure-docker-registry\" target=\"_blank\">work with insecure registry</a>", 
+			"Dieser Server wird derzeit über das HTTP-Protokoll aufgerufen. Bitte konfigurieren Sie Ihren Docker-Daemon oder Buildx-Builder, um mit einem <a href=\"${docsite}/tutorials/cicd/insecure-docker-registry\" target='_blank'>unsicheren Registry</a> zu arbeiten");
 		m.put("This server is currently accessed via http protocol, please configure your docker daemon or buildx builder to <a href=\"https://docs.onedev.io/tutorials/cicd/insecure-docker-registry\" target=\"_blank\">work with insecure registry</a>", 
 			"Dieser Server wird derzeit über das HTTP-Protokoll aufgerufen. Bitte konfigurieren Sie Ihren Docker-Daemon oder Buildx-Builder, um <a href=\"https://docs.onedev.io/tutorials/cicd/insecure-docker-registry\" target=\"_blank\">mit einem unsicheren Registry</a> zu arbeiten");
 		m.put("This setting is inherited from parent project when left empty. The first non-empty value found while walking up the project hierarchy will be used.", 
@@ -4501,12 +4769,12 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("This shows number of issues in various states over time", "Dies zeigt die Anzahl der Issues in verschiedenen Zuständen im Zeitverlauf");
 		m.put("This shows number of open and merged pull requests over time", "Dies zeigt die Anzahl der offenen und zusammengeführten Pull-Requests im Zeitverlauf");
 		m.put("This step can only be executed by a docker aware executor", "Dieser Schritt kann nur von einem Docker-fähigen Executor ausgeführt werden");
-		m.put("This step can only be executed by a docker aware executor. It runs under <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>", 
-			"Dieser Schritt kann nur von einem Docker-fähigen Executor ausgeführt werden. Er läuft unter <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job-Arbeitsbereich</a>");
+		m.put("This step can only be executed by a docker aware executor. It runs under <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a>", 
+			"Dieser Schritt kann nur von einem Docker-fähigen Executor ausgeführt werden. Er läuft unter dem <a href='${docsite}/concepts#job-workdir' target='_blank'>Arbeitsverzeichnis des Jobs</a>");
 		m.put("This step copies files from job working directory to build artifacts directory, so that they can be accessed after job is completed", 
 			"Dieser Schritt kopiert Dateien vom Job-Arbeitsbereich in das Verzeichnis der Build-Artefakte, damit sie nach Abschluss des Jobs zugänglich sind");
-		m.put("This step publishes specified files to be served as project web site. Project web site can be accessed publicly via <code>http://&lt;onedev base url&gt;/path/to/project/~site</code>", 
-			"Dieser Schritt veröffentlicht die angegebenen Dateien, um als Projekt-Webseite bereitgestellt zu werden. Die Projekt-Webseite kann öffentlich über <code>http://&lt;onedev base url&gt;/path/to/project/~site</code> aufgerufen werden");
+		m.put("This step publishes specified files to be served as project web site. Sites are published at <code>/path/to/project/~sites/&lt;site name&gt;/</code>. Leave the site name empty to publish a public site at <code>/path/to/project/~sites/public/</code>", 
+			"Dieser Schritt veröffentlicht angegebene Dateien, die als Projekt-Website bereitgestellt werden sollen. Websites werden unter <code>/path/to/project/~sites/&lt;site name&gt;/</code> veröffentlicht. Lassen Sie den Site-Namen leer, um eine öffentliche Website unter <code>/path/to/project/~sites/public/</code> zu veröffentlichen");
 		m.put("This step pulls specified refs from remote", "Dieser Schritt zieht die angegebenen Refs vom Remote");
 		m.put("This step pushes current commit to same ref on remote", "Dieser Schritt pusht den aktuellen Commit auf denselben Ref im Remote");
 		m.put("This step sets up Renovate cache. Place it before Renovate step if you want to use it", 
@@ -4515,11 +4783,13 @@ public class Translation_de extends TranslationResourceBundle {
 			"Dieser Schritt richtet den Trivy-DB-Cache ein, um verschiedene Scanner-Schritte zu beschleunigen. Platzieren Sie ihn vor den Scanner-Schritten, wenn Sie ihn verwenden möchten");
 		m.put("This subscription key was already used", "Dieser Abonnement-Schlüssel wurde bereits verwendet");
 		m.put("This subscription key was expired", "Dieser Abonnement-Schlüssel ist abgelaufen");
+		m.put("This tab shows the pipeline containing current build. Check <a href=\"${docsite}/tutorials/cicd/understanding-pipeline\" target=\"_blank\">this article</a> to understand how build pipeline works", 
+			"Dieser Tab zeigt die Pipeline, die den aktuellen Build enthält. Lesen Sie <a href=\"${docsite}/tutorials/cicd/understanding-pipeline\" target='_blank'>diesen Artikel</a>, um zu verstehen, wie die Build-Pipeline funktioniert");
 		m.put("This tab shows the pipeline containing current build. Check <a href=\"https://robinshen.medium.com/understanding-onedev-pipeline-db0bb0e54aa7\" target=\"_blank\">this article</a> to understand how build pipeline works", 
 			"Dieser Tab zeigt die Pipeline, die den aktuellen Build enthält. Lesen Sie <a href=\"https://robinshen.medium.com/understanding-onedev-pipeline-db0bb0e54aa7\" target=\"_blank\">diesen Artikel</a>, um zu verstehen, wie die Build-Pipeline funktioniert");
 		m.put("This terminal is read only", "Dieses Terminal ist schreibgeschützt");
-		m.put("This trigger will only be applicable if tagged commit is reachable from branches specified here. Multiple branches should be separated with spaces. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to match all branches", 
-			"Dieser Trigger ist nur anwendbar, wenn der getaggte Commit von hier angegebenen Branches erreichbar ist. Mehrere Branches sollten durch Leerzeichen getrennt werden. Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>. Mit '-' ausschließen. Leer lassen, um alle Branches zu matchen");
+		m.put("This trigger will only be applicable if tagged commit is reachable from branches specified here. Multiple branches should be separated with spaces. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude. Leave empty to match all branches", 
+			"Dieser Trigger ist nur anwendbar, wenn der getaggte Commit von hier angegebenen Branches erreichbar ist. Mehrere Branches sollten durch Leerzeichen getrennt werden. Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>. Mit '-' vorangestellt, um auszuschließen. Lassen Sie das Feld leer, um alle Branches zu matchen");
 		m.put("This user is authenticating via external system.", "Dieser Benutzer authentifiziert sich über ein externes System.");
 		m.put("This user is authenticating via internal database.", "Dieser Benutzer authentifiziert sich über die interne Datenbank.");
 		m.put("This user is currently authenticating via external system. Setting password will switch to use internal database", 
@@ -4555,8 +4825,6 @@ public class Translation_de extends TranslationResourceBundle {
 			"Um Duplikate zu vermeiden, wird die hier angezeigte geschätzte/verbleibende Zeit nicht mit der aus \"{0}\" aggregierten Zeit kombiniert");
 		m.put("To avoid duplication, spent time showing here does not include those aggregated from \"{0}\"", 
 			"Um Duplikate zu vermeiden, wird die hier angezeigte verbrachte Zeit nicht mit der aus \"{0}\" aggregierten Zeit kombiniert");
-		m.put("To scroll in this terminal, press ctrl+b then [, and use arrow keys or page up/down. Press q to exit.", 
-			"Um in diesem Terminal zu scrollen, drücken Sie Strg+b, dann [, und verwenden Sie die Pfeiltasten oder Seite hoch/runter. Drücken Sie q, um zu beenden.");
 		m.put("To scroll in this terminal, press ctrl+b then [. Use the mouse wheel, page up/down, or arrow keys, and press q to exit.", 
 			"Um in diesem Terminal zu scrollen, drücken Sie Strg+b und dann [. Verwenden Sie das Mausrad, Bild auf/ab oder die Pfeiltasten, und drücken Sie q, um zu beenden.");
 		m.put("To scroll in this terminal, tap tmux [, use page up/down, or arrow keys, and tap tmux [ again to exit.", 
@@ -4567,7 +4835,6 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Toggle change history", "Änderungsverlauf umschalten");
 		m.put("Toggle comments", "Kommentare umschalten");
 		m.put("Toggle commits", "Commits umschalten");
-		m.put("Toggle dark mode", "Dunkelmodus umschalten");
 		m.put("Toggle detail message", "Detailnachricht umschalten");
 		m.put("Toggle fixed width font", "Festbreitenschrift umschalten");
 		m.put("Toggle full screen", "Vollbild umschalten");
@@ -4615,8 +4882,8 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Two-factor Authentication", "Zwei-Faktor-Authentifizierung");
 		m.put("Two-factor authentication already set up. <a wicket:id=\"requestToSetupAgain\"><wicket:t>Request to set up again", 
 			"Zwei-Faktor-Authentifizierung bereits eingerichtet. <a wicket:id=\"requestToSetupAgain\"><wicket:t>Anfrage zur erneuten Einrichtung");
-		m.put("Two-factor authentication is enabled. Please input passcode displayed on your TOTP authenticator. If you encounter problems, make sure time of OneDev server and your device running TOTP authenticator is in sync", 
-			"Zwei-Faktor-Authentifizierung ist aktiviert. Bitte geben Sie den Passcode ein, der auf Ihrem TOTP-Authenticator angezeigt wird. Wenn Sie Probleme haben, stellen Sie sicher, dass die Zeit des OneDev-Servers und Ihres Geräts mit dem TOTP-Authenticator synchronisiert ist.");
+		m.put("Two-factor authentication is enabled. Please input passcode displayed on your TOTP authenticator. If you encounter problems, make sure time of ${productName} server and your device running TOTP authenticator is in sync", 
+			"Zwei-Faktor-Authentifizierung ist aktiviert. Bitte geben Sie den Passcode ein, der auf Ihrem TOTP-Authenticator angezeigt wird. Wenn Sie Probleme haben, stellen Sie sicher, dass die Zeit des ${productName}-Servers und Ihres Geräts mit dem TOTP-Authenticator synchronisiert ist");
 		m.put("Two-factor authentication is enforced for your account to enhance security. Please follow below procedure to set it up", 
 			"Zwei-Faktor-Authentifizierung wird für Ihr Konto erzwungen, um die Sicherheit zu erhöhen. Bitte folgen Sie dem untenstehenden Verfahren, um sie einzurichten.");
 		m.put("Two-factor authentication is now configured", "Zwei-Faktor-Authentifizierung ist jetzt konfiguriert.");
@@ -4709,6 +4976,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Unified", "Vereinheitlicht");
 		m.put("Unified view", "Vereinheitlichte Ansicht");
 		m.put("Unit Test Statistics", "Unit-Test-Statistiken");
+		m.put("Unknown", "Unbekannt");
 		m.put("Unlimited", "Unbegrenzt");
 		m.put("Unlink this issue", "Dieses Problem entfernen");
 		m.put("Unordered List", "Ungeordnete Liste");
@@ -4730,7 +4998,6 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Unsupported ssh signature algorithm: ", "Nicht unterstützter SSH-Signatur-Algorithmus:");
 		m.put("Unsupported ssh signature version: ", "Nicht unterstützte SSH-Signatur-Version:");
 		m.put("Unverified", "Unverifiziert");
-		m.put("Unverified email address is <b>NOT</b> applicable for above functionalities", "Unverifizierte E-Mail-Adresse ist für die oben genannten Funktionen <b>NICHT</b> anwendbar");
 		m.put("Unviewed code comment activity", "Ungesehene Code-Kommentar-Aktivität");
 		m.put("Unvote", "Abstimmung zurückziehen");
 		m.put("Unwatched. Click to watch", "Nicht beobachtet. Klicken, um zu beobachten");
@@ -4759,12 +5026,12 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Use '*' for wildcard match", "Verwenden Sie '*' für Wildcard-Matching");
 		m.put("Use '*' or '?' for wildcard match", "Verwenden Sie '*' oder '?' für Platzhalterabgleich");
 		m.put("Use '*' or '?' for wildcard match. Prefix with '-' to exclude", "Verwenden Sie '*' oder '?' für Wildcard-Matching. Mit '-' voranstellen, um auszuschließen");
-		m.put("Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>", 
-			"Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>");
-		m.put("Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude", 
-			"Verwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>. Mit '-' voranstellen, um auszuschließen");
-		m.put("Use '**', '*', or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>", 
-			"Verwenden Sie '**', '*', oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>");
+		m.put("Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>", 
+			"Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>");
+		m.put("Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude", 
+			"Verwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>. Mit '-' vorangestellt, um auszuschließen");
+		m.put("Use '**', '*', or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>", 
+			"Verwenden Sie '**', '*', oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>");
 		m.put("Use '\\' to escape brackets", "Verwenden Sie '\\' zum Escapen von Klammern");
 		m.put("Use '\\' to escape quotes", "Verwenden Sie '\\' zum Escapen von Anführungszeichen");
 		m.put("Use @@ to reference scope in job commands to avoid being interpreted as variable", "Verwenden Sie @@, um den Scope in Job-Befehlen zu referenzieren, um zu vermeiden, dass er als Variable interpretiert wird");
@@ -4778,17 +5045,18 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Use Step Template", "Schrittvorlage verwenden");
 		m.put("Use curl in System Path", "curl im Systempfad verwenden");
 		m.put("Use default", "Standard verwenden");
+		m.put("Use default setting", "Standardeinstellung verwenden");
 		m.put("Use default sidebar?", "Standard-Seitenleiste verwenden?");
 		m.put("Use default storage class", "Standard-Speicherklasse verwenden");
 		m.put("Use folder 'wiki'", "Ordner 'wiki' verwenden");
 		m.put("Use generated branch name", "Generierten Branch-Namen verwenden");
 		m.put("Use generated title and description", "Generierten Titel und Beschreibung verwenden");
-		m.put("Use job token as user name so that OneDev can know which build is ${permission.equals(\"write\")? \"deploying\": \"using\"} packages", 
-			"Verwenden Sie das Job-Token als Benutzernamen, damit OneDev weiß, welcher Build ${permission.equals(\"write\")? \"bereitstellt\": \"verwendet\"} Pakete");
-		m.put("Use job token to tell OneDev the build publishing the package", "Verwenden Sie das Job-Token, um OneDev den Build mitzuteilen, der das Paket veröffentlicht");
-		m.put("Use job token to tell OneDev the build pushing the chart", "Verwenden Sie das Job-Token, um OneDev den Build mitzuteilen, der das Chart pusht");
-		m.put("Use job token to tell OneDev the build pushing the package", "Verwenden Sie das Job-Token, um OneDev den Build mitzuteilen, der das Paket pusht");
-		m.put("Use job token to tell OneDev the build using the package", "Verwenden Sie das Job-Token, um OneDev den Build mitzuteilen, der das Paket verwendet");
+		m.put("Use job token as user name so that ${productName} can know which build is ${permission.equals(\"write\")? \"deploying\": \"using\"} packages", 
+			"Verwenden Sie das Job-Token als Benutzernamen, damit ${productName} weiß, welcher Build ${permission.equals(\"write\")? \"bereitstellt\": \"verwendet\"} Pakete");
+		m.put("Use job token to tell ${productName} the build publishing the package", "Verwenden Sie das Job-Token, um ${productName} den Build mitzuteilen, der das Paket veröffentlicht");
+		m.put("Use job token to tell ${productName} the build pushing the chart", "Verwenden Sie das Job-Token, um ${productName} den Build mitzuteilen, der das Chart pusht");
+		m.put("Use job token to tell ${productName} the build pushing the package", "Verwenden Sie das Job-Token, um ${productName} den Build mitzuteilen, der das Paket pusht");
+		m.put("Use job token to tell ${productName} the build using the package", "Verwenden Sie das Job-Token, um ${productName} den Build mitzuteilen, der das Paket verwendet");
 		m.put("Use project dependency to retrieve artifacts from other projects", "Projektabhängigkeit verwenden, um Artefakte aus anderen Projekten abzurufen");
 		m.put("Use specified branch name", "Angegebenen Branch-Namen verwenden");
 		m.put("Use specified choices", "Festgelegte Auswahlmöglichkeiten verwenden");
@@ -4888,11 +5156,11 @@ public class Translation_de extends TranslationResourceBundle {
 			"Wenn ein Projekt autorisiert wird, werden alle untergeordneten Projekte ebenfalls mit zugewiesenen Rollen autorisiert");
 		m.put("When authorize a user, the user will also be authorized with the role for all child projects", 
 			"Wenn ein Benutzer autorisiert wird, wird der Benutzer auch mit der Rolle für alle untergeordneten Projekte autorisiert");
-		m.put("When determine if the user is author/committer of a git commit, all emails listed here will be checked", 
-			"Wenn überprüft wird, ob der Benutzer Autor/Committer eines Git-Commits ist, werden alle hier aufgeführten E-Mails überprüft");
 		m.put("When evaluating this template, below variables will be available:", "Beim Auswerten dieser Vorlage stehen folgende Variablen zur Verfügung:");
 		m.put("When forking from the UI, the default target project will be created as\n&lt;default fork root&gt;/&lt;account name&gt;/&lt;project name&gt; if specified\n(users forking need permission to create child projects under the fork\nroot), or &lt;account name&gt;/&lt;project name&gt; otherwise (need permission\nto create root projects)", 
 			"Beim Forken über die Benutzeroberfläche wird das Standardzielprojekt erstellt als\n&lt;Standard-Fork-Root&gt;/&lt;Account-Name&gt;/&lt;Projekt-Name&gt;, falls angegeben\n(Benutzer, die forken, benötigen die Berechtigung, unter dem Fork\nRoot untergeordnete Projekte zu erstellen), oder &lt;Account-Name&gt;/&lt;Projekt-Name&gt; andernfalls (Berechtigung\nzum Erstellen von Root-Projekten erforderlich)");
+		m.put("When login via ${productName}'s built-in form, submitted user credentials can be checked against authenticator defined here, besides the internal database", 
+			"Beim Login über das integrierte Formular von ${productName} können die übermittelten Benutzeranmeldedaten zusätzlich zur internen Datenbank gegen hier definierte Authentifikatoren geprüft werden");
 		m.put("When login via OneDev's built-in form, submitted user credentials can be checked against authenticator defined here, besides the internal database", 
 			"Beim Login über das integrierte Formular von OneDev können die eingegebenen Benutzeranmeldedaten zusätzlich zur internen Datenbank gegen den hier definierten Authenticator überprüft werden");
 		m.put("When target branch of a pull request has new commits, merge commit of the pull request will be recalculated, and this option tells whether or not to accept pull request builds ran on previous merged commit. If enabled, you will need to re-run required builds on the new merge commit. This setting takes effect only when required builds are specified", 
@@ -4926,10 +5194,15 @@ public class Translation_de extends TranslationResourceBundle {
 			"Ob das Image immer gezogen werden soll, wenn ein Container ausgeführt oder Images erstellt werden. Diese Option sollte aktiviert werden, um zu vermeiden, dass Images durch bösartige Jobs auf demselben Node ersetzt werden");
 		m.put("Whether or not to always pull image when running container. This option should be enabled to avoid images being replaced by malicious operations", 
 			"Ob das Bild beim Ausführen des Containers immer gezogen werden soll oder nicht. Diese Option sollte aktiviert werden, um zu vermeiden, dass Bilder durch bösartige Operationen ersetzt werden");
+		m.put("Whether or not to always pull images when running containers or building images inside the sandbox. If disabled, cached images are used when available.", 
+			"Ob Bilder immer gezogen werden sollen, wenn Container ausgeführt oder Bilder innerhalb der Sandbox erstellt werden. Wenn deaktiviert, werden zwischengespeicherte Bilder verwendet, wenn verfügbar.");
 		m.put("Whether or not to always pull the image when running the container. Enabling avoids images being replaced by malicious workloads running on the same node.", 
 			"Ob das Image beim Ausführen des Containers immer gezogen werden soll. Aktivieren verhindert, dass Images durch bösartige Workloads ersetzt werden, die auf demselben Node laufen.");
+		m.put("Whether or not to always pull the template image when creating a sandbox. If disabled, a cached image is used when available.", 
+			"Ob das Vorlagen-Image immer gezogen werden soll, wenn eine Sandbox erstellt wird. Wenn deaktiviert, wird ein zwischengespeichertes Image verwendet, wenn verfügbar.");
 		m.put("Whether or not to be able to access time tracking info of issues", "Ob auf Zeitverfolgungsinformationen von Problemen zugegriffen werden kann oder nicht");
-		m.put("Whether or not to create the workspace inside container", "Ob der Arbeitsbereich im Container erstellt werden soll oder nicht");
+		m.put("Whether or not to create a dependency dashboard issue. If disabled, Renovate will not create or update issues, and existing issues can be closed manually. Options such as rate limits can still be controlled via Renovate configuration", 
+			"Ob ein Abhängigkeits-Dashboard-Issue erstellt werden soll oder nicht. Wenn deaktiviert, wird Renovate keine Issues erstellen oder aktualisieren, und bestehende Issues können manuell geschlossen werden. Optionen wie Rate-Limits können weiterhin über die Renovate-Konfiguration gesteuert werden");
 		m.put("Whether or not to delete workspace if task command completes successfully. Uncheck this if\nyou want to check how the prompt is processed by coding agent after task command completes\nsuccessfully. Note that workspace will not be deleted automatically if task command fails.", 
 			"Ob der Workspace gelöscht werden soll, wenn der Aufgabenbefehl erfolgreich abgeschlossen wird. Deaktivieren Sie dies, wenn\nSie überprüfen möchten, wie der Prompt vom Coding-Agent verarbeitet wird, nachdem der Aufgabenbefehl erfolgreich abgeschlossen wurde.\nBeachten Sie, dass der Workspace nicht automatisch gelöscht wird, wenn der Aufgabenbefehl fehlschlägt.");
 		m.put("Whether or not to disable the internal password login form and use SSO login only.\n<b class=\"text-info\">TIPS:</b> If you are locked out, internal login can be re-enabled from command\nline by running <code>bin/enable-internal-login</code>", 
@@ -4940,8 +5213,8 @@ public class Translation_de extends TranslationResourceBundle {
 			"Ob die Wiki-Verwaltung für das Projekt aktiviert werden soll oder nicht. Wiki-Seiten\nsind für alle Benutzer mit Zugriff auf das Projekt zugänglich.");
 		m.put("Whether or not to fetch LFS objects if pull request is opened from a different project.", 
 			"Ob LFS-Objekte abgerufen werden sollen, wenn der Pull-Request von einem anderen Projekt geöffnet wird");
-		m.put("Whether or not to fetch LFS objects if pull request is opened from a different project. If this option is enabled, git lfs command needs to be installed on OneDev server", 
-			"Ob LFS-Objekte abgerufen werden sollen, wenn der Pull-Request von einem anderen Projekt geöffnet wird. Wenn diese Option aktiviert ist, muss der Git-LFS-Befehl auf dem OneDev-Server installiert sein");
+		m.put("Whether or not to fetch LFS objects if pull request is opened from a different project. If this option is enabled, git lfs command needs to be installed on ${productName} server", 
+			"Ob LFS-Objekte abgerufen werden sollen, wenn ein Pull-Request aus einem anderen Projekt geöffnet wird. Wenn diese Option aktiviert ist, muss der git-lfs-Befehl auf dem ${productName}-Server installiert sein");
 		m.put("Whether or not to import forked Bitbucket repositories", "Ob geforkte Bitbucket-Repositories importiert werden sollen oder nicht");
 		m.put("Whether or not to import forked GitHub repositories", "Ob geforkte GitHub-Repositories importiert werden sollen oder nicht");
 		m.put("Whether or not to import forked GitLab projects", "Ob geforkte GitLab-Projekte importiert werden sollen oder nicht");
@@ -4950,19 +5223,19 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Whether or not to include this field when issue is initially opened. If not, you may include this field later when issue is transited to other states via issue transition rule", 
 			"Ob dieses Feld einbezogen werden soll, wenn das Problem ursprünglich geöffnet wird oder nicht. Wenn nicht, können Sie dieses Feld später einbeziehen, wenn das Problem durch eine Problemübergangsregel in andere Zustände überführt wird");
 		m.put("Whether or not to input and display estimated/spent time in hours/minutes only", "Ob geschätzte/aufgewendete Zeit nur in Stunden/Minuten eingegeben und angezeigt werden soll oder nicht");
-		m.put("Whether or not to mount docker sock into job container to support docker operations in job commands<br><b class='text-danger'>WARNING</b>: Malicious jobs can take control of whole OneDev by operating the mounted docker sock. Make sure this executor can only be used by trusted jobs if this option is enabled", 
-			"Ob der Docker-Sock in den Job-Container eingebunden werden soll, um Docker-Operationen in Job-Befehlen zu unterstützen<br><b class='text-danger'>WARNUNG</b>: Bösartige Jobs können die Kontrolle über das gesamte OneDev übernehmen, indem sie den eingebundenen Docker-Sock verwenden. Stellen Sie sicher, dass dieser Executor nur von vertrauenswürdigen Jobs verwendet werden kann, wenn diese Option aktiviert ist");
-		m.put("Whether or not to mount docker sock into workspace container to support docker operations in workspace<br><b class='text-danger'>WARNING</b>: Malicious workspaces can take control of whole OneDev by operating the mounted docker sock. Make sure this provisioner can only be used by trusted workspaces if this option is enabled", 
-			"Ob der Docker-Sock in den Workspace-Container eingebunden werden soll, um Docker-Operationen im Workspace zu unterstützen<br><b class='text-danger'>WARNUNG</b>: Bösartige Arbeitsbereiche können die Kontrolle über das gesamte OneDev übernehmen, indem sie den eingebundenen Docker-Sock betreiben. Stellen Sie sicher, dass dieser Provisioner nur von vertrauenswürdigen Arbeitsbereichen verwendet werden kann, wenn diese Option aktiviert ist");
+		m.put("Whether or not to mount docker sock into job container to\nsupport docker operations in job commands. To avoid malicious jobs taking control of whole ${productName}\nby operating the mounted docker sock, make sure executor with this option enabled can only be used\nby trusted jobs", 
+			"Ob der Docker-Sock in den Job-Container gemountet werden soll, um\nDocker-Operationen in Job-Befehlen zu unterstützen. Um zu verhindern, dass bösartige Jobs die Kontrolle über das gesamte ${productName}\ndurch den Betrieb des gemounteten Docker-Socks übernehmen, stellen Sie sicher, dass der Executor mit dieser Option nur von vertrauenswürdigen Jobs verwendet werden kann");
+		m.put("Whether or not to mount docker sock into workspace container to support docker operations in workspace<br><b class='text-danger'>WARNING</b>: Malicious workspaces can take control of whole ${productName} by operating the mounted docker sock. Make sure this provisioner can only be used by trusted workspaces if this option is enabled", 
+			"Ob der Docker-Sock in den Arbeitsbereichs-Container gemountet werden soll, um Docker-Operationen im Arbeitsbereich zu unterstützen<br><b class='text-danger'>WARNUNG</b>: Bösartige Arbeitsbereiche können die Kontrolle über das gesamte ${productName} übernehmen, indem sie den gemounteten Docker-Sock betreiben. Stellen Sie sicher, dass dieser Provisioner nur von vertrauenswürdigen Arbeitsbereichen verwendet werden kann, wenn diese Option aktiviert ist");
 		m.put("Whether or not to pre-populate tag mappings in next page. You may want to disable this if there are too many tags to display", 
 			"Ob Tag-Zuordnungen auf der nächsten Seite vorab ausgefüllt werden sollen oder nicht. Sie möchten dies möglicherweise deaktivieren, wenn zu viele Tags angezeigt werden sollen");
 		m.put("Whether or not to require this dependency to be successful", "Ob diese Abhängigkeit erfolgreich sein muss oder nicht");
 		m.put("Whether or not to retrieve groups of login user. Make sure to add groups claim via token configuration of the app registered in Entra ID if this option is enabled. The groups claim should return group id (the default option) via various token types in this case", 
 			"Ob Gruppen des Login-Benutzers abgerufen werden sollen oder nicht. Stellen Sie sicher, dass Sie Gruppenansprüche über die Token-Konfiguration der in Entra ID registrierten App hinzufügen, wenn diese Option aktiviert ist. Der Gruppenanspruch sollte in diesem Fall Gruppen-ID (die Standardoption) über verschiedene Token-Typen zurückgeben");
-		m.put("Whether or not to retrieve submodules. Refer to\n<a href='https://docs.onedev.io/tutorials/cicd/clone-submodules' target='_blank'>this tutorial</a> on\nhow to configure submodule authentication\n", 
-			"Ob Submodule abgerufen werden sollen oder nicht. Siehe\n<a href='https://docs.onedev.io/tutorials/cicd/clone-submodules' target='_blank'>dieses Tutorial</a> für\nInformationen zur Konfiguration der Submodul-Authentifizierung\n");
-		m.put("Whether or not to retrieve submodules. Refer to <a href='https://docs.onedev.io/tutorials/cicd/clone-submodules' target='_blank'>this tutorial</a> on how to set up clone credential above to retrieve submodules", 
-			"Ob Untermodule abgerufen werden sollen oder nicht. Siehe <a href='https://docs.onedev.io/tutorials/cicd/clone-submodules' target='_blank'>dieses Tutorial</a>, wie Sie oben Anmeldeinformationen für das Klonen einrichten, um Untermodule abzurufen");
+		m.put("Whether or not to retrieve submodules. Refer to\n<a href='${docsite}/tutorials/cicd/clone-submodules' target='_blank'>this tutorial</a> on\nhow to configure submodule authentication\n", 
+			"Ob Submodule abgerufen werden sollen. Siehe\n<a href='${docsite}/tutorials/cicd/clone-submodules' target='_blank'>dieses Tutorial</a> über\ndie Konfiguration der Submodul-Authentifizierung\n");
+		m.put("Whether or not to retrieve submodules. Refer to <a href='${docsite}/tutorials/cicd/clone-submodules' target='_blank'>this tutorial</a> on how to set up clone credential above to retrieve submodules", 
+			"Ob Submodule abgerufen werden sollen. Siehe <a href='${docsite}/tutorials/cicd/clone-submodules' target='_blank'>dieses Tutorial</a>, um oben die Klon-Anmeldeinformationen für das Abrufen von Submodulen einzurichten");
 		m.put("Whether or not to run this step inside container", "Ob dieser Schritt innerhalb eines Containers ausgeführt werden soll oder nicht");
 		m.put("Whether or not to scan recursively in above paths. Applicable only for directories", 
 			"Ob in den obigen Pfaden rekursiv gescannt werden soll oder nicht. Nur für Verzeichnisse anwendbar");
@@ -4978,6 +5251,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Whether the password must contain at least one number", "Ob das Passwort mindestens eine Zahl enthalten muss");
 		m.put("Whether the password must contain at least one special character", "Ob das Passwort mindestens ein Sonderzeichen enthalten muss");
 		m.put("Whether the password must contain at least one uppercase letter", "Ob das Passwort mindestens einen Großbuchstaben enthalten muss");
+		m.put("Whether to always pull the template image when creating a sandbox", "Ob das Vorlagen-Image immer gezogen werden soll, wenn eine Sandbox erstellt wird.");
 		m.put("Whole Word", "Ganzes Wort");
 		m.put("Widget", "Widget");
 		m.put("Widget Tab", "Widget-Tab");
@@ -4998,6 +5272,9 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("With current number of users ({0}), the subscription will be active until <b>{1}</b>", 
 			"Mit der aktuellen Anzahl von Benutzern ({0}) bleibt das Abonnement bis <b>{1}</b> aktiv");
 		m.put("Work In Progress", "In Arbeit");
+		m.put("Work in Maintenance Mode", "Arbeiten im Wartungsmodus");
+		m.put("Work in Progress", "In Bearbeitung");
+		m.put("Work in progress", "In Bearbeitung");
 		m.put("Workflow reconciliation completed", "Workflow-Abgleich abgeschlossen");
 		m.put("Working Directory", "Arbeitsverzeichnis");
 		m.put("Workspace", "Arbeitsbereich");
@@ -5027,11 +5304,9 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("Workspaces", "Arbeitsbereiche");
 		m.put("Workspaces at this commit", "Workspaces bei diesem Commit");
 		m.put("Workspaces at this tag", "Workspaces bei diesem Tag");
-		m.put("Workspaces created by this provisioner have same privilege as OneDev process.\nUse '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>.\nMultiple projects should be separated by space.<br>\n<b class='text-danger'>WARNING</b>: Workspaces created by this provisioner have same privilege as OneDev process.\nPlease make sure that only trusted projects can use this provisioner", 
-			"Workspaces, die von diesem Provisioner erstellt werden, haben dieselben Berechtigungen wie der OneDev-Prozess.\nVerwenden Sie '**', '*' oder '?' für <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>.\nMehrere Projekte sollten durch Leerzeichen getrennt werden.<br>\n<b class='text-danger'>WARNUNG</b>: Workspaces, die von diesem Provisioner erstellt werden, haben dieselben Berechtigungen wie der OneDev-Prozess.\nBitte stellen Sie sicher, dass nur vertrauenswürdige Projekte diesen Provisioner verwenden können.");
-		m.put("Workspaces on source branch", "Workspaces auf Quell-Branch");
+		m.put("Workspaces created by this provisioner have same privilege as ${productName} process.\nUse '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>.\nMultiple projects should be separated by space.<br>\n<b class='text-danger'>WARNING</b>: Workspaces created by this provisioner have same privilege as ${productName} process.\nPlease make sure that only trusted projects can use this provisioner", 
+			"Arbeitsbereiche, die von diesem Provisioner erstellt werden, haben dieselben Berechtigungen wie der ${productName}-Prozess.\nVerwenden Sie '**', '*' oder '?' für <a href='${docsite}/appendix/path-wildcard' target='_blank'>Pfad-Wildcard-Matching</a>.\nMehrere Projekte sollten durch Leerzeichen getrennt werden.<br>\n<b class='text-danger'>WARNUNG</b>: Arbeitsbereiche, die von diesem Provisioner erstellt werden, haben dieselben Berechtigungen wie der ${productName}-Prozess.\nStellen Sie sicher, dass nur vertrauenswürdige Projekte diesen Provisioner verwenden können");
 		m.put("Workspaces on this branch", "Arbeitsbereiche auf diesem Branch");
-		m.put("Workspaces on this issue", "Workspaces zu diesem Issue");
 		m.put("Write", "Schreiben");
 		m.put("YAML", "YAML");
 		m.put("Yes", "Ja");
@@ -5049,6 +5324,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("You will be notified of any activities", "Sie werden über alle Aktivitäten benachrichtigt");
 		m.put("You will need to update token at agent side after regeneration. Do you really want to continue?", 
 			"Sie müssen das Token auf der Agent-Seite nach der Regeneration aktualisieren. Möchten Sie wirklich fortfahren?");
+		m.put("You will return to:", "Sie kehren zurück zu:");
 		m.put("You've been logged out", "Sie wurden abgemeldet");
 		m.put("YouTrack API URL", "YouTrack-API-URL");
 		m.put("YouTrack Issue Field", "YouTrack-Issue-Feld");
@@ -5061,7 +5337,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("YouTrack Projects to Import", "YouTrack-Projekte zum Importieren");
 		m.put("Your email address is now verified", "Ihre E-Mail-Adresse ist jetzt verifiziert");
 		m.put("[Any state]", "[Beliebiger Status]");
-		m.put("[Reset Password] Please Reset Your OneDev Password", "[Passwort zurücksetzen] Bitte setzen Sie Ihr OneDev-Passwort zurück");
+		m.put("[Reset Password] Please Reset Your ${productName} Password", "[Passwort zurücksetzen] Bitte setzen Sie Ihr ${productName}-Passwort zurück");
 		m.put("a boolean indiciating whether or not topic comment can be created directly by replying the email", 
 			"Ein boolescher Wert, der angibt, ob ein Themenkommentar direkt durch Antworten auf die E-Mail erstellt werden kann");
 		m.put("a new agent token will be generated each time this button is pressed", "Jedes Mal, wenn diese Schaltfläche gedrückt wird, wird ein neuer Agent-Token generiert");
@@ -5110,6 +5386,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("committed by", "eingetragen von");
 		m.put("common", "gemeinsam");
 		m.put("common ancestor", "gemeinsamer Vorfahre");
+		m.put("configured product name, HTML escaped for HTML version", "Konfigurierter Produktname, HTML-escaped für die HTML-Version");
 		m.put("container:image", "Image");
 		m.put("copy", "kopieren");
 		m.put("ctrl-k to show command palette", "ctrl-k, um die Befehlsübersicht anzuzeigen");
@@ -5181,6 +5458,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("on file {0}", "in Datei {0}");
 		m.put("opened", "geöffnet");
 		m.put("opened <span wicket:id=\"submitDate\"></span>", "geöffnet <span wicket:id=\"submitDate\"></span>");
+		m.put("or", "oder");
 		m.put("or match another value", "oder mit einem anderen Wert übereinstimmen");
 		m.put("order more", "mehr bestellen");
 		m.put("outdated", "veraltet");
@@ -5226,7 +5504,7 @@ public class Translation_de extends TranslationResourceBundle {
 			"repräsentiert den abgemeldeten <a href='https://code.onedev.io/onedev/server/~files/main/server-core/src/main/java/io/onedev/server/model/PullRequest.java' target='_blank'>Pull-Request</a>");
 		m.put("request to change", "Anfrage zur Änderung");
 		m.put("root", "Root");
-		m.put("root url of OneDev server", "Root-URL des OneDev-Servers");
+		m.put("root url of ${productName} server", "Root-URL des ${productName}-Servers");
 		m.put("run job", "Job ausführen");
 		m.put("search in this revision will be accurate after indexed", "Suche in dieser Revision wird nach der Indexierung genau sein");
 		m.put("service", "Dienst");
@@ -5262,6 +5540,7 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("value needs to be enclosed in parenthesis", "Wert muss in runden Klammern eingeschlossen werden");
 		m.put("value should be quoted", "Wert sollte in Anführungszeichen gesetzt werden");
 		m.put("w%02d", "w%02d");
+		m.put("wants access to your OneDev account.", "möchte auf Ihr OneDev-Konto zugreifen.");
 		m.put("week:Fri", "Fr");
 		m.put("week:Mon", "Mo");
 		m.put("week:Sat", "Sa");
@@ -5302,14 +5581,24 @@ public class Translation_de extends TranslationResourceBundle {
 		m.put("{0} will be transcoded to UTF-8 upon commit", "{0} wird beim Commit in UTF-8 transkodiert");
 		m.put("{0}d", "{0}d");
 		m.put("{0}h", "{0}h");
+		m.put("{0}h {1}m {2}s", "{0}h {1}m {2}s");
 		m.put("{0}m", "{0}m");
+		m.put("{0}m {1}s", "{0}m {1}s");
 		m.put("{0}s", "{0}s");
 		m.put("{0}w", "{0}w");
-		m.put("{javax.validation.constraints.NotEmpty.message}", "{javax.validation.constraints.NotEmpty.message}");
-		m.put("{javax.validation.constraints.NotNull.message}", "{javax.validation.constraints.NotNull.message}");
-		m.put("{javax.validation.constraints.Size.message}", "{javax.validation.constraints.Size.message}");
-		m.put("New", "Neu");
-		m.put("Old", "Alt");
+		m.put("{jakarta.validation.constraints.NotEmpty.message}", "{jakarta.validation.constraints.NotEmpty.message}");
+		m.put("{jakarta.validation.constraints.NotNull.message}", "{jakarta.validation.constraints.NotNull.message}");
+		m.put("{jakarta.validation.constraints.Size.message}", "{jakarta.validation.constraints.Size.message}");
+		m.put("Applications retrieve the public key from this JSON Web Key Set (JWKS) endpoint. The URL stays the same when the key is regenerated.", 
+			"Anwendungen rufen den öffentlichen Schlüssel von diesem JSON Web Key Set (JWKS)-Endpunkt ab. Die URL bleibt gleich, wenn der Schlüssel neu generiert wird.");
+		m.put("Copy public key URL", "Öffentliche Schlüssel-URL kopieren");
+		m.put("Key Size", "Schlüsselgröße");
+		m.put("OneDev generates this key automatically to sign OpenID Connect ID tokens. Applications use its public key to verify that users signed in through this OneDev instance.", 
+			"OneDev generiert diesen Schlüssel automatisch, um OpenID Connect ID-Tokens zu signieren. Anwendungen verwenden seinen öffentlichen Schlüssel, um zu überprüfen, dass sich Benutzer über diese OneDev-Instanz angemeldet haben.");
+		m.put("Public Key JSON", "Öffentlicher Schlüssel JSON");
+		m.put("Public Key URL", "Öffentliche Schlüssel-URL");
+		m.put("Signing Algorithm", "Signaturalgorithmus");
+		m.put("bits", "Bits");
 	}
 			
 	@Override

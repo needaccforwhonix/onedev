@@ -2,13 +2,14 @@ package io.onedev.server.buildspec.job.action;
 
 import static io.onedev.server.buildspec.param.ParamUtils.resolveParams;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import javax.validation.Valid;
-import javax.validation.ValidationException;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.Valid;
+import jakarta.validation.ValidationException;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.OneDev;
 import io.onedev.server.annotation.ChoiceProvider;
@@ -35,6 +36,7 @@ import io.onedev.server.web.editable.BeanEditor;
 @Editable(name="Run job", order=100)
 public class RunJobAction extends PostBuildAction {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String jobName;
@@ -63,8 +65,7 @@ public class RunJobAction extends PostBuildAction {
 	@ParamSpecProvider("getParamSpecs")
 	@VariableOption(withBuildVersion=false, withDynamicVariables=false)
 	@OmitName
-	@Valid
-	public List<ParamInstances> getParamMatrix() {
+	public List<@Valid ParamInstances> getParamMatrix() {
 		return paramMatrix;
 	}
 

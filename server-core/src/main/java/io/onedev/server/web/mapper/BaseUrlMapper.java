@@ -11,6 +11,7 @@ import io.onedev.server.web.asset.icon.IconScope;
 import io.onedev.server.web.page.admin.aisetting.ChatPreserveDaysPage;
 import io.onedev.server.web.page.admin.aisetting.ChatPromptsPage;
 import io.onedev.server.web.page.admin.aisetting.LiteModelPage;
+import io.onedev.server.web.page.admin.aisetting.JevPage;
 import io.onedev.server.web.page.admin.alertsettings.AlertSettingPage;
 import io.onedev.server.web.page.admin.authenticator.AuthenticatorPage;
 import io.onedev.server.web.page.admin.brandingsetting.BrandingSettingPage;
@@ -37,6 +38,7 @@ import io.onedev.server.web.page.admin.emailtemplates.StopwatchOverdueTemplatePa
 import io.onedev.server.web.page.admin.emailtemplates.UserInvitationTemplatePage;
 import io.onedev.server.web.page.admin.emailtemplates.WorkspaceNotificationTemplatePage;
 import io.onedev.server.web.page.admin.gpgsigningkey.GpgSigningKeyPage;
+import io.onedev.server.web.page.admin.oauthsigningkey.OAuthSigningKeyPage;
 import io.onedev.server.web.page.admin.gpgtrustedkeys.GpgTrustedKeysPage;
 import io.onedev.server.web.page.admin.groovyscript.GroovyScriptListPage;
 import io.onedev.server.web.page.admin.groupmanagement.GroupListPage;
@@ -108,7 +110,7 @@ import io.onedev.server.web.page.project.builds.detail.InvalidBuildPage;
 import io.onedev.server.web.page.project.builds.detail.artifacts.BuildArtifactsPage;
 import io.onedev.server.web.page.project.builds.detail.changes.BuildChangesPage;
 import io.onedev.server.web.page.project.builds.detail.issues.FixedIssuesPage;
-import io.onedev.server.web.page.project.builds.detail.log.BuildLogPage;
+import io.onedev.server.web.page.project.builds.detail.log.BuildStepsPage;
 import io.onedev.server.web.page.project.builds.detail.pack.BuildPacksPage;
 import io.onedev.server.web.page.project.builds.detail.pipeline.BuildPipelinePage;
 import io.onedev.server.web.page.project.codecomments.InvalidCodeCommentPage;
@@ -147,7 +149,7 @@ import io.onedev.server.web.page.project.setting.build.DefaultFixedIssueFiltersP
 import io.onedev.server.web.page.project.setting.build.JobPropertiesPage;
 import io.onedev.server.web.page.project.setting.build.JobSecretsPage;
 import io.onedev.server.web.page.project.setting.cache.CacheManagementPage;
-import io.onedev.server.web.page.project.setting.code.analysis.CodeAnalysisSettingPage;
+import io.onedev.server.web.page.project.setting.code.analysis.CodeIndexingSettingPage;
 import io.onedev.server.web.page.project.setting.code.branchprotection.BranchProtectionsPage;
 import io.onedev.server.web.page.project.setting.code.git.GitPackConfigPage;
 import io.onedev.server.web.page.project.setting.code.pullrequest.PullRequestSettingPage;
@@ -174,6 +176,12 @@ import io.onedev.server.web.page.security.EmailAddressVerificationPage;
 import io.onedev.server.web.page.security.LoginPage;
 import io.onedev.server.web.page.security.LogoutPage;
 import io.onedev.server.web.page.security.OAuthCallbackPage;
+import io.onedev.server.web.page.oauth.OAuthAuthorizePage;
+import io.onedev.server.web.page.oauth.MyOAuthApplicationsPage;
+import io.onedev.server.web.page.oauth.MyOAuthApplicationPage;
+import io.onedev.server.web.page.oauth.NewMyOAuthApplicationPage;
+import io.onedev.server.web.page.oauth.MyAuthorizedApplicationPage;
+import io.onedev.server.web.page.oauth.MyAuthorizedApplicationsPage;
 import io.onedev.server.web.page.security.PasswordResetPage;
 import io.onedev.server.web.page.security.SignUpPage;
 import io.onedev.server.web.page.security.SsoProcessPage;
@@ -256,6 +264,12 @@ public class BaseUrlMapper extends CompoundRequestMapper {
 		add(new BasePageMapper("~my/ssh-keys", MySshKeysPage.class));
 		add(new BasePageMapper("~my/gpg-keys", MyGpgKeysPage.class));
 		add(new BasePageMapper("~my/access-tokens", MyAccessTokensPage.class));
+		add(new BasePageMapper("~my/oauth-applications", MyOAuthApplicationsPage.class));
+		add(new BasePageMapper("~my/oauth-applications/new", NewMyOAuthApplicationPage.class));
+		add(new BasePageMapper("~my/oauth-applications/${application}", MyOAuthApplicationPage.class));
+		add(new BasePageMapper("~my/authorized-applications", MyAuthorizedApplicationsPage.class));
+		add(new BasePageMapper("~my/authorized-applications/${application}", MyAuthorizedApplicationPage.class));
+		add(new BasePageMapper("~oauth/authorize", OAuthAuthorizePage.class));
 		add(new BasePageMapper("~my/two-factor-authentication", MyTwoFactorAuthenticationPage.class));
 		add(new BasePageMapper("~my/sso-accounts", MySsoAccountsPage.class));
 		add(new BasePageMapper("~my/query-watches/#{tab}", MyQueryWatchesPage.class));
@@ -273,7 +287,7 @@ public class BaseUrlMapper extends CompoundRequestMapper {
 		add(new BaseResourceMapper("~downloads/projects/${project}/archives", new ArchiveResourceReference()));
 		
 		add(new ProjectResourceMapper("${project}/~raw", new RawBlobResourceReference()));
-		add(new ProjectResourceMapper("${project}/~site", new SiteFileResourceReference()));
+		add(new ProjectResourceMapper("${project}/~sites/${site}", new SiteFileResourceReference()));
 		
 		// Change AttachmentResource.authorizeGroup accordingly if change attachment url here
 		add(new BaseResourceMapper("~downloads/projects/${project}/attachments/${attachment-group}/${attachment}", 
@@ -326,6 +340,26 @@ public class BaseUrlMapper extends CompoundRequestMapper {
 	}
 
 	private void addAdministrationPages() {
+		add(new ProjectDefaultsMapper("general", GeneralProjectSettingPage.class));
+		add(new ProjectDefaultsMapper("user-authorizations", io.onedev.server.web.page.project.setting.authorization.UserAuthorizationsPage.class));
+		add(new ProjectDefaultsMapper("group-authorizations", io.onedev.server.web.page.project.setting.authorization.GroupAuthorizationsPage.class));
+		add(new ProjectDefaultsMapper("code/branch-protection", BranchProtectionsPage.class));
+		add(new ProjectDefaultsMapper("code/tag-protection", TagProtectionsPage.class));
+		add(new ProjectDefaultsMapper("code/indexing", CodeIndexingSettingPage.class));
+		add(new ProjectDefaultsMapper("pull-request", PullRequestSettingPage.class));
+		add(new ProjectDefaultsMapper("issue/branch-prefix", IssueBranchPrefixPage.class));
+		add(new ProjectDefaultsMapper("build/job-secrets", JobSecretsPage.class));
+		add(new ProjectDefaultsMapper("build/job-properties", JobPropertiesPage.class));
+		add(new ProjectDefaultsMapper("build/build-preserve-rules", BuildPreservationsPage.class));
+		add(new ProjectDefaultsMapper("build/default-fixed-issue-filters", DefaultFixedIssueFiltersPage.class));
+		add(new ProjectDefaultsMapper("cache-management", CacheManagementPage.class));
+		add(new ProjectDefaultsMapper("workspace-spec", WorkspaceSpecsPage.class));
+		add(new ProjectDefaultsMapper("wiki", WikiSettingPage.class));
+		add(new ProjectDefaultsMapper("web-hooks", WebHooksPage.class));
+		add(new ProjectDefaultsMapper("ai", ProjectAiSettingPage.class));
+		add(new ProjectDefaultsMapper("${" + ContributedProjectSettingPage.PARAM_SETTING + "}",
+				ContributedProjectSettingPage.class));
+
 		add(new BasePageMapper("~administration/settings/system", SystemSettingPage.class));
 		add(new BasePageMapper("~administration/settings/security", SecuritySettingPage.class));
 		add(new BasePageMapper("~administration/users", UserListPage.class));
@@ -381,6 +415,7 @@ public class BaseUrlMapper extends CompoundRequestMapper {
 		add(new BasePageMapper("~administration/settings/alert", AlertSettingPage.class));
 		add(new BasePageMapper("~administration/settings/performance", PerformanceSettingPage.class));
 		add(new BasePageMapper("~administration/settings/lite-ai-model", LiteModelPage.class));
+		add(new BasePageMapper("~administration/settings/jev", JevPage.class));
 		add(new BasePageMapper("~administration/settings/chat-prompts", ChatPromptsPage.class));
 		add(new BasePageMapper("~administration/settings/chat-preserve-days", ChatPreserveDaysPage.class));
 		add(new BasePageMapper("~administration/settings/backup", DatabaseBackupPage.class));
@@ -390,6 +425,7 @@ public class BaseUrlMapper extends CompoundRequestMapper {
 		add(new BasePageMapper("~administration/settings/sso-providers/${provider}", SsoProviderDetailPage.class));
 		add(new BasePageMapper("~administration/settings/ssh-server-key", SshServerKeyPage.class));
  		add(new BasePageMapper("~administration/settings/gpg-signing-key", GpgSigningKeyPage.class));
+		add(new BasePageMapper("~administration/settings/oauth-signing-key", OAuthSigningKeyPage.class));
  		add(new BasePageMapper("~administration/settings/gpg-trusted-keys", GpgTrustedKeysPage.class));
 
 		add(new BasePageMapper("~administration/agents", AgentListPage.class));
@@ -467,7 +503,7 @@ public class BaseUrlMapper extends CompoundRequestMapper {
 		add(new ProjectPageMapper("${project}/~builds", ProjectBuildsPage.class));
 		add(new ProjectPageMapper("${project}/~builds/${build}", BuildDefaultPage.class));
 		add(new ProjectPageMapper("${project}/~builds/${build}/pipeline", BuildPipelinePage.class));
-		add(new ProjectPageMapper("${project}/~builds/${build}/log", BuildLogPage.class));
+		add(new ProjectPageMapper("${project}/~builds/${build}/steps", BuildStepsPage.class));
 		add(new ProjectPageMapper("${project}/~builds/${build}/changes", BuildChangesPage.class));
 		add(new ProjectPageMapper("${project}/~builds/${build}/fixed-issues", FixedIssuesPage.class));
 		add(new ProjectPageMapper("${project}/~builds/${build}/artifacts", BuildArtifactsPage.class));
@@ -489,7 +525,7 @@ public class BaseUrlMapper extends CompoundRequestMapper {
 		add(new ProjectPageMapper("${project}/~settings/avatar-edit", AvatarEditPage.class));
 		add(new ProjectPageMapper("${project}/~settings/branch-protection", BranchProtectionsPage.class));
 		add(new ProjectPageMapper("${project}/~settings/tag-protection", TagProtectionsPage.class));
-		add(new ProjectPageMapper("${project}/~settings/code-analysis", CodeAnalysisSettingPage.class));
+		add(new ProjectPageMapper("${project}/~settings/code-analysis", CodeIndexingSettingPage.class));
 		add(new ProjectPageMapper("${project}/~settings/git-pack-config", GitPackConfigPage.class));
 		add(new ProjectPageMapper("${project}/~settings/pull-request", PullRequestSettingPage.class));
 		add(new ProjectPageMapper("${project}/~settings/build/job-secrets", JobSecretsPage.class));

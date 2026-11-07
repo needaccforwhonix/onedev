@@ -44,6 +44,11 @@ public interface SettingService extends EntityService<Setting> {
 	
 	@Nullable
 	Setting findSetting(Key key);
+
+	@NoDBAccess
+	String getOAuthSigningKey();
+
+	void saveOAuthSigningKey(String signingKey);
 	
 	/**
 	 * Get system setting.

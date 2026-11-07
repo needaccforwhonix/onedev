@@ -4,7 +4,7 @@ import static io.onedev.server.util.DateUtils.formatDateTime;
 
 import java.util.Collection;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
@@ -23,6 +23,7 @@ import io.onedev.server.OneDev;
 import io.onedev.server.service.IssueWorkService;
 import io.onedev.server.service.SettingService;
 import io.onedev.server.model.IssueWork;
+import io.onedev.server.model.Project;
 import io.onedev.server.model.support.EntityReaction;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.service.IssueWorkReactionService;
@@ -109,6 +110,11 @@ class IssueWorkPanel extends Panel {
 		fragment.add(new ReactionListPanel("reactions") {
 
 			@Override
+			protected Project getProject() {
+				return getWork().getIssue().getProject();
+			}
+
+			@Override
 			protected Collection<? extends EntityReaction> getReactions() {
 				return getWork().getReactions();
 			}
@@ -137,8 +143,8 @@ class IssueWorkPanel extends Panel {
 		form.add(BeanContext.edit("editor", bean));
 		form.add(new AjaxButton("save") {
 			@Override
-			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-				super.onSubmit(target, form);
+			protected void onSubmit(AjaxRequestTarget target) {
+				super.onSubmit(target);
 				var work = getWork();
 				work.setNote(bean.getNote());
 				work.setDate(bean.getStartAt());
@@ -150,8 +156,9 @@ class IssueWorkPanel extends Panel {
 			}
 
 			@Override
-			protected void onError(AjaxRequestTarget target, Form<?> form) {
-				super.onError(target, form);
+			protected void onError(AjaxRequestTarget target) {
+				Form<?> form = getForm();
+				super.onError(target);
 				target.add(form);
 			}
 		});

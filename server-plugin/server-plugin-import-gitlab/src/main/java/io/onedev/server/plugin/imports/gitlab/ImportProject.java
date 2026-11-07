@@ -1,8 +1,9 @@
 package io.onedev.server.plugin.imports.gitlab;
 
+import java.io.Serial;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.annotation.ChoiceProvider;
 import io.onedev.server.annotation.Editable;
@@ -13,6 +14,7 @@ import io.onedev.server.web.editable.BeanEditor;
 @Editable
 public class ImportProject extends ImportGroup {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String project;

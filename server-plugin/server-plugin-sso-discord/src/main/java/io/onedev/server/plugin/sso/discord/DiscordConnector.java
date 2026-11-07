@@ -3,9 +3,10 @@ package io.onedev.server.plugin.sso.discord;
 import static io.onedev.server.web.translation.Translation._T;
 
 import java.io.IOException;
+import java.io.Serial;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.validation.constraints.NotEmpty;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.NotEmpty;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.authc.AuthenticationException;
@@ -26,6 +27,7 @@ import io.onedev.server.plugin.sso.discord.oauth2.UserInfoResponse;
 @Editable(name="Discord", order=150, description="Single sign on via discord.com")
 public class DiscordConnector extends SsoConnector {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 	private static final String SESSION_ATTR_API_REQUEST = "DiscordApiRequest";
 	

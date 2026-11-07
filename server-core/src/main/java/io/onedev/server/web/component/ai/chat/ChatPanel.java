@@ -3,6 +3,7 @@ package io.onedev.server.web.component.ai.chat;
 import static io.onedev.server.security.SecurityUtils.getUser;
 import static io.onedev.server.web.translation.Translation._T;
 
+import java.io.Serial;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -12,8 +13,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.inject.Inject;
-import javax.servlet.http.Cookie;
+import jakarta.inject.Inject;
+import jakarta.servlet.http.Cookie;
 
 import org.apache.commons.lang3.SerializationUtils;
 import org.apache.wicket.Component;
@@ -31,8 +32,7 @@ import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.markup.html.form.TextArea;
 import org.apache.wicket.markup.html.panel.Panel;
-import org.apache.wicket.markup.repeater.RepeatingView;
-import org.apache.wicket.model.AbstractReadOnlyModel;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -69,6 +69,7 @@ import io.onedev.server.web.component.user.UserAvatar;
 
 public class ChatPanel extends Panel {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private static final String COOKIE_ACTIVE_AI = "active-ai";
@@ -310,7 +311,7 @@ public class ChatPanel extends Panel {
 			}
 
 		};
-		respondingContainer.add(new MarkdownViewer("content", new AbstractReadOnlyModel<String>() {
+		respondingContainer.add(new MarkdownViewer("content", new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -370,7 +371,7 @@ public class ChatPanel extends Panel {
 		form.add(new AjaxButton("submit") {
 						
 			@Override
-			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
+			protected void onSubmit(AjaxRequestTarget target) {
 				// Submit button is only enabled when input is not empty, so we can safely 
 				// assume that WebSession.get().getChatInput() is not null at this point
 				var input = WebSession.get().getChatInput().trim();
@@ -495,7 +496,6 @@ public class ChatPanel extends Panel {
 			return Collections.emptyList();
 	}
 
-	@SuppressWarnings("deprecation")
 	private void showNewMessages(IPartialPageRequestHandler handler) {
 		long prevLastMessageId;
 		if (messagesView.size() != 0)

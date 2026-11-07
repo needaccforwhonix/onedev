@@ -7,7 +7,8 @@ import io.onedev.server.buildspec.BuildSpec;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.Project;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -15,6 +16,7 @@ import java.util.stream.Collectors;
 @Editable
 public class RegistryLogin implements Serializable {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String registryUrl;
@@ -44,7 +46,7 @@ public class RegistryLogin implements Serializable {
 		this.userName = userName;
 	}
 	
-	@Editable(order=300, description = "Specify a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as password or access token of the registry")
+	@Editable(order=300, description = "Specify a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as password or access token of the registry")
 	@ChoiceProvider("getPasswordSecretChoices")
 	@NotEmpty
 	public String getPasswordSecret() {

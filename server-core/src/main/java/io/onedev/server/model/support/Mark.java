@@ -1,13 +1,14 @@
 package io.onedev.server.model.support;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.Column;
-import javax.persistence.Embeddable;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.EqualsBuilder;
@@ -26,6 +27,7 @@ import io.onedev.server.util.diff.WhitespaceOption;
 @Embeddable
 public class Mark implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String PROP_COMMIT_HASH = "commitHash";

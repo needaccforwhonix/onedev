@@ -1,6 +1,7 @@
 package io.onedev.server.model.support;
 
 import java.io.IOException;
+import java.io.Serial;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -10,9 +11,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.Pattern;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +36,7 @@ import nl.altindag.ssl.SSLFactory;
 @Editable(order=100)
 public class AiModelSetting implements Serializable {
     
+    @Serial
     private static final long serialVersionUID = 1L;
 
     private static final int MODEL_LIST_TIMEOUT_SECONDS = 30;
@@ -78,7 +80,7 @@ public class AiModelSetting implements Serializable {
     }
 
     @Editable(order=400, name="Name", description="""
-        Specify the model name to use. <b class='text-danger'>NOTE: </b> Right now OneDev only supports 
+        Specify the model name to use. <b class='text-danger'>NOTE: </b> Right now ${productName} only supports
         models with chat completions API. OpenAI models with the new responses API is not supported yet""")
     @ChoiceProvider("getModels")
     @NotEmpty

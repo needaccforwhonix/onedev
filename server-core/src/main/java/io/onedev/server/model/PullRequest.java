@@ -31,6 +31,7 @@ import static io.onedev.server.search.entity.EntitySort.Direction.DESCENDING;
 import static io.onedev.server.web.translation.Translation._T;
 import static java.lang.ThreadLocal.withInitial;
 
+import java.io.Serial;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -49,19 +50,19 @@ import java.util.Stack;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import javax.persistence.AttributeOverride;
-import javax.persistence.AttributeOverrides;
-import javax.persistence.CascadeType;
-import javax.persistence.Column;
-import javax.persistence.Embedded;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.Index;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
-import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.AttributeOverrides;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jgit.lib.ObjectId;
@@ -109,9 +110,9 @@ import io.onedev.server.xodus.VisitInfoService;
 @Table(
 		indexes={
 				@Index(columnList=PROP_TITLE), @Index(columnList=PROP_UUID), 
-				@Index(columnList=PROP_NUMBER), @Index(columnList="o_targetProject_id"), 
+				@Index(columnList=PROP_NUMBER), @Index(columnList="targetProject_id"),
 				@Index(columnList=PROP_SUBMIT_DATE), @Index(columnList= LastActivity.COLUMN_DATE), 
-				@Index(columnList="o_sourceProject_id"), @Index(columnList="o_submitter_id"), 
+				@Index(columnList="sourceProject_id"), @Index(columnList="submitter_id"),
 				@Index(columnList=MergePreview.COLUMN_HEAD_COMMIT_HASH), @Index(columnList=PROP_SUBMIT_MONTH), 
 				@Index(columnList=PROP_SUBMIT_WEEK), @Index(columnList=PROP_SUBMIT_DAY), 
 				@Index(columnList=PROP_CLOSE_MONTH), @Index(columnList=PROP_CLOSE_WEEK), 
@@ -121,13 +122,14 @@ import io.onedev.server.xodus.VisitInfoService;
 				@Index(columnList=PROP_CONFUSED_COUNT), @Index(columnList=PROP_HEART_COUNT),
 				@Index(columnList=PROP_EYES_COUNT),
 				@Index(columnList=PROP_TICK_COUNT),
-				@Index(columnList=PROP_COMMENT_COUNT), @Index(columnList="o_numberScope_id")},
-		uniqueConstraints={@UniqueConstraint(columnNames={"o_numberScope_id", PROP_NUMBER})})
+				@Index(columnList=PROP_COMMENT_COUNT), @Index(columnList="numberScope_id")},
+		uniqueConstraints={@UniqueConstraint(columnNames={"numberScope_id", PROP_NUMBER})})
 //use dynamic update in order not to overwrite other edits while background threads change update date
 @DynamicUpdate
 public class PullRequest extends ProjectBelonging 
 		implements AttachmentStorageSupport, LabelSupport<PullRequestLabel> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 		
 	public static final int MAX_TITLE_LEN = 255;
@@ -157,6 +159,8 @@ public class PullRequest extends ProjectBelonging
 	public static final String NAME_TITLE = "Title";
 	
 	public static final String PROP_TITLE = "title";
+
+	public static final String PROP_WORK_IN_PROGRESS = "workInProgress";
 	
 	public static final String NAME_LABEL = "Label";
 	
@@ -299,6 +303,8 @@ public class PullRequest extends ProjectBelonging
 	@Api(order=100)
 	@Column(nullable=false, length=MAX_TITLE_LEN)
 	private String title;
+
+	private boolean workInProgress;
 	
 	@Column(length=MAX_DESCRIPTION_LEN)
 	@Api(description = "May be empty")
@@ -1416,8 +1422,11 @@ public class PullRequest extends ProjectBelonging
 	}
 	
 	public boolean isWorkInProgress() {
-		var lowerTitle = title.toLowerCase();
-		return lowerTitle.startsWith("wip") || lowerTitle.startsWith("[wip]");
+		return workInProgress;
+	}
+
+	public void setWorkInProgress(boolean workInProgress) {
+		this.workInProgress = workInProgress;
 	}
 
 	// Remove issue number suffix if there is any
@@ -1460,9 +1469,6 @@ public class PullRequest extends ProjectBelonging
 
 	public String getTitlePrefix(BranchSemantic sourceBranchSemantic) {
 		var prefixBuilder = new StringBuilder();
-		if (sourceBranchSemantic.isWorkInProgress()) {
-			prefixBuilder.append("[WIP] ");
-		}
 		if (sourceBranchSemantic.getWorkType() != null) {
 			prefixBuilder.append(sourceBranchSemantic.getWorkType()).append(": ");
 		}
@@ -1478,29 +1484,17 @@ public class PullRequest extends ProjectBelonging
 		return title.trim();
 	}
 
-	@Nullable
-	public String generateTitleFromCommits() {
-		var commits = getLatestUpdate().getCommits();
-		if (commits.size() == 1) {
-			return getTitlePrefix(getSourceBranchSemantic()) + cleanTitle(commits.get(0).getShortMessage());
-		} else {
-			return null;
-		}
+	public String generateTitleFromSingleCommit(RevCommit commit) {
+		return cleanTitle(commit.getShortMessage());
 	}
 	
 	@Nullable
-	public String generateDescriptionFromCommits() {
-		var commits = getLatestUpdate().getCommits();
-		if (commits.size() == 1) {
-			var commit = commits.get(0);
-			var shortMessage = commit.getShortMessage();
-			var description = commit.getFullMessage().substring(shortMessage.length()).trim();
-			if (description.length() == 0)
-				description = null;
-			return description;
-		} else {
-			return null;
-		}
+	public String generateDescriptionFromSingleCommit(RevCommit commit) {
+		var shortMessage = commit.getShortMessage();
+		var description = commit.getFullMessage().substring(shortMessage.length()).trim();
+		if (description.length() == 0)
+			description = null;
+		return description;
 	}
 
 	private static PullRequestService getPullRequestService() {

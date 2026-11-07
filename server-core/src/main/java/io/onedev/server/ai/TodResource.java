@@ -1,6 +1,6 @@
 package io.onedev.server.ai;
 
-import static javax.ws.rs.core.Response.Status.NOT_ACCEPTABLE;
+import static jakarta.ws.rs.core.Response.Status.NOT_ACCEPTABLE;
 import static org.apache.commons.lang3.StringUtils.trimToNull;
 import static org.unbescape.html.HtmlEscape.escapeHtml5;
 
@@ -18,23 +18,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.persistence.EntityNotFoundException;
-import javax.validation.Valid;
-import javax.validation.Validator;
-import javax.validation.constraints.NotNull;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.NotAcceptableException;
-import javax.ws.rs.NotFoundException;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.StreamingOutput;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.Valid;
+import jakarta.validation.Validator;
+import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotAcceptableException;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.StreamingOutput;
 
 import org.apache.shiro.authz.UnauthenticatedException;
 import org.apache.shiro.authz.UnauthorizedException;
@@ -207,7 +207,7 @@ public class TodResource {
 	public VersionInfo checkVersion() {
         var versionInfo = new VersionInfo();
         versionInfo.serverVersion = OneDev.getInstance().getVersion();
-        versionInfo.minRequiredTodVersion = "4.1.0";
+        versionInfo.minRequiredTodVersion = "4.4.0";
         return versionInfo;
 	}
 
@@ -216,17 +216,6 @@ public class TodResource {
         if (project == null || !SecurityUtils.canAccessProject(project))
             throw new NotFoundException("Project not found or inaccessible: " + projectPath);
         return project;
-    }
-
-    private ProjectContext getProjectContext(String projectPath, String currentProjectPath) {
-        if (projectPath == null) 
-            projectPath = currentProjectPath;
-
-        var projectContext = new ProjectContext();
-        projectContext.project = getProject(projectPath);
-        projectContext.currentProject = getProject(currentProjectPath);
-        
-        return projectContext;
     }
 
     private Map<String, Object> getFieldProperties(FieldSpec field) {
@@ -423,7 +412,7 @@ public class TodResource {
     @Path("/query-issues")
     @GET
     public List<Map<String, Object>> queryIssues(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("project") String projectPath, 
                 @QueryParam("query") String query, 
                 @QueryParam("offset") int offset, 
@@ -432,7 +421,11 @@ public class TodResource {
         if (SecurityUtils.getUser(subject) == null)
             throw new UnauthenticatedException();
 
-        var projectContext = getProjectContext(projectPath, currentProjectPath);
+        if (projectPath == null)
+            projectPath = currentProjectPath;
+
+        var project = projectPath != null? getProject(projectPath): null;
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
 
         if (count > RestConstants.MAX_PAGE_SIZE)
             throw new NotAcceptableException("Count should not be greater than " + RestConstants.MAX_PAGE_SIZE);
@@ -441,14 +434,15 @@ public class TodResource {
         if (query != null) {
             var option = new IssueQueryParseOption();
             option.withCurrentUserCriteria(true);
-            parsedQuery = IssueQuery.parse(projectContext.project, query, option, true);
+            parsedQuery = IssueQuery.parse(project, query, option, true);
         } else {
             parsedQuery = new IssueQuery(null, new ArrayList<>());
         }
 
         var summaries = new ArrayList<Map<String, Object>>();
-        for (var issue : issueService.query(subject, new ProjectScope(projectContext.project, true, false), parsedQuery, true, offset, count)) {
-            var summary = IssueHelper.getSummary(projectContext.currentProject, issue);
+        var projectScope = project != null? new ProjectScope(project, true, false): null;
+        for (var issue : issueService.query(subject, projectScope, parsedQuery, true, offset, count)) {
+            var summary = IssueHelper.getSummary(currentProject, issue);
             for (var entry: issue.getFieldInputs().entrySet()) {
                 summary.put(entry.getKey(), entry.getValue().getValues());
             }
@@ -458,7 +452,7 @@ public class TodResource {
         return summaries;
     }
 
-    private Issue getIssue(Project currentProject, String referenceString) {
+    private Issue getIssue(@Nullable Project currentProject, String referenceString) {
         var issueReference = IssueReference.of(referenceString, currentProject);
         var issue = issueService.find(issueReference.getProject(), issueReference.getNumber());
         if (issue != null) {
@@ -473,14 +467,14 @@ public class TodResource {
     @Path("/get-issue")
     @GET
     public Map<String, Object> getIssueDetail(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String issueReference, 
                 @QueryParam("forWrite") Boolean forWrite) {
         var subject = SecurityUtils.getSubject();
         if (SecurityUtils.getUser(subject) == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var issue = getIssue(currentProject, issueReference);                
 
         if (forWrite != null && forWrite &&!SecurityUtils.canWriteCode(issue.getProject()))
@@ -523,11 +517,11 @@ public class TodResource {
     @Path("/get-issue-comments")
     @GET
     public List<Map<String, Object>> getIssueComments(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String issueReference) {
         if (SecurityUtils.getUser() == null)
             throw new UnauthenticatedException();
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var issue = getIssue(currentProject, issueReference);
         return IssueHelper.getComments(issue);
     }
@@ -536,14 +530,15 @@ public class TodResource {
     @Consumes(MediaType.TEXT_PLAIN)
     @POST
     public Map<String, Object> addIssueComment(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String issueReference, 
                 @NotNull String commentContent) {
         if (SecurityUtils.getUser() == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var issue = getIssue(currentProject, issueReference);
+        SecurityUtils.checkWorkOnProject(issue.getProject());
         var comment = new IssueComment();
         comment.setIssue(issue);
         comment.setContent(commentContent);
@@ -551,39 +546,42 @@ public class TodResource {
         comment.setDate(new Date());
         issueCommentService.create(comment);
 
-        var commentMap = new HashMap<String, Object>();
-        commentMap.put("content", comment.getContent());
-        commentMap.put("user", comment.getUser().getName());
-        commentMap.put("date", comment.getDate());
-        return commentMap;
+        return Map.of("id", comment.getId(), "link", urlService.urlFor(comment, true));
     }
 
     @Path("/create-issue")
     @POST
     public Map<String, Object> createIssue(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("project") String projectPath, 
-                @NotNull @Valid Map<String, Serializable> data) {
+                @NotNull Map<String, @Valid Serializable> data) {
         var subject = SecurityUtils.getSubject();
         if (SecurityUtils.getUser(subject) == null)
             throw new UnauthenticatedException();
 
-        var projectContext = getProjectContext(projectPath, currentProjectPath);
+        if (projectPath == null)
+            projectPath = currentProjectPath;
+
+        if (projectPath == null)
+            throw new NotAcceptableException("Either project or current project should be specified");
+
+        var project = getProject(projectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
 
         Issue issue;
         try {
-            issue = IssueHelper.createIssue(subject, projectContext.project, data);
+            issue = IssueHelper.createIssue(subject, project, data);
         } catch (ExplicitException e) {
             throw new NotAcceptableException(e.getMessage());
         }
 
-        return IssueHelper.getDetail(projectContext.currentProject, issue);
+        return IssueHelper.getIdentity(currentProject, issue);
     }
 
     @Path("/edit-issue")
     @POST
     public Map<String, Object> editIssue(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String issueReference, 
                 @NotNull Map<String, Serializable> data) {
         var subject = SecurityUtils.getSubject();
@@ -592,7 +590,7 @@ public class TodResource {
         if (user == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
 
         var issue = getIssue(currentProject, issueReference);
 
@@ -651,13 +649,13 @@ public class TodResource {
             issueChangeService.changeFields(user, issue, FieldUtils.getFieldValues(subject, issue.getProject(), data));
         }
 
-        return IssueHelper.getDetail(currentProject, issue);
+        return IssueHelper.getIdentity(currentProject, issue);
     }
 
     @Path("/change-issue-state")
     @POST
     public Map<String, Object> changeIssueState(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String issueReference, 
                 @NotNull Map<String, Serializable> data) {
         var subject = SecurityUtils.getSubject();
@@ -665,7 +663,7 @@ public class TodResource {
         if (user == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
 
         var issue = getIssue(currentProject, issueReference);
         IssueHelper.normalizeData(data);
@@ -684,21 +682,18 @@ public class TodResource {
         var fieldValues = FieldUtils.getFieldValues(subject, issue.getProject(), data);
         issueChangeService.changeState(user, issue, state, fieldValues, transition.getPromptFields(),
                 transition.getRemoveFields(), comment);
-        return IssueHelper.getDetail(currentProject, issue);
+        return IssueHelper.getIdentity(currentProject, issue);
     }
 
     @Path("/ensure-issue-branch") 
     @POST
     public String ensureIssueBranch(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String issueReference) {
         var subject = SecurityUtils.getSubject();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var issue = getIssue(currentProject, issueReference);
-
-        if (!issue.getProject().equals(currentProject))
-            throw new NotAcceptableException("Issue " + issueReference + " is not in current project");
 
         return issueService.ensureBranch(subject, issue);
     }
@@ -706,14 +701,14 @@ public class TodResource {
     @Path("/link-issues")
     @GET
     public Map<String, Object> linkIssues(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("sourceReference") @NotNull String sourceReference, 
                 @QueryParam("linkName") @Nullable String linkName, 
                 @QueryParam("targetReference") @NotNull String targetReference) {
         if (SecurityUtils.getUser() == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
 
         var sourceIssue = getIssue(currentProject, sourceReference);
         var targetIssue = getIssue(currentProject, targetReference);
@@ -746,17 +741,49 @@ public class TodResource {
         return linkMap;
     }
 
+    @Path("/unlink-issues")
+    @POST
+    public Response unlinkIssues(
+                @QueryParam("currentProject") String currentProjectPath,
+                @QueryParam("sourceReference") @NotNull String sourceReference,
+                @QueryParam("linkName") @NotNull String linkName,
+                @QueryParam("targetReference") @NotNull String targetReference) {
+        if (SecurityUtils.getUser() == null)
+            throw new UnauthenticatedException();
+
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
+
+        var sourceIssue = getIssue(currentProject, sourceReference);
+        var targetIssue = getIssue(currentProject, targetReference);
+
+        var linkSpec = linkSpecService.find(linkName);
+        if (linkSpec == null)
+            throw new NotFoundException("Link spec not found: " + linkName);
+        if (!SecurityUtils.canEditIssueLink(sourceIssue.getProject(), linkSpec)
+                || !SecurityUtils.canEditIssueLink(targetIssue.getProject(), linkSpec)) {
+            throw new UnauthorizedException("No permission to remove specified link for specified issues");
+        }
+
+        var link = sourceIssue.findIssueLinks(linkSpec, !linkName.equals(linkSpec.getName())).stream()
+                .filter(it -> it.getLinked(sourceIssue).equals(targetIssue))
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException("Specified issues are not linked via specified link spec"));
+        issueLinkService.delete(link);
+
+        return Response.ok().build();
+    }
+
     @Path("/log-work")
     @Consumes(MediaType.TEXT_PLAIN)
     @POST
     public Map<String, Object> logWork(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String issueReference, 
                 @QueryParam("spentHours") int spentHours, String comment) {
         if (SecurityUtils.getUser() == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
 
         var issue = getIssue(currentProject, issueReference);
 
@@ -766,6 +793,7 @@ public class TodResource {
             throw new NotAcceptableException("Time tracking needs to be enabled for the project");
         if (!SecurityUtils.canAccessIssue(issue))
             throw new UnauthorizedException("No permission to access issue: " + issueReference);
+        SecurityUtils.checkWorkOnProject(issue.getProject());
 
         var work = new IssueWork();
         work.setIssue(issue);
@@ -774,18 +802,13 @@ public class TodResource {
         work.setNote(trimToNull(comment));
         issueWorkService.createOrUpdate(work);
 
-        var workMap = new HashMap<String, Object>();
-        workMap.put("minutes", spentHours * 60);
-        workMap.put("note", comment);
-        workMap.put("user", work.getUser().getName());
-        workMap.put("date", work.getDate());
-        return workMap;
+        return Map.of("id", work.getId(), "link", urlService.urlFor(issue, true) + "#" + work.getAnchor());
     }
 
     @Path("/query-pull-requests")
     @GET
     public List<Map<String, Object>> queryPullRequests(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("project") String projectPath, 
                 @QueryParam("query") String query, 
                 @QueryParam("offset") int offset, 
@@ -794,9 +817,13 @@ public class TodResource {
         if (SecurityUtils.getUser(subject) == null)
             throw new UnauthenticatedException();
 
-        var projectContext = getProjectContext(projectPath, currentProjectPath);
+        if (projectPath == null)
+            projectPath = currentProjectPath;
 
-        if (!SecurityUtils.canReadCode(projectContext.project))
+        var project = projectPath != null? getProject(projectPath): null;
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
+
+        if (project != null && !SecurityUtils.canReadCode(subject, project))
             throw new UnauthorizedException("Code read permission required to query pull requests");
 
         if (count > RestConstants.MAX_PAGE_SIZE)
@@ -804,13 +831,13 @@ public class TodResource {
 
         EntityQuery<PullRequest> parsedQuery;
         if (query != null) 
-            parsedQuery = PullRequestQuery.parse(projectContext.project, query, true);
+            parsedQuery = PullRequestQuery.parse(project, query, true);
         else
             parsedQuery = new PullRequestQuery();
 
         var summaries = new ArrayList<Map<String, Object>>();
-        for (var pullRequest : pullRequestService.query(subject, projectContext.project, parsedQuery, false, offset, count)) {
-            var summary = PullRequestHelper.getSummary(projectContext.currentProject, pullRequest, false);
+        for (var pullRequest : pullRequestService.query(subject, project, parsedQuery, false, offset, count)) {
+            var summary = PullRequestHelper.getSummary(currentProject, pullRequest, false);
             summary.put("link", urlService.urlFor(pullRequest, true));
             summaries.add(summary);
         }
@@ -820,7 +847,7 @@ public class TodResource {
     @Path("/query-builds")
     @GET
     public List<Map<String, Object>> queryBuilds(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("project") String projectPath, 
                 @QueryParam("query") String query, 
                 @QueryParam("offset") int offset, 
@@ -829,20 +856,24 @@ public class TodResource {
         if (SecurityUtils.getUser(subject) == null)
             throw new UnauthenticatedException();
 
-        var projectContext = getProjectContext(projectPath, currentProjectPath);
+        if (projectPath == null)
+            projectPath = currentProjectPath;
+
+        var project = projectPath != null? getProject(projectPath): null;
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
 
         if (count > RestConstants.MAX_PAGE_SIZE)
             throw new NotAcceptableException("Count should not be greater than " + RestConstants.MAX_PAGE_SIZE);
 
         EntityQuery<Build> parsedQuery;
         if (query != null) 
-            parsedQuery = BuildQuery.parse(projectContext.project, query, true, true);
+            parsedQuery = BuildQuery.parse(project, query, true, true);
         else 
             parsedQuery = new BuildQuery();
 
         var summaries = new ArrayList<Map<String, Object>>();
-        for (var build : buildService.query(subject, projectContext.project, parsedQuery, false, offset, count)) {
-            var summary = BuildHelper.getSummary(projectContext.currentProject, build);
+        for (var build : buildService.query(subject, project, parsedQuery, false, offset, count)) {
+            var summary = BuildHelper.getSummary(currentProject, build);
             summary.put("link", urlService.urlFor(build, true));
             summaries.add(summary);
         }
@@ -852,12 +883,12 @@ public class TodResource {
     @Path("/get-build")
     @GET
     public Map<String, Object> getBuildDetail(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String buildReference) {
         if (SecurityUtils.getUser() == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var build = getBuild(currentProject, buildReference);
         return BuildHelper.getDetail(currentProject, build);
     }
@@ -865,14 +896,14 @@ public class TodResource {
     @Path("/get-build-code-problems")
     @GET
     public List<Map<String, Object>> getBuildCodeProblems(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String buildReference, 
                 @QueryParam("reportName") @NotNull String reportName, 
                 @QueryParam("severityLevel") @NotNull CodeProblem.Severity severityLevel) {
         if (SecurityUtils.getUser() == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var build = getBuild(currentProject, buildReference);
 
         if (!SecurityUtils.canAccessReport(build, reportName))
@@ -911,14 +942,14 @@ public class TodResource {
     @Path("/get-build-unit-test-report")
     @GET
     public Response getBuildUnitTestReport(
-                @QueryParam("currentProject") @NotNull String currentProjectPath,
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String buildReference,
                 @QueryParam("reportName") @NotNull String reportName,
                 @QueryParam("artifactPath") String artifactPath) {
         if (SecurityUtils.getUser() == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var build = getBuild(currentProject, buildReference);
 
         if (!SecurityUtils.canAccessReport(build, reportName))
@@ -981,12 +1012,12 @@ public class TodResource {
     @Path("/get-previous-successful-similar-build")
     @GET
     public Map<String, Object> getPreviousSuccessfulSimilarBuild(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String buildReference) {
         if (SecurityUtils.getUser() == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
 
         var build = getBuild(currentProject, buildReference);
                 
@@ -1000,13 +1031,13 @@ public class TodResource {
     @Path("/get-pull-request")
     @GET
     public Map<String, Object> getPullRequestDetail(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String pullRequestReference, 
                 @QueryParam("forWrite") Boolean forWrite) {
         if (SecurityUtils.getUser() == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var pullRequest = getPullRequest(currentProject, pullRequestReference);
 
         if (forWrite != null && forWrite) {
@@ -1023,12 +1054,12 @@ public class TodResource {
     @Path("/get-pull-request-comments")
     @GET
     public List<Map<String, Object>> getPullRequestComments(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String pullRequestReference) {
         if (SecurityUtils.getUser() == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var pullRequest = getPullRequest(currentProject, pullRequestReference);
                 
         return PullRequestHelper.getComments(pullRequest);
@@ -1037,12 +1068,12 @@ public class TodResource {
     @Path("/get-pull-request-code-comments")
     @GET
     public List<Map<String, Object>> getPullRequestCodeComments(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String pullRequestReference) {
         if (SecurityUtils.getUser() == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
 
         var pullRequest = getPullRequest(currentProject, pullRequestReference);
 
@@ -1052,12 +1083,13 @@ public class TodResource {
     @Path("/get-pull-request-builds")
     @GET
     public List<Map<String, Object>> getPullRequestBuilds(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String pullRequestReference) {
         if (SecurityUtils.getUser() == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
+
         var pullRequest = getPullRequest(currentProject, pullRequestReference);
         return PullRequestHelper.getBuilds(currentProject, pullRequest);
     }
@@ -1065,13 +1097,13 @@ public class TodResource {
     @Path("/get-pull-request-patch-info")
     @GET
     public Map<String, String> getPullRequestPatchInfo(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String pullRequestReference) {
         var user = SecurityUtils.getUser();
         if (user == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
 
         var pullRequest = getPullRequest(currentProject, pullRequestReference);
 
@@ -1101,7 +1133,7 @@ public class TodResource {
     @Path("/create-pull-request")
     @POST
     public Map<String, Object> createPullRequest(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("targetProject") String targetProjectPath,
                 @QueryParam("sourceProject") String sourceProjectPath,
                 @NotNull Map<String, Serializable> data) {
@@ -1121,13 +1153,14 @@ public class TodResource {
         var target = createPullRequestEssentialInfo.target;
         var source = createPullRequestEssentialInfo.source;
         var submitter = createPullRequestEssentialInfo.submitter;
+        SecurityUtils.checkWorkOnProject(target.getProject());
 
         var mergeStrategyName = (String) data.remove("mergeStrategy");            
         var mergeStrategy = getMergeStrategy(target.getProject(), mergeStrategyName);
 
         var request = pullRequestService.findOpen(target, source);
         if (request != null)
-            return PullRequestHelper.getDetail(currentProject, request);        
+            return PullRequestHelper.getIdentity(currentProject, request);
 
         request = new PullRequest();
         request.setTarget(target);
@@ -1195,7 +1228,7 @@ public class TodResource {
 
         pullRequestService.open(request);
 
-        return PullRequestHelper.getDetail(currentProject, request);        
+        return PullRequestHelper.getIdentity(currentProject, request);
     }
 
     @Api(description = "Get pull request title and description requirement")
@@ -1203,7 +1236,7 @@ public class TodResource {
     @GET
     @Nullable
     public String getPullRequestTitleAndDescriptionRequirement(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("targetProject") String targetProjectPath,
                 @QueryParam("sourceProject") String sourceProjectPath,
                 @QueryParam("targetBranch") String targetBranch,
@@ -1239,7 +1272,7 @@ public class TodResource {
     @GET
     @Nullable
     public String getPullRequestCommitMessageRequirement(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("targetProject") String targetProjectPath,
                 @QueryParam("sourceProject") String sourceProjectPath,
                 @QueryParam("targetBranch") String targetBranch,
@@ -1254,7 +1287,7 @@ public class TodResource {
     }
 
     private CreatePullRequestEssentialInfo getCreatePullRequestEssentialInfo(
-                String currentProjectPath, 
+                @Nullable String currentProjectPath,
                 @Nullable String targetProjectPath, 
                 @Nullable String sourceProjectPath,
                 @Nullable String targetBranch, 
@@ -1263,13 +1296,16 @@ public class TodResource {
         if (user == null)
             throw new UnauthenticatedException();
         
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
 
         Project sourceProject;
         if (sourceProjectPath == null)
             sourceProject = currentProject;
         else
             sourceProject = getProject(sourceProjectPath);
+
+        if (sourceProject == null)
+            throw new NotAcceptableException("Either source project or current project should be specified");
 
         if (!SecurityUtils.canReadCode(sourceProject))
             throw new UnauthorizedException("No permission to read code of source project: " + sourceProjectPath);
@@ -1282,6 +1318,7 @@ public class TodResource {
             if (targetProject == null)
                 targetProject = sourceProject;
         }
+
         if (!SecurityUtils.canReadCode(targetProject))
             throw new UnauthorizedException("No permission to read code of target project: " + targetProjectPath);
 
@@ -1302,7 +1339,7 @@ public class TodResource {
         return info;
     }    
 
-    private PullRequest getPullRequest(Project currentProject, String referenceString) {
+    private PullRequest getPullRequest(@Nullable Project currentProject, String referenceString) {
         var requestReference = PullRequestReference.of(referenceString, currentProject);
         var request = pullRequestService.find(requestReference.getProject(), requestReference.getNumber());
         if (request != null) {
@@ -1318,13 +1355,14 @@ public class TodResource {
     @Path("/edit-pull-request")
     @POST
     public Map<String, Object> editPullRequest(
-                @QueryParam("currentProject") @NotNull String currentProjectPath,
-                @QueryParam("reference") @NotNull String pullRequestReference, @NotNull Map<String, Serializable> data) {
+                @QueryParam("currentProject") String currentProjectPath,
+                @QueryParam("reference") @NotNull String pullRequestReference,
+                @NotNull Map<String, Serializable> data) {
         var user = SecurityUtils.getUser();
         if (user == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
 
         var request = getPullRequest(currentProject, pullRequestReference);
 
@@ -1446,57 +1484,59 @@ public class TodResource {
             pullRequestChangeService.changeAutoMerge(user, request, autoMerge);
         }
                     
-        return PullRequestHelper.getDetail(currentProject, request);        
+        return PullRequestHelper.getIdentity(currentProject, request);
     }    
 
     @Path("/approve-pull-request")
     @Consumes(MediaType.TEXT_PLAIN)
     @POST
     public Map<String, Object> approvePullRequest(
-                @QueryParam("currentProject") @NotNull String currentProjectPath,
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String pullRequestReference,
                 String comment) {
         var user = SecurityUtils.getUser();
         if (user == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var pullRequest = getPullRequest(currentProject, pullRequestReference);
 
+        SecurityUtils.checkWorkOnProject(pullRequest.getProject());
         pullRequestReviewService.review(user, pullRequest, true, trimToNull(comment));
-        return PullRequestHelper.getDetail(currentProject, pullRequest);        
+        return PullRequestHelper.getIdentity(currentProject, pullRequest);
     }
 
     @Path("/request-changes-on-pull-request")
     @Consumes(MediaType.TEXT_PLAIN)
     @POST
     public Map<String, Object> requestChangesOnPullRequest(
-                @QueryParam("currentProject") @NotNull String currentProjectPath,
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String pullRequestReference,
                 String comment) {
         var user = SecurityUtils.getUser();
         if (user == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var pullRequest = getPullRequest(currentProject, pullRequestReference);
 
+        SecurityUtils.checkWorkOnProject(pullRequest.getProject());
         pullRequestReviewService.review(user, pullRequest, false, trimToNull(comment));
-        return PullRequestHelper.getDetail(currentProject, pullRequest);        
+        return PullRequestHelper.getIdentity(currentProject, pullRequest);
     }
 
     @Path("/merge-pull-request")
     @Consumes(MediaType.TEXT_PLAIN)
     @POST
     public Map<String, Object> mergePullRequest(
-                @QueryParam("currentProject") @NotNull String currentProjectPath,
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String pullRequestReference,
                 String commitMessage) {
         var user = SecurityUtils.getUser();
         if (user == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var pullRequest = getPullRequest(currentProject, pullRequestReference);
 
         if (!SecurityUtils.canWriteCode(user.asSubject(), pullRequest.getProject()))
@@ -1506,63 +1546,63 @@ public class TodResource {
 
         pullRequestService.merge(user, pullRequest, commitMessage);
 
-        return PullRequestHelper.getDetail(currentProject, pullRequest);        
+        return PullRequestHelper.getIdentity(currentProject, pullRequest);
     }
 
     @Path("/discard-pull-request")
     @Consumes(MediaType.TEXT_PLAIN)
     @POST
     public Map<String, Object> discardPullRequest(
-                @QueryParam("currentProject") @NotNull String currentProjectPath,
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String pullRequestReference,
                 String comment) {
         var user = SecurityUtils.getUser();
         if (user == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var pullRequest = getPullRequest(currentProject, pullRequestReference);
 
         if (!SecurityUtils.canModifyPullRequest(pullRequest))
             throw new UnauthorizedException();
 
         pullRequestService.discard(user, pullRequest, trimToNull(comment));
-        return PullRequestHelper.getDetail(currentProject, pullRequest);        
+        return PullRequestHelper.getIdentity(currentProject, pullRequest);
     }
 
     @Path("/reopen-pull-request")
     @Consumes(MediaType.TEXT_PLAIN)
     @POST
     public Map<String, Object> reopenPullRequest(
-                @QueryParam("currentProject") @NotNull String currentProjectPath,
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String pullRequestReference,
                 String comment) {
         var user = SecurityUtils.getUser();
         if (user == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var pullRequest = getPullRequest(currentProject, pullRequestReference);
 
         if (!SecurityUtils.canModifyPullRequest(pullRequest))
             throw new UnauthorizedException();
 
         pullRequestService.reopen(user, pullRequest, trimToNull(comment));
-        return PullRequestHelper.getDetail(currentProject, pullRequest);        
+        return PullRequestHelper.getIdentity(currentProject, pullRequest);
     }
 
     @Path("/delete-pull-request-source-branch")
     @Consumes(MediaType.TEXT_PLAIN)
     @POST
     public Map<String, Object> deletePullRequestSourceBranch(
-                @QueryParam("currentProject") @NotNull String currentProjectPath,
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String pullRequestReference,
                 String comment) {
         var user = SecurityUtils.getUser();
         if (user == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var pullRequest = getPullRequest(currentProject, pullRequestReference);
 
         if (!SecurityUtils.canModifyPullRequest(pullRequest)
@@ -1571,21 +1611,21 @@ public class TodResource {
         }
 
         pullRequestService.deleteSourceBranch(user, pullRequest, trimToNull(comment));
-        return PullRequestHelper.getDetail(currentProject, pullRequest);        
+        return PullRequestHelper.getIdentity(currentProject, pullRequest);
     }
 
     @Path("/restore-pull-request-source-branch")
     @Consumes(MediaType.TEXT_PLAIN)
     @POST
     public Map<String, Object> restorePullRequestSourceBranch(
-                @QueryParam("currentProject") @NotNull String currentProjectPath,
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String pullRequestReference,
                 String comment) {
         var user = SecurityUtils.getUser();
         if (user == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var pullRequest = getPullRequest(currentProject, pullRequestReference);
 
         if (!SecurityUtils.canModifyPullRequest(pullRequest)
@@ -1594,22 +1634,23 @@ public class TodResource {
         }
 
         pullRequestService.restoreSourceBranch(user, pullRequest, trimToNull(comment));
-        return PullRequestHelper.getDetail(currentProject, pullRequest);        
+        return PullRequestHelper.getIdentity(currentProject, pullRequest);
     }
 
     @Path("/add-pull-request-comment")
     @Consumes(MediaType.TEXT_PLAIN)
     @POST
     public Map<String, Object> addPullRequestComment(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String pullRequestReference, 
                 @NotNull String commentContent) {
         if (SecurityUtils.getUser() == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
 
         var pullRequest = getPullRequest(currentProject, pullRequestReference);
+        SecurityUtils.checkWorkOnProject(pullRequest.getProject());
         var comment = new PullRequestComment();
         comment.setRequest(pullRequest);
         comment.setContent(commentContent);
@@ -1617,18 +1658,14 @@ public class TodResource {
         comment.setDate(new Date());
         pullRequestCommentService.create(comment);
 
-        var commentMap = new HashMap<String, Object>();
-        commentMap.put("content", comment.getContent());
-        commentMap.put("user", comment.getUser().getName());
-        commentMap.put("date", comment.getDate());
-        return commentMap;
+        return Map.of("id", comment.getId(), "link", urlService.urlFor(comment, true));
     }
 
     @Path("/add-pull-request-code-comment")
     @Consumes(MediaType.TEXT_PLAIN)
     @POST
     public Map<String, Object> addPullRequestCodeComment(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
+                @QueryParam("currentProject") String currentProjectPath,
                 @QueryParam("reference") @NotNull String pullRequestReference, 
                 @QueryParam("filePath") @NotNull String filePath,
                 @QueryParam("fromLineNumber") int fromLineNumber, // index starts from 1
@@ -1638,11 +1675,12 @@ public class TodResource {
         if (user == null)
             throw new UnauthenticatedException();
 
-        var currentProject = getProject(currentProjectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
         var pullRequest = getPullRequest(currentProject, pullRequestReference);
 
+        SecurityUtils.checkWorkOnProject(pullRequest.getProject());
         var comment = PullRequestHelper.addCodeComment(pullRequest, user, filePath, fromLineNumber, toLineNumber, commentContent);
-        return CodeCommentHelper.getDetail(comment);
+        return CodeCommentHelper.getIdentity(comment);
     }
 
     @Path("/add-code-comment-reply")
@@ -1675,21 +1713,29 @@ public class TodResource {
     @Path("/run-job")
     @POST
     public Map<String, Object> runJob(
-                @QueryParam("currentProject") @NotNull String currentProjectPath, 
-                @NotNull @Valid Map<String, Serializable> data) {
+                @QueryParam("currentProject") String currentProjectPath,
+                @QueryParam("project") String projectPath,
+                @NotNull Map<String, @Valid Serializable> data) {
         var subject = SecurityUtils.getSubject();
         var user = SecurityUtils.getUser(subject);
 
         if (user == null)
             throw new UnauthenticatedException();
 
-        var project = getProject(currentProjectPath);
+        if (projectPath == null)
+            projectPath = currentProjectPath;
+
+        if (projectPath == null)
+            throw new NotAcceptableException("Either project or current project should be specified");
+
+        var project = getProject(projectPath);
+        var currentProject = currentProjectPath != null? getProject(currentProjectPath): null;
 
         var jobName = trimToNull((String)data.get("jobName"));
         if (jobName == null)
             throw new NotAcceptableException("Job name is required");
 
-        if (!SecurityUtils.canRunJob(subject, project, jobName))		
+        if (!SecurityUtils.canRunJob(subject, project, jobName))
             throw new UnauthorizedException();
 
         String refName;
@@ -1716,13 +1762,11 @@ public class TodResource {
         if (paramData instanceof List) {
             params = new HashMap<String, List<String>>();
             List<String> paramPairs = (List<String>) paramData;
-            if (paramPairs != null) {
-                for (var paramPair: paramPairs) {
-                    var paramName = trimToNull(StringUtils.substringBefore(paramPair, "="));
-                    var paramValue = trimToNull(StringUtils.substringAfter(paramPair, "="));
-                    if (paramName != null && paramValue != null)
-                        params.computeIfAbsent(paramName, k -> new ArrayList<>()).add(paramValue);
-                }
+            for (var paramPair : paramPairs) {
+                var paramName = trimToNull(StringUtils.substringBefore(paramPair, "="));
+                var paramValue = trimToNull(StringUtils.substringAfter(paramPair, "="));
+                if (paramName != null && paramValue != null)
+                    params.computeIfAbsent(paramName, k -> new ArrayList<>()).add(paramValue);
             }
         } else if (paramData instanceof Map) {
             params = (Map<String, List<String>>) paramData;
@@ -1734,14 +1778,12 @@ public class TodResource {
         if (reason == null)
             throw new NotAcceptableException("Reason is required");
             
-        var build = jobService.submit(user, project, ObjectId.fromString(commitHash), jobName, 
+        var build = jobService.submit(user, project, ObjectId.fromString(commitHash), jobName,
             params, refName, null, null, reason);
         if (build.isFinished())
             jobService.resubmit(user, build, reason);
 
-        var summary = BuildHelper.getSummary(project, build);
-        summary.put("id", build.getId());
-        return summary;
+        return BuildHelper.getIdentity(currentProject, build);
     }
 
     @Path("/get-clone-roots")
@@ -1796,7 +1838,7 @@ public class TodResource {
 		}
     }
 
-    private Build getBuild(Project currentProject, String referenceString) {
+    private Build getBuild(@Nullable Project currentProject, String referenceString) {
         var buildReference = BuildReference.of(referenceString, currentProject);
         var build = buildService.find(buildReference.getProject(), buildReference.getNumber());
         if (build != null) {
@@ -1815,13 +1857,6 @@ public class TodResource {
         }
     }    
 
-    private static class ProjectContext {
-        
-        Project project;
-
-        Project currentProject;
-    }
-
     private static class VersionInfo {
 
         @SuppressWarnings("unused")
@@ -1834,6 +1869,7 @@ public class TodResource {
 
     private static class CreatePullRequestEssentialInfo {
 
+        @Nullable
         Project currentProject;
 
         ProjectAndBranch target;

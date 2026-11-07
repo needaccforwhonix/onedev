@@ -7,7 +7,7 @@ import io.onedev.server.web.component.codesnippet.CodeSnippetPanel;
 import static io.onedev.server.web.translation.Translation._T;
 
 import org.apache.wicket.markup.html.panel.Panel;
-import org.apache.wicket.model.AbstractReadOnlyModel;
+import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
 
@@ -25,7 +25,7 @@ public class PypiHelpPanel extends Panel {
 		super.onInitialize();
 
 		var registryUrl = getServerUrl() + "/" + projectPath + "/~" + PypiPackHandler.HANDLER_ID;
-		add(new CodeSnippetPanel("addRepository", new AbstractReadOnlyModel<>() {
+		add(new CodeSnippetPanel("addRepository", new IModel<>() {
 			@Override
 			public String getObject() {
 				return "" +
@@ -46,7 +46,7 @@ public class PypiHelpPanel extends Panel {
 			@Override
 			protected String load() {
 				return "" +
-						"# " + _T("Use job token to tell OneDev the build publishing the package") + "\n" +
+						"# " + _T("Use job token to tell ${productName} the build publishing the package") + "\n" +
 						"# " + _T("Job secret 'access-token' should be defined in project build setting as an access token with package write permission") + "\n\n" +
 						"cat << EOF > $HOME/.pypirc\n" +
 						"[distutils]\n" +

@@ -4,9 +4,10 @@ import static io.onedev.commons.utils.LockUtils.write;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Serial;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.commons.utils.FileUtils;
@@ -15,6 +16,7 @@ import io.onedev.k8shelper.ServerStepResult;
 import io.onedev.server.OneDev;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Interpolative;
+import io.onedev.server.annotation.Path;
 import io.onedev.server.buildspec.BuildSpec;
 import io.onedev.server.buildspec.step.PublishReportStep;
 import io.onedev.server.buildspec.step.StepGroup;
@@ -28,6 +30,7 @@ import io.onedev.server.persistence.SessionService;
 @Editable(order=1070, group= StepGroup.PUBLISH, name="Html Report")
 public class PublishHtmlReportStep extends PublishReportStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static final String CATEGORY = "html";
@@ -36,8 +39,9 @@ public class PublishHtmlReportStep extends PublishReportStep {
 
 	private String startPage;
 
-	@Editable(order=1000, description="Specify start page of the report relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, for instance: api/index.html")
+	@Editable(order=1000, description="Specify start page of the report relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, for instance: api/index.html")
 	@Interpolative(variableSuggester="suggestVariables")
+	@Path(Path.Type.RELATIVE)
 	@NotEmpty
 	public String getStartPage() {
 		return startPage;
@@ -54,13 +58,13 @@ public class PublishHtmlReportStep extends PublishReportStep {
 
 	@Override
 	public ServerStepResult run(Long buildId, File inputDir, TaskLogger logger) {
+		File startPage = getReportFile(inputDir, getStartPage());
 		return OneDev.getInstance(SessionService.class).call(() -> {
 			var build = OneDev.getInstance(BuildService.class).load(buildId);
 			JobContext jobContext = OneDev.getInstance(JobService.class).getJobContext(build.getId());
 			if (jobContext.getJobExecutor().isHtmlReportPublishEnabled()) {
 				write(getReportLockName(build), () -> {
 					File reportDir = new File(build.getDir(), CATEGORY + "/" + getReportName());
-					File startPage = new File(inputDir, getStartPage());
 					if (startPage.exists()) {
 						FileUtils.createDir(reportDir);
 						File startPageFile = new File(reportDir, START_PAGE);

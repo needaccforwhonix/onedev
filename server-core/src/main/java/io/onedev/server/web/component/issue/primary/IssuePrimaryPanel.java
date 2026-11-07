@@ -9,10 +9,12 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import javax.inject.Inject;
-import javax.servlet.http.Cookie;
+import jakarta.inject.Inject;
+import jakarta.servlet.http.Cookie;
 
 import org.apache.wicket.Component;
 import org.apache.wicket.Session;
@@ -34,7 +36,7 @@ import org.apache.wicket.markup.html.list.ListItem;
 import org.apache.wicket.markup.html.list.ListView;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.Panel;
-import org.apache.wicket.markup.repeater.RepeatingView;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -372,6 +374,7 @@ public abstract class IssuePrimaryPanel extends Panel {
 				var opposite = descriptor.isOpposite();
 				
 				boolean canEditIssueLink = SecurityUtils.canEditIssueLink(getProject(), spec);
+				Map<Long, Boolean> canWorkOnProjects = new HashMap<>();
 				
 				String linkName = spec.getName(opposite);
 				item.add(new Label("name", linkName));
@@ -379,11 +382,14 @@ public abstract class IssuePrimaryPanel extends Panel {
 				RepeatingView linkedIssuesView = new RepeatingView("linkedIssues");
 				for (IssueLink issueLink: group.getIssueLinks()) {
 					LinkDeleteListener deleteListener;
-					if (canEditIssueLink) { 
+					if (canEditIssueLink && canWorkOnProjects.computeIfAbsent(issueLink.getLinked(getIssue()).getProject().getId(),
+							it -> SecurityUtils.canWorkOnProject(issueLink.getLinked(getIssue()).getProject()))) {
 						deleteListener = new LinkDeleteListener() {
 	
 							@Override
 							void onDelete(AjaxRequestTarget target, Issue linkedIssue) {
+								SecurityUtils.checkWorkOnProject(getProject());
+								SecurityUtils.checkWorkOnProject(linkedIssue.getProject());
 								issueChangeService.removeLink(SecurityUtils.getUser(), linkSpecService.load(specId), getIssue(), 
 										linkedIssue, opposite);
 								notifyIssueChange(target, getIssue());
@@ -398,7 +404,8 @@ public abstract class IssuePrimaryPanel extends Panel {
 				}
 				item.add(linkedIssuesView);
 				
-				if (canEditIssueLink) {
+				if (canEditIssueLink && group.getIssueLinks().stream()
+						.allMatch(it -> canWorkOnProjects.get(it.getLinked(getIssue()).getProject().getId()))) {
 					item.add(new SortBehavior() {
 											
 						@Override
@@ -411,6 +418,8 @@ public abstract class IssuePrimaryPanel extends Panel {
 									var issueLinkId = (Long) it.next().getDefaultModelObject();
 									issueLinks.add(issueLinkService.load(issueLinkId));
 								}
+								SecurityUtils.checkWorkOnProject(getProject());
+								issueLinks.forEach(it -> SecurityUtils.checkWorkOnProject(it.getLinked(getIssue()).getProject()));
 								
 								if (fromIndex != toIndex && fromIndex < issueLinks.size() && toIndex < issueLinks.size()) {
 									var movedIssueLink = issueLinks.remove(fromIndex);
@@ -591,8 +600,9 @@ public abstract class IssuePrimaryPanel extends Panel {
 					form.add(new AjaxButton("save") {
 						@SuppressWarnings("unchecked")
 						@Override
-						protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
+						protected void onSubmit(AjaxRequestTarget target) {
 							var convertedInput = issuePopulator.getConvertedInput();
+							Map<Long, Boolean> canWorkOnProjects = new HashMap<>();
 							if (convertedInput instanceof Issue) {
 								var linkIssue = (Issue) convertedInput;
 								if (linkIssue.isNew()) {
@@ -600,13 +610,13 @@ public abstract class IssuePrimaryPanel extends Panel {
 									notifyIssueChange(target, linkIssue);
 									addLink(target, linkIssue);
 									close();
-								} else if (checkLink(target, linkIssue)) {
+								} else if (checkLink(target, linkIssue, canWorkOnProjects)) {
 									addLink(target, linkIssue);
 									close();
 								}
 							} else {
 								var linkIssues = (List<Issue>) convertedInput;
-								if (linkIssues.stream().noneMatch(it->!checkLink(target, it))) {
+								if (linkIssues.stream().noneMatch(it->!checkLink(target, it, canWorkOnProjects))) {
 									for (var linkIssue: linkIssues) 
 										addLink(target, linkIssue);
 									close();
@@ -614,9 +624,14 @@ public abstract class IssuePrimaryPanel extends Panel {
 							}
 						}
 
-						private boolean checkLink(AjaxRequestTarget target, Issue linkIssue) {
+						private boolean checkLink(AjaxRequestTarget target, Issue linkIssue, Map<Long, Boolean> canWorkOnProjects) {
 							LinkSpec spec = linkSpecService.load(specId);
-							if (getIssue().getId().equals(linkIssue.getId())) {
+							if (!canWorkOnProjects.computeIfAbsent(linkIssue.getProject().getId(),
+									it -> SecurityUtils.canWorkOnProject(linkIssue.getProject()))) {
+								form.error(_T("Project is in maintenance mode"));
+								target.add(form);
+								return false;
+							} else if (getIssue().getId().equals(linkIssue.getId())) {
 								form.error(_T("Cannot link to self: " + linkIssue.getReference().toString(getProject())));
 								target.add(form);
 								return false;
@@ -630,13 +645,16 @@ public abstract class IssuePrimaryPanel extends Panel {
 						}
 
 						private void addLink(AjaxRequestTarget target, Issue linkIssue) {
+							SecurityUtils.checkWorkOnProject(getProject());
+							SecurityUtils.checkWorkOnProject(linkIssue.getProject());
 							LinkSpec spec = linkSpecService.load(specId);
 							issueChangeService.addLink(SecurityUtils.getUser(), spec, getIssue(), linkIssue, opposite);
 							notifyIssueChange(target, getIssue());
 						}
 
 						@Override
-						protected void onError(AjaxRequestTarget target, Form<?> form) {
+						protected void onError(AjaxRequestTarget target) {
+				Form<?> form = getForm();
 							target.add(form);
 						}
 					});

@@ -1,15 +1,16 @@
 package io.onedev.server.model;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collection;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.CascadeType;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Lob;
-import javax.persistence.OneToMany;
-import javax.validation.constraints.NotEmpty;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Lob;
+import jakarta.persistence.OneToMany;
+import jakarta.validation.constraints.NotEmpty;
 
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
@@ -27,6 +28,7 @@ import io.onedev.server.util.usage.Usage;
 @Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
 public class LinkSpec extends AbstractEntity {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String PROP_NAME = "name";

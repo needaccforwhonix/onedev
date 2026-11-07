@@ -1,5 +1,6 @@
 package io.onedev.server.web.page.base;
 
+import static io.onedev.server.oem.OemUtils.interpolate;
 import static io.onedev.server.web.behavior.ChangeObserver.filterObservables;
 import static io.onedev.server.web.translation.Translation._T;
 import static org.apache.wicket.ajax.attributes.CallbackParameter.explicit;
@@ -16,8 +17,8 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-import javax.inject.Inject;
-import javax.servlet.http.Cookie;
+import jakarta.inject.Inject;
+import jakarta.servlet.http.Cookie;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.SerializationUtils;
@@ -42,7 +43,8 @@ import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.WebPage;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.panel.FeedbackPanel;
-import org.apache.wicket.markup.repeater.RepeatingView;
+import io.onedev.server.SubscriptionService;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.protocol.ws.api.WebSocketBehavior;
 import org.apache.wicket.protocol.ws.api.event.WebSocketPushPayload;
@@ -68,6 +70,7 @@ import io.onedev.server.OneDev;
 import io.onedev.server.ai.ChatTool;
 import io.onedev.server.ai.ChatToolAware;
 import io.onedev.server.ai.ChatToolsContribution;
+import io.onedev.server.crypto.CryptoService;
 import io.onedev.server.ai.ToolExecutionResult;
 import io.onedev.server.commandhandler.Upgrade;
 import io.onedev.server.event.ListenerRegistry;
@@ -77,7 +80,6 @@ import io.onedev.server.model.User;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.service.AuditService;
 import io.onedev.server.service.SettingService;
-import io.onedev.server.util.CryptoUtils;
 import io.onedev.server.web.WebSession;
 import io.onedev.server.web.asset.icon.IconScope;
 import io.onedev.server.web.behavior.AbstractPostAjaxBehavior;
@@ -90,7 +92,7 @@ import io.onedev.server.web.page.help.IncompatibilitiesPage;
 import io.onedev.server.web.page.security.LoginPage;
 import io.onedev.server.web.page.serverinit.ServerInitPage;
 import io.onedev.server.web.page.simple.SimplePage;
-import io.onedev.server.web.util.WicketUtils;
+import io.onedev.server.web.util.BrandingUtils;
 import io.onedev.server.web.websocket.AiToolExecution;
 import io.onedev.server.web.websocket.ObservablesChanged;
 import io.onedev.server.web.websocket.WebSocketService;
@@ -121,6 +123,9 @@ public abstract class BasePage extends WebPage {
 
 	@Inject
 	private SettingService settingService;
+
+	@Inject
+	protected CryptoService cryptoService;
 
 	@Inject
 	protected ListenerRegistry listenerRegistry;
@@ -247,7 +252,7 @@ public abstract class BasePage extends WebPage {
 					throw new BadRequestException("Pop state data is missing");
 
 				byte[] bytes = Base64.decodeBase64(encodedData.getBytes());
-				Serializable data = (Serializable) SerializationUtils.deserialize(CryptoUtils.decrypt(bytes));
+				Serializable data = (Serializable) SerializationUtils.deserialize(cryptoService.decrypt(bytes));
 				onPopState(target, data);
 				resizeWindow(target);
 				target.appendJavaScript("onedev.server.viewState.getFromHistoryAndSetToView();");
@@ -275,12 +280,11 @@ public abstract class BasePage extends WebPage {
 		
 				try {
 					response.render(OnDomReadyHeaderItem.forScript(
-						String.format("onedev.server.onDomReady('%s', '%s', %s, %s, %d, %d, %s);",
+						String.format("onedev.server.onDomReady('%s', '%s', %s, %s, %d, %s);",
 								String.valueOf(OneDev.getInstance().getBootDate().getTime()),
 								SpriteImage.getVersionedHref(IconScope.class, null),
 								popStateBehavior.getCallbackFunction(explicit("data")).toString(), 
 								objectMapper.writeValueAsString(getRemoveAutosaveKeys()),
-								WebSocketService.KEEP_ALIVE_INTERVAL*2000,
 								sessionKeepAliveInterval,
 								objectMapper.writeValueAsString(translations))));
 				} catch (JsonProcessingException e) {
@@ -323,10 +327,17 @@ public abstract class BasePage extends WebPage {
 			@Override
 			protected void onComponentTag(ComponentTag tag) {
 				super.onComponentTag(tag);
+				tag.put("href", BrandingUtils.getLogoUrl(false));
+			}
 
-				File logoFile = new File(Bootstrap.getSiteDir(), "assets/logo.png");
-				if (logoFile.exists())
-					tag.put("href", "/logo.png?v=" + logoFile.lastModified());
+		});
+
+		add(new WebMarkupContainer("darkSiteIcon") {
+
+			@Override
+			protected void onComponentTag(ComponentTag tag) {
+				super.onComponentTag(tag);
+				tag.put("href", BrandingUtils.getLogoUrl(true));
 			}
 
 		});
@@ -437,17 +448,19 @@ public abstract class BasePage extends WebPage {
 		super.onBeforeRender();
 	}
 
+	private String encodeHistoryState(Serializable data) {
+		return Base64.encodeBase64String(cryptoService.encrypt(SerializationUtils.serialize(data)));
+	}
+
 	public void pushState(IPartialPageRequestHandler handler, String url, Serializable data) {
-		String encodedData = new String(Base64.encodeBase64(CryptoUtils.encrypt(SerializationUtils.serialize(data))));
 		String script = String.format("onedev.server.history.pushState('%s', '%s', '%s');",
-				url, encodedData, JavaScriptEscape.escapeJavaScript(getPageTitle()));
+				url, encodeHistoryState(data), JavaScriptEscape.escapeJavaScript(getPageTitle()));
 		handler.prependJavaScript(script);
 	}
 
 	public void replaceState(IPartialPageRequestHandler handler, String url, Serializable data) {
-		String encodedData = new String(Base64.encodeBase64(CryptoUtils.encrypt(SerializationUtils.serialize(data))));
 		String script = String.format("onedev.server.history.replaceState('%s', '%s', '%s');",
-				url, encodedData, JavaScriptEscape.escapeJavaScript(getPageTitle()));
+				url, encodeHistoryState(data), JavaScriptEscape.escapeJavaScript(getPageTitle()));
 		handler.prependJavaScript(script);
 	}
 
@@ -533,7 +546,7 @@ public abstract class BasePage extends WebPage {
 	}
 
 	protected String getPageTitle() {
-		return "OneDev - Git Server with CI/CD, Kanban, and Packages";
+		return interpolate("${productName} - Git Server with CI/CD, Kanban, and Packages");
 	}
 
 	protected int getPageRefreshInterval() {
@@ -542,7 +555,7 @@ public abstract class BasePage extends WebPage {
 
 	protected Collection<String> getCssClasses() {
 		var cssClasses = new HashSet<String>();
-		if (WicketUtils.isSubscriptionActive())
+		if (OneDev.getInstance(SubscriptionService.class).isSubscriptionActive())
 			cssClasses.add("enterprise-edition");
 		else
 			cssClasses.add("community-edition");
@@ -554,11 +567,11 @@ public abstract class BasePage extends WebPage {
 	}
 
 	public boolean isSubscriptionActive() {
-		return WicketUtils.isSubscriptionActive();
+		return OneDev.getInstance(SubscriptionService.class).isSubscriptionActive();
 	}
 	
 	public void removeAutosaveKey(String autosaveKey) {
-		var target = RequestCycle.get().find(AjaxRequestTarget.class);
+		var target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 		if (target != null) {
 			target.prependJavaScript(String.format("localStorage.removeItem('%s');", autosaveKey));
 		} else {

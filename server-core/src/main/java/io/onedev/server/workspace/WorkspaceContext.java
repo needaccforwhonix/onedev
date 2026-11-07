@@ -2,6 +2,7 @@ package io.onedev.server.workspace;
 
 import static java.util.stream.Collectors.toList;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,14 +15,17 @@ import io.onedev.k8shelper.CloneInfo;
 import io.onedev.k8shelper.ConfigFileFacade;
 import io.onedev.k8shelper.ScriptConfig;
 import io.onedev.k8shelper.UserDataFacade;
+import io.onedev.server.OneDev;
 import io.onedev.server.model.support.administration.workspaceprovisioner.WorkspaceProvisioner;
 import io.onedev.server.model.support.workspace.spec.CacheConfig;
 import io.onedev.server.model.support.workspace.spec.ConfigFile;
 import io.onedev.server.model.support.workspace.spec.UserData;
 import io.onedev.server.model.support.workspace.spec.WorkspaceSpec;
+import io.onedev.server.persistence.SessionService;
 
 public class WorkspaceContext implements Serializable {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final WorkspaceSpec spec;
@@ -89,6 +93,11 @@ public class WorkspaceContext implements Serializable {
 
 	public Long getWorkspaceId() {
 		return workspaceId;
+	}
+
+	public boolean isDeleted() {
+		return OneDev.getInstance(SessionService.class).call(() ->
+				OneDev.getInstance(WorkspaceService.class).get(workspaceId) == null);
 	}
 
 	public Long getProjectId() {

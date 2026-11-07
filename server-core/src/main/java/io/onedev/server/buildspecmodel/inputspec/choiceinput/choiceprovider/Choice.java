@@ -1,9 +1,10 @@
 package io.onedev.server.buildspecmodel.inputspec.choiceinput.choiceprovider;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.server.annotation.Color;
@@ -14,6 +15,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 @Editable(name="Value")
 public class Choice implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String value;
@@ -44,7 +46,7 @@ public class Choice implements Serializable {
 	}
 
 	@Editable(order=300, placeholder="All projects", description="Specify applicable projects separated by space. "
-			+ "Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
+			+ "Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
 			+ "Prefix with '-' to exclude. Leave empty for all projects")
 	@Patterns(suggester="suggestProjects", path=true)
 	public String getApplicableProjects() {

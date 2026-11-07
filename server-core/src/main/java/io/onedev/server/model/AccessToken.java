@@ -1,10 +1,11 @@
 package io.onedev.server.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.onedev.server.rest.annotation.Immutable;
 import io.onedev.server.security.SecurityUtils;
-import io.onedev.server.util.CryptoUtils;
 import io.onedev.server.util.facade.AccessTokenFacade;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.shiro.authc.AuthenticationInfo;
 import org.apache.shiro.subject.PrincipalCollection;
 import org.apache.shiro.subject.Subject;
@@ -12,7 +13,8 @@ import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.*;
+import jakarta.persistence.*;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -23,11 +25,12 @@ import static io.onedev.server.security.SecurityUtils.asPrincipals;
 
 @Entity
 @Table(
-		indexes={@Index(columnList="o_owner_id"), @Index(columnList = "value")},
-		uniqueConstraints={@UniqueConstraint(columnNames={"o_owner_id", "name"})})
+		indexes={@Index(columnList="owner_id"), @Index(columnList = "value"), @Index(columnList="oauthGrant_id")},
+		uniqueConstraints={@UniqueConstraint(columnNames={"owner_id", "name"})})
 @Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
 public class AccessToken extends AbstractEntity implements AuthenticationInfo {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	@Column(nullable=false)
@@ -40,7 +43,7 @@ public class AccessToken extends AbstractEntity implements AuthenticationInfo {
 
 	@Column(nullable=false, unique=true)
 	@JsonProperty(access = READ_ONLY)
-	private String value = CryptoUtils.generateSecret();
+	private String value = RandomStringUtils.secure().nextAlphanumeric(40);
 	
 	private boolean hasOwnerPermissions;
 
@@ -48,6 +51,18 @@ public class AccessToken extends AbstractEntity implements AuthenticationInfo {
 	private Date createDate = new Date();
 
 	private Date expireDate;
+
+	@ManyToOne(fetch=FetchType.LAZY)
+	@JsonIgnore
+	private OAuthGrant oauthGrant;
+
+	public OAuthGrant getOauthGrant() {
+		return oauthGrant;
+	}
+
+	public void setOauthGrant(OAuthGrant oauthGrant) {
+		this.oauthGrant = oauthGrant;
+	}
 
 	@OneToMany(mappedBy="token", cascade=CascadeType.REMOVE)
 	@Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
@@ -115,8 +130,8 @@ public class AccessToken extends AbstractEntity implements AuthenticationInfo {
 	}
 
 	public Subject asSubject() {
-		// Temporal access token, check AccessTokenService.createTemporal
-		if (isNew() || isHasOwnerPermissions())
+		// isNew() checks temporal access token, check AccessTokenService.createTemporal
+		if (oauthGrant == null && (isNew() || isHasOwnerPermissions()))
 			return getOwner().asSubject();
 		else
 			return SecurityUtils.asSubject(getPrincipals());

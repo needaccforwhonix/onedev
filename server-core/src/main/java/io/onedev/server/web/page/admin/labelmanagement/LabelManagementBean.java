@@ -1,11 +1,12 @@
 package io.onedev.server.web.page.admin.labelmanagement;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
-import javax.validation.ConstraintValidatorContext;
+import jakarta.validation.ConstraintValidatorContext;
 
 import io.onedev.server.model.LabelSpec;
 import io.onedev.server.validation.Validatable;
@@ -17,6 +18,7 @@ import io.onedev.server.annotation.OmitName;
 @ClassValidating
 public class LabelManagementBean implements Serializable, Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private List<LabelSpec> labels = new ArrayList<>();

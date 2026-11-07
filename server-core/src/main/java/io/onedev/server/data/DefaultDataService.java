@@ -18,6 +18,7 @@ import static org.unbescape.html.HtmlEscape.escapeHtml5;
 import java.io.File;
 import java.io.IOException;
 import java.io.ObjectStreamException;
+import java.io.Serial;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.nio.charset.Charset;
@@ -29,35 +30,39 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Root;
-import javax.validation.Validator;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Root;
+import jakarta.validation.Validator;
 
 import org.apache.shiro.authc.credential.PasswordService;
+import org.bouncycastle.openpgp.PGPException;
 import org.dom4j.DocumentHelper;
 import org.dom4j.Element;
-import org.hibernate.ReplicationMode;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.boot.Metadata;
 import org.hibernate.boot.model.naming.Identifier;
 import org.hibernate.boot.model.naming.PhysicalNamingStrategy;
+import org.hibernate.boot.model.relational.internal.SqlStringGenerationContextImpl;
+import org.hibernate.cfg.AvailableSettings;
+import org.hibernate.engine.config.spi.ConfigurationService;
 import org.hibernate.engine.jdbc.env.spi.JdbcEnvironment;
 import org.hibernate.query.Query;
-import org.hibernate.tool.hbm2ddl.SchemaExport;
-import org.hibernate.tool.schema.TargetType;
+import org.hibernate.tool.schema.internal.SchemaCreatorImpl;
+import org.hibernate.tool.schema.internal.SchemaDropperImpl;
+import org.hibernate.tool.schema.spi.GenerationTarget;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.quartz.CronScheduleBuilder;
@@ -68,6 +73,9 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.jwk.KeyUse;
+import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 
 import io.onedev.commons.bootstrap.Bootstrap;
 import io.onedev.commons.loader.ManagedSerializedForm;
@@ -89,8 +97,12 @@ import io.onedev.server.event.entity.EntityPersisted;
 import io.onedev.server.event.system.SystemStarted;
 import io.onedev.server.model.AbstractEntity;
 import io.onedev.server.model.EmailAddress;
+import io.onedev.server.model.EntityIdCounter;
 import io.onedev.server.model.LinkSpec;
 import io.onedev.server.model.ModelVersion;
+import io.onedev.server.model.Project;
+import io.onedev.server.model.ProjectLastActivityDate;
+import io.onedev.server.model.ProjectNumberCounter;
 import io.onedev.server.model.Role;
 import io.onedev.server.model.Setting;
 import io.onedev.server.model.Setting.Key;
@@ -133,6 +145,7 @@ import io.onedev.server.ssh.SshKeyUtils;
 import io.onedev.server.taskschedule.SchedulableTask;
 import io.onedev.server.taskschedule.TaskScheduler;
 import io.onedev.server.util.BeanUtils;
+import io.onedev.server.util.GpgUtils;
 import io.onedev.server.util.init.ManualConfig;
 import io.onedev.server.web.util.editbean.NewUserBean;
 
@@ -239,6 +252,27 @@ public class DefaultDataService implements DataService, Serializable {
 		return dbDataVersion;
 	}
 	
+    private void writeSchemaScript(File file, boolean create) throws IOException {
+        var metadata = getMetadata();
+        var registry = metadata.getDatabase().getServiceRegistry();
+        var settings = new LinkedHashMap<String, Object>(registry.requireService(ConfigurationService.class).getSettings());
+        // Callers read one SQL statement per line, regardless of SQL logging format.
+        settings.put(AvailableSettings.FORMAT_SQL, false);
+        List<String> commands = new ArrayList<>();
+        // Capture SQL only. Existing filtering and transaction handling below
+        // decide which statements are executed against the database.
+        GenerationTarget target = new GenerationTarget() {
+            public void prepare() {}
+            public void accept(String command) { commands.add(command); }
+            public void release() {}
+        };
+        if (create)
+            new SchemaCreatorImpl(registry).doCreation(metadata, registry, settings, false, target);
+        else
+            new SchemaDropperImpl(registry).doDrop(metadata, registry, settings, false, target);
+        FileUtils.writeLines(file, commands);
+    }
+
 	@Override
 	public void populateDatabase(Connection conn) {
 		if (hibernateConfig.isHSQLDialect()) 
@@ -250,8 +284,7 @@ public class DefaultDataService implements DataService, Serializable {
 			File tempFile = null;
         	try {
             	tempFile = FileUtils.createTempFile("schema", ".sql");
-	        	new SchemaExport().setOutputFile(tempFile.getAbsolutePath())
-	        			.setFormat(false).createOnly(EnumSet.of(TargetType.SCRIPT), getMetadata());
+			writeSchemaScript(tempFile, true);
 	        	List<String> sqls = new ArrayList<String>();
 	        	for (String sql: FileUtils.readLines(tempFile, Charset.defaultCharset())) {
 	        		if (shouldInclude(sql))
@@ -263,6 +296,24 @@ public class DefaultDataService implements DataService, Serializable {
 	        		stmt.execute(String.format("insert into %s values(1, '%s')", 
 	        				getTableName(ModelVersion.class), MigrationHelper.getVersion(DataMigrator.class)));
 	        	}
+				// Fresh installations do not run data migrations. Seed the same counters
+				// here while the new database contains only its ModelVersion row.
+				var entityTypes = getMetadata().getEntityBindings().stream()
+						.map(binding -> binding.getMappedClass())
+						.sorted(java.util.Comparator.comparing(Class::getName)).collect(Collectors.toList());
+				try (var stmt = conn.prepareStatement(String.format("insert into %s (%s, %s, %s) values (?, ?, ?)",
+						getTableName(EntityIdCounter.class), getColumnName(AbstractEntity.PROP_ID),
+						getColumnName(EntityIdCounter.PROP_ENTITY_NAME), getColumnName(EntityIdCounter.PROP_MAX_ID)))) {
+					long counterId = 0;
+					for (var entityType: entityTypes) {
+						stmt.setLong(1, ++counterId);
+						stmt.setString(2, entityType.getName());
+						stmt.setLong(3, entityType == EntityIdCounter.class ? entityTypes.size()
+								: entityType == ModelVersion.class ? 1 : 0);
+						stmt.addBatch();
+					}
+					stmt.executeBatch();
+				}
         	} catch (Exception e) {
         		throw new RuntimeException(e);
 			} finally {
@@ -422,46 +473,64 @@ public class DefaultDataService implements DataService, Serializable {
 	@Sessional
 	@Override
 	public void exportData(File exportDir, int batchSize) {
-		for (Class<?> entityType: getEntityTypes()) {
+		var entityTypes = getEntityTypes();
+		// Export counter rows after all entities they protect. Preserve the dependency
+		// order of ordinary entities, including projects and their activity dates.
+		if (entityTypes.remove(ProjectNumberCounter.class))
+			entityTypes.add(ProjectNumberCounter.class);
+		if (entityTypes.remove(EntityIdCounter.class))
+			entityTypes.add(EntityIdCounter.class);
+		var exportedProjectIds = new HashSet<Long>();
+		for (Class<?> entityType: entityTypes) {
 			logger.info("Exporting table '" + entityType.getSimpleName() + "'...");
 			
 			logger.info("Querying table ids...");
 			
 			Session session = dao.getSession();
+			// Counter updates bypass entities cached in this session.
+			if (entityType == EntityIdCounter.class || entityType == ProjectNumberCounter.class)
+				session.clear();
 			CriteriaBuilder builder = session.getCriteriaBuilder();
 			CriteriaQuery<Number> query = builder.createQuery(Number.class);
 			Root<?> root = query.from(entityType);
 			query.select(root.get("id")).orderBy(builder.asc(root.get("id")));
 			
 			List<Number> ids = session.createQuery(query).list();
+			if (entityType == Project.class)
+				ids.forEach(id -> exportedProjectIds.add(id.longValue()));
 			
 			int count = ids.size();
 			
 			for (int i=0; i<count/batchSize; i++) {
-				exportEntity(session, entityType, ids, i*batchSize, batchSize, batchSize, exportDir);
+				exportEntity(session, entityType, ids, i*batchSize, batchSize, batchSize, exportDir, exportedProjectIds);
 				// clear session to free memory
 				session.clear();
 			}
 			
 			if (count%batchSize != 0) {
-				exportEntity(session, entityType, ids, count/batchSize*batchSize, count%batchSize, batchSize, exportDir);
+				exportEntity(session, entityType, ids, count/batchSize*batchSize, count%batchSize, batchSize, exportDir, exportedProjectIds);
 			}
 			logger.info("");
 		}
 	}
 
-	private void exportEntity(Session session, Class<?> entityType, List<Number> ids, int start, int count, int batchSize, File exportDir) {
+	private void exportEntity(Session session, Class<?> entityType, List<Number> ids, int start, int count, int batchSize, File exportDir, Set<Long> exportedProjectIds) {
 		logger.info("Loading table rows ({}->{}) from database...", String.valueOf(start+1), (start + count));
 		
-		Query<?> query = session.createQuery("from " + entityType.getSimpleName() + " where id>=:fromId and id<=:toId order by id");
+		Query<?> query = session.createQuery("from " + entityType.getSimpleName() + " where id>=:fromId and id<=:toId order by id", entityType);
 		query.setParameter("fromId", ids.get(start));
 		query.setParameter("toId", ids.get(start+count-1));
 		
 		logger.info("Converting table rows to XML...");
 		VersionedXmlDoc dom = new VersionedXmlDoc();
 		Element rootElement = dom.addElement("list");
-		for (Object entity: query.list())
-			rootElement.appendContent(VersionedXmlDoc.fromBean(entity));
+		for (Object entity: query.list()) {
+			// Counters are exported later: exclude those for projects created after
+			// the project snapshot, otherwise their foreign keys cannot be restored.
+			if (!(entity instanceof ProjectNumberCounter)
+					|| exportedProjectIds.contains(((ProjectNumberCounter) entity).getProject().getId()))
+				rootElement.appendContent(VersionedXmlDoc.fromBean(entity));
+		}
 		String fileName;
 
 		if (start == 0)
@@ -483,23 +552,22 @@ public class DefaultDataService implements DataService, Serializable {
 		for (Class<?> entityType: entityTypes) {
 			File[] dataFiles = dataDir.listFiles((dir, name) -> name.startsWith(entityType.getSimpleName() + "s.xml"));
 			for (File file: dataFiles) {
-				Session session = dao.getSession();
-				Transaction transaction = session.beginTransaction();
-				try {
-					logger.info("Importing from data file '" + file.getName() + "'...");
-					VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
-					
-					for (Element element: dom.getRootElement().elements()) {
-						element.detach();
-						AbstractEntity entity = (AbstractEntity) new VersionedXmlDoc(DocumentHelper.createDocument(element)).toBean();
-						session.replicate(entity, ReplicationMode.EXCEPTION);
+				// Restore each batch independently, preserving its IDs and failing on duplicates.
+				try (var session = dao.getSession().getSessionFactory().openStatelessSession()) {
+					Transaction transaction = session.beginTransaction();
+					try {
+						logger.info("Importing from data file '" + file.getName() + "'...");
+						VersionedXmlDoc dom = VersionedXmlDoc.fromFile(file);
+						for (Element element: dom.getRootElement().elements()) {
+							element.detach();
+							AbstractEntity entity = (AbstractEntity) new VersionedXmlDoc(DocumentHelper.createDocument(element)).toBean();
+							session.insert(entity);
+						}
+						transaction.commit();
+					} catch (Exception e) {
+						transaction.rollback();
+						throw ExceptionUtils.unchecked(e);
 					}
-					session.flush();
-					session.clear();
-					transaction.commit();
-				} catch (Exception e) {
-					transaction.rollback();
-					throw ExceptionUtils.unchecked(e);
 				}
 			}
 		}
@@ -510,8 +578,7 @@ public class DefaultDataService implements DataService, Serializable {
 		File tempFile = null;
     	try {
         	tempFile = FileUtils.createTempFile("schema", ".sql");
-        	new SchemaExport().setOutputFile(tempFile.getAbsolutePath())
-        			.setFormat(false).createOnly(EnumSet.of(TargetType.SCRIPT), getMetadata());
+			writeSchemaScript(tempFile, true);
         	List<String> sqls = new ArrayList<>();
         	for (String sql: FileUtils.readLines(tempFile, Charset.defaultCharset())) {
         		if (isApplyingConstraints(sql)) {
@@ -532,8 +599,7 @@ public class DefaultDataService implements DataService, Serializable {
 		File tempFile = null;
     	try {
         	tempFile = FileUtils.createTempFile("schema", ".sql");
-        	new SchemaExport().setOutputFile(tempFile.getAbsolutePath())
-        			.setFormat(false).createOnly(EnumSet.of(TargetType.SCRIPT), getMetadata());
+			writeSchemaScript(tempFile, true);
         	List<String> sqls = new ArrayList<>();
         	for (String sql: FileUtils.readLines(tempFile, Charset.defaultCharset())) {
         		if (shouldInclude(sql) && !isApplyingConstraints(sql))
@@ -544,29 +610,27 @@ public class DefaultDataService implements DataService, Serializable {
     		throw new RuntimeException(e);
     	} finally {
     		if (tempFile != null)
-    			FileUtils.deleteFile(tempFile);
+				FileUtils.deletePath(tempFile);
     	}
 	}
 	
 	@Override
 	public void dropConstraints(Connection conn) {
-		File tempFile = null;
-    	try {
-        	tempFile = FileUtils.createTempFile("schema", ".sql");
-        	new SchemaExport().setOutputFile(tempFile.getAbsolutePath())
-        			.setFormat(false).drop(EnumSet.of(TargetType.SCRIPT), getMetadata());
-        	List<String> sqls = new ArrayList<>();
-        	for (String sql: FileUtils.readLines(tempFile, Charset.defaultCharset())) {
-        		if (isDroppingConstraints(sql))
-        			sqls.add(sql);
-        	}
-        	execute(conn, sqls, false);
-    	} catch (IOException e) {
-    		throw new RuntimeException(e);
-    	} finally {
-    		if (tempFile != null)
-    			tempFile.delete();
-    	}
+		var metadata = getMetadata();
+		var database = metadata.getDatabase();
+		var registry = database.getServiceRegistry();
+		var environment = registry.requireService(JdbcEnvironment.class);
+		var context = SqlStringGenerationContextImpl.fromConfigurationMap(environment, database,
+				registry.requireService(ConfigurationService.class).getSettings());
+		var exporter = environment.getDialect().getForeignKeyExporter();
+		List<String> sqls = new ArrayList<>();
+		// Full schema drops may rely on DROP TABLE CASCADE and omit foreign keys.
+		// Export them directly, including dialect-specific DROP FOREIGN KEY syntax.
+		for (var table : metadata.collectTableMappings()) {
+			for (var foreignKey : table.getForeignKeyCollection())
+				Collections.addAll(sqls, exporter.getSqlDropStrings(foreignKey, metadata, context));
+		}
+		execute(conn, sqls, false);
 	}
 	
 	@Override
@@ -574,8 +638,7 @@ public class DefaultDataService implements DataService, Serializable {
 		File tempFile = null;
     	try {
         	tempFile = FileUtils.createTempFile("schema", ".sql");
-        	new SchemaExport().setOutputFile(tempFile.getAbsolutePath())
-        			.setFormat(false).drop(EnumSet.of(TargetType.SCRIPT), getMetadata());
+			writeSchemaScript(tempFile, false);
         	List<String> sqls = new ArrayList<>();
         	for (String sql: FileUtils.readLines(tempFile, Charset.defaultCharset())) {
         		sqls.add(sql);
@@ -593,10 +656,6 @@ public class DefaultDataService implements DataService, Serializable {
 		return sql.toLowerCase().contains(" foreign key ");
 	}
 
-	private boolean isDroppingConstraints(String sql) {
-		return sql.toLowerCase().contains(" drop constraint ");
-	}
-	
 	private boolean shouldInclude(String sql) {
 		// some databases will create index on foreign keys automatically, so 
 		// we skip creating indexes for those
@@ -658,6 +717,20 @@ public class DefaultDataService implements DataService, Serializable {
     		userService.replicate(unknown);
 		}		
 		
+		if (dao.get(Project.class, Project.DEFAULT_ID) == null) {
+			var lastActivityDate = new ProjectLastActivityDate();
+			dao.getSession().persist(lastActivityDate);
+			var defaultProject = new Project();
+			defaultProject.setId(Project.DEFAULT_ID);
+			defaultProject.setName("~default"); // Use an impossible name to avoid conflicts with actual projects
+			defaultProject.setPath("~default");
+			defaultProject.setLastActivityDate(lastActivityDate);
+			defaultProject = dao.getSession().merge(defaultProject);
+			var numberCounter = new ProjectNumberCounter();
+			numberCounter.setProject(defaultProject);
+			dao.getSession().persist(numberCounter);
+		}
+
 		// Initialize security setting first as initial password validation below relies on password policy
 		var setting = settingService.findSetting(Key.SECURITY);
 		if (setting == null) {
@@ -684,6 +757,8 @@ public class DefaultDataService implements DataService, Serializable {
 				createRoot(bean);
 			} else {
 				manualConfigs.add(new ManualConfig("Create Administrator Account", null, bean, Sets.newHashSet(PROP_TYPE, PROP_NOTIFY_OWN_EVENTS)) {
+					@Serial
+					private static final long serialVersionUID = 1L;
 	
 					@Override
 					public void complete() {
@@ -735,6 +810,8 @@ public class DefaultDataService implements DataService, Serializable {
 
 			manualConfigs.add(new ManualConfig("Specify System Settings", null, 
 					systemSetting, excludedProps) {
+				@Serial
+				private static final long serialVersionUID = 1L;
 	
 				@Override
 				public void complete() {
@@ -759,8 +836,28 @@ public class DefaultDataService implements DataService, Serializable {
 		setting = settingService.findSetting(Key.GPG);
 		if (setting == null || setting.getValue() == null) {
 			GpgSetting gpgSetting = new GpgSetting();
-            settingService.saveGpgSetting(gpgSetting);
-        }
+			var noreplyEmailDomain = systemSetting != null ? systemSetting.getNoreplyEmailDomain()
+					: settingService.getSystemSetting().getNoreplyEmailDomain();
+			try {
+				var generator = GpgUtils.generateKeyRingGenerator(User.SYSTEM_NAME + "<"
+						+ User.SYSTEM_NAME.toLowerCase() + "@" + noreplyEmailDomain + ">");
+				gpgSetting.setEncodedSigningKey(generator.generateSecretKeyRing().getEncoded());
+			} catch (PGPException | IOException e) {
+				throw new RuntimeException("Unable to generate GPG signing key", e);
+			}
+			settingService.saveGpgSetting(gpgSetting);
+		}
+
+		setting = settingService.findSetting(Key.OAUTH_SIGNING_KEY);
+		// Also restore keys deleted before the signing key became mandatory.
+		if (setting == null || setting.getValue() == null) {
+			try {
+				var key = new RSAKeyGenerator(2048).keyUse(KeyUse.SIGNATURE).keyIDFromThumbprint(true).generate();
+				settingService.saveOAuthSigningKey(key.toJSONString());
+			} catch (JOSEException e) {
+				throw new RuntimeException("Unable to generate OAuth signing key", e);
+			}
+		}
 		
 		setting = settingService.findSetting(Key.ISSUE);
 		if (setting == null) {
@@ -836,6 +933,8 @@ public class DefaultDataService implements DataService, Serializable {
 		} else if (setting.getValue() != null && !validator.validate(setting.getValue()).isEmpty()) {
 			manualConfigs.add(new ManualConfig("Specify Service Desk Setting", null, 
 					setting.getValue(), new HashSet<>(), true) {
+				@Serial
+				private static final long serialVersionUID = 1L;
 	
 				@Override
 				public void complete() {
@@ -870,6 +969,8 @@ public class DefaultDataService implements DataService, Serializable {
 		} else if (setting.getValue() != null && !validator.validate(setting.getValue()).isEmpty()) {
 			Serializable backupSetting = setting.getValue();
 			manualConfigs.add(new ManualConfig("Specify Backup Setting", null, backupSetting) {
+				@Serial
+				private static final long serialVersionUID = 1L;
 
 				@Override
 				public void complete() {
@@ -932,7 +1033,7 @@ public class DefaultDataService implements DataService, Serializable {
 							notifyBackupError(e);
 							throw ExceptionUtils.unchecked(e);
 						} finally {
-							FileUtils.deleteDir(tempDir);
+							FileUtils.deletePath(tempDir);
 						}
 					}		
 				}
@@ -960,12 +1061,14 @@ public class DefaultDataService implements DataService, Serializable {
 				BackupSetting backupSetting = (BackupSetting) setting.getValue();
 				transactionService.runAfterCommit(new ClusterRunnable() {
 
+					@Serial
 					private static final long serialVersionUID = 1L;
 
 					@Override
 					public void run() {
 						clusterService.submitToAllServers(new ClusterTask<Void>() {
 
+							@Serial
 							private static final long serialVersionUID = 1L;
 
 							@Override

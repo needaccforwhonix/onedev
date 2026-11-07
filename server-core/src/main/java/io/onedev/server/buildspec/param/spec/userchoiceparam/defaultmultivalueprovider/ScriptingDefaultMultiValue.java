@@ -6,19 +6,21 @@ import io.onedev.server.annotation.OmitName;
 import io.onedev.server.annotation.ScriptChoice;
 import io.onedev.server.util.GroovyUtils;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
 @Editable(order=400, name="Evaluate script to get default value")
 public class ScriptingDefaultMultiValue implements DefaultMultiValueProvider {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String scriptName;
 
 	@Editable(description="Groovy script to be evaluated. It should return string or list of string. "
-			+ "Check <a href='https://docs.onedev.io/appendix/scripting' target='_blank'>scripting help</a> for details")
+			+ "Check <a href='${docsite}/appendix/scripting' target='_blank'>scripting help</a> for details")
 	@ScriptChoice
 	@OmitName
 	@NotEmpty

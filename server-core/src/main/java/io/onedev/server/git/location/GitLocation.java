@@ -1,8 +1,9 @@
 package io.onedev.server.git.location;
 
+import java.io.Serial;
 import java.io.Serializable;
 
-import javax.validation.ConstraintValidatorContext;
+import jakarta.validation.ConstraintValidatorContext;
 
 import io.onedev.server.git.GitUtils;
 import io.onedev.server.validation.Validatable;
@@ -19,6 +20,7 @@ import io.onedev.server.annotation.Editable;
 @ClassValidating
 public abstract class GitLocation implements Serializable, Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	/**

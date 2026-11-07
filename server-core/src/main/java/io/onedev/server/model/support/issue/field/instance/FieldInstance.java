@@ -1,17 +1,18 @@
 package io.onedev.server.model.support.issue.field.instance;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.OneDev;
 import io.onedev.server.service.SettingService;
@@ -27,6 +28,7 @@ import io.onedev.server.annotation.Editable;
 @Editable
 public class FieldInstance implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String name;

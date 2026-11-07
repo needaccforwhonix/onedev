@@ -1,7 +1,8 @@
 package io.onedev.server.model.support.pullrequest;
 
-import static io.onedev.server.web.translation.Translation._T;
+import static io.onedev.server.oem.OemUtils.translateHtml;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -9,7 +10,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import org.jspecify.annotations.Nullable;
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 
 import io.onedev.commons.bootstrap.Bootstrap;
 import io.onedev.server.annotation.Editable;
@@ -23,6 +24,7 @@ import io.onedev.server.util.usage.Usage;
 @Editable
 public class ProjectPullRequestSetting implements Serializable {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private List<NamedPullRequestQuery> namedQueries;
@@ -34,8 +36,7 @@ public class ProjectPullRequestSetting implements Serializable {
 	private Boolean deleteSourceBranchAfterMerge;
 	
 	@Nullable
-	@Valid
-	public List<NamedPullRequestQuery> getNamedQueries() {
+	public List<@Valid NamedPullRequestQuery> getNamedQueries() {
 		return namedQueries;
 	}
 
@@ -46,14 +47,14 @@ public class ProjectPullRequestSetting implements Serializable {
 	@SuppressWarnings("unused")
 	private static String getLfsDescription() {
 		if (!Bootstrap.isInDocker()) {
-			return _T("Whether or not to fetch LFS objects if pull request is opened from a different project. " +
-					"If this option is enabled, git lfs command needs to be installed on OneDev server");
+			return translateHtml("Whether or not to fetch LFS objects if pull request is opened from a different project. " +
+					"If this option is enabled, git lfs command needs to be installed on ${productName} server");
 		} else {
-			return _T("Whether or not to fetch LFS objects if pull request is opened from a different project.");
+			return translateHtml("Whether or not to fetch LFS objects if pull request is opened from a different project.");
 		}
 	}
 	
-	@Editable(order=200, placeholder = "Inherit from parent", rootPlaceholder = "Create merge commit", 
+	@Editable(order=200, placeholder = "Inherit from parent", topPlaceholder = "Create merge commit", 
 			description = "Specify default merge strategy of pull requests submitted to this project")
 	public MergeStrategy getDefaultMergeStrategy() {
 		return defaultMergeStrategy;
@@ -63,7 +64,7 @@ public class ProjectPullRequestSetting implements Serializable {
 		this.defaultMergeStrategy = defaultMergeStrategy;
 	}
 
-	@Editable(order=300, placeholder = "Inherit from parent", rootPlaceholder = "Not assigned", description = "" +
+	@Editable(order=300, placeholder = "Inherit from parent", topPlaceholder = "Not assigned", description = "" +
 			"Specify default assignees of pull requests submitted to this project. " +
 			"Only users with the write code permission to the project can be selected")
 	@UserChoice("getAssigneeChoices")
@@ -82,7 +83,7 @@ public class ProjectPullRequestSetting implements Serializable {
 		return choices;
 	}
 
-	@Editable(order=400, placeholder = "Inherit from parent", rootPlaceholder = "No", description = "" +
+	@Editable(order=400, placeholder = "Inherit from parent", topPlaceholder = "No", description = "" +
 			"If enabled, source branch will be deleted automatically after merge the pull request if " +
 			"user has permission to do that")
 	public Boolean getDeleteSourceBranchAfterMerge() {

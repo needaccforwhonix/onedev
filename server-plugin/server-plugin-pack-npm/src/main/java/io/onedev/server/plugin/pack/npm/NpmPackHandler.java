@@ -7,13 +7,13 @@ import static io.onedev.server.util.UrlUtils.decodePath;
 import static io.onedev.server.util.UrlUtils.encodePath;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
-import static javax.servlet.http.HttpServletResponse.SC_CONFLICT;
-import static javax.servlet.http.HttpServletResponse.SC_CREATED;
-import static javax.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED;
-import static javax.servlet.http.HttpServletResponse.SC_NOT_ACCEPTABLE;
-import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
+import static jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
+import static jakarta.servlet.http.HttpServletResponse.SC_CONFLICT;
+import static jakarta.servlet.http.HttpServletResponse.SC_CREATED;
+import static jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED;
+import static jakarta.servlet.http.HttpServletResponse.SC_NOT_ACCEPTABLE;
+import static jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static org.apache.commons.codec.binary.Base64.encodeBase64String;
 import static org.apache.commons.lang3.StringUtils.substringAfter;
 import static org.apache.commons.lang3.StringUtils.substringAfterLast;
@@ -28,12 +28,12 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.MediaType;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Base64;
@@ -111,7 +111,7 @@ public class NpmPackHandler implements PackHandler {
 	private String getLockName(Long projectId, String name) {
 		return "update-pack:" + projectId + ":" + TYPE + ":" + name;
 	}
-	
+
 	private ObjectNode readJson(byte[] jsonBytes) {
 		try {
 			return (ObjectNode) objectMapper.readTree(jsonBytes);
@@ -201,8 +201,7 @@ public class NpmPackHandler implements PackHandler {
 										var project = projectService.load(projectId);
 										var pack = packService.findByNameAndVersion(project, TYPE, packageName, version);
 										if (pack != null) {
-											var packData = (NpmData) pack.getData();
-											packData.getDistTags().add(tag);
+											((NpmData) pack.getData()).setDistTag(tag, new Date());
 										} else {
 											throw new ClientException(SC_NOT_FOUND);
 										}
@@ -213,7 +212,7 @@ public class NpmPackHandler implements PackHandler {
 										var project = projectService.load(projectId);
 										for (var pack: packService.queryByName(project, TYPE, packageName, null)) {
 											var packData = (NpmData) pack.getData();
-											packData.getDistTags().remove(tag);
+											packData.removeDistTag(tag);
 										}
 									});
 									response.setStatus(SC_OK);
@@ -354,7 +353,7 @@ public class NpmPackHandler implements PackHandler {
 						var distTags = new HashMap<String, String>();
 						var distTagsNode = packageMetadata.get("dist-tags");
 						if (distTagsNode != null) {
-							for (var it = distTagsNode.fields(); it.hasNext(); ) {
+							for (var it = distTagsNode.properties().iterator(); it.hasNext(); ) {
 								var field = it.next();
 								distTags.put(field.getKey(), field.getValue().asText());
 							}
@@ -363,7 +362,7 @@ public class NpmPackHandler implements PackHandler {
 						var attachments = new HashMap<String, byte[]>();
 						var attachmentsNode = packageMetadata.get("_attachments");
 						if (attachmentsNode != null) {
-							for (var it = attachmentsNode.fields(); it.hasNext(); ) {
+							for (var it = attachmentsNode.properties().iterator(); it.hasNext(); ) {
 								var field = it.next();
 								var fileName = field.getKey();
 								var fileContent = Base64.decodeBase64(field.getValue().get("data").asText());
@@ -384,7 +383,7 @@ public class NpmPackHandler implements PackHandler {
 						byte[] packageMetadataBytes = writeJson(packageMetadata);
 
 						if (versionsNode != null) {
-							for (var it = versionsNode.fields(); it.hasNext(); ) {
+							for (var it = versionsNode.properties().iterator(); it.hasNext(); ) {
 								var field = it.next();
 								var version = field.getKey();
 								var versionMetadata = (ObjectNode) field.getValue();
@@ -450,6 +449,8 @@ public class NpmPackHandler implements PackHandler {
 												var sha256Hash = packBlobService.load(packBlobId).getSha256Hash();
 												pack.setData(new NpmData(packageMetadataBytes, versionMetadataBytes, distTagsOfVersion, fileName, sha256Hash));
 												packService.createOrUpdate(pack, newArrayList(packBlobService.load(packBlobId)), true);
+												for (var tag : distTagsOfVersion)
+													((NpmData) pack.getData()).setDistTag(tag, pack.getPublishDate());
 												response.setStatus(SC_CREATED);
 											}
 										}

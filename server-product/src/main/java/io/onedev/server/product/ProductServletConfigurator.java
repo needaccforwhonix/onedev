@@ -4,18 +4,19 @@ import java.io.File;
 import java.util.EnumSet;
 import java.util.Set;
 
-import javax.inject.Inject;
-import javax.servlet.DispatcherType;
-import javax.servlet.http.HttpSessionEvent;
-import javax.servlet.http.HttpSessionListener;
+import jakarta.inject.Inject;
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpSessionEvent;
+import jakarta.servlet.http.HttpSessionListener;
 
 import org.apache.shiro.web.env.EnvironmentLoader;
 import org.apache.shiro.web.env.EnvironmentLoaderListener;
 import org.apache.shiro.web.servlet.ShiroFilter;
 import org.apache.wicket.protocol.http.WicketServlet;
-import org.eclipse.jetty.servlet.FilterHolder;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.ee11.servlet.FilterHolder;
+import org.eclipse.jetty.ee11.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee11.servlet.ServletHolder;
+import org.eclipse.jetty.ee11.servlet.ServletMapping;
 import org.glassfish.jersey.servlet.ServletContainer;
 
 import io.onedev.commons.bootstrap.Bootstrap;
@@ -23,12 +24,14 @@ import io.onedev.server.OneDev;
 import io.onedev.server.agent.ServerSocketServlet;
 import io.onedev.server.assets.ClasspathAssetServlet;
 import io.onedev.server.assets.FileAssetServlet;
+import io.onedev.server.assets.LogoAssetServlet;
 import io.onedev.server.git.GitFilter;
 import io.onedev.server.git.GitLfsFilter;
 import io.onedev.server.git.GoGetFilter;
 import io.onedev.server.git.hook.GitPostReceiveCallback;
 import io.onedev.server.git.hook.GitPreReceiveCallback;
 import io.onedev.server.jetty.ServletConfigurator;
+import io.onedev.server.oauth.OAuthEndpointServlet;
 import io.onedev.server.security.CorsFilter;
 import io.onedev.server.security.DefaultWebEnvironment;
 import io.onedev.server.web.KeepSessionAliveServlet;
@@ -68,6 +71,9 @@ public class ProductServletConfigurator implements ServletConfigurator {
 		
 	@Inject
 	private ServerSocketServlet serverServlet;
+
+	@Inject
+	private OAuthEndpointServlet oauthServlet;
 
 	@Inject
 	private Set<SessionListener> sessionListener;
@@ -126,33 +132,34 @@ public class ProductServletConfigurator implements ServletConfigurator {
 		 */
 		File assetsDir = OneDev.getAssetsDir();
 		
-		boolean hasCustomLogo = false;
-		boolean hasCustomDarkLogo = false;
 		boolean hasSiteMapTxt = false;
 		boolean hasSiteMapXml = false;
+		boolean hasPrefetch = false;
 		for (File file: assetsDir.listFiles()) {
+			if (file.getName().equals("logo.png") || file.getName().equals("logo-dark.png"))
+				continue;
 			if (file.isFile()) {
 				context.addServlet(new ServletHolder(new FileAssetServlet(assetsDir)), "/" + file.getName());
-				if (file.getName().equals("logo.png"))
-					hasCustomLogo = true;
-				else if (file.getName().equals("logo-dark.png"))
-					hasCustomDarkLogo = true;
-				else if (file.getName().equals("sitemap.xml"))
+				if (file.getName().equals("sitemap.xml"))
 					hasSiteMapXml = true;
 				else if (file.getName().equals("sitemap.txt"))
 					hasSiteMapTxt = true;
+				else if (file.getName().equals("prefetch.json"))
+					hasPrefetch = true;
 			} else {
 				context.addServlet(new ServletHolder(new FileAssetServlet(file)), "/" + file.getName() + "/*");
 			}
 		}
-		if (!hasCustomLogo) 
-			context.addServlet(new ServletHolder(new FileAssetServlet(assetsDir)), "/logo.png");
-		if (!hasCustomDarkLogo)
-			context.addServlet(new ServletHolder(new FileAssetServlet(assetsDir)), "/logo-dark.png");
+		context.addServlet(new ServletHolder(new LogoAssetServlet()), "/logo.png");
+		context.addServlet(new ServletHolder(new LogoAssetServlet()), "/logo-dark.png");
 		if (!hasSiteMapTxt)
 			context.addServlet(new ServletHolder(new FileAssetServlet(assetsDir)), "/sitemap.txt");
 		if (!hasSiteMapXml)
 			context.addServlet(new ServletHolder(new FileAssetServlet(assetsDir)), "/sitemap.xml");
+		// Keep background speculation-rule requests out of Wicket's login interception
+		// even when site/assets/prefetch.json is missing.
+		if (!hasPrefetch)
+			context.addServlet(new ServletHolder(new ClasspathAssetServlet(ProductServletConfigurator.class)), "/prefetch.json");
 		
 		var incompatibilitiesDir = new File(Bootstrap.installDir, "incompatibilities");
 		for (var file: incompatibilitiesDir.listFiles())
@@ -160,6 +167,15 @@ public class ProductServletConfigurator implements ServletConfigurator {
 		
 		context.addServlet(new ServletHolder(jerseyServlet), "/~api/*");	
 		context.addServlet(new ServletHolder(serverServlet), "/~server");
+
+		var oauthHolder = new ServletHolder(oauthServlet);
+		oauthHolder.setName("oauth-provider");
+		context.addServlet(oauthHolder, "/~oauth/token");
+		var oauthMapping = new ServletMapping();
+		oauthMapping.setServletName("oauth-provider");
+		oauthMapping.setPathSpecs(new String[] {"/~oauth/revoke", "/~oauth/userinfo", "/~oauth/jwks",
+				"/.well-known/oauth-authorization-server", "/.well-known/openid-configuration"});
+		context.getServletHandler().addServletMapping(oauthMapping);
 	}
 	
 }

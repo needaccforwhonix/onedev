@@ -1,10 +1,11 @@
 package io.onedev.server.plugin.report.playwright;
 
 import java.io.File;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
@@ -27,10 +28,11 @@ import io.onedev.server.codequality.UnitTestReport.TestCase;
 @Editable(order=10000, group=StepGroup.PUBLISH, name="Playwright Test Report")
 public class PublishPlaywrightReportStep extends PublishUnitTestReportStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@Editable(order=100, description="""
-			Specify files to publish relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>.
+			Specify files to publish relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>.
 			Published files should include the Playwright JSON report and all referenced artifacts, such as screenshots and traces.
 			For example, run <code>CI=true PLAYWRIGHT_JSON_OUTPUT_NAME=test-results/report.json npx playwright test --reporter=json --output=test-results</code>
 			from the job working directory, and use <code>test-results/**</code> as the file pattern to publish the report and artifacts together.
@@ -57,7 +59,7 @@ public class PublishPlaywrightReportStep extends PublishUnitTestReportStep {
 	protected UnitTestReport process(Build build, File inputDir, TaskLogger logger) {
 		ObjectMapper mapper = OneDev.getInstance(ObjectMapper.class);
 		File reportDir = new File(build.getDir(), UnitTestReport.CATEGORY + "/" + getReportName());
-		FileUtils.deleteDir(reportDir);
+		FileUtils.deletePath(reportDir);
 		FileUtils.createDir(reportDir);
 		try {
 			List<TestCase> testCases = new ArrayList<>();
@@ -72,11 +74,11 @@ public class PublishPlaywrightReportStep extends PublishUnitTestReportStep {
 			if (!testCases.isEmpty())
 				return new UnitTestReport(testCases, true);
 			else {
-				FileUtils.deleteDir(reportDir);
+				FileUtils.deletePath(reportDir);
 				return null;
 			}
 		} catch (Exception e) {
-			FileUtils.deleteDir(reportDir);
+			FileUtils.deletePath(reportDir);
 			throw ExceptionUtils.unchecked(e);
 		}
 	}

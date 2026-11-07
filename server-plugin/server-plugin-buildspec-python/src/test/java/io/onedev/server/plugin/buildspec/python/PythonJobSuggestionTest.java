@@ -8,14 +8,32 @@ import io.onedev.server.git.BlobIdent;
 import io.onedev.server.model.Project;
 import io.onedev.server.util.IOUtils;
 import org.eclipse.jgit.lib.ObjectId;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class PythonJobSuggestionTest {
+
+	@Test
+	public void testPoetryProjectVersion() {
+		Project project = new Project() {
+			@Override
+			public Blob getBlob(BlobIdent blobIdent, boolean mustExist) {
+				if (blobIdent.path.equals("poetry.lock"))
+					return new Blob(blobIdent, ObjectId.zeroId(), "pytest".getBytes());
+				if (blobIdent.path.equals("pyproject.toml"))
+					return new Blob(blobIdent, ObjectId.zeroId(), "[project]\nversion = '2.5.0'\n".getBytes());
+				return null;
+			}
+		};
+		var job = new PythonJobSuggestion().suggestJobs(project, ObjectId.zeroId()).iterator().next();
+		assertTrue(job.getSteps().stream().filter(CommandStep.class::isInstance)
+				.map(CommandStep.class::cast).anyMatch(step -> step.getInterpreter().getCommands()
+						.contains("yq '.project.version'")));
+	}
 
 	@Test
 	public void testPoetryLock() {

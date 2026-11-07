@@ -1,12 +1,14 @@
 package io.onedev.server.search.entity.project;
 
+import java.io.Serial;
+
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Join;
-import javax.persistence.criteria.JoinType;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 
 import io.onedev.server.model.GroupAuthorization;
 import io.onedev.server.model.Project;
@@ -17,6 +19,7 @@ import io.onedev.server.util.criteria.Criteria;
 
 public class NoOwnerCriteria extends Criteria<Project> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@Override
@@ -25,9 +28,9 @@ public class NoOwnerCriteria extends Criteria<Project> {
 		Join<?, ?> groupAuthorizationJoin = from.join(Project.PROP_GROUP_AUTHORIZATIONS, JoinType.LEFT);
 
 		userAuthorizationJoin.on(builder.equal(
-				userAuthorizationJoin.get(UserAuthorization.PROP_ROLE), Role.OWNER_ID));
+				userAuthorizationJoin.get(UserAuthorization.PROP_ROLE).get(Role.PROP_ID), Role.OWNER_ID));
 		groupAuthorizationJoin.on(
-				builder.equal(groupAuthorizationJoin.get(GroupAuthorization.PROP_ROLE), Role.OWNER_ID));
+				builder.equal(groupAuthorizationJoin.get(GroupAuthorization.PROP_ROLE).get(Role.PROP_ID), Role.OWNER_ID));
 		return builder.and(userAuthorizationJoin.isNull(), groupAuthorizationJoin.isNull());
 	}
 

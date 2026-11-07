@@ -1,10 +1,12 @@
 package io.onedev.server.search.entity.pullrequest;
 
+import java.io.Serial;
+
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Predicate;
 
 import io.onedev.server.model.PullRequest;
 import io.onedev.server.util.ProjectScope;
@@ -15,6 +17,7 @@ import io.onedev.server.util.criteria.OrCriteria;
 
 public class ReadyToMergeCriteria extends Criteria<PullRequest> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	@Override
@@ -32,6 +35,7 @@ public class ReadyToMergeCriteria extends Criteria<PullRequest> {
 		return new AndCriteria<>(
 				new OpenCriteria(),
 				new NotCriteria<>(new OrCriteria<>(
+						new WorkInProgressCriteria(),
 						new HasMergeConflictsCriteria(),
 						new HasPendingReviewsCriteria(),
 						new SomeoneRequestedForChangesCriteria(),

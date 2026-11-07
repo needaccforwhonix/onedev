@@ -7,7 +7,7 @@ import io.onedev.server.util.Similarities;
 import io.onedev.server.util.facade.ProjectCache;
 import io.onedev.server.web.WebConstants;
 import io.onedev.server.web.asset.selectbytyping.SelectByTypingResourceReference;
-import io.onedev.server.web.behavior.InputChangeBehavior;
+import io.onedev.server.web.behavior.InputBehavior;
 import io.onedev.server.web.behavior.infinitescroll.InfiniteScrollBehavior;
 import io.onedev.server.web.component.link.PreventDefaultAjaxLink;
 import io.onedev.server.web.component.project.ProjectAvatar;
@@ -25,8 +25,7 @@ import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.TextField;
 import org.apache.wicket.markup.html.panel.Panel;
-import org.apache.wicket.markup.repeater.RepeatingView;
-import org.apache.wicket.model.AbstractReadOnlyModel;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -73,7 +72,7 @@ public abstract class ProjectSelector extends Panel {
 	protected void onInitialize() {
 		super.onInitialize();
 		
-		add(new Label("title", new AbstractReadOnlyModel<>() {
+		add(new Label("title", new IModel<>() {
 			@Override
 			public Object getObject() {
 				return getTitle();
@@ -149,10 +148,10 @@ public abstract class ProjectSelector extends Panel {
 		
 		searchField = new TextField<>("search", Model.of(""));
 		add(searchField);
-		searchField.add(new InputChangeBehavior() {
+		searchField.add(new InputBehavior() {
 			
 			@Override
-			protected void onInputChange(AjaxRequestTarget target) {
+			protected void onInput(AjaxRequestTarget target) {
 				searchInput = searchField.getInput();
 				
 				target.add(projectsContainer);

@@ -2,16 +2,17 @@ package io.onedev.server.model.support.workspace.spec;
 
 import static io.onedev.k8shelper.UploadStrategy.UPLOAD_IF_NOT_EXACT_MATCH;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -28,6 +29,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 @Editable
 public class CacheConfig implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String key;
@@ -62,9 +64,9 @@ public class CacheConfig implements Serializable {
 			has lock files (package-lock.json, pom.xml, etc.) that represent cache state. When 
 			checksum changes, cache can still be loaded as a partial match, but 
 			will be re-uploaded with the new checksum if upload strategy is set to <i>Upload If Not Exact Match</i>. 
-			Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. 
+			Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>.
 			Multiple files should be separated by space, and single file containing space should be quoted. 
-			Non-absolute file is relative to <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>.<br> 
+			Non-absolute file is relative to <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a>.<br>
 			<b>NOTE: </b> An empty checksum is assumed if this property is empty.""")
 	@Interpolative(variableSuggester="suggestVariables")
 	public String getChecksumFiles() {
@@ -76,9 +78,8 @@ public class CacheConfig implements Serializable {
 	}
 
 	@Editable(order=300, name="Cache Entries", description = "Specify cache entries")
-	@Valid
 	@Size(min=1, max=100)
-	public List<CacheEntry> getEntries() {
+	public List<@Valid CacheEntry> getEntries() {
 		return entries;
 	}
 
@@ -99,7 +100,7 @@ public class CacheConfig implements Serializable {
 	}
 	
 	@Editable(order=400, description = """
-			Specify cache upload strategy after build successful. <i>Upload If Not Exact Match</i> 
+			Specify cache upload strategy before deleting an active workspace. <i>Upload If Not Exact Match</i>
 			means to upload when no cache found with matching key and checksum , and 
 			<i>Upload If Changed</i> means to upload if some files in cache path are changed""")
 	@NotNull
@@ -125,7 +126,7 @@ public class CacheConfig implements Serializable {
 
 	@Editable(order=500, description = """
 			Specify access token with upload cache permission for above project. 
-			Note that this property is not required if upload cache to current project""")
+			This property is not required if the workspace owner has upload cache permission for above project""")
 	@Password
 	public String getUploadAccessToken() {
 		return uploadAccessToken;

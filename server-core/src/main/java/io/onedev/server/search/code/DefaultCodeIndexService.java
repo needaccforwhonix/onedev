@@ -21,16 +21,17 @@ import static io.onedev.server.search.code.IndexConstants.NGRAM_SIZE;
 import java.io.File;
 import java.io.IOException;
 import java.io.ObjectStreamException;
+import java.io.Serial;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.lang.SerializationUtils;
+import org.apache.commons.lang3.SerializationUtils;
 import org.apache.lucene.document.BinaryDocValuesField;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field.Store;
@@ -385,6 +386,7 @@ public class DefaultCodeIndexService implements CodeIndexService, Serializable {
 	public boolean isIndexed(Long projectId, ObjectId commitId) {
 		return projectService.runOnActiveServer(projectId, new ClusterTask<Boolean>() {
 
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -419,6 +421,7 @@ public class DefaultCodeIndexService implements CodeIndexService, Serializable {
 			priority = BACKEND_PRIORITY;
 		projectService.runOnActiveServer(projectId, new ClusterTask<Void>() {
 
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override

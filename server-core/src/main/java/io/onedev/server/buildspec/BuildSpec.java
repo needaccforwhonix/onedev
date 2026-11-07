@@ -1,5 +1,6 @@
 package io.onedev.server.buildspec;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -14,13 +15,8 @@ import java.util.Stack;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import javax.validation.ConstraintValidatorContext;
-import javax.validation.ConstraintViolation;
-import javax.validation.Valid;
-import javax.validation.ValidationException;
-import javax.validation.Validator;
-
 import org.apache.commons.lang3.SerializationUtils;
+import org.eclipse.jgit.lib.Constants;
 import org.jspecify.annotations.Nullable;
 import org.yaml.snakeyaml.DumperOptions.FlowStyle;
 import org.yaml.snakeyaml.nodes.MappingNode;
@@ -61,11 +57,17 @@ import io.onedev.server.validation.Validatable;
 import io.onedev.server.web.page.project.blob.ProjectBlobPage;
 import io.onedev.server.web.util.SuggestionUtils;
 import io.onedev.server.web.util.WicketUtils;
+import jakarta.validation.ConstraintValidatorContext;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Valid;
+import jakarta.validation.ValidationException;
+import jakarta.validation.Validator;
 
 @Editable
 @ClassValidating
 public class BuildSpec implements Serializable, Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private static final LoadingCache<String, byte[]> parseCache =  
@@ -118,8 +120,7 @@ public class BuildSpec implements Serializable, Validatable {
 	private transient Map<String, JobProperty> propertyMap;
 	
 	@Editable
-	@Valid
-	public List<Job> getJobs() {
+	public List<@Valid Job> getJobs() {
 		return jobs;
 	}
 
@@ -129,8 +130,7 @@ public class BuildSpec implements Serializable, Validatable {
 	}
 	
 	@Editable
-	@Valid
-	public List<StepTemplate> getStepTemplates() {
+	public List<@Valid StepTemplate> getStepTemplates() {
 		return stepTemplates;
 	}
 
@@ -140,8 +140,7 @@ public class BuildSpec implements Serializable, Validatable {
 	}
 
 	@Editable
-	@Valid
-	public List<Service> getServices() {
+	public List<@Valid Service> getServices() {
 		return services;
 	}
 
@@ -151,8 +150,7 @@ public class BuildSpec implements Serializable, Validatable {
 	}
 
 	@Editable
-	@Valid
-	public List<JobProperty> getProperties() {
+	public List<@Valid JobProperty> getProperties() {
 		return properties;
 	}
 
@@ -162,8 +160,7 @@ public class BuildSpec implements Serializable, Validatable {
 	}
 
 	@Editable
-	@Valid
-	public List<Import> getImports() {
+	public List<@Valid Import> getImports() {
 		return imports;
 	}
 
@@ -2484,6 +2481,10 @@ public class BuildSpec implements Serializable, Validatable {
 
 	@SuppressWarnings("unused")
 	private void migrate47(VersionedYamlDoc doc, Stack<Integer> versions) {
+		// Legacy tags were still accepted after version 42. Normalize them before
+		// subsequent migrations look up implementations via the type property.
+		migrate42_processNode(doc);
+
 		for (NodeTuple specTuple: doc.getValue()) {
 			String specObjectKey = ((ScalarNode) specTuple.getKeyNode()).getValue();
 			if (specObjectKey.equals("services")) {
@@ -2822,6 +2823,136 @@ public class BuildSpec implements Serializable, Validatable {
 					jobNode.getValue().add(new NodeTuple(
 							new ScalarNode(Tag.STR, "includeDownstreamWhenRebuild"),
 							new ScalarNode(Tag.BOOL, "false")));
+				}
+			}
+		}
+	}
+
+	@SuppressWarnings("unused")
+	private void migrate54(VersionedYamlDoc doc, Stack<Integer> versions) {
+		for (NodeTuple specTuple : doc.getValue()) {
+			if (((ScalarNode) specTuple.getKeyNode()).getValue().equals("jobs")) {
+				SequenceNode jobsNode = (SequenceNode) specTuple.getValueNode();
+				for (Node jobNodeItem : jobsNode.getValue()) {
+					MappingNode jobNode = (MappingNode) jobNodeItem;
+					for (NodeTuple jobTuple : jobNode.getValue()) {
+						ScalarNode keyNode = (ScalarNode) jobTuple.getKeyNode();
+						if (keyNode.getValue().equals("maxRetries")) {
+							keyNode.setValue("maxAttempts");
+							ScalarNode valueNode = (ScalarNode) jobTuple.getValueNode();
+							valueNode.setValue(String.valueOf(Integer.parseInt(valueNode.getValue()) + 1));
+						}
+					}
+				}
+			}
+		}
+	}
+
+	@SuppressWarnings("unused")
+	private void migrate55(VersionedYamlDoc doc, Stack<Integer> versions) {
+		migrateSteps(doc, versions, stepsNode -> {
+			for (var stepNodeItem : stepsNode.getValue()) {
+				var stepNode = (MappingNode) stepNodeItem;
+				if ("RenovateStep".equals(getStepType(stepNode))) {
+					stepNode.getValue().add(new NodeTuple(
+							new ScalarNode(Tag.STR, "createDependencyDashboardIssue"),
+							new ScalarNode(Tag.BOOL, "true")));
+				}
+			}
+		});
+	}
+
+	@SuppressWarnings("unused")
+	private void migrate56(VersionedYamlDoc doc, Stack<Integer> versions) {
+		for (var specTuple : doc.getValue()) {
+			if (((ScalarNode) specTuple.getKeyNode()).getValue().equals("jobs")) {
+				for (var jobNode : ((SequenceNode) specTuple.getValueNode()).getValue()) {
+					for (var jobTuple : ((MappingNode) jobNode).getValue()) {
+						if (((ScalarNode) jobTuple.getKeyNode()).getValue().equals("projectDependencies")) {
+							for (var dependencyNode : ((SequenceNode) jobTuple.getValueNode()).getValue()) {
+								var dependency = (MappingNode) dependencyNode;
+								if (getScalarProperty(dependency, "requireSuccessful") == null) {
+									dependency.getValue().add(new NodeTuple(
+											new ScalarNode(Tag.STR, "requireSuccessful"),
+											new ScalarNode(Tag.BOOL, "true")));
+								}
+								for (var dependencyTuple : dependency.getValue()) {
+									if (((ScalarNode) dependencyTuple.getKeyNode()).getValue().equals("buildProvider")
+											&& dependencyTuple.getValueNode() instanceof MappingNode buildProviderNode) {
+										Node refNameProviderNode = null;
+										for (var it = buildProviderNode.getValue().iterator(); it.hasNext();) {
+											var tuple = it.next();
+											var propertyName = ((ScalarNode) tuple.getKeyNode()).getValue();
+											if (propertyName.equals("type")) {
+												var typeNode = (ScalarNode) tuple.getValueNode();
+												if (typeNode.getValue().equals("LastFinishedBuild"))
+													typeNode.setValue("LatestBuild");
+											} else if (propertyName.equals("refName")) {
+												it.remove();
+												var refNameNode = (ScalarNode) tuple.getValueNode();
+												if (refNameNode.getTag().equals(Tag.NULL))
+													continue;
+												var refName = refNameNode.getValue();
+												String providerType;
+												String patternProperty;
+												String pattern;
+												if (refName.startsWith(Constants.R_HEADS)) {
+													providerType = "BranchProvider";
+													patternProperty = "branchPattern";
+													pattern = refName.substring(Constants.R_HEADS.length());
+												} else if (refName.startsWith(Constants.R_TAGS)) {
+													providerType = "TagProvider";
+													patternProperty = "tagPattern";
+													pattern = refName.substring(Constants.R_TAGS.length());
+												} else {
+													continue;
+												}
+												if (!pattern.isEmpty()) {
+													List<NodeTuple> providerTuples = new ArrayList<>();
+													providerTuples.add(new NodeTuple(new ScalarNode(Tag.STR, "type"), new ScalarNode(Tag.STR, providerType)));
+													providerTuples.add(new NodeTuple(new ScalarNode(Tag.STR, patternProperty), new ScalarNode(Tag.STR, pattern)));
+													refNameProviderNode = new MappingNode(Tag.MAP, providerTuples, FlowStyle.BLOCK);
+												}
+											}
+										}
+										if (refNameProviderNode != null) {
+											buildProviderNode.getValue().add(new NodeTuple(
+													new ScalarNode(Tag.STR, "refNameProvider"), refNameProviderNode));
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		migrateSteps(doc, versions, stepsNode -> {
+			for (var stepNodeItem : stepsNode.getValue()) {
+				var stepNode = (MappingNode) stepNodeItem;
+				if ("PublishSiteStep".equals(getStepType(stepNode))) {
+					for (var tuple : stepNode.getValue()) {
+						var keyNode = (ScalarNode) tuple.getKeyNode();
+						if (keyNode.getValue().equals("artifacts"))
+							keyNode.setValue("siteFiles");
+					}
+				}
+			}
+		});
+	}
+
+	@SuppressWarnings("unused")
+	private void migrate57(VersionedYamlDoc doc, Stack<Integer> versions) {
+		for (var specTuple : doc.getValue()) {
+			if (((ScalarNode) specTuple.getKeyNode()).getValue().equals("jobs")) {
+				for (var jobNodeItem : ((SequenceNode) specTuple.getValueNode()).getValue()) {
+					var jobNode = (MappingNode) jobNodeItem;
+					if (getScalarProperty(jobNode, "executeInSandbox") == null) {
+						jobNode.getValue().add(new NodeTuple(
+								new ScalarNode(Tag.STR, "executeInSandbox"),
+								new ScalarNode(Tag.BOOL, "false")));
+					}
 				}
 			}
 		}

@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.wicket.request.Url;
@@ -28,8 +28,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.inject.Provider;
-import com.hazelcast.core.HazelcastInstance;
-
 import io.onedev.commons.bootstrap.Bootstrap;
 import io.onedev.commons.loader.AbstractPlugin;
 import io.onedev.commons.loader.AppLoader;
@@ -107,8 +105,8 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 
 	public OneDev() {
 		try {
-			wrapperManagerClass = Class.forName("org.tanukisoftware.wrapper.WrapperManager");
-		} catch (ClassNotFoundException e) {
+			wrapperManagerClass = Class.forName("io.onedev.wrapper.WrapperManager");
+		} catch (ClassNotFoundException ignored) {
 		}
 		thread = new Thread(this);
 		initStage = new InitStage("Server is Starting...");
@@ -117,8 +115,10 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 	@Override
 	public void start() {
 		var maintenanceFile = getMaintenanceFile(Bootstrap.installDir);
-		try (var ignored = MaintenanceProbeServer.start(Bootstrap.installDir)) {
+		try (var ignored = MaintenanceProbeServer.start(Bootstrap.installDir,
+				() -> "not ready: " + initStage.getMessage())) {
 			while (maintenanceFile.exists()) {
+				initStage = new InitStage("Maintenance in progress");
 				logger.info("Maintenance in progress, waiting...");
 				try {
 					Thread.sleep(5000);
@@ -132,12 +132,13 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 			System.setProperty("hsqldb.reconfig_logging", "false");
 			System.setProperty("hsqldb.method_class_names", "java.lang.Math");
 
+			starting("Starting cluster");
 			clusterService.start();
+			starting("Initializing database");
 			sessionFactoryService.start();
 			taskScheduler.start();
 
-			var databasePopulated = clusterService.getHazelcastInstance().getCPSubsystem()
-					.getAtomicLong("databasePopulated");
+			var databasePopulated = clusterService.getAtomicLong("databasePopulated");
 			// Do not use database lock as schema update will commit transaction immediately
 			// in MySQL
 			clusterService.initWithLead(databasePopulated, () -> {
@@ -154,6 +155,7 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 
 			idService.init();
 
+			starting("Starting services");
 			sessionService.run(() -> listenerRegistry.post(new SystemStarting()));
 		}
 		jettyServiceProvider.get().start();
@@ -230,7 +232,9 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 		clusterService.preStop();
 		SecurityUtils.bindAsSystem();
 		try {
-			sessionService.run(() -> listenerRegistry.post(new SystemStopping()));
+			// Shutdown listeners may wait for tasks that need database connections.
+			if (sessionFactoryService.getSessionFactory() != null)
+				listenerRegistry.invokeListeners(new SystemStopping());
 		} catch (ServerNotReadyException ignore) {
 		}
 	}
@@ -240,8 +244,7 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 	}
 
 	private List<ManualConfig> checkData() {
-		HazelcastInstance hazelcastInstance = clusterService.getHazelcastInstance();
-		var lock = hazelcastInstance.getCPSubsystem().getLock("checkData");
+		var lock = clusterService.getLock("checkData");
 		lock.lock();
 		try {
 			return dataService.checkData();
@@ -256,7 +259,8 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 
 		try {
 			jettyServiceProvider.get().stop();
-			sessionService.run(() -> listenerRegistry.post(new SystemStopped()));
+			if (sessionFactoryService.getSessionFactory() != null)
+				listenerRegistry.invokeListeners(new SystemStopped());
 			
 			taskScheduler.stop();
 			sessionFactoryService.stop();
@@ -330,6 +334,11 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 		return initStage;
 	}
 
+	private void starting(String message) {
+		initStage = new InitStage(message);
+		logger.info(message);
+	}
+
 	public boolean isReady() {
 		return initStage == null;
 	}
@@ -388,7 +397,7 @@ public class OneDev extends AbstractPlugin implements Serializable, Runnable {
 		if (wrapperManagerClass != null) {
 			try {
 				Method method = wrapperManagerClass.getDeclaredMethod("restartAndReturn");
-				method.invoke(null, new Object[0]);
+				method.invoke(null);
 			} catch (Exception e) {
 				logger.error("Error restarting server", e);
 			}

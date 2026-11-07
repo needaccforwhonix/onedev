@@ -1,8 +1,9 @@
 package io.onedev.server.model;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Lob;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Lob;
+import java.io.Serial;
 import java.io.Serializable;
 
 /**
@@ -13,6 +14,7 @@ import java.io.Serializable;
 @Entity
 public class Setting extends AbstractEntity {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String PROP_KEY = "key";
@@ -21,7 +23,7 @@ public class Setting extends AbstractEntity {
 		GROOVY_SCRIPTS, PULL_REQUEST, BUILD, PACK, PROJECT, SSH, GPG, 
 		EMAIL_TEMPLATES, CONTRIBUTED_SETTINGS, SERVICE_DESK_SETTING, 
 		AGENT, PERFORMANCE, BRANDING, CLUSTER_SETTING, SUBSCRIPTION_DATA, ALERT, 
-		SYSTEM_UUID, AUDIT, AI, WORKSPACE_PROVISIONERS, WORKSPACE
+		SYSTEM_UUID, AUDIT, AI, WORKSPACE_PROVISIONERS, WORKSPACE, OAUTH_SIGNING_KEY
 	};
 	
 	@Column(nullable=false, unique=true)

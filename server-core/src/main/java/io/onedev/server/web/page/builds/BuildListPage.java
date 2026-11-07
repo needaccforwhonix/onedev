@@ -116,7 +116,7 @@ public class BuildListPage extends LayoutPage {
 				params.set(PARAM_QUERY, query);
 				params.remove(PARAM_PAGE);
 				CharSequence url = RequestCycle.get().urlFor(BuildListPage.class, params);
-				pushState(RequestCycle.get().find(AjaxRequestTarget.class), url.toString(), query);
+				pushState(RequestCycle.get().find(AjaxRequestTarget.class).orElse(null), url.toString(), query);
 			}
 			
 		}, true, true) {
@@ -251,7 +251,7 @@ public class BuildListPage extends LayoutPage {
 	
 	@Override
 	protected String getPageTitle() {
-		return _T("Builds") + " - " + OneDev.getInstance(SettingService.class).getBrandingSetting().getName();
+		return _T("Builds") + " - " + OneDev.getInstance(SettingService.class).getBrandingSetting().getEffectiveName();
 	}
 	
 }

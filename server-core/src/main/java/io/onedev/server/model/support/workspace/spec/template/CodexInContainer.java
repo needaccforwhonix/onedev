@@ -2,6 +2,7 @@ package io.onedev.server.model.support.workspace.spec.template;
 
 import java.util.List;
 
+import io.onedev.agent.workspace.ProvisionMode;
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.model.support.workspace.spec.ShortcutConfig;
@@ -22,7 +23,7 @@ public class CodexInContainer extends WorkspaceSpecTemplate {
         var workspaceSpec = new WorkspaceSpec();
 
         workspaceSpec.setName(getName());
-        workspaceSpec.setRunInContainer(true);
+        workspaceSpec.setProvisionMode(ProvisionMode.DOCKER);
         workspaceSpec.setImage("1dev/codex");
         var shell = new PosixShell();
         shell.setShell("bash");
@@ -36,7 +37,7 @@ public class CodexInContainer extends WorkspaceSpecTemplate {
 
         var userData = new UserData();
         userData.setKey("codex");
-        userData.getEntries().add(UserDataEntry.of("/home/codex/.codex", "sessions archived_sessions packages plugins computer-use cache logs* *.log tmp .tmp"));
+        userData.getEntries().add(UserDataEntry.of("/home/codex/.codex", "sessions archived_sessions packages app-server-control app-server-daemon plugins computer-use cache logs* *.log tmp .tmp"));
         workspaceSpec.getUserDatas().add(userData);
 
         configureTaskAutomation(workspaceSpec, "codex exec --dangerously-bypass-approvals-and-sandbox \"$TASK_PROMPT\"");

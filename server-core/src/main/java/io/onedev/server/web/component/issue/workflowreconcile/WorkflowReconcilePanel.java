@@ -14,7 +14,7 @@ import org.apache.wicket.ajax.attributes.AjaxRequestAttributes;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
 import org.apache.wicket.ajax.markup.html.form.AjaxButton;
 import org.apache.wicket.behavior.AttributeAppender;
-import org.apache.wicket.extensions.ajax.markup.html.AjaxLazyLoadPanel;
+import io.onedev.server.web.component.AjaxLazyLoadPanel;
 import org.apache.wicket.markup.ComponentTag;
 import org.apache.wicket.markup.head.CssHeaderItem;
 import org.apache.wicket.markup.head.IHeaderResponse;
@@ -24,7 +24,7 @@ import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.Panel;
-import org.apache.wicket.markup.repeater.RepeatingView;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.request.cycle.RequestCycle;
 
 import io.onedev.server.OneDev;
@@ -70,13 +70,7 @@ public abstract class WorkflowReconcilePanel extends Panel {
 	}
 	
 	private Component checkStates(String markupId) {
-		return new AjaxLazyLoadPanel(markupId) {
-
-			@Override
-			protected void updateAjaxAttributes(AjaxRequestAttributes attributes) {
-				super.updateAjaxAttributes(attributes);
-				attributes.getAjaxCallListeners().add(new DisableGlobalAjaxIndicatorListener());
-			}
+		return new ReconcileLazyLoadPanel(markupId) {
 
 			@Override
 			public Component getLazyLoadComponent(String markupId) {
@@ -88,7 +82,7 @@ public abstract class WorkflowReconcilePanel extends Panel {
 						@Override
 						protected void onError() {
 							super.onError();
-							RequestCycle.get().find(AjaxRequestTarget.class).add(this);
+							RequestCycle.get().find(AjaxRequestTarget.class).orElse(null).add(this);
 						}
 						
 					};
@@ -134,8 +128,8 @@ public abstract class WorkflowReconcilePanel extends Panel {
 						}
 
 						@Override
-						protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-							super.onSubmit(target, form);
+						protected void onSubmit(AjaxRequestTarget target) {
+							super.onSubmit(target);
 							getIssueService().fixUndefinedStates(resolutions);
 							Component content = checkFields(CONTENT_ID);
 							WorkflowReconcilePanel.this.replace(content);
@@ -161,13 +155,7 @@ public abstract class WorkflowReconcilePanel extends Panel {
 	}
 
 	private Component checkFields(String markupId) {
-		return new AjaxLazyLoadPanel(markupId) {
-
-			@Override
-			protected void updateAjaxAttributes(AjaxRequestAttributes attributes) {
-				super.updateAjaxAttributes(attributes);
-				attributes.getAjaxCallListeners().add(new DisableGlobalAjaxIndicatorListener());
-			}
+		return new ReconcileLazyLoadPanel(markupId) {
 
 			@Override
 			public Component getLazyLoadComponent(String markupId) {
@@ -179,7 +167,7 @@ public abstract class WorkflowReconcilePanel extends Panel {
 						@Override
 						protected void onError() {
 							super.onError();
-							RequestCycle.get().find(AjaxRequestTarget.class).add(this);
+							RequestCycle.get().find(AjaxRequestTarget.class).orElse(null).add(this);
 						}
 						
 					};
@@ -223,8 +211,8 @@ public abstract class WorkflowReconcilePanel extends Panel {
 						}
 
 						@Override
-						protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-							super.onSubmit(target, form);
+						protected void onSubmit(AjaxRequestTarget target) {
+							super.onSubmit(target);
 							getIssueService().fixUndefinedFields(resolutions);
 							
 							Component content = checkFieldValues(CONTENT_ID);
@@ -250,13 +238,7 @@ public abstract class WorkflowReconcilePanel extends Panel {
 	}
 	
 	private Component checkFieldValues(String markupId) {
-		return new AjaxLazyLoadPanel(markupId) {
-
-			@Override
-			protected void updateAjaxAttributes(AjaxRequestAttributes attributes) {
-				super.updateAjaxAttributes(attributes);
-				attributes.getAjaxCallListeners().add(new DisableGlobalAjaxIndicatorListener());
-			}
+		return new ReconcileLazyLoadPanel(markupId) {
 
 			@Override
 			public Component getLazyLoadComponent(String markupId) {
@@ -268,7 +250,7 @@ public abstract class WorkflowReconcilePanel extends Panel {
 						@Override
 						protected void onError() {
 							super.onError();
-							RequestCycle.get().find(AjaxRequestTarget.class).add(this);
+							RequestCycle.get().find(AjaxRequestTarget.class).orElse(null).add(this);
 						}
 						
 					};
@@ -312,8 +294,8 @@ public abstract class WorkflowReconcilePanel extends Panel {
 						}
 
 						@Override
-						protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-							super.onSubmit(target, form);
+						protected void onSubmit(AjaxRequestTarget target) {
+							super.onSubmit(target);
 
 							Map<String, UndefinedFieldValuesResolution> edits = new HashMap<>();
 							Collection<String> fieldNames = new HashSet<>();
@@ -408,6 +390,19 @@ public abstract class WorkflowReconcilePanel extends Panel {
 	
 	protected abstract void onCancel(AjaxRequestTarget target);
 	
+	private abstract static class ReconcileLazyLoadPanel extends AjaxLazyLoadPanel {
+
+		private ReconcileLazyLoadPanel(String id) {
+			super(id);
+		}
+
+		@Override
+		protected void updateAjaxAttributes(AjaxRequestAttributes attributes) {
+			super.updateAjaxAttributes(attributes);
+			attributes.getAjaxCallListeners().add(new DisableGlobalAjaxIndicatorListener());
+		}
+	}
+
 	static class UndefinedFieldValueContainer extends WebMarkupContainer {
 		
 		final String fieldName;

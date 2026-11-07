@@ -3,13 +3,14 @@ package io.onedev.server.web.resource;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serial;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
-import javax.persistence.EntityNotFoundException;
-import javax.ws.rs.core.HttpHeaders;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.ws.rs.core.HttpHeaders;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.utils.URIBuilder;
@@ -44,6 +45,7 @@ import io.onedev.server.web.util.WicketUtils;
 
 public class RawBlobResource extends AbstractResource {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private static final String PARAM_DISPOSITION = "disposition";

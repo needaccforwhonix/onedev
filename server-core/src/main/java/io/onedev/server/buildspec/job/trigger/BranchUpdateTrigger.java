@@ -1,9 +1,10 @@
 package io.onedev.server.buildspec.job.trigger;
 
+import java.io.Serial;
 import java.util.Collection;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
@@ -33,6 +34,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 
 public class BranchUpdateTrigger extends JobTrigger {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String branches;
@@ -42,7 +44,7 @@ public class BranchUpdateTrigger extends JobTrigger {
 	private String userMatch = new Anyone().toString();
 		
 	@Editable(name="Branches", order=100, placeholder="Any branch", description="Optionally specify space-separated branches "
-			+ "to check. Use '**' or '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
+			+ "to check. Use '**' or '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
 			+ "Prefix with '-' to exclude. Leave empty to match all branches")
 	@Patterns(suggester = "suggestBranches", path=true)
 	public String getBranches() {
@@ -59,7 +61,7 @@ public class BranchUpdateTrigger extends JobTrigger {
 	}
 	
 	@Editable(name="Touched Files", order=200, placeholder="Any file", 
-			description="Optionally specify space-separated files to check. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
+			description="Optionally specify space-separated files to check. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
 					+ "Prefix with '-' to exclude. Leave empty to match all files")
 	@Patterns(suggester = "getPathSuggestions", path=true)
 	public String getPaths() {

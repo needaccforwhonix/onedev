@@ -2,6 +2,7 @@ package io.onedev.server.plugin.report.jacoco;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Serial;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -9,7 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
@@ -40,9 +41,10 @@ import io.onedev.server.util.XmlUtils;
 @Editable(order=10000, group=StepGroup.PUBLISH, name="JaCoCo Coverage Report")
 public class PublishJacocoReportStep extends PublishCoverageReportStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
-	@Editable(order=100, description="Specify JaCoCo coverage xml report file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, "
+	@Editable(order=100, description="Specify JaCoCo coverage xml report file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, "
 			+ "for instance, <tt>target/site/jacoco/jacoco.xml</tt>. Use * or ? for pattern match")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Patterns(path=true)

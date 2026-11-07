@@ -16,6 +16,7 @@
  */
 package org.apache.wicket.guice;
 
+import java.io.Serial;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
@@ -35,6 +36,7 @@ import io.onedev.commons.loader.AppLoader;
 
 class GuiceProxyTargetLocator implements IProxyTargetLocator
 {
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final Annotation bindingAnnotation;
@@ -57,7 +59,7 @@ class GuiceProxyTargetLocator implements IProxyTargetLocator
 	}
 
 	@Override
-	public Object locateProxyTarget()
+	public <T> T locateProxyTarget()
 	{
 		Injector injector = getInjector();
 
@@ -81,8 +83,10 @@ class GuiceProxyTargetLocator implements IProxyTargetLocator
 				return null;
 			}
 		}
-
-		return injector.getInstance(key);
+		
+		// Resolve the declared field type and check the injected instance at the reflection boundary.
+		Class<T> targetClass = WicketObjects.resolveClass(key.getTypeLiteral().getRawType().getName());
+		return targetClass.cast(injector.getInstance(key));
 	}
 
 	private Key<?> newGuiceKey()

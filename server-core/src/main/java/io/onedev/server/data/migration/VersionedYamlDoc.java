@@ -9,6 +9,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -17,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.hibernate.proxy.HibernateProxyHelper;
+import io.onedev.server.util.HibernateProxyHelper;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.DumperOptions.FlowStyle;
 import org.yaml.snakeyaml.LoaderOptions;
@@ -37,7 +38,6 @@ import org.yaml.snakeyaml.representer.Representer;
 import org.yaml.snakeyaml.resolver.Resolver;
 import org.yaml.snakeyaml.serializer.Serializer;
 
-import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.commons.loader.ImplementationRegistry;
 import io.onedev.commons.utils.ClassUtils;
 import io.onedev.commons.utils.ExplicitException;
@@ -188,6 +188,7 @@ public class VersionedYamlDoc extends MappingNode {
 	
 	private static class OneYaml extends Yaml {
 
+		@SuppressWarnings("deprecation")
 		OneYaml() {
 			super(newConstructor(), newRepresenter());
 			

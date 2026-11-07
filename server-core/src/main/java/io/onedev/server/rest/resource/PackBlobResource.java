@@ -1,22 +1,23 @@
 package io.onedev.server.rest.resource;
 
-import static javax.ws.rs.core.MediaType.APPLICATION_OCTET_STREAM;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_OCTET_STREAM;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.StreamingOutput;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.StreamingOutput;
 
 import org.apache.shiro.authz.UnauthorizedException;
 
 import io.onedev.server.service.PackBlobService;
 import io.onedev.server.model.PackBlob;
+import io.onedev.server.rest.RestProjectUtils;
 import io.onedev.server.rest.annotation.Api;
 import io.onedev.server.security.SecurityUtils;
 
@@ -37,6 +38,7 @@ public class PackBlobResource {
 	@Api(order=100, description = "Find package blob by project id and hash")
 	@GET
 	public PackBlob findByHash(@QueryParam("projectId") Long projectId, @QueryParam("hash") String hash) {
+		RestProjectUtils.checkProjectId(projectId);
 		var packBlob = packBlobService.findBySha256Hash(projectId, hash);
 		if (packBlob != null) 
 			return packBlob;			

@@ -12,8 +12,8 @@ import io.onedev.server.security.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.io.File;
 import java.sql.SQLException;
 
@@ -80,7 +80,7 @@ public class BackupDatabase extends CommandHandler {
 				} catch (Exception e) {
 					throw ExceptionUtils.unchecked(e);
 				} finally {
-					FileUtils.deleteDir(tempDir);
+					FileUtils.deletePath(tempDir);
 				}
 
 				logger.info("Database is successfully backed up to {}", backupFile.getAbsolutePath());

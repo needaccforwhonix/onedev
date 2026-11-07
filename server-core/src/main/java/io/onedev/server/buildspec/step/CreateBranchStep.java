@@ -1,11 +1,12 @@
 package io.onedev.server.buildspec.step;
 
 import java.io.File;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import org.eclipse.jgit.lib.Repository;
 
@@ -32,6 +33,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 @Editable(name="Create Branch", order=280)
 public class CreateBranchStep extends ServerSideStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private BranchNameProvider branchNameProvider = new GeneratedBranchName();
@@ -76,7 +78,7 @@ public class CreateBranchStep extends ServerSideStep {
 	}
 
 	@Editable(order=1060, description="For build commit not reachable from default branch, " +
-			"a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> should be specified as access token with create branch permission")
+			"a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> should be specified as access token with create branch permission")
 	@ChoiceProvider("getAccessTokenSecretChoices")
 	public String getAccessTokenSecret() {
 		return accessTokenSecret;

@@ -2,7 +2,7 @@ package io.onedev.server.web.page.project.pullrequests.detail;
 
 import static io.onedev.server.ai.ToolUtils.wrapForChat;
 import static io.onedev.server.entityreference.ReferenceUtils.transformReferences;
-import static io.onedev.server.model.PullRequestReview.Status.EXCLUDED;
+import static io.onedev.server.model.PullRequestReview.Status.PENDING;
 import static io.onedev.server.model.support.pullrequest.MergeStrategy.CREATE_MERGE_COMMIT;
 import static io.onedev.server.model.support.pullrequest.MergeStrategy.CREATE_MERGE_COMMIT_IF_NECESSARY;
 import static io.onedev.server.model.support.pullrequest.MergeStrategy.REBASE_SOURCE_BRANCH_COMMITS;
@@ -22,10 +22,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import javax.inject.Inject;
-import javax.persistence.EntityNotFoundException;
-
 import org.apache.commons.lang3.StringUtils;
+import org.apache.shiro.authz.UnauthorizedException;
 import org.apache.wicket.Component;
 import org.apache.wicket.Page;
 import org.apache.wicket.RestartResponseException;
@@ -54,12 +52,11 @@ import org.apache.wicket.markup.html.link.Link;
 import org.apache.wicket.markup.html.list.ListItem;
 import org.apache.wicket.markup.html.list.ListView;
 import org.apache.wicket.markup.html.panel.Fragment;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.model.PropertyModel;
-import org.apache.wicket.request.cycle.AbstractRequestCycleListener;
+import org.apache.wicket.request.cycle.IRequestCycleListener;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.flow.RedirectToUrlException;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
@@ -177,6 +174,8 @@ import io.onedev.server.web.util.editbean.CommitMessageBean;
 import io.onedev.server.web.util.editbean.LabelsBean;
 import io.onedev.server.workspace.WorkspaceService;
 import io.onedev.server.xodus.VisitInfoService;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityNotFoundException;
 
 public abstract class PullRequestDetailPage extends ProjectPage implements PullRequestAware {
 
@@ -298,6 +297,22 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 
 		}.setEscapeModelStrings(false));
 
+		requestHead.add(new WebMarkupContainer("workInProgress") {
+
+			@Override
+			protected void onConfigure() {
+				super.onConfigure();
+				setVisible(getPullRequest().isWorkInProgress());
+			}
+
+		}.setOutputMarkupPlaceholderTag(true).add(new ChangeObserver() {
+
+			@Override
+			public Collection<String> findObservables() {
+				return Sets.newHashSet(PullRequest.getChangeObservable(getPullRequest().getId()));
+			}
+
+		}));
 		requestHead.add(new Label("number", "#" + getPullRequest().getNumber()));
 
 		requestHead.add(new AjaxLink<Void>("edit") {
@@ -369,8 +384,8 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 		form.add(new AjaxButton("save") {
 
 			@Override
-			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-				super.onSubmit(target, form);
+			protected void onSubmit(AjaxRequestTarget target) {
+				super.onSubmit(target);
 
 				var user = SecurityUtils.getUser();
 				pullRequestChangeService.changeTitle(user, getPullRequest(), title);
@@ -382,8 +397,8 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 			}
 
 			@Override
-			protected void onError(AjaxRequestTarget target, Form<?> form) {
-				super.onError(target, form);
+			protected void onError(AjaxRequestTarget target) {
+				super.onError(target);
 				target.add(requestHead);
 			}
 
@@ -434,7 +449,7 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 		summaryContainer.setOutputMarkupId(true);
 		add(summaryContainer);
 
-		summaryContainer.add(new Label("checkError", new AbstractReadOnlyModel<String>() {
+		summaryContainer.add(new Label("checkError", new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -778,7 +793,7 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 			}
 		}.setEscapeModelStrings(false));
 
-		summaryContainer.add(new Label("requiredJobsMessage", new AbstractReadOnlyModel<String>() {
+		summaryContainer.add(new Label("requiredJobsMessage", new IModel<String>() {
 			@Override
 			public String getObject() {
 				if (getPullRequest().getBuildRequirement().isStrictMode())
@@ -831,6 +846,7 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 
 					@Override
 					protected void onConfigure() {
+						super.onConfigure();
 						setVisible(buildSpec != null 
 								&& buildSpec.getJobMap().containsKey(jobName) 
 								&& (SecurityUtils.canRunJob(getProject(), jobName) || SecurityUtils.canModifyPullRequest(getPullRequest())));
@@ -981,7 +997,7 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 		add(new Tabbable("requestTabs", tabs).setOutputMarkupId(true));
 		add(new SideInfoLink("moreInfoDock"));
 
-		RequestCycle.get().getListeners().add(new AbstractRequestCycleListener() {
+		RequestCycle.get().getListeners().add(new IRequestCycleListener() {
 
 			@Override
 			public void onEndRequest(RequestCycle cycle) {
@@ -1012,6 +1028,41 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 
 				};
 
+				var workInProgress = new AtomicBoolean();
+				var workInProgressInput = new CheckBox("workInProgress", new IModel<Boolean>() {
+
+					@Override
+					public Boolean getObject() {
+						return getPullRequest().isWorkInProgress();
+					}
+
+					@Override
+					public void setObject(Boolean object) {
+						workInProgress.set(object);
+					}
+
+				}) {
+
+					@Override
+					protected void onConfigure() {
+						super.onConfigure();
+						setVisible(SecurityUtils.canModifyPullRequest(getPullRequest()));
+					}
+
+				};
+				workInProgressInput.add(new AjaxFormComponentUpdatingBehavior("change") {
+
+					@Override
+					protected void onUpdate(AjaxRequestTarget target) {
+						var request = getPullRequest();
+						if (!SecurityUtils.canModifyPullRequest(request))
+							throw new UnauthorizedException();
+						pullRequestChangeService.changeWorkInProgress(SecurityUtils.getUser(), request, workInProgress.get());
+						notifyPullRequestChange(target);
+					}
+
+				});
+				fragment.add(workInProgressInput);
 				fragment.add(new UserIdentPanel("submitter", getPullRequest().getSubmitter(), Mode.NAME));
 				fragment.add(new BranchLink("targetBranch", getPullRequest().getTarget()));
 
@@ -1105,7 +1156,7 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 
 				});
 				fragment.add(newWorkspacesLink());
-				fragment.add(new Label("workspaceCount", new AbstractReadOnlyModel<Integer>() {
+				fragment.add(new Label("workspaceCount", new IModel<Integer>() {
 
 					@Override
 					public Integer getObject() {
@@ -1239,6 +1290,11 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 				});
 
 				fragment.add(new EntityWatchesPanel("watches") {
+
+					@Override
+					protected Project getProject() {
+						return PullRequestDetailPage.this.getProject();
+					}
 
 					@Override
 					protected void onSaveWatch(EntityWatch watch) {
@@ -1436,7 +1492,7 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 		});
 		mergeStrategyContainer.add(editor);
 
-		mergeStrategyContainer.add(new Label("viewer", new AbstractReadOnlyModel<String>() {
+		mergeStrategyContainer.add(new Label("viewer", new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -1454,7 +1510,7 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 
 		});
 
-		mergeStrategyContainer.add(new Label("help", new AbstractReadOnlyModel<String>() {
+		mergeStrategyContainer.add(new Label("help", new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -1648,7 +1704,7 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 		});
 		autoMergeContainer.add(toggleCheck);
 
-		autoMergeContainer.add(new Label("badge", new AbstractReadOnlyModel<String>() {
+		autoMergeContainer.add(new Label("badge", new IModel<String>() {
 			@Override
 			public String getObject() {
 				return getPullRequest().getAutoMerge().isEnabled()? "ON": "OFF";
@@ -1670,7 +1726,7 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 	private WebMarkupContainer newStatusBarContainer() {
 		WebMarkupContainer statusBarContainer = new WebMarkupContainer("statusBar");
 
-		statusBarContainer.add(new Label("status", new AbstractReadOnlyModel<String>() {
+		statusBarContainer.add(new Label("status", new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -1692,7 +1748,7 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 
 				});
 
-				add(AttributeAppender.append("class", new AbstractReadOnlyModel<String>() {
+				add(AttributeAppender.append("class", new IModel<String>() {
 
 					@Override
 					public String getObject() {
@@ -1717,7 +1773,7 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 			protected Component newContent(String id, FloatingPanel dropdown) {
 				Fragment fragment = new Fragment(id, "cloneFrag", PullRequestDetailPage.this);
 				fragment.add(new Label("headRef", getPullRequest().getHeadRef()));
-				fragment.add(new Label("mergeRef", new AbstractReadOnlyModel<String>() {
+				fragment.add(new Label("mergeRef", new IModel<String>() {
 
 					@Override
 					public String getObject() {
@@ -1968,7 +2024,7 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 		});
 
 		operationsContainer.setOutputMarkupPlaceholderTag(true);
-		operationsContainer.setVisible(SecurityUtils.getAuthUser() != null);
+		operationsContainer.setVisible(SecurityUtils.getAuthUser() != null && SecurityUtils.canWorkOnProject(getProject()));
 
 		operationsContainer.add(new MenuLink("updateSourceBranch") {
 
@@ -2091,6 +2147,8 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 
 			private boolean canOperate() {
 				return SecurityUtils.canWriteCode(getPullRequest().getProject())
+						&& getPullRequest().getSourceProject() != null
+						&& SecurityUtils.canWorkOnProject(getPullRequest().getSourceProject())
 						&& getPullRequest().isOpen()
 						&& getPullRequest().getSourceHead() != null
 						&& getPullRequest().isSourceOutdated();
@@ -2109,7 +2167,7 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 				PullRequest request = getPullRequest();
 				if (request.isOpen()) {
 					PullRequestReview review = request.getReview(SecurityUtils.getAuthUser());
-					return review != null && review.getStatus() != EXCLUDED;
+					return review != null && review.getStatus() == PENDING;
 				} else {
 					return false;
 				}
@@ -2152,7 +2210,7 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 				PullRequest request = getPullRequest();
 				if (request.isOpen()) {
 					PullRequestReview review = request.getReview(SecurityUtils.getAuthUser());
-					return review != null && review.getStatus() != EXCLUDED;
+					return review != null && review.getStatus() == PENDING;
 				} else {
 					return false;
 				}
@@ -2405,6 +2463,8 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 	 */
 	private Object checkUpdateSourceBranch(boolean updateByMerge) {
 		var request = getPullRequest();
+		SecurityUtils.checkWorkOnProject(request.getTargetProject());
+		SecurityUtils.checkWorkOnProject(request.getSourceProject());
 		var user = SecurityUtils.getAuthUser();
 		var project = request.getProject();
 		var protection = request.getSourceProject().getBranchProtection(request.getSourceBranch(), user);
@@ -2450,6 +2510,8 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 
 	private void updateSourceBranch(ObjectId commitId) {
 		var request = getPullRequest();
+		SecurityUtils.checkWorkOnProject(request.getTargetProject());
+		SecurityUtils.checkWorkOnProject(request.getSourceProject());
 		if (!request.getSourceProject().equals(request.getTargetProject()))
 			gitService.fetch(request.getSourceProject(), request.getTargetProject(), commitId.name());
 		var oldCommitId = request.getSourceHead();
@@ -2500,7 +2562,7 @@ public abstract class PullRequestDetailPage extends ProjectPage implements PullR
 
 	@Override
 	protected String getPageTitle() {
-		return getPullRequest().getTitle() + " (" + getPullRequest().getReference().toString(getProject()) + ")";
+		return "PR " + getPullRequest().getReference().toString(getProject()) + ": " + getPullRequest().getTitle();
 	}
 
 	@Override

@@ -1,17 +1,18 @@
 package io.onedev.server.search.entity.issue;
 
+import java.io.Serial;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
-import javax.persistence.criteria.Subquery;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 
 import com.google.common.base.Preconditions;
 
@@ -27,6 +28,7 @@ import io.onedev.server.web.component.issue.workflowreconcile.UndefinedFieldReso
 
 public abstract class FieldCriteria extends Criteria<Issue> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String fieldName;

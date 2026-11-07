@@ -17,18 +17,17 @@
 package org.apache.wicket.protocol.http.servlet;
 
 import java.io.IOException;
-
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import java.time.Instant;
+import io.onedev.server.util.HttpUtils;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.wicket.WicketRuntimeException;
 import org.apache.wicket.request.Url;
 import org.apache.wicket.request.UrlRenderer;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.http.WebResponse;
 import org.apache.wicket.util.lang.Args;
-import org.apache.wicket.util.time.Time;
 
 /**
  * WebResponse that wraps a {@link ServletWebResponse}.
@@ -84,10 +83,16 @@ public class ServletWebResponse extends WebResponse
 	}
 
 	@Override
-	public void setDateHeader(String name, Time date)
+	public void setDateHeader(String name, Instant date)
 	{
 		Args.notNull(date, "date");
-		httpServletResponse.setDateHeader(name, date.getMilliseconds());
+		httpServletResponse.setDateHeader(name, date.toEpochMilli());
+	}
+
+	@Override
+	public boolean isHeaderSupported()
+	{
+		return !httpServletResponse.isCommitted();
 	}
 
 	@Override
@@ -285,13 +290,7 @@ public class ServletWebResponse extends WebResponse
 			}
 			else
 			{
-				String userAgent = webRequest.getContainerRequest().getHeader("User-Agent");
-				if (userAgent != null)
-					userAgent = userAgent.toLowerCase();
-				else
-					userAgent = "";
-				if (userAgent.contains("bot") || userAgent.contains("crawler") 
-						|| userAgent.contains("spider") || userAgent.contains("crawling")) {
+				if (HttpUtils.isBot(webRequest.getContainerRequest())) {
 					httpServletResponse.sendRedirect(url);
 				} else {
 					httpServletResponse.resetBuffer();

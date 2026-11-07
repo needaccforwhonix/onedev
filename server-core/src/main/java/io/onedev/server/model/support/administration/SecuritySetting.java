@@ -1,11 +1,12 @@
 package io.onedev.server.model.support.administration;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.jspecify.annotations.Nullable;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import io.onedev.server.annotation.ShowCondition;
 import org.slf4j.Logger;
@@ -24,6 +25,7 @@ import io.onedev.server.util.usage.Usage;
 @Editable
 public class SecuritySetting implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private static final Logger logger = LoggerFactory.getLogger(SecuritySetting.class);

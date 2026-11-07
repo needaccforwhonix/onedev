@@ -1,9 +1,10 @@
 package io.onedev.server.buildspec.param.spec;
 
+import java.io.Serial;
 import java.util.List;
 import java.util.Map;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 
 import io.onedev.server.buildspecmodel.inputspec.textinput.TextInput;
 import io.onedev.server.buildspecmodel.inputspec.textinput.defaultvalueprovider.DefaultValueProvider;
@@ -12,6 +13,7 @@ import io.onedev.server.annotation.Editable;
 @Editable(order=100, name=ParamSpec.TEXT)
 public class TextParam extends ParamSpec {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private boolean multiline;

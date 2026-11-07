@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.apache.wicket.Component;
 import org.apache.wicket.RestartResponseAtInterceptPageException;
@@ -30,7 +30,7 @@ import org.apache.wicket.ajax.attributes.AjaxRequestAttributes;
 import org.apache.wicket.ajax.form.OnChangeAjaxBehavior;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
 import org.apache.wicket.behavior.AttributeAppender;
-import org.apache.wicket.extensions.ajax.markup.html.AjaxLazyLoadPanel;
+import io.onedev.server.web.component.AjaxLazyLoadPanel;
 import org.apache.wicket.feedback.FencedFeedbackPanel;
 import org.apache.wicket.markup.head.IHeaderResponse;
 import org.apache.wicket.markup.head.JavaScriptHeaderItem;
@@ -38,6 +38,7 @@ import org.apache.wicket.markup.head.OnLoadHeaderItem;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.Button;
+import org.apache.wicket.markup.html.form.CheckBox;
 import org.apache.wicket.markup.html.form.DropDownChoice;
 import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.markup.html.form.IChoiceRenderer;
@@ -45,7 +46,6 @@ import org.apache.wicket.markup.html.form.TextField;
 import org.apache.wicket.markup.html.link.BookmarkablePageLink;
 import org.apache.wicket.markup.html.link.Link;
 import org.apache.wicket.markup.html.panel.Fragment;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -287,6 +287,7 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 				request.setTarget(target);
 				request.setSource(source);
 				request.setSubmitter(currentUser);
+				request.setWorkInProgress(request.getSourceBranchSemantic().isWorkInProgress());
 				
 				request.setBaseCommitHash(baseCommitId.name());
 				if (request.getBaseCommitHash().equals(source.getObjectName())) 
@@ -299,11 +300,14 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 				update.setHeadCommitHash(source.getObjectName());
 				update.setTargetHeadCommitHash(request.getTarget().getObjectName());
 
-				var title = request.generateTitleFromCommits();
-				if (title == null && settingService.getAiSetting().getLiteModelSetting() == null)
-					title = request.generateTitleFromBranch();
-				request.setTitle(title);
-				request.setDescription(request.generateDescriptionFromCommits());
+				var commits = update.getCommits();
+				if (commits.size() == 1) {
+					var commit = commits.get(0);
+					request.setTitle(request.generateTitleFromSingleCommit(commit));
+					request.setDescription(request.generateDescriptionFromSingleCommit(commit));
+				} else if (settingService.getAiSetting().getLiteModelSetting() == null) {
+					request.setTitle(request.generateTitleFromBranch());
+				}
 
 				pullRequestService.checkReviews(request, false);
 
@@ -609,7 +613,7 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 	private Fragment newEffectiveFrag() {
 		Fragment fragment = new Fragment("status", "effectiveFrag", this);
 
-		fragment.add(new Label("description", new AbstractReadOnlyModel<String>() {
+		fragment.add(new Label("description", new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -626,7 +630,7 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 			@Override
 			protected void onInitialize() {
 				super.onInitialize();
-				add(new Label("label", new AbstractReadOnlyModel<String>() {
+				add(new Label("label", new IModel<String>() {
 
 					@Override
 					public String getObject() {
@@ -727,10 +731,12 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 				super.renderHead(response);
 				
 				CharSequence callback;
-				if (settingService.getAiSetting().getLiteModelSetting() != null)
+				if (getPullRequest().getLatestUpdate().getCommits().size() != 1
+						&& settingService.getAiSetting().getLiteModelSetting() != null) {
 					callback = behavior.getCallbackFunction(explicit("suggestTitle"), explicit("suggestDescription"));
-				else
+				} else {
 					callback = "undefined";
+				}
 				var translations = new HashMap<String, String>();
 				translations.put("suggesting-title", _T("Suggesting title..."));
 				translations.put("suggesting-description", _T("Suggesting description..."));
@@ -814,7 +820,7 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 		
 		form.add(new FencedFeedbackPanel("titleFeedback", titleInput));
 		
-		titleInput.add(AttributeAppender.append("class", new AbstractReadOnlyModel<String>() {
+		titleInput.add(AttributeAppender.append("class", new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -824,6 +830,19 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 		}));
 		
 		form.add(titleInput);
+		form.add(new CheckBox("workInProgress", new IModel<Boolean>() {
+
+			@Override
+			public Boolean getObject() {
+				return getPullRequest().isWorkInProgress();
+			}
+
+			@Override
+			public void setObject(Boolean object) {
+				getPullRequest().setWorkInProgress(object);
+			}
+
+		}));
 
 		CommentInput descriptionInput = new CommentInput("description", new IModel<String>() {
 
@@ -867,7 +886,7 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 			}
 		});
 		
-		descriptionInput.add(AttributeAppender.append("class", new AbstractReadOnlyModel<String>() {
+		descriptionInput.add(AttributeAppender.append("class", new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -1196,7 +1215,8 @@ public class NewPullRequestPage extends ProjectPage implements RevisionAnnotatio
 	
 	@Override
 	protected boolean isPermitted() {
-		return SecurityUtils.canReadCode(target.getProject()) 
+		return SecurityUtils.canWorkOnProject(target.getProject())
+				&& SecurityUtils.canReadCode(target.getProject())
 				&& SecurityUtils.canReadCode(source.getProject());
 	}
 

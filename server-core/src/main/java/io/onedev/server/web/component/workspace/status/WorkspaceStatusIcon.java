@@ -1,11 +1,11 @@
 package io.onedev.server.web.component.workspace.status;
 
+import java.io.Serial;
 import java.util.Collection;
 
 import org.apache.wicket.behavior.AttributeAppender;
 import org.apache.wicket.markup.head.CssHeaderItem;
 import org.apache.wicket.markup.head.IHeaderResponse;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.jspecify.annotations.Nullable;
@@ -18,6 +18,7 @@ import io.onedev.server.web.component.svg.SpriteImage;
 
 public class WorkspaceStatusIcon extends SpriteImage {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final IModel<Status> model;
@@ -38,7 +39,7 @@ public class WorkspaceStatusIcon extends SpriteImage {
 	protected void onInitialize() {
 		super.onInitialize();
 
-		add(AttributeAppender.append("class", new AbstractReadOnlyModel<String>() {
+		add(AttributeAppender.append("class", new IModel<String>() {
 
 			@Override
 			public String getObject() {

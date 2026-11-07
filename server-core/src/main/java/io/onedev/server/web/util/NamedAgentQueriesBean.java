@@ -1,9 +1,10 @@
 package io.onedev.server.web.util;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import io.onedev.server.model.support.NamedAgentQuery;
 import io.onedev.server.web.component.savedquery.NamedQueriesBean;
@@ -13,6 +14,7 @@ import io.onedev.server.annotation.OmitName;
 @Editable
 public class NamedAgentQueriesBean extends NamedQueriesBean<NamedAgentQuery> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private List<NamedAgentQuery> queries = new ArrayList<>();

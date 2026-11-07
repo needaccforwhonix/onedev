@@ -1,12 +1,13 @@
 package io.onedev.server.buildspecmodel.inputspec.showcondition;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,6 +23,7 @@ import io.onedev.server.annotation.OmitName;
 @Editable
 public class ShowCondition implements Serializable {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private static final Logger logger = LoggerFactory.getLogger(ShowCondition.class);

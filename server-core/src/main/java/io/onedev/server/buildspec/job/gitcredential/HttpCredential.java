@@ -1,11 +1,12 @@
 package io.onedev.server.buildspec.job.gitcredential;
 
+import java.io.Serial;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.validation.ConstraintValidatorContext;
+import jakarta.validation.ConstraintValidatorContext;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.k8shelper.CloneInfo;
 import io.onedev.k8shelper.HttpCloneInfo;
@@ -22,11 +23,12 @@ import io.onedev.server.annotation.Editable;
 @ClassValidating
 public class HttpCredential implements GitCredential, Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String accessTokenSecret;
 
-	@Editable(order=200, description="Specify a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as access token")
+	@Editable(order=200, description="Specify a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as access token")
 	@ChoiceProvider("getAccessTokenSecretChoices")
 	@NotEmpty
 	public String getAccessTokenSecret() {

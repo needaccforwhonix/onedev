@@ -15,10 +15,11 @@ import io.onedev.server.util.EditContext;
 import io.onedev.server.util.oauth.RefreshTokenAccessor;
 import org.jetbrains.annotations.Nullable;
 
-import javax.mail.Message;
-import javax.validation.constraints.Email;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotEmpty;
+import jakarta.mail.Message;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotEmpty;
+import java.io.Serial;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,6 +29,7 @@ import java.util.function.Consumer;
 @Editable(name="Microsoft 365", order=200)
 public class Office365Connector implements MailConnector {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String clientId;
@@ -122,7 +124,7 @@ public class Office365Connector implements MailConnector {
 	
 	@Editable(order=450, name="Check Incoming Email", description="Enable this to process issue or pull request comments posted via email. "
 			+ "<b class='text-danger'>NOTE:</b> <a href='https://docs.microsoft.com/en-us/exchange/recipients-in-exchange-online/plus-addressing-in-exchange-online' target='_blank'>Sub addressing</a> "
-			+ "needs to be enabled for system email address above, as OneDev uses it to track issue and pull request contexts")
+			+ "needs to be enabled for system email address above, as ${productName} uses it to track issue and pull request contexts")
 	public InboxPollSetting getInboxPollSetting() {
 		return inboxPollSetting;
 	}

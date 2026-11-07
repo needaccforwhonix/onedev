@@ -15,8 +15,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import javax.inject.Inject;
-import javax.mail.internet.InternetAddress;
+import jakarta.inject.Inject;
+import jakarta.mail.internet.InternetAddress;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.Predicate;
@@ -41,7 +41,6 @@ import org.apache.wicket.markup.html.link.Link;
 import org.apache.wicket.markup.html.list.ListItem;
 import org.apache.wicket.markup.html.list.ListView;
 import org.apache.wicket.markup.html.panel.Panel;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.PropertyModel;
@@ -138,6 +137,11 @@ public abstract class IssueSidePanel extends Panel {
 		});
 		
 		addOrReplace(watchesContainer = new EntityWatchesPanel("watches") {
+
+			@Override
+			protected Project getProject() {
+				return IssueSidePanel.this.getProject();
+			}
 
 			@Override
 			protected void onSaveWatch(EntityWatch watch) {
@@ -299,7 +303,7 @@ public abstract class IssueSidePanel extends Panel {
 			
 		};
 		
-		container.add(new ListView<Iteration>("iterations", new AbstractReadOnlyModel<List<Iteration>>() {
+		container.add(new ListView<Iteration>("iterations", new IModel<List<Iteration>>() {
 
 			@Override
 			public List<Iteration> getObject() {
@@ -319,7 +323,7 @@ public abstract class IssueSidePanel extends Panel {
 				link.add(new Label("label", iteration.getName()));
 				item.add(link);
 				
-				item.add(new StateStatsBar("progress", new AbstractReadOnlyModel<Map<String, Integer>>() {
+				item.add(new StateStatsBar("progress", new IModel<Map<String, Integer>>() {
 
 					@Override
 					public Map<String, Integer> getObject() {
@@ -337,7 +341,7 @@ public abstract class IssueSidePanel extends Panel {
 					}
 					
 				});
-				item.add(new IterationStatusLabel("status", new AbstractReadOnlyModel<Iteration>() {
+				item.add(new IterationStatusLabel("status", new IModel<Iteration>() {
 
 					@Override
 					public Iteration getObject() {
@@ -501,7 +505,7 @@ public abstract class IssueSidePanel extends Panel {
 		WebMarkupContainer container = new WebMarkupContainer("votes");
 		container.setOutputMarkupId(true);
 
-		container.add(new Label("count", new AbstractReadOnlyModel<String>() {
+		container.add(new Label("count", new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -557,6 +561,12 @@ public abstract class IssueSidePanel extends Panel {
 		});
 		
 		AjaxLink<Void> voteLink = new AjaxLink<Void>("vote") {
+
+			@Override
+			protected void onConfigure() {
+				super.onConfigure();
+				setVisible(SecurityUtils.canWorkOnProject(getProject()));
+			}
 
 			private IssueVote getVote(User user) {
 				for (IssueVote vote: getIssue().getVotes()) {

@@ -4,14 +4,15 @@ import static io.onedev.commons.codeassist.AntlrUtils.getLexerRuleName;
 import static io.onedev.server.job.match.JobMatchParser.IsNot;
 import static io.onedev.server.job.match.JobMatchParser.OnBranch;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Predicate;
 
 import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.BaseErrorListener;
@@ -33,6 +34,7 @@ import io.onedev.server.util.criteria.OrCriteria;
 
 public class JobMatch extends Criteria<JobMatchContext> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private final Criteria<JobMatchContext> criteria;

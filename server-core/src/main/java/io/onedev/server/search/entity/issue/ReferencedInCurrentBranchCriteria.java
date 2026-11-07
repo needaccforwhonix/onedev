@@ -1,9 +1,11 @@
 package io.onedev.server.search.entity.issue;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Predicate;
+import java.io.Serial;
+
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Predicate;
 
 import org.jspecify.annotations.Nullable;
 
@@ -15,6 +17,7 @@ import io.onedev.server.util.criteria.Criteria;
 
 public class ReferencedInCurrentBranchCriteria extends Criteria<Issue> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@Override

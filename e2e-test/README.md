@@ -5,12 +5,14 @@ the OneDev web interface in Chromium.
 
 ## Setup
 
-Node.js 20 or newer is required.
+Node.js 20.19 or newer is required. The service desk tests also require Java and
+Maven to install and run the local GreenMail server.
 
 ```bash
 cd e2e-test
 npm install
 npm run install:browsers
+npm run install:mail-server
 ```
 
 ## Run the tests
@@ -19,9 +21,18 @@ npm run install:browsers
 npm test
 ```
 
-By default Playwright starts `./dev.sh run` from the repository root and waits
+By default Playwright starts `./dev.sh prod` from the repository root and waits
 up to ten minutes for `http://127.0.0.1:6610`. If a server is already listening
 there, Playwright reuses it.
+
+Server stdout is hidden by default, including the stack traces deliberately
+triggered by Jev failure tests. Server stderr and test failures remain visible.
+Full application logs remain in `server-product/target/sandbox/logs/server.log`.
+To show server stdout when Playwright starts the server, run:
+
+```bash
+E2E_SERVER_STDOUT=1 npm test
+```
 
 Before running tests, each worker polls `~api/server/ready` without
 authentication until it returns `true`, allowing up to ten minutes for server
@@ -43,3 +54,223 @@ E2E_SKIP_WEBSERVER=1 E2E_BASE_URL=https://onedev.example.com npm test
 
 For local debugging, `npm run test:headed` opens the browser and
 `npm run test:ui` starts Playwright's interactive test runner.
+
+## Product branding
+
+`tests/product-branding.spec.js` checks login branding, English and Chinese
+translations, webhook signature headers, REST help, email template editing,
+and a real invitation email captured by a loopback SMTP sink.
+It defaults to the product name `OneDev`. To test an OEM installation, configure
+`product_name=GitOn` in the server's `oem/oem.properties`, restart the server,
+and pass the same name to the tests:
+
+```bash
+E2E_SKIP_WEBSERVER=1 E2E_PRODUCT_NAME=GitOn npm test -- tests/product-branding.spec.js
+```
+
+The invitation test temporarily configures its local SMTP sink, then restores
+the previous mail connector and cancels its test invitation. Other tests do not
+save administration settings or template changes. Temporary projects are
+removed by the usual fixture cleanup.
+
+## SSH cloning
+
+`tests/ssh-clone.spec.js` requires Git, OpenSSH (`ssh` and `ssh-keygen`),
+and a reachable SSH service at the server's advertised SSH clone URL (port 6611
+by default). Its SSH fixture waits up to 60 seconds for a TCP connection to the
+host and port in that URL, after HTTP readiness. This also supports custom SSH
+ports without making other tests depend on SSH.
+
+For an existing sandbox whose Server URL uses standard HTTP/HTTPS ports, the
+default advertised SSH URL uses port 22. If OneDev actually listens on port 6611,
+set **Administration → System Settings → SSH Root URL** explicitly, for example
+`ssh://test.onedev.io:6611`. Otherwise these tests can reach the host's SSH service
+instead of OneDev, even when the HTTP tests use `127.0.0.1:6610`.
+
+It tests Ed25519 and 3072-bit RSA keys, with separate RSA cases
+forcing SHA-256 and SHA-512 signatures. Each case generates a temporary key,
+checks that cloning fails before registration, registers the key for a test user
+with the Code Reader role, then clones and verifies the checked-out content and
+commit. SSH is isolated from local keys, agents and configuration. Temporary keys, checkouts,
+users and projects are cleaned up.
+
+```bash
+npm test -- tests/ssh-clone.spec.js
+```
+
+## Login redirects and page-store warnings
+
+`tests/login-redirect.spec.js` checks protected system settings and private
+projects with fresh and existing anonymous sessions. It verifies session
+replacement, return to the requested URL with its query parameters, recovery
+from an incorrect password, and authenticated access after reload. A second-tab
+login must close the previous session's WebSocket; replaying the old session
+cookie after login must still require authentication.
+
+It also opens a private issue comment link while logged out, verifies the
+fragment is saved during login and restored afterward, and checks that the
+comment is scrolled into view. The saved fragment is consumed, so a later visit
+without a fragment does not jump back to the comment.
+
+Wicket catches exceptions from its page-store statelessness check, so the
+browser can complete a redirect while the server logs an uninitialized
+`wicket:enclosure` error. To include this regression check, add the following
+logger to the test server's `conf/logback.xml` and restart it:
+
+```xml
+<logger name="org.apache.wicket.pageStore.RequestPageStore" level="WARN"/>
+```
+
+The default `org.apache.wicket` logger is set to `ERROR`, which hides these
+warnings. Pass the server's local log file when running the test:
+
+```bash
+E2E_SKIP_WEBSERVER=1 \
+E2E_SERVER_LOG=../server-product/target/sandbox/logs/server.log \
+npm test -- tests/login-redirect.spec.js
+```
+
+The test attaches the log entries written during each case and fails on
+statelessness-check or enclosure errors. Use a dedicated test server and a log
+file that will not rotate during the run. Without `E2E_SERVER_LOG`, only the
+browser assertions run, which also supports remote test servers.
+
+## WebSocket partial updates
+
+`tests/websocket-request-handler.spec.js` covers the OneDev customizations in
+Wicket's `WebSocketRequestHandler` through real browser WebSocket connections:
+
+- An issue title change made through REST replaces its list row, with
+  `beforeElementReplace` seeing the attached old node and `afterElementReplace`
+  seeing the attached replacement.
+- A link added after the issue page loads introduces a new state badge through
+  a WebSocket update. Changing only the linked issue then updates that badge
+  twice on the same connection, exercising subscription registration after rendering.
+- Submitting the iteration form in the same browser session, without following
+  its redirect, leaves a pending success message. An independent issue change
+  delivers that message in the WebSocket response and displays the feedback panel.
+
+`tests/websocket-resource-reference.spec.js` checks that
+`WicketWebSocketJQueryResourceReference` selects OneDev's adjacent JavaScript
+and that its Ajax coordination works. It holds a real issue-query Ajax response,
+changes the issue through REST, and waits for the resulting WebSocket frame.
+The DOM must retain the old title while Ajax is pending, then show the newer
+pushed title after the held response completes. This protects against an older
+Ajax response overwriting a newer WebSocket update (OD-2661).
+
+The tests create and clean up their own projects and use the default `Related`
+issue link and `Open`/`Closed` states. They do not require changes to server code
+or logging configuration. For an existing server, set `E2E_ADMIN_USER` and
+`E2E_ADMIN_PASSWORD` if its credentials differ from `admin`/`admin`.
+
+```bash
+npm test -- tests/websocket-*.spec.js
+```
+
+## Jev issue suggestions
+
+`tests/jev-issue-suggestions.spec.js` configures a fake API key and tests the real
+new-issue form against a local HTTP mock. It verifies the outgoing authorization,
+model, title, description and choice questions, with no project path or other
+metadata in the request state; saving suggestions at the 75% confidence threshold;
+ignoring lower-confidence/unknown choices; preserving a manual choice;
+discarding a response after the title changes; and recovering from an API failure
+on a later edit.
+
+Jev requests originate in the Java server, so browser request interception cannot
+mock them. The fixture starts a local HTTP server on an automatically assigned
+port, then saves its URL and a fake API key through the Jev settings page. It
+restores the original settings afterward. Jev's normal base URL defaults to
+`https://api.typesafe.ai/v1`; custom URLs can include a port, and `/systemone` is
+appended automatically.
+
+```bash
+npm test -- tests/jev-issue-suggestions.spec.js
+```
+
+These tests also work with an already-running local OneDev server:
+
+```bash
+E2E_SKIP_WEBSERVER=1 npm test -- tests/jev-issue-suggestions.spec.js
+```
+
+Use one worker and a dedicated test server with the default Type and Priority
+fields: the fixture temporarily removes their defaults and changes Jev settings,
+restoring both after each case. No special server startup options are needed.
+
+The mock listens on the test runner's loopback interface, so run the Java server
+on the same host. No real Jev key or external API calls are needed.
+
+## Jev service desk fields
+
+`tests/jev-service-desk.spec.js` sends a generated email over SMTP to a local
+[GreenMail](https://greenmail-mail-test.github.io/greenmail/) mailbox. OneDev's
+real SMTP/IMAP connector polls that mailbox and creates the issue through the
+service desk. The tests reuse the Jev mock in `tests/jev-fixtures.js`.
+
+Install the pinned standalone mail server once (requires Maven and Java), then
+run both Jev suites:
+
+```bash
+npm run install:mail-server
+npm test -- tests/jev-*.spec.js
+```
+
+The mail fixture starts and stops GreenMail automatically on local ports. It
+waits for OneDev to poll the empty inbox before sending, because OneDev skips
+pre-existing messages on its first connection. Outgoing notifications also stay
+inside GreenMail. Its protocol log is attached to each test result.
+
+The tests verify that request state contains only the email title and description,
+without the project path. They check single and multiple choices at the 75%
+confidence threshold, assignee scripts using the resolved values, and configured
+fallbacks for lower-confidence or unknown answers and API failures.
+
+Use a dedicated server and one worker, as with the new-issue form tests. Test
+settings are restored, and test projects and users are removed. No external
+mailbox, SMTP credentials or real Jev key is
+required. Both Jev suites run as part of the normal test run.
+
+## OAuth2 and OpenID Connect provider
+
+`tests/oauth-provider.spec.js` replaces the standalone Python/Node callback apps
+and manual Git runner. It uses pinned `openid-client` for both OAuth2 and OIDC
+and automates browser registration and consent with Playwright.
+
+```bash
+npm test -- tests/oauth-provider.spec.js
+```
+
+Use a dedicated test server with the default Project Owner, Code Reader, and
+Code Writer roles. The OAuth signing key is created automatically on
+initialization and cannot be deleted. The server's advertised
+URL must be reachable by both Chromium and the Node test runner. HTTP is allowed
+for explicitly configured development servers. Git must be installed for the
+Git HTTP case.
+
+The suite creates disposable users, projects, and applications. Fixture teardown
+removes them and any remaining grants/tokens, including after failed tests.
+No separate client configuration, client secrets, Python environment, or manual
+consent is required. Only the application's callback landing page is intercepted;
+all provider endpoints and Git operations use the real OneDev server.
+
+Coverage includes:
+
+- OAuth2 and OIDC with public clients, client-secret Basic, and client-secret POST.
+- Discovery, state validation, S256 PKCE rejection/success, and public-client
+  callbacks with an ephemeral loopback port.
+- OIDC ID-token signature/claim validation using JWKS, userinfo, and refreshed
+  ID-token validation.
+- Role-scoped REST access and exclusion of unselected projects.
+- Access/refresh-token rotation, rejection of preceding access tokens, revocation,
+  refresh-token replay detection, and denied consent.
+- Git ls-remote, clone, fetch, Code Reader push denial, Code Writer push/read-back,
+  project isolation, refresh, and rejection after revocation.
+- Secret rotation and rotate-link visibility on application details and list pages.
+
+The Git case passes issued tokens directly to Git via an isolated environment;
+it does not exercise `git-credential-oauth`'s browser launch or credential cache.
+Requests-OAuthlib interoperability is also no longer part of this JavaScript suite.
+Traces and screenshots are disabled for these tests because the pages contain
+one-time client secrets and authorization codes. Assertions do not print token
+values. Stop a locally started server with `./dev.sh stop` after testing.

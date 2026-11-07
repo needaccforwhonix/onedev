@@ -1,16 +1,19 @@
 package io.onedev.server.buildspec.step.commandinterpreter;
 
+import java.io.Serial;
+
 import io.onedev.k8shelper.InterpreterFacade;
 import io.onedev.k8shelper.PowerShellInterpreterFacade;
 import io.onedev.server.annotation.Code;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Interpolative;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 @Editable(order=300, name="PowerShell")
 public class PowerShellInterpreter extends Interpreter {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String powershell = "powershell.exe";
@@ -27,8 +30,8 @@ public class PowerShellInterpreter extends Interpreter {
 	}
 
 	@Editable(order=110, description="Specify PowerShell commands to execute "
-			+ "under the <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>job working directory</a>.<br>"
-			+ "<b class='text-warning'>NOTE: </b> OneDev checks exit code of the script to determine if step is successful. "
+			+ "under the <a href='${docsite}/concepts#job-workdir' target='_blank'>job working directory</a>.<br>"
+			+ "<b class='text-warning'>NOTE: </b> ${productName} checks exit code of the script to determine if step is successful. "
 			+ "Since PowerShell always exit with 0 even if there are script errors, you should handle errors in the script "
 			+ "and exit with non-zero code, or add line <code>$ErrorActionPreference = &quot;Stop&quot;</code> at start of "
 			+ "your script<br>")

@@ -1,5 +1,6 @@
 package io.onedev.server.search.entity.issue;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -7,9 +8,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Predicate;
 
 import io.onedev.server.OneDev;
 import io.onedev.server.service.SettingService;
@@ -22,6 +23,7 @@ import io.onedev.server.web.component.issue.workflowreconcile.UndefinedFieldValu
 
 public class ChoiceFieldCriteria extends FieldCriteria {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String value;

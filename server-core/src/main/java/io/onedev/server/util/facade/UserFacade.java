@@ -1,11 +1,15 @@
 package io.onedev.server.util.facade;
 
+import java.io.Serial;
+
 import io.onedev.server.model.User;
+import io.onedev.server.oem.OemUtils;
 
 import org.jspecify.annotations.Nullable;
 
 public class UserFacade extends EntityFacade {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final String name;
@@ -40,7 +44,9 @@ public class UserFacade extends EntityFacade {
 	}
 
 	public String getDisplayName() {
-		if (getFullName() != null)
+		if (isSystem())
+			return OemUtils.getProductName();
+		else if (getFullName() != null)
 			return getFullName();
 		else
 			return getName();

@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.authz.UnauthorizedException;
@@ -29,8 +29,7 @@ import io.onedev.commons.utils.ExceptionUtils;
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.commons.utils.TaskLogger;
 import io.onedev.commons.utils.WordUtils;
-import io.onedev.server.buildspec.job.log.JobLogEntry;
-import io.onedev.server.buildspec.job.log.JobLogEntryEx;
+import io.onedev.server.logging.LogEntry;
 import io.onedev.server.logging.StyleBuilder;
 import io.onedev.server.web.component.modal.ModalPanel;
 import io.onedev.server.web.component.taskbutton.TaskResult.PlainMessage;
@@ -48,7 +47,8 @@ public abstract class TaskButton extends AjaxButton {
 	}
 
 	@Override
-	protected void onError(AjaxRequestTarget target, Form<?> form) {
+	protected void onError(AjaxRequestTarget target) {
+				Form<?> form = getForm();
 		target.add(form);
 	}
 
@@ -125,10 +125,10 @@ public abstract class TaskButton extends AjaxButton {
 	protected void submitTask(AjaxRequestTarget target) {
 		String taskId = getSession().getId() + ":" + getPath();
 
-		List<JobLogEntryEx> messages = new ArrayList<>();
-		messages.add(new JobLogEntryEx(new JobLogEntry(new Date(), _T("Please wait..."))));
+		List<LogEntry> messages = new ArrayList<>();
+		messages.add(new LogEntry(new Date(), _T("Please wait...")));
 		var application = Application.get();
-		var requestCycle = RequestCycle.get();
+		var session = getSession();
 		TaskFuture prevFuture = taskFutureService.getTaskFutures().put(taskId, new TaskFuture(executorService.submit(new Callable<TaskResult>() {
 
 			@Override
@@ -150,15 +150,15 @@ public abstract class TaskButton extends AjaxButton {
 							} else {
 								styleBuilder = new StyleBuilder();
 							}
-							messages.add(JobLogEntryEx.parse(message, styleBuilder));
+							messages.add(LogEntry.parse(message, styleBuilder));
 						}
 					}
 					
 				};		
-				var oldApplication = ThreadContext.getApplication();
-				var oldRequestCycle = ThreadContext.getRequestCycle();
+				var oldContext = ThreadContext.detach();
 				ThreadContext.setApplication(application);
-				ThreadContext.setRequestCycle(requestCycle);
+				// Keep localization available without accessing a request recycled by Jetty.
+				ThreadContext.setSession(session);
 				try {
 					return runTask(logger);
 				} catch (Exception e) {	
@@ -174,8 +174,7 @@ public abstract class TaskButton extends AjaxButton {
 					}
 					return new TaskResult(false, new PlainMessage(_T("Error executing task")));
 				} finally {
-					ThreadContext.setApplication(oldApplication);
-					ThreadContext.setRequestCycle(oldRequestCycle);
+					ThreadContext.restore(oldContext);
 				} 
 			}
 			
@@ -191,7 +190,7 @@ public abstract class TaskButton extends AjaxButton {
 				super.onClosed();
 				TaskFuture future = taskFutureService.getTaskFutures().remove(taskId);
 				
-				AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class);
+				AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 				boolean successful = false;
 				if (future != null) {
 					if (future.isDone() && !future.isCancelled()) {
@@ -217,7 +216,7 @@ public abstract class TaskButton extends AjaxButton {
 					}
 
 					@Override
-					protected List<JobLogEntryEx> getLogEntries() {
+					protected List<LogEntry> getLogEntries() {
 						TaskFuture future = taskFutureService.getTaskFutures().get(taskId);
 						if (future != null) 
 							return future.getLogEntries();
@@ -246,8 +245,9 @@ public abstract class TaskButton extends AjaxButton {
 	}
 	
 	@Override
-	protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-		super.onSubmit(target, form);
+	protected void onSubmit(AjaxRequestTarget target) {
+				Form<?> form = getForm();
+		super.onSubmit(target);
 		target.focusComponent(null);
 		target.add(form);
 		submitTask(target);

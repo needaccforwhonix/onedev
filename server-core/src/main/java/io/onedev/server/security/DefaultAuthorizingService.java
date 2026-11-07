@@ -1,17 +1,15 @@
 package io.onedev.server.security;
 
 import static io.onedev.server.security.SecurityUtils.getUser;
+import static java.util.Objects.requireNonNull;
 
 import java.io.ObjectStreamException;
+import java.io.Serial;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+import java.util.*;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
 import org.apache.shiro.authc.AuthenticationException;
 import org.apache.shiro.authc.AuthenticationInfo;
@@ -26,11 +24,13 @@ import org.apache.wicket.request.cycle.RequestCycle;
 import com.google.common.collect.Lists;
 
 import io.onedev.commons.loader.ManagedSerializedForm;
+import io.onedev.server.SubscriptionService;
 import io.onedev.server.model.Group;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.UserAuthorization;
 import io.onedev.server.persistence.SessionService;
 import io.onedev.server.security.permission.BasePermission;
+import io.onedev.server.security.permission.MaintainProject;
 import io.onedev.server.security.permission.ConfidentialIssuesPermission;
 import io.onedev.server.security.permission.ProjectPermission;
 import io.onedev.server.security.permission.SystemAdministration;
@@ -51,6 +51,9 @@ public class DefaultAuthorizingService extends AuthorizingRealm implements Autho
 
 	@Inject
 	private IssueAuthorizationService issueAuthorizationService;
+
+	@Inject
+	private SubscriptionService subscriptionService;
     
     private final MetaDataKey<Map<String, AuthorizationInfo>> AUTHORIZATION_INFOS = new MetaDataKey<>() {};    
 	
@@ -89,24 +92,25 @@ public class DefaultAuthorizingService extends AuthorizingRealm implements Autho
 			
 			var accessToken = SecurityUtils.getAccessToken(principal);
 			if (accessToken != null) {
-				var owner = accessToken.getOwner();
-				for (var authorization: accessToken.getAuthorizations()) {
-					var project = authorization.getProject();
-					if (SecurityUtils.canManageProject(owner.asSubject(), project)) 
-						permissions.add(new ProjectPermission(project, authorization.getRole()));
+				try (var ignored = AuthorizationInfoCache.open()) {
+					var ownerSubject = accessToken.getOwner().asSubject();
+					for (var authorization: accessToken.getAuthorizations()) {
+						var project = authorization.getProject();
+						if (SecurityUtils.canManageProject(ownerSubject, project))
+							permissions.add(new ProjectPermission(project, authorization.getRole()));
+					}
 				}
 			}
 			
 			if (!SecurityUtils.isAnonymous(principal) || settingService.getSecuritySetting().isEnableAnonymousAccess()) {
 				permissions.add(p -> {
-					if (p instanceof ProjectPermission) {
-						ProjectPermission projectPermission = (ProjectPermission) p;
-						Project project = projectPermission.getProject();
+					if (p instanceof ProjectPermission projectPermission) {
+                        Project project = projectPermission.getProject();
 						Permission privilege = projectPermission.getPrivilege();
 						do {
 							if (project.isPermittedByLoginUser(privilege))
 								return true;
-							project = project.getParent();
+							project = project.getSettingsParent();
 						} while (project != null);
 					}
 					return false;
@@ -117,6 +121,7 @@ public class DefaultAuthorizingService extends AuthorizingRealm implements Autho
 		
 		return new AuthorizationInfo() {
 			
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -132,12 +137,19 @@ public class DefaultAuthorizingService extends AuthorizingRealm implements Autho
 			@Override
 			public Collection<Permission> getObjectPermissions() {
 				return Lists.newArrayList(permission -> {
-					if (permission instanceof BasePermission) {
-						BasePermission basePermission = (BasePermission) permission;	
-						if (!basePermission.isApplicable(result.getLeft()))							
+					if (permission instanceof BasePermission basePermission) {
+                        if (!basePermission.isApplicable(result.getLeft()))
 							return false;
 					} 
-					return result.getRight().stream().anyMatch(it -> it.implies(permission));
+					if (permission instanceof ProjectPermission projectPermission
+							&& projectPermission.getProject().isMaintenance()
+							&& subscriptionService.isSubscriptionActive()
+							&& projectPermission.isWrite()) {
+						var maintenance = new ProjectPermission(projectPermission.getProject(), new MaintainProject());
+						if (requireNonNull(result.getRight()).stream().noneMatch(it -> it.implies(maintenance)))
+							return false;
+					}
+					return requireNonNull(result.getRight()).stream().anyMatch(it -> it.implies(permission));
 				});
 			}
 			
@@ -148,14 +160,20 @@ public class DefaultAuthorizingService extends AuthorizingRealm implements Autho
 	public AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals) {
 		String principal = (String) principals.getPrimaryPrincipal();
 		RequestCycle requestCycle = RequestCycle.get();
+		Map<String, AuthorizationInfo> authorizationInfos;
 		if (requestCycle != null) {
-			Map<String, AuthorizationInfo> authorizationInfos = requestCycle.getMetaData(AUTHORIZATION_INFOS);
+			authorizationInfos = requestCycle.getMetaData(AUTHORIZATION_INFOS);
 			if (authorizationInfos == null) {
 				authorizationInfos = new HashMap<>();
 				requestCycle.setMetaData(AUTHORIZATION_INFOS, authorizationInfos);
 			}
+		} else {
+			authorizationInfos = AuthorizationInfoCache.get();
+		}
+		if (authorizationInfos != null) {
 			AuthorizationInfo authorizationInfo = authorizationInfos.get(principal);
 			if (authorizationInfo == null) {
+				// Token authorization may populate its owner's entry while this entry is built.
 				authorizationInfo = newAuthorizationInfo(principal);
 				authorizationInfos.put(principal, authorizationInfo);
 			}
@@ -175,7 +193,8 @@ public class DefaultAuthorizingService extends AuthorizingRealm implements Autho
 		throw new UnsupportedOperationException();
 	}
 	
-	public Object writeReplace() throws ObjectStreamException {
+	@Serial
+    public Object writeReplace() throws ObjectStreamException {
 		return new ManagedSerializedForm(AuthorizingService.class);
 	}
 

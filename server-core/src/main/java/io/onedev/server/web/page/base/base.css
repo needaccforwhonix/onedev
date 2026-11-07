@@ -716,8 +716,10 @@ html:has(.revision-diff) .nav-tabs-line.nav-tabs-sticky {
 .sticky-tabs-row>.more-info-dock {
 	display: none;
 }
-.sticky-tabs-row.is-docked>.more-info-dock {
-	display: inline-flex;
+@media(min-width: 992px) {
+	.sticky-tabs-row.is-docked>.more-info-dock {
+		display: inline-flex;
+	}
 }
 .side-info-visible .sticky-tabs-row.is-docked>.more-info-dock {
 	display: none;
@@ -727,6 +729,17 @@ html:has(.revision-diff) .sticky-tabs-row {
 }
 html:has(.revision-diff) .sticky-tabs-row.is-docked>.more-info-dock {
 	display: none;
+}
+@media(min-width: 992px) {
+	html:not(:has(.revision-diff)) .sticky-tabs-row.is-docked>.nav.nav-tabs.nav-tabs-line :is(.active .nav-link, .nav-link.active),
+	html:not(:has(.revision-diff)) .nav.nav-tabs.nav-tabs-line.nav-tabs-sticky.is-docked :is(.active .nav-link, .nav-link.active) {
+		border-bottom-color: transparent;
+	}
+}
+@media(max-width: 991.98px) {
+	.nav-tabs-line.nav-tabs-sticky, .sticky-tabs-row {
+		position: static;
+	}
 }
 
 tr.ui-sortable-helper {
@@ -945,6 +958,15 @@ span.keycap {
 }
 .tippy-box a:hover, .tippy-box a:focus {
 	color: rgb(127, 196, 255) !important;
+}
+
+.setup-2fa .recovery-code {
+	font-size: 1.25rem;
+}
+@media (max-width: 575.98px) {
+	.setup-2fa .recovery-code {
+		font-size: 0.8rem;
+	}
 }
 
 .warning>.close {

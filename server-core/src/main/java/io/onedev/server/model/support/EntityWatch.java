@@ -1,6 +1,8 @@
 package io.onedev.server.model.support;
 
-import javax.persistence.MappedSuperclass;
+import java.io.Serial;
+
+import jakarta.persistence.MappedSuperclass;
 
 import io.onedev.server.model.AbstractEntity;
 import io.onedev.server.model.User;
@@ -8,6 +10,7 @@ import io.onedev.server.model.User;
 @MappedSuperclass
 public abstract class EntityWatch extends AbstractEntity {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public abstract AbstractEntity getEntity();

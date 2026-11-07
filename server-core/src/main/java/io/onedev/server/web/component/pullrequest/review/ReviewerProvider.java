@@ -1,5 +1,6 @@
 package io.onedev.server.web.component.pullrequest.review;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,15 +20,15 @@ import io.onedev.server.web.component.user.choice.AbstractUserChoiceProvider;
 
 public abstract class ReviewerProvider extends AbstractUserChoiceProvider {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@Override
 	public void query(String term, int page, Response<User> response) {
 		PullRequest request = getPullRequest();
 		
-		List<User> users = new ArrayList<>(SecurityUtils.getAuthorizedUsers(request.getProject(), new ReadCode()));
-				
 		UserCache cache = OneDev.getInstance(UserService.class).cloneCache();
+		List<User> users = new ArrayList<>(SecurityUtils.getAuthorizedUsers(request.getProject(), cache, new ReadCode()));
 		users.sort(cache.comparingDisplayName(request.getParticipants()));
 		
 		for (PullRequestReview review: request.getReviews()) {
@@ -38,6 +39,7 @@ public abstract class ReviewerProvider extends AbstractUserChoiceProvider {
 		
 		new ResponseFiller<User>(response).fill(new Similarities<User>(users) {
 
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override

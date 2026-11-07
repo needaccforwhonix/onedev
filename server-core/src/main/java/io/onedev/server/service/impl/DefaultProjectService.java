@@ -9,9 +9,9 @@ import static io.onedev.server.git.GitUtils.isValid;
 import static io.onedev.server.git.GitUtils.setDefaultBranch;
 import static io.onedev.server.model.Project.ATTACHMENT_DIR;
 import static io.onedev.server.model.Project.SHARE_TEST_DIR;
-import static io.onedev.server.model.Project.SITE_DIR;
+import static io.onedev.server.model.Project.SITES_DIR;
 import static io.onedev.server.model.Project.SORT_FIELDS;
-import static io.onedev.server.model.Project.getSiteLockName;
+import static io.onedev.server.model.Project.getSitesLockName;
 import static io.onedev.server.replica.ProjectReplica.Type.BACKUP;
 import static io.onedev.server.replica.ProjectReplica.Type.PRIMARY;
 import static io.onedev.server.replica.ProjectReplica.Type.REDUNDANT;
@@ -29,6 +29,7 @@ import static org.eclipse.jgit.lib.Constants.R_HEADS;
 import java.io.File;
 import java.io.IOException;
 import java.io.ObjectStreamException;
+import java.io.Serial;
 import java.io.Serializable;
 import java.nio.file.Files;
 import java.text.MessageFormat;
@@ -49,17 +50,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Order;
-import javax.persistence.criteria.Path;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
-import javax.ws.rs.core.MediaType;
-
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.shiro.authz.UnauthorizedException;
 import org.apache.shiro.subject.Subject;
@@ -73,9 +64,8 @@ import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.lib.StoredConfig;
 import org.hibernate.Session;
-import org.hibernate.criterion.Restrictions;
 import org.hibernate.query.Query;
-import org.hibernate.query.criteria.internal.path.SingularAttributePath;
+import org.hibernate.query.sqm.tree.domain.SqmPath;
 import org.jspecify.annotations.Nullable;
 import org.quartz.CronScheduleBuilder;
 import org.quartz.ScheduleBuilder;
@@ -131,9 +121,11 @@ import io.onedev.server.model.Iteration;
 import io.onedev.server.model.LinkSpec;
 import io.onedev.server.model.Project;
 import io.onedev.server.model.ProjectLastActivityDate;
+import io.onedev.server.model.ProjectNumberCounter;
 import io.onedev.server.model.PullRequest;
 import io.onedev.server.model.User;
 import io.onedev.server.model.UserAuthorization;
+import io.onedev.server.model.Workspace;
 import io.onedev.server.model.support.administration.GlobalProjectSetting;
 import io.onedev.server.model.support.code.BranchProtection;
 import io.onedev.server.model.support.code.GitPackConfig;
@@ -143,6 +135,7 @@ import io.onedev.server.persistence.TransactionService;
 import io.onedev.server.persistence.annotation.Sessional;
 import io.onedev.server.persistence.annotation.Transactional;
 import io.onedev.server.persistence.dao.EntityCriteria;
+import io.onedev.server.persistence.dao.Restrictions;
 import io.onedev.server.replica.ProjectReplica;
 import io.onedev.server.search.entity.EntityQuery;
 import io.onedev.server.search.entity.EntitySort;
@@ -183,6 +176,16 @@ import io.onedev.server.web.avatar.AvatarService;
 import io.onedev.server.workspace.WorkspaceService;
 import io.onedev.server.xodus.CommitInfoService;
 import io.onedev.server.xodus.VisitInfoService;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Order;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.ws.rs.core.MediaType;
 
 @Singleton
 public class DefaultProjectService extends BaseEntityService<Project>
@@ -318,6 +321,7 @@ public class DefaultProjectService extends BaseEntityService<Project>
 	@Override
 	public void update(Project project) {
 		Preconditions.checkState(!project.isNew());
+		checkProjectParent(project);
 		String oldPath = project.getPath();
 		String newPath = project.calcPath();
 		if (!newPath.equals(oldPath)) {
@@ -350,6 +354,7 @@ public class DefaultProjectService extends BaseEntityService<Project>
 	@Override
 	public void create(User user, Project project) {
 		Preconditions.checkState(project.isNew());
+		checkProjectParent(project);
 		Project parent = project.getParent();
 		if (parent != null && parent.isNew()) {
 			create(user, parent);
@@ -361,6 +366,9 @@ public class DefaultProjectService extends BaseEntityService<Project>
 		project.setLastActivityDate(lastEventDate);
 		lastEventDateService.create(lastEventDate);
 		dao.persist(project);
+		var numberCounter = new ProjectNumberCounter();
+		numberCounter.setProject(project);
+		dao.persist(numberCounter);
 
 		UserAuthorization authorization = new UserAuthorization();
 		authorization.setProject(project);
@@ -396,7 +404,8 @@ public class DefaultProjectService extends BaseEntityService<Project>
 	public void on(EntityPersisted event) {
 		if (event.getEntity() instanceof Project) {
 			ProjectFacade facade = ((Project) event.getEntity()).getFacade();
-			transactionService.runAfterCommit(() -> cache.put(facade.getId(), facade));
+			if (facade.getId() > 0)
+				transactionService.runAfterCommit(() -> cache.put(facade.getId(), facade));
 		}
 	}
 	
@@ -452,41 +461,40 @@ public class DefaultProjectService extends BaseEntityService<Project>
 			Collection<Project> forkChildren = fork.getForkDescendants();
 			forkChildren.add(fork);
 			for (Project forkChild : forkChildren) {
-				Query<?> query = getSession().createQuery(String.format("update Issue set %s=:fork where %s=:descendant",
+				var query = getSession().createMutationQuery(String.format("update Issue set %s=:fork where %s=:descendant",
 						Issue.PROP_NUMBER_SCOPE, Issue.PROP_PROJECT));
 				query.setParameter("fork", fork);
 				query.setParameter("descendant", forkChild);
 				query.executeUpdate();
 
-				query = getSession().createQuery(String.format("update Build set %s=:fork where %s=:descendant",
+				query = getSession().createMutationQuery(String.format("update Build set %s=:fork where %s=:descendant",
 						Build.PROP_NUMBER_SCOPE, Build.PROP_PROJECT));
 				query.setParameter("fork", fork);
 				query.setParameter("descendant", forkChild);
 				query.executeUpdate();
 
-				query = getSession().createQuery(String.format("update PullRequest set %s=:fork where %s=:descendant",
+				query = getSession().createMutationQuery(String.format("update PullRequest set %s=:fork where %s=:descendant",
 						PullRequest.PROP_NUMBER_SCOPE, PullRequest.PROP_TARGET_PROJECT));
 				query.setParameter("fork", fork);
 				query.setParameter("descendant", forkChild);
 				query.executeUpdate();
-			}
-		}
 
-		Query<?> query = getSession().createQuery(String.format("update Project set %s=null where %s=:forkedFrom",
-				Project.PROP_FORKED_FROM, Project.PROP_FORKED_FROM));
-		query.setParameter("forkedFrom", project);
-		query.executeUpdate();
+				query = getSession().createMutationQuery(String.format("update Workspace set %s=:fork where %s=:descendant", 
+					Workspace.PROP_NUMBER_SCOPE, Workspace.PROP_PROJECT));
+				query.setParameter("fork", fork);
+				query.setParameter("descendant", forkChild);
+				query.executeUpdate();
+			}
+			fork.setForkedFrom(null);
+		}
 
 		var user = userService.getSystem();
 		for (PullRequest request: project.getOutgoingRequests()) {
 			if (!request.getTargetProject().equals(project) && request.isOpen())
 				pullRequestService.discard(user, request, "Source project is deleted.");
+			// Bulk updates leave managed requests referencing the project when Hibernate flushes.
+			request.setSourceProject(null);
 		}
-
-		query = getSession().createQuery(String.format("update PullRequest set %s=null where %s=:sourceProject",
-				PullRequest.PROP_SOURCE_PROJECT, PullRequest.PROP_SOURCE_PROJECT));
-		query.setParameter("sourceProject", project);
-		query.executeUpdate();
 
 		for (var workspace: project.getWorkspaces())
 			workspaceService.delete(workspace);
@@ -540,6 +548,13 @@ public class DefaultProjectService extends BaseEntityService<Project>
 			return null;
 	}
 
+	private void checkProjectParent(Project project) {
+		for (var parent = project.getParent(); parent != null; parent = parent.getParent()) {
+			if (Project.DEFAULT_ID.equals(parent.getId()))
+				throw new ExplicitException("Project defaults cannot be used as a parent project");
+		}
+	}
+
 	@Sessional
 	@Override
 	public Project setup(Subject subject, String path) {
@@ -557,6 +572,8 @@ public class DefaultProjectService extends BaseEntityService<Project>
 					criteria.add(Restrictions.isNull(Project.PROP_PARENT));
 				criteria.add(Restrictions.eq(Project.PROP_NAME, name));
 				child = find(criteria);
+				if (child != null && Project.DEFAULT_ID.equals(child.getId()))
+					throw new ExplicitException("Project defaults cannot be used as an import target or parent project");
 				if (child == null) {
 					if (project == null && !SecurityUtils.canCreateRootProjects(subject))
 						throw new UnauthorizedException(_T("Not authorized to create root project"));
@@ -622,7 +639,15 @@ public class DefaultProjectService extends BaseEntityService<Project>
 				if (withLfs)
 					// Use origin instead of real url as otherwise the command will 
 					// report EOF error when fetch from a local path
-					new LfsFetchAllCommand(toGitDir, "origin").run();
+					new LfsFetchAllCommand(toGitDir, "origin") {
+						@Override
+						protected Commandline newGit() {
+							var git = super.newGit();
+							// Ignore HEAD:.lfsconfig while retaining the local origin URL.
+							git.envs().put("GIT_CONFIG", new File(toGitDir, "config").getAbsolutePath());
+							return git;
+						}
+					}.run();
 			} else {
 				var remoteUrl = clusterService.getServerUrl(fromActiveServer) + "/" + fromPath;
 				callWithClusterCredential(git -> {
@@ -809,7 +834,7 @@ public class DefaultProjectService extends BaseEntityService<Project>
 		for (var projectDir: getProjectsDir().listFiles()) {
 			if (new File(projectDir, DELETE_MARK).exists()) {
 				logger.info("Deleting directory marked for deletion: " + projectDir);
-				FileUtils.deleteDir(projectDir);
+				FileUtils.deletePath(projectDir);
 				continue;
 			}
 			if (!NumberUtils.isDigits(projectDir.getName())) 
@@ -869,7 +894,7 @@ public class DefaultProjectService extends BaseEntityService<Project>
 				return new File(remoteDir, SHARE_TEST_DIR + "/" + testFile.getName()).exists();
 			});
 		} finally {
-			FileUtils.deleteFile(testFile);
+			FileUtils.deletePath(testFile);
 		}
 	}
 
@@ -994,12 +1019,15 @@ public class DefaultProjectService extends BaseEntityService<Project>
 
 	@Override
 	public List<Project> query() {
-		return query(true);
+		EntityCriteria<Project> criteria = newCriteria();
+		criteria.add(Restrictions.gt(Project.PROP_ID, 0L));
+		criteria.setCacheable(true);
+		return query(criteria);
 	}
 
 	@Override
 	public int count() {
-		return count(true);
+		return cache.size();
 	}
 
 	private Order getOrder(EntitySort sort, CriteriaBuilder builder, From<Project, Project> root) {
@@ -1031,11 +1059,11 @@ public class DefaultProjectService extends BaseEntityService<Project>
 
 		var found = false;
 		for (var order: orders) {
-			if (order.getExpression() instanceof SingularAttributePath) {
-				var expr = (SingularAttributePath) order.getExpression();
-				if (expr.getAttribute().getName().equals(ProjectLastActivityDate.PROP_VALUE) 
-						&& expr.getPathSource() instanceof SingularAttributePath 
-						&& ((SingularAttributePath) expr.getPathSource()).getAttribute().getName().equals(Project.PROP_LAST_ACTIVITY_DATE)) {
+			if (order.getExpression() instanceof SqmPath) {
+				var expr = (SqmPath) order.getExpression();
+				if (expr.getReferencedPathSource().getPathName().equals(ProjectLastActivityDate.PROP_VALUE)
+						&& expr.getLhs() instanceof SqmPath
+						&& ((SqmPath) expr.getLhs()).getReferencedPathSource().getPathName().equals(Project.PROP_LAST_ACTIVITY_DATE)) {
 					found = true;
 					break;
 				}
@@ -1052,6 +1080,7 @@ public class DefaultProjectService extends BaseEntityService<Project>
 	private Predicate[] getPredicates(Subject subject, @Nullable Criteria<Project> criteria, CriteriaQuery<?> query,
 									  From<Project, Project> from, CriteriaBuilder builder) {
 		List<Predicate> predicates = new ArrayList<>();
+		predicates.add(builder.gt(from.get(Project.PROP_ID), 0));
 		if (!SecurityUtils.isAdministrator(subject)) {
 			Collection<Project> projects = SecurityUtils.getAuthorizedProjects(subject, new AccessProject());
 			if (!projects.isEmpty()) {
@@ -1303,12 +1332,22 @@ public class DefaultProjectService extends BaseEntityService<Project>
 	public ArtifactInfo getSiteArtifactInfo(Long projectId, String siteArtifactPath) {
 		return runOnActiveServer(projectId, new ClusterTask<>() {
 
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override
 			public ArtifactInfo call() {
-				return read(Project.getSiteLockName(projectId), () -> {
-					File siteArtifact = new File(getSiteDir(projectId), siteArtifactPath);
+				return read(Project.getSitesLockName(projectId), () -> {
+					var sitesDir = getSitesDir(projectId);
+					if (!siteArtifactPath.isEmpty()) {
+						// Match the stored name exactly, even on a case-insensitive filesystem,
+						// so a case alias cannot bypass case-sensitive site permissions.
+						var siteName = StringUtils.substringBefore(siteArtifactPath, "/");
+						var matches = sitesDir.list((dir, name) -> name.equals(siteName));
+						if (matches == null || matches.length == 0)
+							return null;
+					}
+					File siteArtifact = new File(sitesDir, siteArtifactPath);
 					if (siteArtifact.exists()) {
 						if (siteArtifact.isFile()) {
 							String mediaType = Files.probeContentType(siteArtifact.toPath());
@@ -1319,11 +1358,11 @@ public class DefaultProjectService extends BaseEntityService<Project>
 							List<ArtifactInfo> children = new ArrayList<>();
 							File[] childFiles = siteArtifact.listFiles();
 							if (childFiles != null) {
-								int baseLen = getSiteDir(projectId).getAbsolutePath().length() + 1;
 								for (File child : childFiles) {
 									if (!SiteSyncUtils.isVersionFile(child)
 											&& !child.getName().equals(".DS_Store")) {
-										String relativePath = child.getAbsolutePath().substring(baseLen);
+										String relativePath = siteArtifactPath.isEmpty() ? child.getName()
+												: siteArtifactPath + "/" + child.getName();
 										if (child.isFile()) {
 											children.add(new FileInfo(relativePath, child.lastModified(),
 													child.length(), null));
@@ -1377,7 +1416,7 @@ public class DefaultProjectService extends BaseEntityService<Project>
 									FileUtils.createDir(projectDir);
 									initGit(projectId, project.getGitPackConfig());
 								} else {
-									FileUtils.deleteFile(new File(projectDir, DELETE_MARK));
+									FileUtils.deletePath(new File(projectDir, DELETE_MARK));
 								}
 								newReplica.saveType(projectDir);
 								return readVersion(projectDir);
@@ -1626,6 +1665,7 @@ public class DefaultProjectService extends BaseEntityService<Project>
 	private BatchWorker getSyncWorker(Long projectId) {
 		return new BatchWorker("project-" + projectId + "-sync") {
 
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -1646,7 +1686,7 @@ public class DefaultProjectService extends BaseEntityService<Project>
 							visitInfoService.syncVisitInfo(projectId, syncWithServer);
 							packBlobService.syncPacks(projectId, syncWithServer);
 							
-							syncDirectory(projectId, SITE_DIR, getSiteLockName(projectId), syncWithServer);
+							syncDirectory(projectId, SITES_DIR, getSitesLockName(projectId), syncWithServer);
 							
 							writeVersion(projectDir, remoteVersion);
 							logger.debug("Project synced (project: {}, server: {})", project.getPath(), syncWithServer);
@@ -1793,8 +1833,8 @@ public class DefaultProjectService extends BaseEntityService<Project>
 	}
 
 	@Override
-	public File getSiteDir(Long projectId) {
-		return getSubDir(projectId, SITE_DIR);
+	public File getSitesDir(Long projectId) {
+		return getSubDir(projectId, SITES_DIR);
 	}
 
 	@Override

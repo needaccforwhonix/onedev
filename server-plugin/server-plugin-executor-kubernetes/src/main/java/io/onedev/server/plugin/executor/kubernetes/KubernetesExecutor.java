@@ -31,6 +31,7 @@ import static org.apache.commons.codec.binary.Base64.encodeBase64String;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -41,12 +42,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.commons.lang3.SerializationUtils;
 import org.jspecify.annotations.Nullable;
@@ -60,19 +61,17 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
+import io.onedev.agent.job.JobUtils;
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.commons.utils.StringUtils;
 import io.onedev.commons.utils.TaskLogger;
 import io.onedev.commons.utils.command.Commandline;
 import io.onedev.commons.utils.command.LineConsumer;
-import io.onedev.k8shelper.BuildImageFacade;
 import io.onedev.k8shelper.CommandFacade;
 import io.onedev.k8shelper.CompositeFacade;
+import io.onedev.k8shelper.JobHelper;
 import io.onedev.k8shelper.LeafFacade;
-import io.onedev.k8shelper.PruneBuilderCacheFacade;
 import io.onedev.k8shelper.RegistryLoginFacade;
-import io.onedev.k8shelper.RunContainerFacade;
-import io.onedev.k8shelper.RunImagetoolsFacade;
 import io.onedev.k8shelper.ServiceFacade;
 import io.onedev.k8shelper.SetupCacheFacade;
 import io.onedev.server.OneDev;
@@ -107,6 +106,7 @@ import io.onedev.server.web.util.Testable;
 		+ "settings as job pods need to access it to download source and artifacts")
 public class KubernetesExecutor extends JobExecutor implements KubernetesAware, Testable<TestData> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	static final int ORDER = 700;
@@ -146,8 +146,7 @@ public class KubernetesExecutor extends JobExecutor implements KubernetesAware, 
 	@Editable(order=200, description="Specify registry logins if necessary. For built-in registry, " +
 			"use <code>@server_url@</code> for registry url, <code>@job_token@</code> for user name, and " +
 			"access token for password")
-	@Valid
-	public List<RegistryLogin> getRegistryLogins() {
+	public List<@Valid RegistryLogin> getRegistryLogins() {
 		return registryLogins;
 	}
 
@@ -255,8 +254,7 @@ public class KubernetesExecutor extends JobExecutor implements KubernetesAware, 
 	}
 
 	@Editable(order=500, group = "More Settings", description="Optionally specify node selector of the job pods")
-	@Valid
-	public List<NodeSelectorEntry> getNodeSelector() {
+	public List<@Valid NodeSelectorEntry> getNodeSelector() {
 		return nodeSelector;
 	}
 
@@ -278,8 +276,7 @@ public class KubernetesExecutor extends JobExecutor implements KubernetesAware, 
 	@Editable(order=25000, group="More Settings", description="Optionally specify where to run service pods "
 			+ "specified in job. The first matching locator will be used. If no any locators are found, "
 			+ "node selector of the executor will be used")
-	@Valid
-	public List<ServiceLocator> getServiceLocators() {
+	public List<@Valid ServiceLocator> getServiceLocators() {
 		return serviceLocators;
 	}
 
@@ -301,7 +298,7 @@ public class KubernetesExecutor extends JobExecutor implements KubernetesAware, 
 
 	@Editable(name="Path to kubectl", order=27000, group="More Settings", placeholder="Use default", 
 			description="Specify absolute path to the kubectl utility, for instance: <i>/usr/bin/kubectl</i>. "
-			+ "If left empty, OneDev will try to find the utility from system path")
+			+ "If left empty, ${productName} will try to find the utility from system path")
 	public String getKubectlPath() {
 		return kubectlPath;
 	}
@@ -317,6 +314,7 @@ public class KubernetesExecutor extends JobExecutor implements KubernetesAware, 
 		var server = servers.get(RandomUtils.secure().randomInt(0, servers.size()));
 		return clusterService.runOnServer(server, ()-> getJobService().runJob(jobContext, new JobRunnable() {
 
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -396,7 +394,7 @@ public class KubernetesExecutor extends JobExecutor implements KubernetesAware, 
 		try {
 			testCluster(this::newKubectl, namespace, testData.getDockerImage(),
 					IMAGE_REPO + ":" + getVersion(), getServerUrl(), UUID.randomUUID().toString(),
-					getStorageClass(), getStorageSize(), isAlwaysPullImage(), jobLogger);
+					getStorageClass(), getStorageSize(), isAlwaysPullImage(), false, jobLogger);
 		} finally {
 			deleteNamespace(namespace, jobLogger);
 		}
@@ -663,7 +661,7 @@ public class KubernetesExecutor extends JobExecutor implements KubernetesAware, 
 		return map;
 	}
 	
-	private boolean doExecute( JobContext jobContext, TaskLogger jobLogger) {
+	private boolean doExecute(JobContext jobContext, TaskLogger jobLogger) {
 		jobLogger.log("Checking cluster access...");
 		String jobToken = jobContext.getJobToken();
 		
@@ -689,368 +687,391 @@ public class KubernetesExecutor extends JobExecutor implements KubernetesAware, 
 		if (getClusterRole() != null)
 			createClusterRoleBinding(namespace, jobLogger);
 		
+		var entryFacade = new CompositeFacade(jobContext.getActions());
+		boolean successful = true;
+		boolean namespaceCreated = false;
+		boolean initializationCompleted = false;
+		boolean stepsFinished = false;
+
 		try {
 			Map<Object, Object> namespaceDef = getPrivilegedNamespaceDefinition(namespace);
 			createResource(this::newKubectl, namespaceDef, Sets.newHashSet(), jobLogger);
+			namespaceCreated = true;
 			
 			jobLogger.log(String.format("Preparing job (executor: %s, namespace: %s)...", 
 					getName(), namespace));
-			try {
-				String imagePullSecretName = createImagePullSecret(namespace, jobContext, jobLogger);
-				for (var jobService: jobContext.getServices()) {
-					jobLogger.log("Starting service (name: " + jobService.getName() + ", image: " + jobService.getImage() + ")...");
-					startService(namespace, jobContext, jobService, imagePullSecretName, jobLogger);
+			String imagePullSecretName = createImagePullSecret(namespace, jobContext, jobLogger);
+			for (var jobService: jobContext.getServices()) {
+				jobLogger.log("Starting service (name: " + jobService.getName() + ", image: " + jobService.getImage() + ")...");
+				startService(namespace, jobContext, jobService, imagePullSecretName, jobLogger);
+			}
+
+			var trustCertsConfigMapCreated = createTrustCertsConfigMap(this::newKubectl,
+					"trust-certs", namespace, jobLogger);
+
+			Map<Object, Object> pvcDef = newLinkedHashMap(
+					"apiVersion", "v1",
+					"kind", "PersistentVolumeClaim",
+					"metadata", newLinkedHashMap(
+							"name", "build-dir",
+							"namespace", namespace));
+			Map<Object, Object> pvcSpecDef = newLinkedHashMap(
+					"accessModes", newArrayList("ReadWriteOnce"),
+					"resources", newLinkedHashMap(
+							"requests", newLinkedHashMap(
+										"storage", getStorageSize())));
+			if (getStorageClass() != null)
+				pvcSpecDef.put("storageClassName", getStorageClass());
+			pvcDef.put("spec", pvcSpecDef);
+			createResource(this::newKubectl, pvcDef, Sets.newHashSet(), jobLogger);
+
+			Map<String, Object> podSpec = new LinkedHashMap<>();
+
+			List<Map<Object, Object>> containerSpecs = new ArrayList<>();
+
+			var containerBuildDirPath = BUILD_PATH;
+			var containerWorkDirPath = containerBuildDirPath + "/work";
+			var containerCommandDirPath = containerBuildDirPath + "/command";
+			var containerTrustCertsDirPath = containerBuildDirPath + "/trust-certs";
+
+			Map<String, String> buildDirMount = newLinkedHashMap(
+					"name", "build-dir",
+					"mountPath", containerBuildDirPath);
+			Map<String, String> trustCertsMount = newLinkedHashMap(
+					"name", "trust-certs",
+					"mountPath", containerTrustCertsDirPath);
+
+			var commonVolumeMounts = newArrayList(buildDirMount);
+			if (trustCertsConfigMapCreated)
+				commonVolumeMounts.add(trustCertsMount);
+
+			List<String> containerNames = newArrayList("init");
+
+			String helperImage = IMAGE_REPO + ":" + getVersion();
+
+			var pulledImages = new HashSet<String>();
+			if (isAlwaysPullImage())
+				pulledImages.add(helperImage);
+
+			ArrayList<Map<Object, Object>> commonEnvs = new ArrayList<>();
+			commonEnvs.add(newLinkedHashMap(
+					"name", ENV_SERVER_URL,
+					"value", getServerUrl()));
+			commonEnvs.add(newLinkedHashMap(
+					"name", ENV_JOB_TOKEN,
+					"value", jobToken));
+			commonEnvs.add(newLinkedHashMap(
+					"name", "ONEDEV_WORKDIR",
+					"value", containerWorkDirPath
+					));
+
+			Map<String, String> cacheMounts = new LinkedHashMap<>();
+
+			entryFacade.traverse((facade, position) -> {
+				String containerName = getContainerName(position);
+				containerNames.add(containerName);
+				Map<Object, Object> stepContainerSpec;
+				if (facade instanceof CommandFacade) {
+					CommandFacade commandFacade = (CommandFacade) facade;
+					if (commandFacade.getImage() == null) {
+						throw new ExplicitException("This step can only be executed by server host "
+								+ "executor or remote host executor");
+					}
+
+					stepContainerSpec = newHashMap(
+							"name", containerName,
+							"image", commandFacade.getImage(),
+							"workingDir", containerWorkDirPath);
+					setImagePullPolicy(stepContainerSpec, commandFacade.getImage(), pulledImages);
+					if (commandFacade.isUseTTY())
+						stepContainerSpec.put("tty", true);
+					var volumeMounts = buildVolumeMounts(cacheMounts);
+					volumeMounts.addAll(commonVolumeMounts);
+					stepContainerSpec.put("volumeMounts", SerializationUtils.clone(volumeMounts));
+					var envs = SerializationUtils.clone(commonEnvs);
+					for (var entry: commandFacade.getEnvMap().entrySet()) {
+						envs.add(newLinkedHashMap(
+								"name", entry.getKey(),
+								"value", entry.getValue()));
+					}
+					stepContainerSpec.put("env", envs);
+					var runAs = commandFacade.getRunAs();
+					setupSecurityContext(stepContainerSpec, runAs);
+				} else {
+					if (facade instanceof SetupCacheFacade) {
+						var setupCacheFacade = (SetupCacheFacade) facade;
+						var cacheProvisioner = new ServerJobCacheProvisioner(
+								setupCacheFacade.getCacheConfig(), jobContext);
+						for (var path: setupCacheFacade.getCacheConfig().getPaths()) {
+							if (FilenameUtils.getPrefixLength(path) > 0)
+								cacheMounts.put(path, cacheProvisioner.getDataPath(path));
+						}
+					}
+					stepContainerSpec = newHashMap(
+							"name", containerName,
+							"image", helperImage);
+					setImagePullPolicy(stepContainerSpec, helperImage, pulledImages);
+					var volumeMounts = buildVolumeMounts(cacheMounts);
+					volumeMounts.addAll(commonVolumeMounts);
+					stepContainerSpec.put("volumeMounts", SerializationUtils.clone(volumeMounts));
+					stepContainerSpec.put("env", SerializationUtils.clone(commonEnvs));
+					setupSecurityContext(stepContainerSpec, "0:0");
 				}
 				
-				var trustCertsConfigMapCreated = createTrustCertsConfigMap(this::newKubectl,
-						"trust-certs", namespace, jobLogger);
-				
-				Map<Object, Object> pvcDef = newLinkedHashMap(
-						"apiVersion", "v1",
-						"kind", "PersistentVolumeClaim",
-						"metadata", newLinkedHashMap(
-								"name", "build-dir",
-								"namespace", namespace));
-				Map<Object, Object> pvcSpecDef = newLinkedHashMap(
-						"accessModes", newArrayList("ReadWriteOnce"),
-						"resources", newLinkedHashMap(
-								"requests", newLinkedHashMap(
-											"storage", getStorageSize())));
-				if (getStorageClass() != null)
-					pvcSpecDef.put("storageClassName", getStorageClass());
-				pvcDef.put("spec", pvcSpecDef);
-				createResource(this::newKubectl, pvcDef, Sets.newHashSet(), jobLogger);
-				
-				Map<String, Object> podSpec = new LinkedHashMap<>();
+				if (stepContainerSpec != null) {
+					String positionStr = stringifyStepPosition(position);
+					stepContainerSpec.put("command", newArrayList("sh"));
+					stepContainerSpec.put("args", newArrayList(containerCommandDirPath + "/" + positionStr + ".sh"));
 
-				List<Map<Object, Object>> containerSpecs = new ArrayList<>();
-				
-				var containerBuildDirPath = BUILD_PATH;
-				var containerWorkDirPath = containerBuildDirPath + "/work";
-				var containerCommandDirPath = containerBuildDirPath + "/command";
-				var containerTrustCertsDirPath = containerBuildDirPath + "/trust-certs";
+					Map<Object, Object> requestsSpec = newLinkedHashMap(
+							"cpu", "0",
+							"memory", "0");
+					Map<Object, Object> limitsSpec = new LinkedHashMap<>();
+					if (getCpuLimit() != null)
+						limitsSpec.put("cpu", getCpuLimit());
+					if (getMemoryLimit() != null)
+						limitsSpec.put("memory", getMemoryLimit());
+					if (!limitsSpec.isEmpty()) {
+						stepContainerSpec.put(
+								"resources", newLinkedHashMap(
+										"limits", limitsSpec,
+										"requests", requestsSpec));
+					}
 
-				Map<String, String> buildDirMount = newLinkedHashMap(
-						"name", "build-dir", 
-						"mountPath", containerBuildDirPath);
-				Map<String, String> trustCertsMount = newLinkedHashMap(
-						"name", "trust-certs", 
-						"mountPath", containerTrustCertsDirPath);
-				
-				var commonVolumeMounts = newArrayList(buildDirMount);
-				if (trustCertsConfigMapCreated)
-					commonVolumeMounts.add(trustCertsMount);
-				
-				CompositeFacade entryFacade = new CompositeFacade(jobContext.getActions());
-				
-				List<String> containerNames = newArrayList("init");
-				
-				String helperImage = IMAGE_REPO + ":" + getVersion();
-				
-				var pulledImages = new HashSet<String>();
-				if (isAlwaysPullImage())
-					pulledImages.add(helperImage);
-				
-				ArrayList<Map<Object, Object>> commonEnvs = new ArrayList<>();
-				commonEnvs.add(newLinkedHashMap(
-						"name", ENV_SERVER_URL, 
-						"value", getServerUrl()));
-				commonEnvs.add(newLinkedHashMap(
-						"name", ENV_JOB_TOKEN, 
-						"value", jobToken));
-				commonEnvs.add(newLinkedHashMap(
-						"name", "ONEDEV_WORKDIR",
-						"value", containerWorkDirPath
-						));
-	
-				Map<String, String> cacheMounts = new LinkedHashMap<>();
-				var cacheConfigIndex = new AtomicInteger(1);
-				entryFacade.traverse((facade, position) -> {
-					String containerName = getContainerName(position);
-					containerNames.add(containerName);
-					Map<Object, Object> stepContainerSpec;
-					if (facade instanceof CommandFacade) {
-						CommandFacade commandFacade = (CommandFacade) facade;
-						if (commandFacade.getImage() == null) {
-							throw new ExplicitException("This step can only be executed by server shell "
-									+ "executor or remote shell executor");
-						}
-						
-						stepContainerSpec = newHashMap(
-								"name", containerName, 
-								"image", commandFacade.getImage(), 
-								"workingDir", containerWorkDirPath);
-						setImagePullPolicy(stepContainerSpec, commandFacade.getImage(), pulledImages);
-						if (commandFacade.isUseTTY())
-							stepContainerSpec.put("tty", true);						
-						var volumeMounts = buildVolumeMounts(cacheMounts);
-						volumeMounts.addAll(commonVolumeMounts);
-						stepContainerSpec.put("volumeMounts", SerializationUtils.clone(volumeMounts));
-						var envs = SerializationUtils.clone(commonEnvs);
-						for (var entry: commandFacade.getEnvMap().entrySet()) {
-							envs.add(newLinkedHashMap(
-									"name", entry.getKey(),
-									"value", entry.getValue()));
-						}
-						stepContainerSpec.put("env", envs);
-						var runAs = commandFacade.getRunAs();
-						setupSecurityContext(stepContainerSpec, runAs);
-					} else if (facade instanceof BuildImageFacade) {
-						throw new ExplicitException("This step can only be executed by server docker executor or " +
-								"remote docker executor. Use kaniko step instead to build image in kubernetes cluster");
-					} else if (facade instanceof RunContainerFacade || facade instanceof RunImagetoolsFacade 
-							|| facade instanceof PruneBuilderCacheFacade) {
-						throw new ExplicitException("This step can only be executed by server docker executor or " +
-								"remote docker executor");
+					containerSpecs.add(stepContainerSpec);
+				}
+				return null;
+			}, new ArrayList<>());
+
+			String k8sHelperClassPath = "/k8s-helper/*";
+
+			List<String> sidecarArgs = newArrayList(
+					"-classpath", k8sHelperClassPath,
+					"io.onedev.k8shelper.JobSideCar");
+			List<String> initArgs = newArrayList(
+					"-classpath", k8sHelperClassPath,
+					"io.onedev.k8shelper.JobInit");
+
+			ArrayList<Object> volumeMounts = buildVolumeMounts(cacheMounts);
+			volumeMounts.addAll(commonVolumeMounts);
+
+			Map<Object, Object> initContainerSpec = newHashMap(
+					"name", "init",
+					"image", helperImage,
+					"command", newArrayList("java"),
+					"args", initArgs,
+					"env", SerializationUtils.clone(commonEnvs),
+					"volumeMounts", SerializationUtils.clone(volumeMounts));
+			if (isAlwaysPullImage())
+				initContainerSpec.put("imagePullPolicy", "Always");
+			setupSecurityContext(initContainerSpec, "0:0");
+
+			Map<Object, Object> sidecarContainerSpec = newLinkedHashMap(
+					"name", "sidecar",
+					"image", helperImage,
+					"command", newArrayList("java"),
+					"args", sidecarArgs,
+					"env", SerializationUtils.clone(commonEnvs),
+					"volumeMounts", SerializationUtils.clone(volumeMounts));
+			setImagePullPolicy(sidecarContainerSpec, helperImage, pulledImages);
+
+			sidecarContainerSpec.put("resources", newLinkedHashMap("requests", newLinkedHashMap(
+					"cpu", getCpuRequest(),
+					"memory", getMemoryRequest())));
+			setupSecurityContext(sidecarContainerSpec, "0:0");
+
+			containerSpecs.add(sidecarContainerSpec);
+
+			podSpec.put("containers", containerSpecs);
+			podSpec.put("initContainers", Lists.<Object>newArrayList(initContainerSpec));
+
+			if (imagePullSecretName != null)
+				podSpec.put("imagePullSecrets", Lists.<Object>newArrayList(newLinkedHashMap("name", imagePullSecretName)));
+			podSpec.put("restartPolicy", "Never");
+
+			if (!getNodeSelector().isEmpty())
+				podSpec.put("nodeSelector", toMap(getNodeSelector()));
+
+			Map<Object, Object> buildDirVolume = newLinkedHashMap(
+						"name", "build-dir",
+						"persistentVolumeClaim", newLinkedHashMap(
+								"claimName", "build-dir"));
+			List<Object> volumes = newArrayList(buildDirVolume);
+			if (trustCertsConfigMapCreated) {
+				volumes.add(newLinkedHashMap(
+						"name", "trust-certs",
+						"configMap", newLinkedHashMap(
+								"name", "trust-certs")));
+			}
+			podSpec.put("volumes", volumes);
+
+			Map<Object, Object> podDef = newLinkedHashMap(
+					"apiVersion", "v1",
+					"kind", "Pod",
+					"metadata", newLinkedHashMap(
+							"name", POD_NAME,
+							"namespace", namespace),
+					"spec", podSpec);
+
+			createResource(this::newKubectl, podDef, Sets.newHashSet(), jobLogger);
+
+			AtomicReference<String> nodeNameRef = new AtomicReference<>(null);
+
+			watchPod(this::newKubectl, namespace, POD_NAME, new PodWatchAbortChecker() {
+
+				@Override
+				public PodWatchAbort check(String nodeName, Collection<JsonNode> containerStatusNodes) {
+					if (nodeName != null) {
+						nodeNameRef.set(nodeName);
+						return new PodWatchAbort(null);
 					} else {
-						if (facade instanceof SetupCacheFacade) {
-							var setupCacheFacade = (SetupCacheFacade) facade;
-							var cacheProvisioner = new ServerJobCacheProvisioner(
-									setupCacheFacade.getCacheConfig(), cacheConfigIndex.getAndIncrement(), jobContext);
-							for (var path: setupCacheFacade.getCacheConfig().getPaths()) {
-								var absolutePathIndex = cacheProvisioner.getAbsolutePathIndexes().get(path);
-								if (absolutePathIndex != null)
-									cacheMounts.put(path, cacheProvisioner.getSubPath(absolutePathIndex));
-							}
-						}
-						stepContainerSpec = newHashMap(
-								"name", containerName, 
-								"image", helperImage);
-						setImagePullPolicy(stepContainerSpec, helperImage, pulledImages);
-						var volumeMounts = buildVolumeMounts(cacheMounts);
-						volumeMounts.addAll(commonVolumeMounts);
-						stepContainerSpec.put("volumeMounts", SerializationUtils.clone(volumeMounts));
-						stepContainerSpec.put("env", SerializationUtils.clone(commonEnvs));
-						setupSecurityContext(stepContainerSpec, "0:0");
+						return null;
 					}
-					
-					if (stepContainerSpec != null) {
-						String positionStr = stringifyStepPosition(position);
-						stepContainerSpec.put("command", newArrayList("sh"));
-						stepContainerSpec.put("args", newArrayList(containerCommandDirPath + "/" + positionStr + ".sh"));
-
-						Map<Object, Object> requestsSpec = newLinkedHashMap(
-								"cpu", "0",
-								"memory", "0");
-						Map<Object, Object> limitsSpec = new LinkedHashMap<>();
-						if (getCpuLimit() != null)
-							limitsSpec.put("cpu", getCpuLimit());
-						if (getMemoryLimit() != null)
-							limitsSpec.put("memory", getMemoryLimit());
-						if (!limitsSpec.isEmpty()) {
-							stepContainerSpec.put(
-									"resources", newLinkedHashMap(
-											"limits", limitsSpec,
-											"requests", requestsSpec));
-						}
-
-						containerSpecs.add(stepContainerSpec);
-					}
-					return null;
-				}, new ArrayList<>());
-				
-				String k8sHelperClassPath = "/k8s-helper/*";
-				
-				List<String> sidecarArgs = newArrayList(
-						"-classpath", k8sHelperClassPath,
-						"io.onedev.k8shelper.JobSideCar");
-				List<String> initArgs = newArrayList(
-						"-classpath", k8sHelperClassPath, 
-						"io.onedev.k8shelper.JobInit");
-
-				ArrayList<Object> volumeMounts = buildVolumeMounts(cacheMounts);
-				volumeMounts.addAll(commonVolumeMounts);
-				
-				Map<Object, Object> initContainerSpec = newHashMap(
-						"name", "init", 
-						"image", helperImage, 
-						"command", newArrayList("java"), 
-						"args", initArgs,
-						"env", SerializationUtils.clone(commonEnvs),
-						"volumeMounts", SerializationUtils.clone(volumeMounts));
-				if (isAlwaysPullImage())
-					initContainerSpec.put("imagePullPolicy", "Always");
-				setupSecurityContext(initContainerSpec, "0:0");
-				
-				Map<Object, Object> sidecarContainerSpec = newLinkedHashMap(
-						"name", "sidecar", 
-						"image", helperImage, 
-						"command", newArrayList("java"), 
-						"args", sidecarArgs, 
-						"env", SerializationUtils.clone(commonEnvs), 
-						"volumeMounts", SerializationUtils.clone(volumeMounts));
-				setImagePullPolicy(sidecarContainerSpec, helperImage, pulledImages);
-				
-				sidecarContainerSpec.put("resources", newLinkedHashMap("requests", newLinkedHashMap(
-						"cpu", getCpuRequest(), 
-						"memory", getMemoryRequest())));
-				setupSecurityContext(sidecarContainerSpec, "0:0");
-				
-				containerSpecs.add(sidecarContainerSpec);
-				containerNames.add("sidecar");
-				
-				podSpec.put("containers", containerSpecs);
-				podSpec.put("initContainers", Lists.<Object>newArrayList(initContainerSpec));
-
-				if (imagePullSecretName != null)
-					podSpec.put("imagePullSecrets", Lists.<Object>newArrayList(newLinkedHashMap("name", imagePullSecretName)));
-				podSpec.put("restartPolicy", "Never");		
-				
-				if (!getNodeSelector().isEmpty())
-					podSpec.put("nodeSelector", toMap(getNodeSelector()));
-				
-				Map<Object, Object> buildDirVolume = newLinkedHashMap(
-							"name", "build-dir", 
-							"persistentVolumeClaim", newLinkedHashMap(
-									"claimName", "build-dir"));
-				List<Object> volumes = newArrayList(buildDirVolume);
-				if (trustCertsConfigMapCreated) {
-					volumes.add(newLinkedHashMap(
-							"name", "trust-certs", 
-							"configMap", newLinkedHashMap(
-									"name", "trust-certs")));
 				}
-				podSpec.put("volumes", volumes);
+				
+			}, jobLogger);
 
-				Map<Object, Object> podDef = newLinkedHashMap(
-						"apiVersion", "v1", 
-						"kind", "Pod", 
-						"metadata", newLinkedHashMap(
-								"name", POD_NAME, 
-								"namespace", namespace), 
-						"spec", podSpec);
-				
-				createResource(this::newKubectl, podDef, Sets.newHashSet(), jobLogger);
-				
-				String podFQN = namespace + "/" + POD_NAME;
-				
-				AtomicReference<String> nodeNameRef = new AtomicReference<>(null);
-				
-				watchPod(this::newKubectl, namespace, POD_NAME, new PodWatchAbortChecker() {
+			notifyJobRunning(jobContext.getBuildId(), null);
 
-					@Override
-					public PodWatchAbort check(String nodeName, Collection<JsonNode> containerStatusNodes) {
-						if (nodeName != null) {
-							nodeNameRef.set(nodeName);
-							return new PodWatchAbort(null);
-						} else {
-							return null;
-						}
-					}
-					
-				}, jobLogger);
-				
-				notifyJobRunning(jobContext.getBuildId(), null);
-				
-				String nodeName = Preconditions.checkNotNull(nodeNameRef.get());
-				jobLogger.log("Running job on node " + nodeName + "...");
-				
-				jobLogger.log("Starting job containers...");
-				
-				var successful = new AtomicBoolean(true);
-				for (String containerName: containerNames) {
-					logger.debug("Waiting for start of container (pod: {}, container: {})...", 
-							podFQN, containerName);
-					
-					watchPod(this::newKubectl, namespace, POD_NAME, new PodWatchAbortChecker() {
+			String nodeName = Preconditions.checkNotNull(nodeNameRef.get());
+			jobLogger.log("Running job on node " + nodeName + "...");
 
-						@Override
-						public PodWatchAbort check(String nodeName, Collection<JsonNode> containerStatusNodes) {
-							var error = getContainerErrors(containerStatusNodes).get(containerName);
-							if (error != null) {
-								/*
-								 * For non-fatal errors (command exited with non-zero code), we abort the watch 
-								 * without an exception, and will continue to collect the container log which 
-								 * might contain error details
-								 */
-								if (error instanceof String) {
-									String errorMessage;
-									if (containerName.startsWith("step-")) {
-										List<Integer> position = parseStepPosition(containerName.substring("step-".length()));
-										errorMessage = "Step \"" + entryFacade.getPathAsString(position) + "\": " + error;
-									} else {
-										errorMessage = "Container \"" + containerName + "\": " + error;
-									}
-									return new PodWatchAbort(errorMessage);
-								} else {
-									return new PodWatchAbort(null);
-								}
-							} else if (getStartedContainers(containerStatusNodes).contains(containerName)) {
-								return new PodWatchAbort(null);
-							} else {
-								return null;
-							}
-						}
-						
-					}, jobLogger);
-					
-					KubernetesExecutor.this.containerName = containerName; 
+			jobLogger.log("Starting job containers...");
+
+			for (String containerName: containerNames) {
+				if (containerName.startsWith("step-")) {
+					var position = parseStepPosition(containerName.substring("step-".length()));
 					try {
-						logger.debug("Collecting log of container (pod: {}, container: {})...", 
-								podFQN, containerName);
-						
-						collectContainerLog(this::newKubectl, namespace, POD_NAME, containerName, new SeenMessage(LOG_END_MESSAGE), jobLogger);
-						
-						logger.debug("Waiting for stop of container (pod: {}, container: {})...", 
-								podFQN, containerName);
-						
-						watchPod(this::newKubectl, namespace, POD_NAME, new PodWatchAbortChecker() {
+						waitForContainer(namespace, containerName, entryFacade, jobLogger);
+					} catch (Throwable t) {
+						// The container may fail before emitting its start event; duplicate starts are ignored.
+						jobLogger.log(JobHelper.buildStepStartMessage(position));
+						jobLogger.log(JobHelper.buildStepEndMessage(position, JobUtils.getStepOutcome(t)));
+						throw t;
+					}
+				} else {
+					waitForContainer(namespace, containerName, entryFacade, jobLogger);
+					initializationCompleted = true;
+				}
+			}
+			stepsFinished = true;
+		} finally {
+			try {
+				if (initializationCompleted)
+					jobLogger.log(JobUtils.buildPhaseMessage(JobHelper.FINALIZATION));
+				if (stepsFinished)
+					successful = waitForContainer(namespace, "sidecar", entryFacade, jobLogger);
+			} finally {
+				try {
+					if (namespaceCreated)
+						deleteNamespace(namespace, jobLogger);
+				} finally {
+					if (getClusterRole() != null)
+						deleteClusterRoleBinding(namespace, jobLogger);
+				}
+			}
+		}
+		return successful;
+	}
+
+	private boolean waitForContainer(String namespace, String containerName, CompositeFacade entryFacade,
+			TaskLogger jobLogger) {
+		String podFQN = namespace + "/" + POD_NAME;
+		var successful = new AtomicBoolean(true);
+		logger.debug("Waiting for start of container (pod: {}, container: {})...",
+				podFQN, containerName);
+
+		watchPod(this::newKubectl, namespace, POD_NAME, new PodWatchAbortChecker() {
+
+			@Override
+			public PodWatchAbort check(String nodeName, Collection<JsonNode> containerStatusNodes) {
+				var error = getContainerErrors(containerStatusNodes).get(containerName);
+				if (error != null) {
+					/*
+					 * For non-fatal errors (command exited with non-zero code), we abort the watch
+					 * without an exception, and will continue to collect the container log which
+					 * might contain error details
+					 */
+					if (error instanceof String) {
+						String errorMessage;
+						if (containerName.startsWith("step-")) {
+							List<Integer> position = parseStepPosition(containerName.substring("step-".length()));
+							errorMessage = "Step \"" + entryFacade.getPathAsString(position) + "\": " + error;
+						} else {
+							errorMessage = "Container \"" + containerName + "\": " + error;
+						}
+						return new PodWatchAbort(errorMessage);
+					} else {
+						return new PodWatchAbort(null);
+					}
+				} else if (getStartedContainers(containerStatusNodes).contains(containerName)) {
+					return new PodWatchAbort(null);
+				} else {
+					return null;
+				}
+			}
+
+		}, jobLogger);
+
+		KubernetesExecutor.this.containerName = containerName;
+		try {
+			logger.debug("Collecting log of container (pod: {}, container: {})...",
+					podFQN, containerName);
+
+			collectContainerLog(this::newKubectl, namespace, POD_NAME, containerName, new SeenMessage(LOG_END_MESSAGE), jobLogger);
+
+			logger.debug("Waiting for stop of container (pod: {}, container: {})...",
+					podFQN, containerName);
+
+			watchPod(this::newKubectl, namespace, POD_NAME, new PodWatchAbortChecker() {
 	
-							@Override
-							public PodWatchAbort check(String nodeName, Collection<JsonNode> containerStatusNodes) {
-								var error = getContainerErrors(containerStatusNodes).get(containerName);
-								if (error != null) {
-									// init container error will prevent other containers to start.
-									if (containerName.equals("init")) {
-										return new PodWatchAbort(error instanceof Integer
-												? "Container '" + containerName + "' exited with code " + error
-												: "Container '" + containerName + "': " + error);
-									} else if (containerName.startsWith("step-")) {
-										/*
-										 * Step containers may not run command in case of errors and sidecar container 
-										 * will wait indefinitely on the successful/failed mark file in this case, so 
-										 * we just abort with error
-										 */
-										List<Integer> position = parseStepPosition(containerName.substring("step-".length()));
-										var stepPath = entryFacade.getPathAsString(position);
-										if (error instanceof Integer)
-											return new PodWatchAbort("Step \"" + stepPath + "\": Exited with code " + error);
-										else
-											return new PodWatchAbort("Step \"" + stepPath + "\": " + error);
-									} else {
-										if (error instanceof Integer) {
-											if ((int)error == 1) {
-												successful.set(false);
-												return new PodWatchAbort(null);
-											} else {
-												return new PodWatchAbort("Container \"sidecar\": Exited with code " + error);												
-											}
-										} else {
-											return new PodWatchAbort("Container \"sidecar\": " + error);
-										}
-									}
-								} else if (getStoppedContainers(containerStatusNodes).contains(containerName)) {
+				@Override
+				public PodWatchAbort check(String nodeName, Collection<JsonNode> containerStatusNodes) {
+					var error = getContainerErrors(containerStatusNodes).get(containerName);
+					if (error != null) {
+						// init container error will prevent other containers to start.
+						if (containerName.equals("init")) {
+							return new PodWatchAbort(error instanceof Integer
+									? "Container '" + containerName + "' exited with code " + error
+									: "Container '" + containerName + "': " + error);
+						} else if (containerName.startsWith("step-")) {
+							/*
+							 * Step containers may not run command in case of errors and sidecar container
+							 * will wait indefinitely on the successful/failed mark file in this case, so
+							 * we just abort with error
+							 */
+							List<Integer> position = parseStepPosition(containerName.substring("step-".length()));
+							var stepPath = entryFacade.getPathAsString(position);
+							if (error instanceof Integer)
+								return new PodWatchAbort("Step \"" + stepPath + "\": Exited with code " + error);
+							else
+								return new PodWatchAbort("Step \"" + stepPath + "\": " + error);
+						} else {
+							if (error instanceof Integer) {
+								if ((int)error == 1) {
+									successful.set(false);
 									return new PodWatchAbort(null);
 								} else {
-									return null;
+									return new PodWatchAbort("Container \"sidecar\": Exited with code " + error);
 								}
+							} else {
+								return new PodWatchAbort("Container \"sidecar\": " + error);
 							}
-							
-						}, jobLogger);
-					} finally {
-						KubernetesExecutor.this.containerName = null;
+						}
+					} else if (getStoppedContainers(containerStatusNodes).contains(containerName)) {
+						return new PodWatchAbort(null);
+					} else {
+						return null;
 					}
 				}
-				return successful.get();
-			} finally {
-				deleteNamespace(namespace, jobLogger);
-			}			
+
+			}, jobLogger);
 		} finally {
-			if (getClusterRole() != null)
-				deleteClusterRoleBinding(namespace, jobLogger);
+			KubernetesExecutor.this.containerName = null;
 		}
+		return successful.get();
 	}
-	
+
 	private ArrayList<Object> buildVolumeMounts(Map<String, String> cacheMounts) {
 		var volumeMounts = new ArrayList<>();
 		for (var entry: cacheMounts.entrySet()) {
@@ -1079,11 +1100,12 @@ public class KubernetesExecutor extends JobExecutor implements KubernetesAware, 
 	@Editable(name="Specify a Docker Image to Test Against")
 	public static class TestData implements Serializable {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		private String dockerImage;
 
-		@Editable
+		@Editable(description = "Specify a Docker image to test against. The image must have shell installed")
 		@OmitName
 		@NotEmpty
 		public String getDockerImage() {

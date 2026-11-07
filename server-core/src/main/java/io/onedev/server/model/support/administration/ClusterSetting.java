@@ -7,14 +7,16 @@ import io.onedev.server.annotation.OmitName;
 import io.onedev.server.cluster.ClusterService;
 import io.onedev.server.validation.Validatable;
 
-import javax.validation.ConstraintValidatorContext;
-import javax.validation.constraints.Min;
+import jakarta.validation.ConstraintValidatorContext;
+import jakarta.validation.constraints.Min;
+import java.io.Serial;
 import java.io.Serializable;
 
 @Editable
 @ClassValidating
 public class ClusterSetting implements Serializable, Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static final String PROP_REPLICA_COUNT = "replicaCount";

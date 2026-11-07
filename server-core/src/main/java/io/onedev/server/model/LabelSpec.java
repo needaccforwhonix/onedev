@@ -2,16 +2,17 @@ package io.onedev.server.model;
 
 import static io.onedev.server.model.LabelSpec.PROP_NAME;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collection;
 
-import javax.persistence.CascadeType;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Index;
-import javax.persistence.OneToMany;
-import javax.persistence.Table;
-import javax.validation.constraints.NotEmpty;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotEmpty;
 
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
@@ -26,6 +27,7 @@ import io.onedev.server.rest.annotation.Api;
 @Editable
 public class LabelSpec extends AbstractEntity {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static final String PROP_NAME = "name";

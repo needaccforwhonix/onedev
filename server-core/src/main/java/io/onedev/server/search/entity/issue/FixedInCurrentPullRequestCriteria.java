@@ -1,10 +1,12 @@
 package io.onedev.server.search.entity.issue;
 
+import java.io.Serial;
+
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Predicate;
 
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.model.Issue;
@@ -14,6 +16,7 @@ import io.onedev.server.util.criteria.Criteria;
 
 public class FixedInCurrentPullRequestCriteria extends Criteria<Issue> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	@Override

@@ -1,11 +1,13 @@
 package io.onedev.server.search.entity.project;
 
+import java.io.Serial;
+
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Path;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
 
 import io.onedev.commons.utils.match.WildcardUtils;
 import io.onedev.server.model.Project;
@@ -14,6 +16,7 @@ import io.onedev.server.util.criteria.Criteria;
 
 public class KeyCriteria extends Criteria<Project> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final String value;

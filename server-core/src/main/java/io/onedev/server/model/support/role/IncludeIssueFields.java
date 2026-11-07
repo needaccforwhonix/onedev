@@ -1,9 +1,10 @@
 package io.onedev.server.model.support.role;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.Size;
 
 import io.onedev.server.OneDev;
 import io.onedev.server.service.SettingService;
@@ -14,6 +15,7 @@ import io.onedev.server.annotation.OmitName;
 @Editable(order=300, name="Specified fields")
 public class IncludeIssueFields implements IssueFieldSet {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private List<String> includeFields = new ArrayList<>();

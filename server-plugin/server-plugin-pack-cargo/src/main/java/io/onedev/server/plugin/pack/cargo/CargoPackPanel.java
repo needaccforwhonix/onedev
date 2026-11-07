@@ -7,7 +7,7 @@ import java.io.IOException;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.panel.GenericPanel;
-import org.apache.wicket.markup.repeater.RepeatingView;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 
@@ -48,7 +48,7 @@ public class CargoPackPanel extends GenericPanel<Pack> {
 				"$ cargo add " + getPack().getName() + "@" + getPack().getVersion() + " --registry onedev")));
 
 		var jobCommands = "" +
-				"# " + _T("Use job token to tell OneDev the build using the package") + "\n" +
+				"# " + _T("Use job token to tell ${productName} the build using the package") + "\n" +
 				"# " + _T("Job secret 'access-token' should be defined in project build setting as an access token with package read permission") + "\n\n" +
 				"mkdir -p $HOME/.cargo\n" +
 				"cat << EOF >> $HOME/.cargo/config.toml\n" +

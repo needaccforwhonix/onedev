@@ -1,13 +1,14 @@
 package io.onedev.server.plugin.imports.youtrack;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
-import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.server.OneDev;
 import io.onedev.server.service.LinkSpecService;
 import io.onedev.server.model.LinkSpec;
@@ -17,6 +18,7 @@ import io.onedev.server.annotation.Editable;
 @Editable
 public class IssueLinkMapping implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String youTrackIssueLink;
@@ -33,7 +35,7 @@ public class IssueLinkMapping implements Serializable {
 		this.youTrackIssueLink = youTrackIssueLink;
 	}
 
-	@Editable(order=200, name="OneDev Issue Link")
+	@Editable(order=200, name="${productName} Issue Link")
 	@ChoiceProvider("getOneDevIssueLinkChoices")
 	@NotEmpty
 	public String getOneDevIssueLink() {

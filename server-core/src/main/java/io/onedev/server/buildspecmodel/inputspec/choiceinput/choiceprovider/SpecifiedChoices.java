@@ -1,5 +1,6 @@
 package io.onedev.server.buildspecmodel.inputspec.choiceinput.choiceprovider;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -9,8 +10,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.jspecify.annotations.Nullable;
-import javax.validation.ConstraintValidatorContext;
-import javax.validation.constraints.Size;
+import jakarta.validation.ConstraintValidatorContext;
+import jakarta.validation.constraints.Size;
 
 import io.onedev.server.buildspec.param.spec.choiceparam.ChoiceParam;
 import io.onedev.server.model.Project;
@@ -29,6 +30,7 @@ import io.onedev.server.annotation.OmitName;
 @ClassValidating
 public class SpecifiedChoices extends ChoiceProvider implements Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private List<Choice> choices = new ArrayList<>();

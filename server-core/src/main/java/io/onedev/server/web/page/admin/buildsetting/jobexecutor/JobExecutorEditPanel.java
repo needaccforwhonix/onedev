@@ -1,8 +1,12 @@
 package io.onedev.server.web.page.admin.buildsetting.jobexecutor;
 
+import io.onedev.server.OneDev;
+import io.onedev.server.SubscriptionService;
+import io.onedev.server.annotation.SubscriptionRequired;
 import io.onedev.server.model.support.administration.jobexecutor.JobExecutor;
 import io.onedev.server.util.Path;
 import io.onedev.server.util.PathNode;
+import io.onedev.server.web.behavior.DisableAwareBehavior;
 import io.onedev.server.web.component.taskbutton.TestButton;
 import io.onedev.server.web.editable.BeanContext;
 import io.onedev.server.web.editable.BeanEditor;
@@ -14,8 +18,10 @@ import org.apache.wicket.ajax.markup.html.AjaxLink;
 import org.apache.wicket.ajax.markup.html.form.AjaxButton;
 import org.apache.wicket.event.IEvent;
 import org.apache.wicket.feedback.FencedFeedbackPanel;
+import org.apache.wicket.markup.ComponentTag;
 import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.markup.html.panel.Panel;
+import org.apache.wicket.util.visit.IVisitor;
 
 import org.jspecify.annotations.Nullable;
 
@@ -69,8 +75,22 @@ abstract class JobExecutorEditPanel extends Panel {
 		AjaxButton saveButton = new AjaxButton("save") {
 
 			@Override
-			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-				super.onSubmit(target, form);
+			protected void onConfigure() {
+				super.onConfigure();
+				setEnabled(isExecutorLicensed(editor));
+			}
+
+			@Override
+			protected void onComponentTag(ComponentTag tag) {
+				super.onComponentTag(tag);
+				if (!isEnabled())
+					tag.put("disabled", "disabled");
+			}
+
+			@Override
+			protected void onSubmit(AjaxRequestTarget target) {
+				Form<?> form = getForm();
+				super.onSubmit(target);
 				
 				JobExecutor executor = bean.getExecutor();
 				if (executorIndex != -1) { 
@@ -97,12 +117,15 @@ abstract class JobExecutorEditPanel extends Panel {
 			}
 
 			@Override
-			protected void onError(AjaxRequestTarget target, Form<?> form) {
-				super.onError(target, form);
+			protected void onError(AjaxRequestTarget target) {
+				Form<?> form = getForm();
+				super.onError(target);
 				target.add(form);
 			}
 			
 		};
+		saveButton.add(new DisableAwareBehavior());
+
 		AjaxLink<Void> cancelButton = new AjaxLink<Void>("cancel") {
 
 			@Override
@@ -113,6 +136,19 @@ abstract class JobExecutorEditPanel extends Panel {
 		};
 		
 		TestButton testButton = new TestButton("testingExecutor", editor, "Job executor tested successfully") {
+
+			@Override
+			protected void onComponentTag(ComponentTag tag) {
+				super.onComponentTag(tag);
+				if (!isEnabled())
+					tag.put("disabled", "disabled");
+			}
+
+			@Override
+			protected void onConfigure() {
+				super.onConfigure();
+				setEnabled(isExecutorLicensed(editor));
+			}
 
 			@Override
 			protected Testable<?> getTestable() {
@@ -129,6 +165,7 @@ abstract class JobExecutorEditPanel extends Panel {
 
 				if (event.getPayload() instanceof BeanUpdating) {
 					BeanUpdating beanUpdating = (BeanUpdating) event.getPayload();
+					beanUpdating.getHandler().add(saveButton);
 					beanUpdating.getHandler().add(testButton);
 				}
 				
@@ -150,4 +187,13 @@ abstract class JobExecutorEditPanel extends Panel {
 	protected abstract void onSave(AjaxRequestTarget target);
 	
 	protected abstract void onCancel(AjaxRequestTarget target);
+
+	private static boolean isExecutorLicensed(BeanEditor editor) {
+		BeanEditor beanEditor = editor.visitChildren(
+				BeanEditor.class,
+				(IVisitor<BeanEditor, BeanEditor>) (component, visit) -> visit.stop(component));
+		return beanEditor == null
+				|| beanEditor.getDescriptor().getBeanClass().getAnnotation(SubscriptionRequired.class) == null
+				|| OneDev.getInstance(SubscriptionService.class).isSubscriptionActive();
+	}
 }

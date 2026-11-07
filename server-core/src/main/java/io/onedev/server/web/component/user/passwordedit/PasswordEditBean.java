@@ -1,8 +1,9 @@
 package io.onedev.server.web.component.user.passwordedit;
 
+import java.io.Serial;
 import java.io.Serializable;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.annotation.CurrentPassword;
 import io.onedev.server.annotation.Editable;
@@ -11,6 +12,7 @@ import io.onedev.server.annotation.Password;
 @Editable
 public class PasswordEditBean implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String oldPassword;

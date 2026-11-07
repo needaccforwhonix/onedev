@@ -8,14 +8,16 @@ import io.onedev.server.buildspecmodel.inputspec.userchoiceinput.choiceprovider.
 import io.onedev.server.model.User;
 import io.onedev.server.util.EditContext;
 
-import javax.validation.Validator;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.Validator;
+import jakarta.validation.constraints.NotEmpty;
+import java.io.Serial;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Editable(order=100, name="Use specified default value")
 public class SpecifiedDefaultMultiValue implements DefaultMultiValueProvider {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private List<String> value;

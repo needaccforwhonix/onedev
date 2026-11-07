@@ -1,9 +1,10 @@
 package io.onedev.server.model.support.workspace.spec;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.k8shelper.CacheEntryFacade;
@@ -15,6 +16,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 @Editable
 public class CacheEntry implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String path;
@@ -23,7 +25,7 @@ public class CacheEntry implements Serializable {
 
 	@Editable(order=100, description = """
 			Specify cache path. Non-absolute path is considered to be relative to working directory. 
-			Note that shell related executors only accept relative paths""")
+			Host provisioners only accept relative paths""")
 	@Path
 	@Interpolative(variableSuggester="suggestVariables")
 	@NotEmpty
@@ -37,7 +39,7 @@ public class CacheEntry implements Serializable {
 
 	@Editable(order=200, placeholder = "None", description = """
 			Optionally specify directories or files relative to cache path to exclude. 
-			Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. 
+			Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>.
 			Multiple excludes should be separated by space, and single exclude containing space should be quoted""")
 	@Interpolative(variableSuggester="suggestVariables")
 	public String getExcludes() {

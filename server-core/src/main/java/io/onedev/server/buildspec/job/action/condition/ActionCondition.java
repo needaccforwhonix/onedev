@@ -12,13 +12,14 @@ import static io.onedev.server.model.Build.NAME_PROJECT;
 import static io.onedev.server.model.Build.NAME_PULL_REQUEST;
 import static io.onedev.server.model.Build.NAME_TAG;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Predicate;
 
 import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.BaseErrorListener;
@@ -53,6 +54,7 @@ import io.onedev.server.util.criteria.OrCriteria;
 
 public class ActionCondition extends Criteria<Build> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private final Criteria<Build> criteria;

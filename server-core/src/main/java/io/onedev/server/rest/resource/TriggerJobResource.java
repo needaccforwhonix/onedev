@@ -4,19 +4,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.validation.constraints.NotEmpty;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.NotAcceptableException;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.UriInfo;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotAcceptableException;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.UriInfo;
 
 import org.apache.shiro.authz.UnauthorizedException;
 import org.apache.shiro.util.ThreadContext;
@@ -56,7 +56,7 @@ public class TriggerJobResource {
 	
 	private static final String REF_DESCRIPTION = "Specify branch or tag to be triggered against. If none specified, default branch will be used";
 	
-	private static final String ACCESS_TOKEN_DESCRIPTION = "OneDev access token with permission to trigger the job";
+	private static final String ACCESS_TOKEN_DESCRIPTION = "${productName} access token with permission to trigger the job";
 	
 	private final JobService jobService;
 	

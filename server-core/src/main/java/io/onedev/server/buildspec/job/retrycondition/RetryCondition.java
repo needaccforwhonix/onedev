@@ -7,14 +7,15 @@ import static io.onedev.server.buildspec.job.retrycondition.RetryConditionLexer.
 import static io.onedev.server.buildspec.job.retrycondition.RetryConditionLexer.IsNotEmpty;
 import static io.onedev.server.model.Build.NAME_LOG;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Predicate;
 
 import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.BaseErrorListener;
@@ -46,6 +47,7 @@ import io.onedev.server.util.criteria.OrCriteria;
 
 public class RetryCondition extends Criteria<RetryContext> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private final Criteria<RetryContext> criteria;

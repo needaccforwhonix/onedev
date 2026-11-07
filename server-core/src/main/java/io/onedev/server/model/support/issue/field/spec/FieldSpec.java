@@ -1,13 +1,14 @@
 package io.onedev.server.model.support.issue.field.spec;
 
+import java.io.Serial;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.commons.utils.match.PathMatcher;
@@ -39,6 +40,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 @Editable
 public abstract class FieldSpec extends InputSpec {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String nameOfEmptyValue;
@@ -131,7 +133,7 @@ public abstract class FieldSpec extends InputSpec {
 	
 	@Editable(order=10100, placeholder="All projects", description="Specify applicable projects for above option. "
 			+ "Multiple projects should be separated by space. Use '**', '*' or '?' for "
-			+ "<a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
+			+ "<a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
 			+ "Prefix with '-' to exclude. Leave empty for all projects")
 	@DependsOn(property="promptUponIssueOpen")
 	@Patterns(suggester="suggestProjects", path=true)

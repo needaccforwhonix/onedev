@@ -1,5 +1,6 @@
 package io.onedev.server.commandhandler;
 
+import static io.onedev.server.oem.OemUtils.interpolate;
 import static io.onedev.server.persistence.PersistenceUtils.callWithLock;
 import static io.onedev.server.persistence.PersistenceUtils.newSiteLibClassLoader;
 import static io.onedev.server.persistence.PersistenceUtils.openConnection;
@@ -9,18 +10,23 @@ import static java.lang.System.lineSeparator;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.commons.io.FileUtils.writeStringToFile;
 import static org.hibernate.cfg.AvailableSettings.DIALECT;
+import static org.hibernate.cfg.AvailableSettings.JAKARTA_JDBC_URL;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.StringReader;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import javax.inject.Singleton;
+import jakarta.inject.Singleton;
 
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.SystemUtils;
@@ -45,8 +51,10 @@ import io.onedev.server.data.migration.DataMigrator;
 import io.onedev.server.data.migration.MigrationHelper;
 import io.onedev.server.exception.ExceptionUtils;
 import io.onedev.server.jetty.MaintenanceProbeServer;
+import io.onedev.server.model.Project;
 import io.onedev.server.persistence.HibernateConfig;
 import io.onedev.server.security.SecurityUtils;
+import io.onedev.server.util.SiteSyncUtils;
 
 @Singleton
 public class Upgrade extends AbstractPlugin {
@@ -207,8 +215,8 @@ public class Upgrade extends AbstractPlugin {
 		SecurityUtils.bindAsSystem();
 		
 		if (Bootstrap.command.getArgs().length == 0) {
-			logger.error("Missing upgrade target parameter. Usage: {} <OneDev installation directory>", 
-					Bootstrap.command.getScript());
+			logger.error("Missing upgrade target parameter. Usage: {} <{} installation directory>",
+					Bootstrap.command.getScript(), interpolate("${productName}"));
 			System.exit(1);
 		}
 		
@@ -228,6 +236,7 @@ public class Upgrade extends AbstractPlugin {
 		for (File file: upgradeDir.listFiles()) {
 			if (!file.getName().equals("lost+found") 
 					&& !file.getName().equals("site") 
+					&& !file.getName().equals("oem")
 					&& !file.getName().equals("conf") // conf/trust-certs might be mounted
 					&& !file.getName().startsWith(".")) {
 				isEmpty = false;
@@ -236,9 +245,9 @@ public class Upgrade extends AbstractPlugin {
 		}
 		if (!isEmpty) {
 			if (!new File(upgradeDir, "boot").exists()) {
-				logger.error("Invalid OneDev installation directory: {}, make sure you are specifying the top level "
-						+ "installation directory (it contains sub directories such as \"bin\", \"boot\", \"conf\", etc)", 
-						upgradeDir.getAbsolutePath());
+				logger.error("Invalid {} installation directory: {}, make sure you are specifying the top level "
+						+ "installation directory (it contains sub directories such as \"bin\", \"boot\", \"conf\", etc)",
+						interpolate("${productName}"), upgradeDir.getAbsolutePath());
 				System.exit(1);
 			}
 
@@ -262,7 +271,7 @@ public class Upgrade extends AbstractPlugin {
 							File destDir = new File(upgradeDir, "site/lib");
 							FileUtils.createDir(destDir);
 							FileUtils.copyFileToDirectory(file, destDir);
-							FileUtils.deleteFile(file);
+							FileUtils.deletePath(file);
 						} catch (IOException e) {
 							throw new RuntimeException(e);
 						}
@@ -306,7 +315,7 @@ public class Upgrade extends AbstractPlugin {
 							if (dbDataVersion != oldAppDataVersion && dbDataVersion != newAppDataVersion) 
 								throw new ExplicitException("Unable to upgrade specified installation as data version of application and database is not the same");
 							if (newAppDataVersion < oldAppDataVersion) 
-								throw new ExplicitException("OneDev program is too old, please use a newer version");
+								throw new ExplicitException(interpolate("${productName} program is too old, please use a newer version"));
 							
 							String timestamp = DateTimeFormat.forPattern(BACKUP_DATETIME_FORMAT).print(new DateTime());
 							File programBackup = new File(upgradeDir, "site/program-backup/" + timestamp);
@@ -358,7 +367,7 @@ public class Upgrade extends AbstractPlugin {
 									if (ret == 0) {
 										dbChanged = true;
 										if (isHSQL) {
-											FileUtils.deleteDir(new File(upgradeDir, "internaldb"), 3);
+											FileUtils.deletePath(new File(upgradeDir, "internaldb"), 3);
 										} else {
 											logger.info("Cleaning database with old program...");
 
@@ -449,8 +458,9 @@ public class Upgrade extends AbstractPlugin {
 								boolean programRestored = false;
 								logger.info("Restoring old program files...");
 								try {
+									FileUtils.deletePath(new File(upgradeDir, "oem"));
 									for (File file : programBackup.listFiles()) {
-										if (!file.getName().equals("site")) 
+										if (!file.getName().equals("site"))
 											restoreProgramFiles(file, new File(upgradeDir, file.getName()));
 									}
 
@@ -458,7 +468,7 @@ public class Upgrade extends AbstractPlugin {
 										FileUtils.createDir(new File(upgradeDir, "site/assets/root"));
 
 									restoreExecutables(upgradeDir);
-									FileUtils.deleteDir(programBackup);
+									FileUtils.deletePath(programBackup);
 
 									logger.info("Old program files restored");
 									programRestored = true;
@@ -496,9 +506,9 @@ public class Upgrade extends AbstractPlugin {
 								StringBuilder errorMessage = new StringBuilder(String.format("!! Failed to upgrade %s", upgradeDir.getAbsolutePath()));
 								if (dbChanged) {
 									if (inDocker)
-										errorMessage.append("\nOneDev is unable to restore old database, please do it manually by first resetting it (delete and create), and then exec into the container to run below command:");
+										errorMessage.append(interpolate("\n${productName} is unable to restore old database, please do it manually by first resetting it (delete and create), and then exec into the container to run below command:"));
 									else
-										errorMessage.append("\nOneDev is unable to restore old database, please do it manually by first resetting it (delete and create), and then running below command:");										
+										errorMessage.append(interpolate("\n${productName} is unable to restore old database, please do it manually by first resetting it (delete and create), and then running below command:"));
 									if (SystemUtils.IS_OS_WINDOWS) 
 										errorMessage.append("\n" + upgradeDir.getAbsolutePath() + File.separator + "bin" + File.separator + "restore-db.bat " + dbBackupFile.getAbsolutePath());
 									else 
@@ -507,7 +517,7 @@ public class Upgrade extends AbstractPlugin {
 								throw new ExplicitException(errorMessage.toString());
 							} else {
 								logger.info("Successfully upgraded {}", upgradeDir.getAbsolutePath());
-								FileUtils.deleteDir(programBackup);
+								FileUtils.deletePath(programBackup);
 							}
 							return null;
 						}
@@ -527,7 +537,7 @@ public class Upgrade extends AbstractPlugin {
 							callable.call();
 						}
 					} finally {
-						FileUtils.deleteFile(maintenanceFile);
+						FileUtils.deletePath(maintenanceFile);
 					}
 					System.exit(0);
 				} catch (Exception e) {
@@ -563,6 +573,7 @@ public class Upgrade extends AbstractPlugin {
 			}
 
 			try {
+				FileUtils.deletePath(new File(upgradeDir, "oem"));
 				FileUtils.copyDirectory(Bootstrap.installDir, upgradeDir);
 				FileUtils.cleanDir(new File(upgradeDir, "logs"));
 				restoreExecutables(upgradeDir);
@@ -570,7 +581,8 @@ public class Upgrade extends AbstractPlugin {
 				System.exit(0);
 			} catch (Exception e) {
 				logger.error("!! Error populating " + upgradeDir.getAbsolutePath(), e);
-				FileUtils.cleanDir(upgradeDir);
+				for (var file : upgradeDir.listFiles())
+					FileUtils.deletePath(file);
 				System.exit(1);
 			}
 		}
@@ -582,22 +594,19 @@ public class Upgrade extends AbstractPlugin {
 				for (var destChildFile: destFile.listFiles()) {
 					var srcChildFile = new File(srcFile, destChildFile.getName());
 					if (!srcChildFile.exists()) {
-						if (destChildFile.isFile())
-							FileUtils.deleteFile(destChildFile);
-						else 
-							FileUtils.deleteDir(destChildFile);
+						FileUtils.deletePath(destChildFile);
 					}
 				}
 			} else {
 				if (destFile.isFile())
-					FileUtils.deleteFile(destFile);
+					FileUtils.deletePath(destFile);
 				FileUtils.createDir(destFile);
 			}
 			for (var srcChildFile: srcFile.listFiles())
 				restoreProgramFiles(srcChildFile, new File(destFile, srcChildFile.getName()));
 		} else try {
 			if (destFile.isDirectory())
-				FileUtils.deleteDir(destFile);
+				FileUtils.deletePath(destFile);
 			if (destFile.exists()) {
 				if (destFile.canWrite())
 					FileUtils.copyFile(srcFile, destFile);
@@ -612,6 +621,12 @@ public class Upgrade extends AbstractPlugin {
 	}
 	
 	protected void updateProgramFiles(File upgradeDir, int oldAppDataVersion) {
+		var sourceOemDir = new File(Bootstrap.installDir, "oem");
+		var targetOemDir = new File(upgradeDir, "oem");
+		FileUtils.deletePath(targetOemDir);
+		if (sourceOemDir.exists())
+			cleanAndCopy(sourceOemDir, targetOemDir);
+
 		cleanAndCopy(new File(Bootstrap.installDir, "3rdparty-licenses"), new File(upgradeDir, "3rdparty-licenses"));
 
 		File siteServerScriptFile = new File(upgradeDir, "bin/server.sh");
@@ -671,23 +686,23 @@ public class Upgrade extends AbstractPlugin {
 		}
 
 		if (new File(upgradeDir, "bin/apply_db_constraints.bat").exists())
-			FileUtils.deleteFile(new File(upgradeDir, "bin/apply_db_constraints.bat"));
+			FileUtils.deletePath(new File(upgradeDir, "bin/apply_db_constraints.bat"));
 		if (new File(upgradeDir, "bin/apply_db_constraints.sh").exists())
-			FileUtils.deleteFile(new File(upgradeDir, "bin/apply_db_constraints.sh"));
+			FileUtils.deletePath(new File(upgradeDir, "bin/apply_db_constraints.sh"));
 		if (new File(upgradeDir, "bin/backup.bat").exists())
-			FileUtils.deleteFile(new File(upgradeDir, "bin/backup.bat"));
+			FileUtils.deletePath(new File(upgradeDir, "bin/backup.bat"));
 		if (new File(upgradeDir, "bin/backup.sh").exists())
-			FileUtils.deleteFile(new File(upgradeDir, "bin/backup.sh"));
+			FileUtils.deletePath(new File(upgradeDir, "bin/backup.sh"));
 		if (new File(upgradeDir, "bin/restore.bat").exists())
-			FileUtils.deleteFile(new File(upgradeDir, "bin/restore.bat"));
+			FileUtils.deletePath(new File(upgradeDir, "bin/restore.bat"));
 		if (new File(upgradeDir, "bin/restore.sh").exists())
-			FileUtils.deleteFile(new File(upgradeDir, "bin/restore.sh"));
+			FileUtils.deletePath(new File(upgradeDir, "bin/restore.sh"));
 		if (new File(upgradeDir, "bin/reset_admin_password.bat").exists())
-			FileUtils.deleteFile(new File(upgradeDir, "bin/reset_admin_password.bat"));
+			FileUtils.deletePath(new File(upgradeDir, "bin/reset_admin_password.bat"));
 		if (new File(upgradeDir, "bin/reset_admin_password.sh").exists())
-			FileUtils.deleteFile(new File(upgradeDir, "bin/reset_admin_password.sh"));
+			FileUtils.deletePath(new File(upgradeDir, "bin/reset_admin_password.sh"));
 		
-		FileUtils.deleteDir(new File(upgradeDir, "status"));
+		FileUtils.deletePath(new File(upgradeDir, "status"));
 		
 		cleanAndCopy(Bootstrap.getBootDir(), new File(upgradeDir, "boot"));
 		cleanAndCopy(new File(Bootstrap.installDir, "agent"), new File(upgradeDir, "agent"));
@@ -709,7 +724,7 @@ public class Upgrade extends AbstractPlugin {
 				FileUtils.copyFile(
 						new File(upgradeDir, "site/robots.txt"), 
 						new File(upgradeDir, "site/assets/robots.txt"));
-				FileUtils.deleteFile(new File(upgradeDir, "site/robots.txt"));
+				FileUtils.deletePath(new File(upgradeDir, "site/robots.txt"));
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
@@ -719,7 +734,7 @@ public class Upgrade extends AbstractPlugin {
 				FileUtils.copyFile(
 						new File(upgradeDir, "site/logo.png"), 
 						new File(upgradeDir, "site/assets/logo.png"));
-				FileUtils.deleteFile(new File(upgradeDir, "site/logo.png"));
+				FileUtils.deletePath(new File(upgradeDir, "site/logo.png"));
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
@@ -729,7 +744,7 @@ public class Upgrade extends AbstractPlugin {
 				FileUtils.copyDirectory(
 						new File(upgradeDir, "site/avatars"), 
 						new File(upgradeDir, "site/assets/avatars"));
-				FileUtils.deleteDir(new File(upgradeDir, "site/avatars"));
+				FileUtils.deletePath(new File(upgradeDir, "site/avatars"));
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
@@ -766,7 +781,7 @@ public class Upgrade extends AbstractPlugin {
 					FileUtils.copyFile(
 							new File(upgradeDir, "site/assets/robots.txt"), 
 							new File(assetsRootDir, "robots.txt"));
-					FileUtils.deleteFile(new File(upgradeDir, "site/assets/robots.txt"));
+					FileUtils.deletePath(new File(upgradeDir, "site/assets/robots.txt"));
 				} catch (IOException e) {
 					throw new RuntimeException(e);
 				}
@@ -780,7 +795,7 @@ public class Upgrade extends AbstractPlugin {
 				}
 			}
 			
-			FileUtils.deleteDir(assetsRootDir);
+			FileUtils.deletePath(assetsRootDir);
 			
 			File usersDir = new File(upgradeDir, "site/users");
 			if (usersDir.exists()) {
@@ -790,7 +805,7 @@ public class Upgrade extends AbstractPlugin {
 					if (oldVisitInfoDir.exists() && projectDir.exists()) {
 						File newVisitInfoDir = new File(projectDir, "info/visit");
 						FileUtils.createDir(newVisitInfoDir.getParentFile());
-						FileUtils.deleteDir(newVisitInfoDir);
+						FileUtils.deletePath(newVisitInfoDir);
 						try {
 							FileUtils.moveDirectory(oldVisitInfoDir, newVisitInfoDir);
 						} catch (IOException e) {
@@ -798,9 +813,9 @@ public class Upgrade extends AbstractPlugin {
 						}
 					}
 				}
-				FileUtils.deleteDir(usersDir);
+				FileUtils.deletePath(usersDir);
 			}
-			FileUtils.deleteDir(new File(upgradeDir, "site/info"));
+			FileUtils.deletePath(new File(upgradeDir, "site/info"));
 		}
 
 		var directoryVersion = ".onedev-directory-version";
@@ -834,7 +849,7 @@ public class Upgrade extends AbstractPlugin {
 								} catch (IOException e) {
 									throw new RuntimeException(e);
 								}
-								FileUtils.deleteDir(buildDir);
+								FileUtils.deletePath(buildDir);
 							}
 						}
 					}
@@ -937,15 +952,54 @@ public class Upgrade extends AbstractPlugin {
 					if (userDir.isDirectory()) {
 						var workspaceDataDir = new File(userDir, "workspace-data");
 						if (workspaceDataDir.exists())
-							FileUtils.deleteDir(workspaceDataDir);
+							FileUtils.deletePath(workspaceDataDir);
 					}
 				}
 			}
 		}
 		
+		if (oldAppDataVersion <= 245) {
+			logger.info("Removing obsolete workspace logs...");
+			var projectsDir = new File(upgradeDir, "site/projects");
+			if (projectsDir.exists()) {
+				for (var projectDir : projectsDir.listFiles()) {
+					if (projectDir.isDirectory()) {
+						var workspaceLogsDir = new File(projectDir, "workspace-logs");
+						if (workspaceLogsDir.exists())
+							FileUtils.deletePath(workspaceLogsDir);
+					}
+				}
+			}
+		}
+
+		if (oldAppDataVersion < 250) {
+			logger.info("Moving published sites into the public site directory...");
+			var projectsDir = new File(upgradeDir, "site/projects");
+			if (projectsDir.exists()) {
+				for (var projectDir : projectsDir.listFiles()) {
+					var legacyDir = new File(projectDir, "site");
+					var files = legacyDir.listFiles(file -> !SiteSyncUtils.isVersionFile(file));
+					if (files != null && files.length != 0) {
+						var sitesDir = new File(projectDir, Project.SITES_DIR);
+						FileUtils.createDir(sitesDir);
+						try {
+							var versionFile = new File(legacyDir, SiteSyncUtils.FILE_VERSION);
+							if (versionFile.exists())
+								Files.copy(versionFile.toPath(), new File(sitesDir, SiteSyncUtils.FILE_VERSION).toPath(),
+										StandardCopyOption.REPLACE_EXISTING);
+							FileUtils.moveDirectory(legacyDir, new File(sitesDir, Project.PUBLIC_SITE));
+						} catch (IOException e) {
+							throw new RuntimeException(e);
+						}
+					}
+				}
+			}
+		}
+
 		try {
 			File wrapperConfFile = new File(upgradeDir, "conf/wrapper.conf");
 			String wrapperConf = FileUtils.readFileToString(wrapperConfFile, UTF_8);
+			wrapperConf = migrateWrapperConf(wrapperConf);
 			wrapperConf = Strings.CS.replace(wrapperConf, "com.gitplex.commons.bootstrap.Bootstrap", 
 					"io.onedev.commons.launcher.bootstrap.Bootstrap");
 			wrapperConf = Strings.CS.replace(wrapperConf, "com.gitplex.launcher.bootstrap.Bootstrap", 
@@ -1008,10 +1062,17 @@ public class Upgrade extends AbstractPlugin {
 			
 			File hibernatePropsFile = new File(upgradeDir, "conf/hibernate.properties");
 			String hibernateProps = FileUtils.readFileToString(hibernatePropsFile, UTF_8);
+			hibernateProps = migrateHibernateDialects(hibernateProps);
 			hibernateProps = Strings.CS.replace(hibernateProps, "hibernate.hikari.autoCommit=false", 
 					"hibernate.hikari.autoCommit=true");
+			hibernateProps = Strings.CS.replace(hibernateProps, "javax.persistence.validation.mode",
+					"jakarta.persistence.validation.mode");
 			hibernateProps = Strings.CS.replace(hibernateProps, "GitPlex", "OneDev");
 			hibernateProps = Strings.CS.replace(hibernateProps, "TurboDev", "OneDev");
+			// Query plan caching is disabled in code, so these settings are obsolete.
+			hibernateProps = hibernateProps.replaceAll(
+					"(?m)^[ \\t]*hibernate\\.query\\.(?:plan_cache_enabled|plan_cache_max_size|plan_parameter_metadata_max_size)"
+							+ "(?:[ \\t:=][^\\r\\n]*)?(?:\\r\\n|[\\r\\n]|$)", "");
 
 			if (!hibernateProps.contains("hsqldb.lob_file_scale")) {
 				hibernateProps = Strings.CS.replace(hibernateProps, "internaldb/onedev;", 
@@ -1039,6 +1100,8 @@ public class Upgrade extends AbstractPlugin {
 					"com.hazelcast.hibernate.HazelcastLocalCacheRegionFactory");
 			hibernateProps = Strings.CS.replace(hibernateProps, "org.hibernate.cache.jcache.JCacheRegionFactory", 
 					"com.hazelcast.hibernate.HazelcastLocalCacheRegionFactory");
+			hibernateProps = Strings.CS.replace(hibernateProps, "com.hazelcast.hibernate.HazelcastLocalCacheRegionFactory",
+					"io.onedev.server.persistence.HazelcastLocalCacheRegionFactory");
 			if (!hibernateProps.contains("hibernate.cache.auto_evict_collection_cache=true")) {
 				hibernateProps += "hibernate.cache.auto_evict_collection_cache=true\r\n";
 				hibernateProps += "hibernate.javax.cache.provider=org.ehcache.jsr107.EhcacheCachingProvider\r\n"; 
@@ -1067,7 +1130,7 @@ public class Upgrade extends AbstractPlugin {
 			
 			File sampleKeystoreFile = new File(upgradeDir, "conf/sample.keystore");
 			if (sampleKeystoreFile.exists())
-				FileUtils.deleteFile(sampleKeystoreFile);
+				FileUtils.deletePath(sampleKeystoreFile);
 			
 			var logbackConfigFile = new File(upgradeDir, "conf/logback.xml");
 			var logbackConfig = FileUtils.readFileToString(logbackConfigFile, UTF_8);
@@ -1095,19 +1158,22 @@ public class Upgrade extends AbstractPlugin {
 						Matcher.quoteReplacement("<file>${logback.logFile}</file>\n\t\t<encoder class=\"ch.qos.logback.core.encoder.LayoutWrappingEncoder\">\n\t\t\t<charset>UTF-8</charset>"));
 			}
 			
+			if (!logbackConfig.contains("io.onedev.server.persistence.HazelcastLocalCacheRegionFactory")) {
+				logbackConfig = Strings.CS.replace(logbackConfig, "<logger name=\"com.hazelcast\" level=\"ERROR\"/>",
+						"<logger name=\"com.hazelcast\" level=\"ERROR\"/>\n\t<logger name=\"io.onedev.server.persistence.HazelcastLocalCacheRegionFactory\" level=\"WARN\"/>");
+			}
+
 			writeStringToFile(logbackConfigFile, logbackConfig, UTF_8);
 			
-			FileUtils.copyFile(new File(Bootstrap.installDir, "conf/wrapper-license.conf"), 
-					new File(upgradeDir, "conf/wrapper-license.conf"));
 			FileUtils.copyFile(new File(Bootstrap.installDir, "readme.txt"), new File(upgradeDir, "readme.txt"));
 			FileUtils.copyFile(new File(Bootstrap.installDir, "license.txt"), new File(upgradeDir, "license.txt"));
 			FileUtils.copyFile(new File(Bootstrap.installDir, RELEASE_PROPS_FILE), new File(upgradeDir, RELEASE_PROPS_FILE));
 
 			FileUtils.createDir(new File(Bootstrap.installDir, INCOMPATIBILITIES_FILE).getParentFile());
 			if (new File(upgradeDir, INCOMPATIBILITIES_SINCE_UPGRADED_VERSION_FILE).exists())
-				FileUtils.deleteFile(new File(upgradeDir, INCOMPATIBILITIES_SINCE_UPGRADED_VERSION_FILE));
+				FileUtils.deletePath(new File(upgradeDir, INCOMPATIBILITIES_SINCE_UPGRADED_VERSION_FILE));
 			if (new File(upgradeDir, CHECKED_INCOMPATIBILITIES_SINCE_UPGRADED_VERSION_FILE).exists())
-				FileUtils.deleteFile(new File(upgradeDir, CHECKED_INCOMPATIBILITIES_SINCE_UPGRADED_VERSION_FILE));
+				FileUtils.deletePath(new File(upgradeDir, CHECKED_INCOMPATIBILITIES_SINCE_UPGRADED_VERSION_FILE));
 			List<String> incompatibilities = FileUtils.readLines(
 					new File(Bootstrap.installDir, INCOMPATIBILITIES_FILE), UTF_8);
 			if (new File(upgradeDir, INCOMPATIBILITIES_FILE).exists()) {
@@ -1146,6 +1212,54 @@ public class Upgrade extends AbstractPlugin {
 		restoreExecutables(upgradeDir);
 	}
 	
+	static String migrateHibernateDialects(String hibernateProps) throws IOException {
+		var properties = new Properties();
+		properties.load(new StringReader(hibernateProps));
+		var dialectMatcher = Pattern.compile("(?m)^(\\h*([#!]\\h*)?hibernate\\.dialect\\h*[=:]\\h*)"
+				+ "org\\.hibernate\\.dialect\\.MySQL5InnoDBDialect(?=\\h*$)").matcher(hibernateProps);
+		var migrated = new StringBuilder();
+		while (dialectMatcher.find()) {
+			var connectionProperties = properties;
+			if (dialectMatcher.group(2) != null) {
+				// Commented examples have their own connection settings, separated by blank lines.
+				var example = hibernateProps.substring(dialectMatcher.start()).split("\\r?\\n[ \\t]*\\r?\\n", 2)[0];
+				connectionProperties = new Properties();
+				var urlMatcher = Pattern.compile("(?m)^\\h*[#!]\\h*((?:hibernate\\.connection|jakarta\\.persistence\\.jdbc)"
+						+ "\\.url\\h*[=:][^\\r\\n]*)$").matcher(example);
+				while (urlMatcher.find())
+					connectionProperties.load(new StringReader(urlMatcher.group(1)));
+			}
+			// Persist the file's configuration, independently of environment overrides.
+			var url = connectionProperties.getProperty(JAKARTA_JDBC_URL,
+					connectionProperties.getProperty("hibernate.connection.url", ""));
+			var dialect = url.startsWith("jdbc:mariadb:")
+					? "org.hibernate.dialect.MariaDBDialect" : "org.hibernate.dialect.MySQLDialect";
+			dialectMatcher.appendReplacement(migrated, Matcher.quoteReplacement(dialectMatcher.group(1) + dialect));
+		}
+		return dialectMatcher.appendTail(migrated).toString();
+	}
+
+	static String migrateWrapperConf(String wrapperConf) {
+		var mainClassPattern = Pattern.compile(
+				"(?m)^(\\h*wrapper\\.java\\.mainclass\\h*=\\h*)([\\w.]+\\.WrapperSimpleApp)(\\h*(?:#.*)?)$");
+		var mainClassMatcher = mainClassPattern.matcher(wrapperConf);
+		String mainClass = null;
+		while (mainClassMatcher.find())
+			mainClass = mainClassMatcher.group(2);
+		if (mainClass != null && !mainClass.equals("io.onedev.wrapper.WrapperSimpleApp")
+				&& !Pattern.compile("(?m)^\\h*wrapper\\.launchd\\.label\\h*=").matcher(wrapperConf).find()) {
+			// JSW installations (16.8.8 and earlier) keep their existing launchd plist.
+			// Detect the old bridge before replacing it so subsequent upgrades are idempotent.
+			var nameMatcher = Pattern.compile("(?m)^\\h*wrapper\\.name\\h*=([^\\r\\n#]*)").matcher(wrapperConf);
+			String name = null;
+			while (nameMatcher.find())
+				name = nameMatcher.group(1).trim();
+			if (name != null && !name.isEmpty())
+				wrapperConf += lineSeparator() + "wrapper.launchd.label=org.tanukisoftware.wrapper." + name;
+		}
+		return mainClassPattern.matcher(wrapperConf).replaceAll("$1io.onedev.wrapper.WrapperSimpleApp$3");
+	}
+
 	protected void cleanAndCopy(File srcDir, File destDir) {
 		try {
 			FileUtils.cleanDir(destDir);

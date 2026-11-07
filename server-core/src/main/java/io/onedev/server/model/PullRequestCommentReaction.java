@@ -1,16 +1,19 @@
 package io.onedev.server.model;
 
-import javax.persistence.*;
+import java.io.Serial;
+
+import jakarta.persistence.*;
 
 import io.onedev.server.model.support.EntityReaction;
 
 @Entity
 @Table(
-        indexes={@Index(columnList="o_comment_id"), @Index(columnList="o_user_id")},
-        uniqueConstraints={@UniqueConstraint(columnNames={"o_comment_id", "o_user_id", "emoji"})}
+        indexes={@Index(columnList="comment_id"), @Index(columnList="user_id")},
+        uniqueConstraints={@UniqueConstraint(columnNames={"comment_id", "user_id", "emoji"})}
 )
 public class PullRequestCommentReaction extends EntityReaction {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     public static final String PROP_COMMENT = "comment";

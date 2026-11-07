@@ -6,6 +6,7 @@ import static io.onedev.server.model.User.Type.SERVICE;
 import static io.onedev.server.security.SecurityUtils.getAuthUser;
 import static java.util.stream.Collectors.toList;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -14,25 +15,25 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.validation.Valid;
-import javax.validation.constraints.Email;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
-import javax.ws.rs.BadRequestException;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.NotAcceptableException;
-import javax.ws.rs.NotFoundException;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotAcceptableException;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import org.apache.shiro.authc.credential.PasswordService;
 import org.apache.shiro.authz.UnauthenticatedException;
@@ -82,29 +83,23 @@ import io.onedev.server.service.UserService;
 @Singleton
 public class UserResource {
 
-	private final UserService userService;
-	
-	private final SshKeyService sshKeyService;
-	
-	private final PasswordService passwordService;
-	
-	private final EmailAddressService emailAddressService;
-
-	private final SubscriptionService subscriptionService;
-
-	private final AuditService auditService;
-	
 	@Inject
-	public UserResource(UserService userService, SshKeyService sshKeyService,
-                        PasswordService passwordService, EmailAddressService emailAddressService,
-                        SubscriptionService subscriptionService, AuditService auditService) {
-		this.userService = userService;
-		this.sshKeyService = sshKeyService;
-		this.passwordService = passwordService;
-		this.emailAddressService = emailAddressService;
-		this.subscriptionService = subscriptionService;
-		this.auditService = auditService;
-	}
+	private UserService userService;
+
+	@Inject
+	private SshKeyService sshKeyService;
+
+	@Inject
+	private PasswordService passwordService;
+
+	@Inject
+	private EmailAddressService emailAddressService;
+
+	@Inject
+	private SubscriptionService subscriptionService;
+
+	@Inject
+	private AuditService auditService;
 
 	private UserData getData(User user) {
 		var data = new UserData();
@@ -147,7 +142,9 @@ public class UserResource {
     	User user = userService.load(userId);
     	if (!SecurityUtils.isAdministrator() && !user.equals(getAuthUser())) 
 			throw new UnauthorizedException();
-		return user.getAccessTokens();
+		return user.getAccessTokens().stream()
+				.filter(token -> token.getOauthGrant() == null)
+				.collect(toList());
     }
 
 	@Api(order=275)
@@ -639,6 +636,7 @@ public class UserResource {
 
 	public static class UserData implements Serializable {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 		
 		@Api(order=5, description="ID of the user")
@@ -723,6 +721,7 @@ public class UserResource {
 	@EntityCreate(User.class)
 	public static class UserCreateData implements Serializable {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 		
 		@Api(order=50, exampleProvider = "getTypeExample", description="Specify account type")
@@ -822,6 +821,7 @@ public class UserResource {
 
 	public static class UserUpdateData implements Serializable {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 		
 		@Api(order=100, description="Login name of the user")
@@ -873,6 +873,7 @@ public class UserResource {
 	
 	public static class QueriesAndWatches implements Serializable {
 		
+		@Serial
 		private static final long serialVersionUID = 1L;
 		
 		ArrayList<NamedProjectQuery> projectQueries;

@@ -1,5 +1,7 @@
 package io.onedev.server.model;
 
+import io.onedev.server.SubscriptionService;
+import io.onedev.server.git.LastCommitsOfChildren;
 import io.onedev.server.model.support.wiki.WikiFolder;
 import io.onedev.server.model.support.wiki.WikiSetting;
 import io.onedev.server.model.support.wiki.SpecifiedPath;
@@ -11,6 +13,7 @@ import static io.onedev.server.search.entity.EntitySort.Direction.DESCENDING;
 import static io.onedev.server.web.translation.Translation._T;
 
 import java.io.File;
+import java.io.Serial;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -28,22 +31,22 @@ import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-import javax.persistence.CascadeType;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.Index;
-import javax.persistence.JoinColumn;
-import javax.persistence.Lob;
-import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
-import javax.persistence.OneToOne;
-import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
-import javax.validation.Validator;
-import javax.validation.constraints.Email;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.Pattern;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import jakarta.validation.Validator;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
 
 import org.apache.commons.collections4.map.AbstractReferenceMap.ReferenceStrength;
 import org.apache.commons.collections4.map.ReferenceMap;
@@ -56,7 +59,6 @@ import org.apache.wicket.util.encoding.UrlEncoder;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.FileMode;
 import org.eclipse.jgit.lib.ObjectId;
-import org.eclipse.jgit.revwalk.LastCommitsOfChildren;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.hibernate.ObjectNotFoundException;
 import org.hibernate.annotations.Cache;
@@ -97,7 +99,7 @@ import io.onedev.server.git.service.RefFacade;
 import io.onedev.server.git.signatureverification.SignatureVerificationService;
 import io.onedev.server.git.signatureverification.VerificationSuccessful;
 import io.onedev.server.model.Build.Status;
-import io.onedev.server.model.support.CodeAnalysisSetting;
+import io.onedev.server.model.support.CodeIndexingSetting;
 import io.onedev.server.model.support.LabelSupport;
 import io.onedev.server.model.support.NamedCodeCommentQuery;
 import io.onedev.server.model.support.NamedCommitQuery;
@@ -149,18 +151,17 @@ import io.onedev.server.util.patternset.PatternSet;
 import io.onedev.server.util.usermatch.UserMatch;
 import io.onedev.server.web.page.project.setting.ContributedProjectSetting;
 import io.onedev.server.web.util.ProjectAware;
-import io.onedev.server.web.util.WicketUtils;
 import io.onedev.server.workspace.WorkspaceQueryPersonalizationService;
 import io.onedev.server.xodus.CommitInfoService;
 
 @Entity
 @Table(
 		indexes={
-				@Index(columnList="o_parent_id"), @Index(columnList="o_forkedFrom_id"),
-				@Index(columnList="o_lastActivityDate_id"), @Index(columnList=PROP_NAME), 
+				@Index(columnList="parent_id"), @Index(columnList="forkedFrom_id"),
+				@Index(columnList="lastActivityDate_id"), @Index(columnList=PROP_NAME),
 				@Index(columnList=PROP_PATH)
 		}, 
-		uniqueConstraints={@UniqueConstraint(columnNames={"o_parent_id", PROP_NAME})}
+		uniqueConstraints={@UniqueConstraint(columnNames={"parent_id", PROP_NAME})}
 )
 @Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
 //use dynamic update in order not to overwrite other edits while background threads change update date
@@ -168,13 +169,20 @@ import io.onedev.server.xodus.CommitInfoService;
 @Editable
 public class Project extends AbstractEntity implements LabelSupport<ProjectLabel> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
+	public static final Long DEFAULT_ID = -1L;
+
+	public static final String DEFAULT_NAME = "~default";
+
 	public static final String BUILDS_DIR = "builds";
 
 	public static final String ATTACHMENT_DIR = "attachment";
 
-	public static final String SITE_DIR = "site";
+	public static final String SITES_DIR = "sites";
+
+	public static final String PUBLIC_SITE = "public";
 	
 	public static final String SHARE_TEST_DIR = ".onedev-share-test";
 	
@@ -195,6 +203,8 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	public static final String NAME_DESCRIPTION = "Description";
 	
 	public static final String PROP_DESCRIPTION = "description";
+
+	public static final String PROP_MAINTENANCE = "maintenance";
 	
 	public static final String PROP_FORKED_FROM = "forkedFrom";
 	
@@ -283,6 +293,8 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	
 	@Column(length=MAX_DESCRIPTION_LEN)
 	private String description;
+
+	private boolean maintenance;
 	
     @OneToMany(mappedBy="project")
     private Collection<Build> builds = new ArrayList<>();
@@ -418,7 +430,7 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	
 	@Lob
 	@Column(length=65535)
-	private CodeAnalysisSetting codeAnalysisSetting = new CodeAnalysisSetting();
+	private CodeIndexingSetting codeIndexingSetting = new CodeIndexingSetting();
 
 	@Lob
 	@Column(length=65535)
@@ -428,8 +440,6 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	@Column(length=65535)
 	private ProjectAiSetting aiSetting = new ProjectAiSetting();
 	
-	// SQL Server does not allow duplicate null values for unique column. So we use 
-	// special prefix to indicate null
 	@Column(unique=true)
 	private String serviceDeskEmailAddress;
 	
@@ -466,6 +476,8 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	private ArrayList<WebHook> webHooks = new ArrayList<>();
 	
     private transient Map<BlobIdent, Optional<Blob>> blobCache;
+
+    private transient Map<BlobIdent, Integer> modeCache;
     
     private transient Map<String, Optional<ObjectId>> objectIdCache;
     
@@ -557,14 +569,33 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 		this.description = StringUtils.abbreviate(description, MAX_DESCRIPTION_LEN);
 	}
 
+	@Editable(order=225, descriptionProvider="getMaintenanceDescription")
+	@SubscriptionRequired
+	public boolean isMaintenance() {
+		return maintenance;
+	}
+
+	public void setMaintenance(boolean maintenance) {
+		this.maintenance = maintenance;
+	}
+
+	@SuppressWarnings("unused")
+	private static String getMaintenanceDescription() {
+		var description = _T("If enabled, only project managers and users with maintenance permission can work on this project");
+		if (!OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()) {
+			description += ". " + _T("<b class='text-warning'>NOTE: </b>Maintenance mode is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days");
+		}
+		return description;
+	}
+
 	public ArrayList<BranchProtection> getBranchProtections() {
 		return branchProtections;
 	}
 
 	public List<BranchProtection> getHierarchyBranchProtections() {
 		List<BranchProtection> branchProtections = new ArrayList<>(getBranchProtections());
-		if (getParent() != null)
-			branchProtections.addAll(getParent().getHierarchyBranchProtections());
+		if (getSettingsParent() != null)
+			branchProtections.addAll(getSettingsParent().getHierarchyBranchProtections());
 		return branchProtections;
 	}
 	
@@ -578,8 +609,8 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 
 	public List<TagProtection> getHierarchyTagProtections() {
 		List<TagProtection> tagProtections = new ArrayList<>(getTagProtections());
-		if (getParent() != null)
-			tagProtections.addAll(getParent().getHierarchyTagProtections());
+		if (getSettingsParent() != null)
+			tagProtections.addAll(getSettingsParent().getHierarchyTagProtections());
 		return tagProtections;
 	}
 	
@@ -720,6 +751,8 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
     }
 	
 	public List<RefFacade> getCommitRefs(String prefix) {
+		if (DEFAULT_ID.equals(getId()))
+			return new ArrayList<>();
 		return getGitService().getCommitRefs(this, prefix);
     }
 
@@ -783,6 +816,8 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	
 	@Nullable
 	public String getDefaultBranch() {
+		if (DEFAULT_ID.equals(getId()))
+			return null;
 		if (defaultBranch == null) 
 			defaultBranch = Optional.fromNullable(getGitService().getDefaultBranch(this));
 		return defaultBranch.orNull();
@@ -805,7 +840,7 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	
 	public ProjectFacade getFacade() {
 		return new ProjectFacade(getId(), getName(), getKey(), getPath(), getServiceDeskEmailAddress(), 
-				isCodeManagement(), isIssueManagement(), getGitPackConfig(), lastActivityDate.getId(), 
+				isCodeManagement(), isIssueManagement(), isMaintenance(), getGitPackConfig(), lastActivityDate.getId(),
 				idOf(getParent()), idOf(getForkedFrom()));
 	}
 	
@@ -1098,11 +1133,11 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	
 	@SuppressWarnings("unused")
 	private static String getTimeTrackingDescription() {
-		if (!WicketUtils.isSubscriptionActive()) {
-			return _T("<b class='text-warning'>NOTE: </b><a href='https://docs.onedev.io/tutorials/issue/time-tracking' target='_blank'>Time tracking</a> is an enterprise feature. <a href='https://onedev.io/pricing' target='_blank'>Try free</a> for 30 days");
-		} else {
-			return _T("Enable <a href='https://docs.onedev.io/tutorials/issue/time-tracking' target='_blank'>time tracking</a> for this project to track progress and generate timesheets");
+		var description = _T("Enable <a href='${docsite}/tutorials/issue/time-tracking' target='_blank'>time tracking</a> for this project to track progress and generate timesheets");
+		if (!OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()) {
+			description += ". " + _T("<b class='text-warning'>NOTE: </b><a href='${docsite}/tutorials/issue/time-tracking' target='_blank'>Time tracking</a> is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days");
 		}
+		return description;
 	}
 
 	@Editable(order=400, name="Package Management", descriptionProvider = "getPackManagementDescription")
@@ -1112,7 +1147,7 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 
 	@SuppressWarnings("unused")
 	private static String getPackManagementDescription() {
-		return _T("Enable <a href='https://docs.onedev.io/tutorials/package/working-with-packages' target='_blank'>package management</a> for this project");
+		return _T("Enable <a href='${docsite}/tutorials/package/working-with-packages' target='_blank'>package management</a> for this project");
 	}
 
 	public void setPackManagement(boolean packManagement) {
@@ -1132,8 +1167,8 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 			var specMap = new LinkedHashMap<String, WorkspaceSpec>();
 			for (var spec : getWorkspaceSpecs())
 				specMap.put(spec.getName(), spec);
-			if (getParent() != null) {
-				for (var spec : getParent().getHierarchyWorkspaceSpecs())
+			if (getSettingsParent() != null) {
+				for (var spec : getSettingsParent().getHierarchyWorkspaceSpecs())
 					specMap.putIfAbsent(spec.getName(), spec);
 			}
 			hierarchyWorkspaceSpecs = new ArrayList<>(specMap.values());
@@ -1155,6 +1190,24 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 		this.serviceDeskEmailAddress = serviceDeskEmailAddress;
 	}
 	
+	/**
+	 * The next project to consult for inheritable settings, without changing the project tree.
+	 */
+	@Nullable
+	public Project getSettingsParent() {
+		if (getParent() != null)
+			return getParent();
+		else if (!DEFAULT_ID.equals(getId()) && OneDev.getInstance(SubscriptionService.class).isSubscriptionActive())
+			return getProjectService().load(DEFAULT_ID);
+		else
+			return null;
+	}
+
+	public boolean isSelfOrSettingsAncestorOf(Project project) {
+		return DEFAULT_ID.equals(getId()) && OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()
+				|| isSelfOrAncestorOf(project);
+	}
+
 	public GitPackConfig getGitPackConfig() {
 		return gitPackConfig;
 	}
@@ -1174,19 +1227,19 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	}
 
 	public WikiFolder getWikiFolder() {
-		for (Project current = this; current != null; current = current.getParent()) {
+		for (Project current = this; current != null; current = current.getSettingsParent()) {
 			if (current.getWikiSetting().getFolder() != null)
 				return current.getWikiSetting().getFolder();
 		}
 		return new SpecifiedPath();
 	}
 
-	public CodeAnalysisSetting getCodeAnalysisSetting() {
-		return codeAnalysisSetting;
+	public CodeIndexingSetting getCodeIndexingSetting() {
+		return codeIndexingSetting;
 	}
 
-	public void setCodeAnalysisSetting(CodeAnalysisSetting codeAnalysisSetting) {
-		this.codeAnalysisSetting = codeAnalysisSetting;
+	public void setCodeIndexingSetting(CodeIndexingSetting codeIndexingSetting) {
+		this.codeIndexingSetting = codeIndexingSetting;
 	}
 
 	public ProjectAiSetting getAiSetting() {
@@ -1231,16 +1284,16 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 
 	public List<JobSecret> getHierarchyJobSecrets() {
 		List<JobSecret> jobSecrets = new ArrayList<>(getBuildSetting().getJobSecrets());
-		if (getParent() != null) 
-			jobSecrets.addAll(getParent().getHierarchyJobSecrets());
+		if (getSettingsParent() != null)
+			jobSecrets.addAll(getSettingsParent().getHierarchyJobSecrets());
 		return jobSecrets;
 	}
 
 	public List<JobProperty> getHierarchyJobProperties() {
 		List<JobProperty> jobProperties = new ArrayList<>(getBuildSetting().getJobProperties());
-		if (getParent() != null) {
+		if (getSettingsParent() != null) {
 			Set<String> names = jobProperties.stream().map(it->it.getName()).collect(Collectors.toSet());
-			for (JobProperty jobProperty : getParent().getHierarchyJobProperties()) {
+			for (JobProperty jobProperty : getSettingsParent().getHierarchyJobProperties()) {
 				if (!names.contains(jobProperty.getName()))
 					jobProperties.add(jobProperty);
 			}
@@ -1250,15 +1303,15 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	
 	public List<DefaultFixedIssueFilter> getHierarchyDefaultFixedIssueFilters() {
 		List<DefaultFixedIssueFilter> defaultFixedIssueFilters = new ArrayList<>(getBuildSetting().getDefaultFixedIssueFilters());
-		if (getParent() != null)
-			defaultFixedIssueFilters.addAll(getParent().getHierarchyDefaultFixedIssueFilters());
+		if (getSettingsParent() != null)
+			defaultFixedIssueFilters.addAll(getSettingsParent().getHierarchyDefaultFixedIssueFilters());
 		return defaultFixedIssueFilters;
 	}
 	
 	public List<BuildPreservation> getHierarchyBuildPreservations() {
 		List<BuildPreservation> buildPreservations = new ArrayList<>(getBuildSetting().getBuildPreservations());
-		if (getParent() != null)
-			buildPreservations.addAll(getParent().getHierarchyBuildPreservations());
+		if (getSettingsParent() != null)
+			buildPreservations.addAll(getSettingsParent().getHierarchyBuildPreservations());
 		return buildPreservations;
 	}
 	
@@ -1276,8 +1329,8 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 		var cachePreserveDays = getBuildSetting().getCachePreserveDays();
 		if (cachePreserveDays != null)
 			return cachePreserveDays;
-		else if (getParent() != null)
-			return getParent().getHierarchyCachePreserveDays();
+		else if (getSettingsParent() != null)
+			return getSettingsParent().getHierarchyCachePreserveDays();
 		else 
 			return ProjectBuildSetting.DEFAULT_CACHE_PRESERVE_DAYS; 
 	}
@@ -1418,7 +1471,12 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	}
 
 	public int getMode(String revision, String path) {
-		return getGitService().getMode(this, getObjectId(revision, true), path);
+		if (modeCache == null)
+			modeCache = new HashMap<>();
+		ObjectId commitId = getObjectId(revision, true);
+		// Use the resolved commit so updating a revision's cached object id also refreshes its modes.
+		var blobIdent = new BlobIdent(commitId.name(), path);
+		return modeCache.computeIfAbsent(blobIdent, it -> getGitService().getMode(this, commitId, path));
 	}
 
 	public Collection<Iteration> getIterations() {
@@ -1451,8 +1509,8 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 
 	public List<WebHook> getHierarchyWebHooks() {
 		List<WebHook> webHooks = new ArrayList<>(getWebHooks());
-		if (getParent() != null)
-			webHooks.addAll(getParent().getHierarchyWebHooks());
+		if (getSettingsParent() != null)
+			webHooks.addAll(getSettingsParent().getHierarchyWebHooks());
 		return webHooks;
 	}
 	
@@ -2098,7 +2156,7 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 		do {
 			if (current.getAiSetting().getExcludedReviewFiles() != null)
 				return current.getAiSetting().getExcludedReviewFiles();
-			current = current.getParent();
+			current = current.getSettingsParent();
 		} while (current != null);
 		
 		return null;
@@ -2107,12 +2165,23 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 	public String findCodeAnalysisFiles() {
 		Project current = this;
 		do {
-			if (current.getCodeAnalysisSetting().getAnalyzeFiles() != null)
-				return current.getCodeAnalysisSetting().getAnalyzeFiles();
-			current = current.getParent();
+			if (current.getCodeIndexingSetting().getAnalyzeFiles() != null)
+				return current.getCodeIndexingSetting().getAnalyzeFiles();
+			current = current.getSettingsParent();
 		} while (current != null);
 		
 		return "**";
+	}
+
+	public boolean findRequireLoginForAutoIndexing() {
+		Project current = this;
+		do {
+			if (current.getCodeIndexingSetting().getRequireLoginForAutoIndexing() != null)
+				return current.getCodeIndexingSetting().getRequireLoginForAutoIndexing();
+			current = current.getSettingsParent();
+		} while (current != null);
+
+		return false;
 	}
 
 	@Nullable
@@ -2121,7 +2190,7 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 		do {
 			if (current.getIssueSetting().getBranchPrefix() != null)
 				return current.getIssueSetting().getBranchPrefix();
-			current = current.getParent();
+			current = current.getSettingsParent();
 		} while (current != null);
 
 		return null;
@@ -2132,7 +2201,7 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 		do {
 			if (current.getPullRequestSetting().getDefaultMergeStrategy() != null)
 				return current.getPullRequestSetting().getDefaultMergeStrategy();
-			current = current.getParent();
+			current = current.getSettingsParent();
 		} while (current != null);
 
 		return MergeStrategy.CREATE_MERGE_COMMIT;
@@ -2143,7 +2212,7 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 		do {
 			if (current.getPullRequestSetting().getDeleteSourceBranchAfterMerge() != null)
 				return current.getPullRequestSetting().getDeleteSourceBranchAfterMerge();
-			current = current.getParent();
+			current = current.getSettingsParent();
 		} while (current != null);
 
 		return false;
@@ -2164,18 +2233,18 @@ public class Project extends AbstractEntity implements LabelSupport<ProjectLabel
 				}
 				return users;
 			}
-			current = current.getParent();
+			current = current.getSettingsParent();
 		} while (current != null);
 
 		return new ArrayList<>();
 	}
 	
-	public String getSiteLockName() {
-		return getSiteLockName(getId());
+	public String getSitesLockName() {
+		return getSitesLockName(getId());
 	}
 	
-	public static String getSiteLockName(Long projectId) {
-		return "project-site:" + projectId;
+	public static String getSitesLockName(Long projectId) {
+		return "project-sites:" + projectId;
 	}
 
 	public Collection<Build> getBuilds(ObjectId commitId) {

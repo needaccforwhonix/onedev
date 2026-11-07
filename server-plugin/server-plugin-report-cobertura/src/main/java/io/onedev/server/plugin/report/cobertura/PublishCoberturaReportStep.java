@@ -21,9 +21,10 @@ import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.io.SAXReader;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serial;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -36,9 +37,10 @@ import static java.util.Comparator.comparing;
 @Editable(order=10000, group=StepGroup.PUBLISH, name="Cobertura Coverage Report")
 public class PublishCoberturaReportStep extends PublishCoverageReportStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
-	@Editable(order=100, description="Specify cobertura coverage xml report file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, "
+	@Editable(order=100, description="Specify cobertura coverage xml report file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, "
 			+ "for instance, <tt>target/site/cobertura/coverage.xml</tt>. Use * or ? for pattern match")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Patterns(path=true)

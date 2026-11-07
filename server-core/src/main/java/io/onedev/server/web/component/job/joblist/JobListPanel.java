@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.markup.head.CssHeaderItem;
@@ -19,7 +19,7 @@ import org.apache.wicket.markup.html.form.TextField;
 import org.apache.wicket.markup.html.link.BookmarkablePageLink;
 import org.apache.wicket.markup.html.link.Link;
 import org.apache.wicket.markup.html.panel.Panel;
-import org.apache.wicket.markup.repeater.RepeatingView;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -37,7 +37,7 @@ import io.onedev.server.service.BuildService;
 import io.onedev.server.util.ProjectScopedCommit;
 import io.onedev.server.util.ProjectScopedCommitAware;
 import io.onedev.server.web.behavior.ChangeObserver;
-import io.onedev.server.web.behavior.InputChangeBehavior;
+import io.onedev.server.web.behavior.InputBehavior;
 import io.onedev.server.web.component.build.minilist.MiniBuildListPanel;
 import io.onedev.server.web.component.job.JobDefLink;
 import io.onedev.server.web.component.job.RunJobLink;
@@ -83,10 +83,10 @@ public abstract class JobListPanel extends Panel implements ProjectScopedCommitA
 		searchField = new TextField<>("search", Model.of(""));
 		searchField.setOutputMarkupId(true);
 		add(searchField);
-		searchField.add(new InputChangeBehavior() {
+		searchField.add(new InputBehavior() {
 
 			@Override
-			protected void onInputChange(AjaxRequestTarget target) {
+			protected void onInput(AjaxRequestTarget target) {
 				searchInput = searchField.getInput();
 				target.add(jobsContainer);
 				target.add(noJobsContainer);

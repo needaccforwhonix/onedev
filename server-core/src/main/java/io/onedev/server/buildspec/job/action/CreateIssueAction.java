@@ -1,13 +1,14 @@
 package io.onedev.server.buildspec.job.action;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 
-import javax.validation.Valid;
-import javax.validation.ValidationException;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.Valid;
+import jakarta.validation.ValidationException;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.server.OneDev;
@@ -31,6 +32,7 @@ import io.onedev.server.security.SecurityUtils;
 @Editable(name="Create issue", order=300)
 public class CreateIssueAction extends PostBuildAction {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String issueTitle;
@@ -80,8 +82,7 @@ public class CreateIssueAction extends PostBuildAction {
 	@Editable(order=1100, group="Issue Details")
 	@FieldNamesProvider("getFieldNames")
 	@OmitName
-	@Valid
-	public List<FieldInstance> getIssueFields() {
+	public List<@Valid FieldInstance> getIssueFields() {
 		return issueFields;
 	}
 

@@ -1,10 +1,11 @@
 package io.onedev.server.search.entity.issue;
 
+import java.io.Serial;
 import java.util.Date;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Predicate;
 
 import io.onedev.server.model.Issue;
 import io.onedev.server.model.IssueField;
@@ -12,6 +13,7 @@ import io.onedev.server.util.QueryUtils;
 
 public class DateFieldCriteria extends FieldCriteria {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final Date date;

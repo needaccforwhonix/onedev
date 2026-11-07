@@ -16,6 +16,8 @@ import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.util.visit.IVisitor;
 import org.jspecify.annotations.Nullable;
 
+import io.onedev.server.OneDev;
+import io.onedev.server.SubscriptionService;
 import io.onedev.server.annotation.SubscriptionRequired;
 import io.onedev.server.model.support.administration.workspaceprovisioner.WorkspaceProvisioner;
 import io.onedev.server.util.Path;
@@ -26,7 +28,6 @@ import io.onedev.server.web.editable.BeanContext;
 import io.onedev.server.web.editable.BeanEditor;
 import io.onedev.server.web.editable.BeanUpdating;
 import io.onedev.server.web.util.Testable;
-import io.onedev.server.web.util.WicketUtils;
 
 abstract class WorkspaceProvisionerEditPanel extends Panel {
 
@@ -86,8 +87,9 @@ abstract class WorkspaceProvisionerEditPanel extends Panel {
 			}
 
 			@Override
-			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-				super.onSubmit(target, form);
+			protected void onSubmit(AjaxRequestTarget target) {
+				Form<?> form = getForm();
+				super.onSubmit(target);
 
 				WorkspaceProvisioner provisioner = bean.getProvisioner();
 				if (provisonerIndex != -1) {
@@ -113,8 +115,9 @@ abstract class WorkspaceProvisionerEditPanel extends Panel {
 			}
 
 			@Override
-			protected void onError(AjaxRequestTarget target, Form<?> form) {
-				super.onError(target, form);
+			protected void onError(AjaxRequestTarget target) {
+				Form<?> form = getForm();
+				super.onError(target);
 				target.add(form);
 			}
 
@@ -188,7 +191,7 @@ abstract class WorkspaceProvisionerEditPanel extends Panel {
 				(IVisitor<BeanEditor, BeanEditor>) (component, visit) -> visit.stop(component));
 		return beanEditor == null
 				|| beanEditor.getDescriptor().getBeanClass().getAnnotation(SubscriptionRequired.class) == null
-				|| WicketUtils.isSubscriptionActive();
+				|| OneDev.getInstance(SubscriptionService.class).isSubscriptionActive();
 	}
 
 }

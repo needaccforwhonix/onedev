@@ -15,7 +15,7 @@ import org.apache.tika.mime.MimeTypes;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.request.resource.AbstractResource;
 
-import javax.persistence.EntityNotFoundException;
+import jakarta.persistence.EntityNotFoundException;
 import java.io.*;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -25,6 +25,7 @@ import java.util.concurrent.Callable;
 
 public class MarkdownReportDownloadResource extends AbstractResource {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private static final String PARAM_PROJECT = "project";

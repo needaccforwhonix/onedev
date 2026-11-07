@@ -29,7 +29,7 @@ import org.dom4j.XPath;
 import org.dom4j.io.OutputFormat;
 import org.dom4j.io.SAXReader;
 import org.dom4j.io.XMLWriter;
-import org.hibernate.proxy.HibernateProxyHelper;
+import io.onedev.server.util.HibernateProxyHelper;
 import org.xml.sax.EntityResolver;
 
 import com.google.common.base.Preconditions;
@@ -50,6 +50,7 @@ import static io.onedev.server.util.IOUtils.BUFFER_SIZE;
 
 public final class VersionedXmlDoc implements Document, Externalizable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private static final Pattern SPECIAL_CHARACTERS = Pattern.compile("&#\\d+;");

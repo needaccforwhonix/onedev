@@ -1,13 +1,14 @@
 package io.onedev.server.buildspec.job.projectdependency;
 
-import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.server.OneDev;
 import io.onedev.server.annotation.ChoiceProvider;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Interpolative;
+import io.onedev.server.annotation.Path;
 import io.onedev.server.annotation.Patterns;
 import io.onedev.server.buildspec.BuildSpec;
+import io.onedev.server.model.support.build.JobSecret;
 import io.onedev.server.service.ProjectService;
 import io.onedev.server.model.Project;
 import io.onedev.server.security.SecurityUtils;
@@ -18,23 +19,28 @@ import io.onedev.server.web.page.project.ProjectPage;
 import io.onedev.server.web.util.WicketUtils;
 
 import org.jspecify.annotations.Nullable;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Editable
 public class ProjectDependency implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String projectPath;
 
-	private BuildProvider buildProvider = new LastFinishedBuild();
+	private BuildProvider buildProvider = new LatestBuild();
+
+	private boolean requireSuccessful = true;
 	
-	private String artifacts = "**";
+	private String artifacts;
 	
 	private String destinationPath;
 	
@@ -79,6 +85,15 @@ public class ProjectDependency implements Serializable {
 		this.buildProvider = buildProvider;
 	}
 
+	@Editable(order=350, description="Whether or not to require this dependency to be successful")
+	public boolean isRequireSuccessful() {
+		return requireSuccessful;
+	}
+
+	public void setRequireSuccessful(boolean requireSuccessful) {
+		this.requireSuccessful = requireSuccessful;
+	}
+
 	@Nullable
 	static Project getInputProject(EditContext editContext) {
 		String projectPath = (String) editContext.getInputValue("projectPath");
@@ -90,11 +105,14 @@ public class ProjectDependency implements Serializable {
 		return null;
 	}
 	
-	@Editable(order=400, name="Artifacts to Retrieve", description="Specify artifacts to retrieve into <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. "
-			+ "Only published artifacts (via artifact publish step) can be retrieved.")
+	@Editable(order=400, name="Artifacts to Retrieve", placeholder="Do not retrieve", description=""
+			+ "Optionally specify artifacts to retrieve from the dependency into "
+			+ "<a href='${docsite}/concepts#job-workdir'>job working directory</a>. "
+			+ "Only published artifacts (via artifact publish step) can be retrieved. Leave empty to not "
+			+ "retrieve any artifacts")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Patterns(path=true)
-	@NotEmpty
+	@Nullable
 	public String getArtifacts() {
 		return artifacts;
 	}
@@ -103,10 +121,11 @@ public class ProjectDependency implements Serializable {
 		this.artifacts = artifacts;
 	}
 	
-	@Editable(order=500, placeholder="Job workdir", description=""
-			+ "Optionally specify a path relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> "
-			+ "to put retrieved artifacts. Leave empty to use job working directory itself")
+	@Editable(order=500, placeholder="Job workdir", description= """
+            Optionally specify a path relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a> \
+            to put retrieved artifacts. Leave empty to use job working directory itself""")
 	@Interpolative(variableSuggester="suggestVariables")
+	@Path(Path.Type.RELATIVE)
 	public String getDestinationPath() {
 		return destinationPath;
 	}
@@ -136,7 +155,7 @@ public class ProjectDependency implements Serializable {
 	@SuppressWarnings("unused")
 	private static List<String> getAccessTokenSecretChoices() {
 		return Project.get().getHierarchyJobSecrets()
-				.stream().map(it->it.getName()).collect(Collectors.toList());
+				.stream().map(JobSecret::getName).collect(Collectors.toList());
 	}
 	
 }

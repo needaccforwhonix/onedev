@@ -1,6 +1,8 @@
 package io.onedev.server.model.support.workspace;
 
-import javax.validation.constraints.NotEmpty;
+import java.io.Serial;
+
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.annotation.WorkspaceQuery;
 import io.onedev.server.annotation.Editable;
@@ -9,6 +11,7 @@ import io.onedev.server.model.support.NamedQuery;
 @Editable
 public class NamedWorkspaceQuery implements NamedQuery {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String name;

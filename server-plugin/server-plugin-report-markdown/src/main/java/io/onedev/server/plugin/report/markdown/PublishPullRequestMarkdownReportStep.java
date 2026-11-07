@@ -7,6 +7,7 @@ import io.onedev.k8shelper.ServerStepResult;
 import io.onedev.server.OneDev;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Interpolative;
+import io.onedev.server.annotation.Path;
 import io.onedev.server.buildspec.BuildSpec;
 import io.onedev.server.buildspec.step.PublishReportStep;
 import io.onedev.server.buildspec.step.StepGroup;
@@ -14,8 +15,9 @@ import io.onedev.server.service.BuildService;
 import io.onedev.server.service.ProjectService;
 import io.onedev.server.persistence.SessionService;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 import java.io.File;
+import java.io.Serial;
 import java.util.List;
 
 import static io.onedev.commons.utils.LockUtils.write;
@@ -25,6 +27,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 		description="This report will be displayed in pull request overview page if build is triggered by pull request")
 public class PublishPullRequestMarkdownReportStep extends PublishReportStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static final String CATEGORY = "pull-request-markdown";
@@ -33,8 +36,9 @@ public class PublishPullRequestMarkdownReportStep extends PublishReportStep {
 
 	private String file;
 	
-	@Editable(order=1100, description="Specify markdown file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> to be published")
+	@Editable(order=1100, description="Specify markdown file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a> to be published")
 	@Interpolative(variableSuggester="suggestVariables")
+	@Path(Path.Type.RELATIVE)
 	@NotEmpty
 	public String getFile() {
 		return file;
@@ -56,11 +60,11 @@ public class PublishPullRequestMarkdownReportStep extends PublishReportStep {
 
 	@Override
 	public ServerStepResult run(Long buildId, File workDir, TaskLogger logger) {
+		File file = getReportFile(workDir, getFile());
 		OneDev.getInstance(SessionService.class).run(() -> {
 			var build = OneDev.getInstance(BuildService.class).load(buildId);
 			if (build.getRequest() != null) {
 				write(getReportLockName(build.getProject().getId(), build.getNumber()), () -> {
-					File file = new File(workDir, getFile());
 					if (file.exists()) {
 						File reportDir = new File(build.getDir(), CATEGORY + "/" + getReportName());
 						String markdown = FileUtils.readFileToString(file, UTF_8);

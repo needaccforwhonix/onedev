@@ -2,19 +2,20 @@ package io.onedev.server.buildspec.step;
 
 import static com.google.common.collect.Maps.difference;
 import static io.onedev.server.git.GitUtils.getReachableCommits;
-import static io.onedev.server.web.translation.Translation._T;
+import static io.onedev.server.oem.OemUtils.translateHtml;
 import static java.util.stream.Collectors.toList;
 import static org.eclipse.jgit.lib.Constants.R_HEADS;
 import static org.eclipse.jgit.lib.Constants.R_TAGS;
 
 import java.io.File;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import org.eclipse.jgit.lib.AnyObjectId;
 import org.eclipse.jgit.lib.ObjectId;
@@ -63,6 +64,7 @@ import io.onedev.server.service.UserService;
 		+ "This step pulls specified refs from remote")
 public class PullRepository extends SyncRepository {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private static final Logger logger = LoggerFactory.getLogger(PullRepository.class);
@@ -86,7 +88,7 @@ public class PullRepository extends SyncRepository {
 		this.targetProject = targetProject;
 	}
 
-	@Editable(order=650, name="Access Token for Target Project", description = "Specify a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> " +
+	@Editable(order=650, name="Access Token for Target Project", description = "Specify a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> " +
 			"whose value is an access token with management permission for above project. Note that access token " +
 			"is not required if sync to current or child project and build commit is reachable from " +
 			"default branch")
@@ -129,7 +131,7 @@ public class PullRepository extends SyncRepository {
 	@SuppressWarnings("unused")
 	private static String getLfsDescription() {
 		if (!Bootstrap.isInDocker()) {
-			return _T("If this option is enabled, git lfs command needs to be installed on OneDev server "
+			return translateHtml("If this option is enabled, git lfs command needs to be installed on ${productName} server "
 					+ "(even this step runs on other node)");
 		} else {
 			return null;
@@ -412,7 +414,7 @@ public class PullRepository extends SyncRepository {
 			} finally {
 				SecretMasker.pop();
 				if (certificateFile != null)
-					FileUtils.deleteFile(certificateFile);
+					FileUtils.deletePath(certificateFile);
 			}
 		}
 		

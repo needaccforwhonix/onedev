@@ -1,9 +1,11 @@
 package io.onedev.server.job;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 
 import org.eclipse.jgit.lib.ObjectId;
+import org.jspecify.annotations.Nullable;
 
 import io.onedev.commons.bootstrap.SecretMasker;
 import io.onedev.k8shelper.Action;
@@ -16,11 +18,14 @@ import io.onedev.server.model.support.administration.jobexecutor.JobExecutor;
 
 public class JobContext implements Serializable {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final String jobToken;
 	
 	private final JobExecutor jobExecutor;
+
+	private final String sandboxTemplate;
 
 	private final Long projectId;
 	
@@ -46,12 +51,13 @@ public class JobContext implements Serializable {
 
 	private final SecretMasker secretMasker;
 
-	public JobContext(String jobToken, JobExecutor jobExecutor, Long projectId, String projectPath,
+	public JobContext(String jobToken, JobExecutor jobExecutor, @Nullable String sandboxTemplate, Long projectId, String projectPath,
 					  String projectGitDir, Long buildId, Long buildNumber, Long submitSequence,
 					  List<Action> actions, String refName, ObjectId commitId, List<ServiceFacade> services,
 					  long timeout, SecretMasker secretMasker) {
 		this.jobToken = jobToken;
 		this.jobExecutor = jobExecutor;
+		this.sandboxTemplate = sandboxTemplate;
 		this.projectId = projectId;
 		this.projectPath = projectPath;
 		this.projectGitDir = projectGitDir;
@@ -72,6 +78,11 @@ public class JobContext implements Serializable {
 
 	public JobExecutor getJobExecutor() {
 		return jobExecutor;
+	}
+
+	@Nullable
+	public String getSandboxTemplate() {
+		return sandboxTemplate;
 	}
 
 	public Long getBuildId() {

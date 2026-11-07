@@ -1,8 +1,10 @@
 package io.onedev.server.rest.resource.support;
 
-import javax.validation.constraints.NotNull;
+import java.io.Serial;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.model.Build;
 import io.onedev.server.rest.annotation.Api;
@@ -12,6 +14,7 @@ import io.onedev.server.annotation.CommitHash;
 @EntityCreate(Build.class)
 public class JobRunOnCommit extends JobRun {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@Api(order=100)

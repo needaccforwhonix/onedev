@@ -1,6 +1,7 @@
 package io.onedev.server.web.page.help;
 
 import static io.onedev.server.web.translation.Translation._T;
+import static io.onedev.server.oem.OemUtils.interpolate;
 
 import java.io.File;
 import java.io.IOException;
@@ -37,7 +38,7 @@ public class IncompatibilitiesPage extends LayoutPage {
 							incompatibilitiesSinceUpgradedVersionFile, StandardCharsets.UTF_8);
 					FileUtils.copyFile(incompatibilitiesSinceUpgradedVersionFile, 
 							checkedIncompatibilitiesSinceUpgradedVersionFile);
-					FileUtils.deleteFile(incompatibilitiesSinceUpgradedVersionFile);
+					FileUtils.deletePath(incompatibilitiesSinceUpgradedVersionFile);
 					return incompatibilitiesSinceUpgradedVersion;
 				} else if (checkedIncompatibilitiesSinceUpgradedVersionFile.exists()) {
 					return FileUtils.readFileToString(
@@ -82,11 +83,11 @@ public class IncompatibilitiesPage extends LayoutPage {
 			protected String load() {
 				try {
 					if (incompatibilitiesSinceUpgradedVersionModel.getObject() != null) {
-						return incompatibilitiesSinceUpgradedVersionModel.getObject();
+						return interpolate(incompatibilitiesSinceUpgradedVersionModel.getObject());
 					} else {
-						return FileUtils.readFileToString(
+						return interpolate(FileUtils.readFileToString(
 								new File(Bootstrap.installDir, Upgrade.INCOMPATIBILITIES_FILE), 
-								StandardCharsets.UTF_8);
+								StandardCharsets.UTF_8));
 					}
 				} catch (IOException e) {
 					throw new RuntimeException(e);

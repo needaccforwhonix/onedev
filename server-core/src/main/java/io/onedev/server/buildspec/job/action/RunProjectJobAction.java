@@ -1,5 +1,6 @@
 package io.onedev.server.buildspec.job.action;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -8,12 +9,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import javax.validation.ConstraintValidatorContext;
-import javax.validation.constraints.NotEmpty;
-import javax.ws.rs.NotAcceptableException;
+import jakarta.validation.ConstraintValidatorContext;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.ws.rs.NotAcceptableException;
 
 import org.apache.shiro.authz.UnauthorizedException;
-import org.apache.shiro.util.ThreadContext;
+import org.apache.shiro.subject.support.SubjectThreadState;
 import org.jspecify.annotations.Nullable;
 
 import io.onedev.commons.codeassist.InputSuggestion;
@@ -43,6 +44,7 @@ import io.onedev.server.web.util.WicketUtils;
 @ClassValidating
 public class RunProjectJobAction extends PostBuildAction implements Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String projectPath;
@@ -203,8 +205,9 @@ public class RunProjectJobAction extends PostBuildAction implements Validatable 
 			throw new UnauthorizedException();
 
 		var user = SecurityUtils.getUser(subject);
-		ThreadContext.bind(subject);
+		var threadState = new SubjectThreadState(subject);
 		try {
+			threadState.bind();
 			String refName;
 			if (branch != null) {
 				refName = GitUtils.branch2ref(branch);
@@ -228,7 +231,7 @@ public class RunProjectJobAction extends PostBuildAction implements Validatable 
 			getJobService().submit(user, project, commit.copy(), jobName, jobParamMap, refName, null, null, 
 					"Triggered via post build action of job '" + build.getJobName() + "' in project '" + build.getProject().getPath() + "'");
 		} finally {
-			ThreadContext.unbindSubject();
+			threadState.restore();
 		}		
 	}
 
@@ -270,6 +273,7 @@ public class RunProjectJobAction extends PostBuildAction implements Validatable 
 	@Editable
 	public static class JobParam implements Serializable {
 	
+		@Serial
 		private static final long serialVersionUID = 1L;
 	
 		private String name;

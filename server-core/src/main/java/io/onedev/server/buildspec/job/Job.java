@@ -10,6 +10,7 @@ import static io.onedev.server.search.entity.build.BuildQueryLexer.And;
 import static io.onedev.server.search.entity.build.BuildQueryLexer.Is;
 import static io.onedev.server.web.translation.Translation._T;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -17,10 +18,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import javax.validation.ConstraintValidatorContext;
-import javax.validation.Valid;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.ConstraintValidatorContext;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotEmpty;
 
 import org.eclipse.jgit.lib.ObjectId;
 import org.jspecify.annotations.Nullable;
@@ -50,6 +51,7 @@ import io.onedev.server.git.GitUtils;
 import io.onedev.server.job.match.JobMatchContext;
 import io.onedev.server.model.PullRequest;
 import io.onedev.server.model.support.administration.jobexecutor.JobExecutor;
+import io.onedev.server.model.support.administration.jobexecutor.SandboxAware;
 import io.onedev.server.service.SettingService;
 import io.onedev.server.util.EditContext;
 import io.onedev.server.util.HierarchicalContext;
@@ -63,6 +65,7 @@ import io.onedev.server.web.util.WicketUtils;
 @ClassValidating
 public class Job implements NamedElement, Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static final String SELECTION_PREFIX = "jobs/";
@@ -85,7 +88,11 @@ public class Job implements NamedElement, Validatable {
 	
 	private String name;
 	
+	private boolean executeInSandbox;
+
 	private String jobExecutor;
+
+	private String sandboxTemplate;
 	
 	private List<Step> steps = new ArrayList<>();
 	
@@ -107,7 +114,7 @@ public class Job implements NamedElement, Validatable {
 	
 	private String retryCondition = "never";
 	
-	private int maxRetries = 3;
+	private int maxAttempts = 3;
 	
 	private int retryDelay = 30;
 
@@ -138,6 +145,15 @@ public class Job implements NamedElement, Validatable {
 			return SuggestionUtils.suggestOverrides(candidates, status);
 		}
 		return new ArrayList<>();
+	}
+
+	@Editable(order=190, description="Enable to execute this job in a sandbox VM")
+	public boolean isExecuteInSandbox() {
+		return executeInSandbox;
+	}
+
+	public void setExecuteInSandbox(boolean executeInSandbox) {
+		this.executeInSandbox = executeInSandbox;
 	}
 
 	@Editable(order=200, placeholderProvider="getJobExecutorPlaceholder", descriptionProvider="getJobExecutorDescription")
@@ -171,13 +187,15 @@ public class Job implements NamedElement, Validatable {
 		List<String> applicableJobExecutors = new ArrayList<>();
 		ProjectBlobPage page = (ProjectBlobPage) WicketUtils.getPage();
 		String jobName = (String) EditContext.get().getInputValue(PROP_NAME);
+		boolean executeInSandbox = (boolean) EditContext.get().getInputValue("executeInSandbox");
 		if (jobName != null) {
 			String branch = page.getBlobIdent().revision;
 			if (branch == null)
 				branch = "main";
 			JobMatchContext context = new JobMatchContext(page.getProject(), branch, null, jobName);
 			for (JobExecutor executor: OneDev.getInstance(SettingService.class).getJobExecutors()) {
-				if (executor.isEnabled() && executor.isApplicable(context))
+				if (executor.isEnabled() && executeInSandbox == (executor instanceof SandboxAware)
+						&& executor.isApplicable(context))
 					applicableJobExecutors.add(executor.getName());
 			}
 		}
@@ -185,9 +203,25 @@ public class Job implements NamedElement, Validatable {
 		return SuggestionUtils.suggest(applicableJobExecutors, matchWith);
 	}
 	
-	@Editable(order=200, description="Steps will be executed serially on same node, sharing the same <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>")
-	@Valid
-	public List<Step> getSteps() {
+	@Editable(order=195, description="""
+		Specify the sandbox template image used to run this job. The image must \
+		have shell, Git, Git LFS, and Python 3 installed. If the job runs Docker-related \
+		steps or services, Docker must be configured in the image, and a non-root \
+		default user must have passwordless sudo access. See the \
+		<a href='${docsite}/tutorials/cicd/build-sandbox-template' target='_blank'>template setup guide</a>.""")
+	@Interpolative(variableSuggester="suggestVariables")
+	@DependsOn(property="executeInSandbox")
+	@NotEmpty
+	public String getSandboxTemplate() {
+		return sandboxTemplate;
+	}
+
+	public void setSandboxTemplate(String sandboxTemplate) {
+		this.sandboxTemplate = sandboxTemplate;
+	}
+
+	@Editable(order=300, description="Steps will be executed serially on same node, sharing the same <a href='${docsite}/concepts#job-workdir'>job working directory</a>")
+	public List<@Valid Step> getSteps() {
 		return steps;
 	}
 	
@@ -196,8 +230,7 @@ public class Job implements NamedElement, Validatable {
 	}
 
 	@Editable(order=400, name="Parameter Specs", group="Params & Triggers", description="Optionally define parameter specifications of the job")
-	@Valid
-	public List<ParamSpec> getParamSpecs() {
+	public List<@Valid ParamSpec> getParamSpecs() {
 		return paramSpecs;
 	}
 
@@ -206,8 +239,7 @@ public class Job implements NamedElement, Validatable {
 	}
 
 	@Editable(order=500, group="Params & Triggers", description="Use triggers to run the job automatically under certain conditions")
-	@Valid
-	public List<JobTrigger> getTriggers() {
+	public List<@Valid JobTrigger> getTriggers() {
 		return triggers;
 	}
 
@@ -217,8 +249,7 @@ public class Job implements NamedElement, Validatable {
 
 	@Editable(name="Job Dependencies", order=9110, group="Dependencies & Services", description="Job dependencies determines the order and "
 			+ "concurrency when run different jobs. You may also specify artifacts to retrieve from upstream jobs")
-	@Valid
-	public List<JobDependency> getJobDependencies() {
+	public List<@Valid JobDependency> getJobDependencies() {
 		return jobDependencies;
 	}
 
@@ -228,8 +259,7 @@ public class Job implements NamedElement, Validatable {
 
 	@Editable(name="Project Dependencies", order=9112, group="Dependencies & Services", description="Use project dependency to retrieve "
 			+ "artifacts from other projects")
-	@Valid
-	public List<ProjectDependency> getProjectDependencies() {
+	public List<@Valid ProjectDependency> getProjectDependencies() {
 		return projectDependencies;
 	}
 
@@ -239,8 +269,7 @@ public class Job implements NamedElement, Validatable {
 
 	@Editable(order=9114, group="Dependencies & Services", placeholder="No required services", 
 			description="Optionally specify services required by this job. "
-			+ "<b class='text-warning'>NOTE:</b> Services are only supported by docker aware executors "
-			+ "(server docker executor, remote docker executor, or kubernetes executor)")
+			+ "<b class='text-warning'>NOTE:</b> Services are supported by Docker, Kubernetes, and sandbox executors")
 	@ChoiceProvider("getServiceChoices")
 	public List<String> getRequiredServices() {
 		return requiredServices;
@@ -288,15 +317,15 @@ public class Job implements NamedElement, Validatable {
 		this.retryCondition = retryCondition;
 	}
 
-	@Editable(order=9410, group="More Settings", description="Maximum of retries before giving up")
-	@Min(value=1, message="This value should not be less than 1")
+	@Editable(order=9410, group="More Settings", description="Maximum number of attempts including the initial run before giving up")
+	@Min(value=1, message="This value should not be less than 2")
 	@DependsOn(property="retryCondition", value = "never", inverse = true)
-	public int getMaxRetries() {
-		return maxRetries;
+	public int getMaxAttempts() {
+		return maxAttempts;
 	}
 
-	public void setMaxRetries(int maxRetries) {
-		this.maxRetries = maxRetries;
+	public void setMaxAttempts(int maxAttempts) {
+		this.maxAttempts = maxAttempts;
 	}
 
 	@Editable(order=9420, group="More Settings", description="Delay for the first retry in seconds. " +
@@ -341,8 +370,7 @@ public class Job implements NamedElement, Validatable {
 	}
 	
 	@Editable(order=10600, name="Post Build Actions", group="More Settings")
-	@Valid
-	public List<PostBuildAction> getPostBuildActions() {
+	public List<@Valid PostBuildAction> getPostBuildActions() {
 		return postBuildActions;
 	}
 	

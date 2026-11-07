@@ -1,12 +1,13 @@
 package io.onedev.server.plugin.report.cppcheck;
 
 import java.io.File;
+import java.io.Serial;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import org.dom4j.Document;
 import org.dom4j.io.SAXReader;
@@ -30,9 +31,10 @@ import io.onedev.server.util.XmlUtils;
 @Editable(order=10000, group=StepGroup.PUBLISH, name="Cppcheck Report")
 public class PublishCppcheckReportStep extends PublishProblemReportStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
-	@Editable(order=100, description="Specify cppcheck xml result file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. "
+	@Editable(order=100, description="Specify cppcheck xml result file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>. "
 			+ "This file can be generated with cppcheck xml output option, for instance <code>cppcheck src --xml 2>check-result.xml</code>. Use * or ? for pattern match")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Patterns(path=true)

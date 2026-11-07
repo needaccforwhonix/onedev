@@ -1,5 +1,7 @@
 package io.onedev.server.web.component.commit.list;
 
+import java.util.Date;
+
 import static io.onedev.server.web.translation.Translation._T;
 
 import java.time.LocalDate;
@@ -12,7 +14,7 @@ import java.util.Map;
 import java.util.Stack;
 import java.util.regex.Pattern;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.wicket.Component;
@@ -34,8 +36,7 @@ import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.markup.html.form.TextField;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.Panel;
-import org.apache.wicket.markup.repeater.RepeatingView;
-import org.apache.wicket.model.AbstractReadOnlyModel;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -85,6 +86,7 @@ import io.onedev.server.web.component.link.copytoclipboard.CopyToClipboardLink;
 import io.onedev.server.web.component.savedquery.SavedQueriesClosed;
 import io.onedev.server.web.component.savedquery.SavedQueriesLink;
 import io.onedev.server.web.component.savedquery.SavedQueriesOpened;
+import io.onedev.server.web.component.svg.SpriteImage;
 import io.onedev.server.web.component.user.contributoravatars.ContributorAvatars;
 import io.onedev.server.web.component.workspace.speclist.WorkspaceSpecListPanel;
 import io.onedev.server.web.page.project.commits.CommitDetailPage;
@@ -125,7 +127,7 @@ public abstract class CommitListPanel extends Panel {
 			List<RevCommit> separated = new ArrayList<>();
 			LocalDate groupDate = null;
 			for (RevCommit commit: commits) {
-				var commitDate = DateUtils.toLocalDate(commit.getCommitterIdent().getWhen());
+				var commitDate = DateUtils.toLocalDate(Date.from(commit.getCommitterIdent().getWhenAsInstant()));
 				if (groupDate == null || commitDate.toEpochDay() != groupDate.toEpochDay()) {
 					groupDate = commitDate;
 					separated.add(null);
@@ -217,7 +219,7 @@ public abstract class CommitListPanel extends Panel {
 						commitLabels = new ArrayList<>();
 						labels.put(commit.name(), commitLabels);
 					}
-					commitLabels.add(Repository.shortenRefName(ref.getName()));
+					commitLabels.add(ref.getName());
 				}
 			}
 			return labels;
@@ -337,7 +339,8 @@ public abstract class CommitListPanel extends Panel {
 			protected void onConfigure() {
 				super.onConfigure();
 				setEnabled(querySubmitted && queryModel.getObject() != null);
-				setVisible(SecurityUtils.getAuthUser() != null && getQuerySaveSupport() != null);
+				setVisible(SecurityUtils.getAuthUser() != null && getQuerySaveSupport() != null
+						&& SecurityUtils.canWorkOnProject(getProject()));
 			}
 
 			@Override
@@ -375,7 +378,7 @@ public abstract class CommitListPanel extends Panel {
 					public void setObject(CommitQuery object) {
 						CommitListPanel.this.getFeedbackMessages().clear();
 						queryStringModel.setObject(object.toString());
-						var target = RequestCycle.get().find(AjaxRequestTarget.class);
+						var target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 						target.add(queryInput);
 						doQuery(target);
 					}
@@ -391,7 +394,7 @@ public abstract class CommitListPanel extends Panel {
 		});
 
 		queryInput = new TextField<String>("input", queryStringModel);
-		queryInput.add(new CommitQueryBehavior(new AbstractReadOnlyModel<Project>() {
+		queryInput.add(new CommitQueryBehavior(new IModel<Project>() {
 
 			@Override
 			public Project getObject() {
@@ -424,8 +427,8 @@ public abstract class CommitListPanel extends Panel {
 		queryForm.add(new AjaxButton("submit") {
 
 			@Override
-			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-				super.onSubmit(target, form);
+			protected void onSubmit(AjaxRequestTarget target) {
+				super.onSubmit(target);
 				CommitListPanel.this.getFeedbackMessages().clear();
 				doQuery(target);
 			}
@@ -571,7 +574,6 @@ public abstract class CommitListPanel extends Panel {
 		return commitsView;
 	}
 
-	@SuppressWarnings("deprecation")
 	private Component replaceItem(AjaxRequestTarget target, int index) {
 		Component item = commitsView.get(index);
 		Component newItem = newCommitItem(item.getId(), index);
@@ -711,7 +713,11 @@ public abstract class CommitListPanel extends Panel {
 				commitLabels = new ArrayList<>();
 			for (String label: commitLabels) {
 				WebMarkupContainer container = new WebMarkupContainer(labelsView.newChildId());
-				container.add(new Label("label", label));
+				boolean isTag = GitUtils.ref2tag(label) != null;
+				WebMarkupContainer badge = new WebMarkupContainer("badge");
+				badge.add(new SpriteImage("icon", isTag ? "tag" : "branch"));
+				badge.add(new Label("label", Repository.shortenRefName(label)));
+				container.add(badge);
 				labelsView.add(container);
 			}
 			item.add(labelsView);
@@ -753,7 +759,7 @@ public abstract class CommitListPanel extends Panel {
 			item.add(AttributeAppender.append("class", "commit"));
 		} else {
 			item = new Fragment(itemId, "dateFrag", this);
-			item.add(new Label("date", DateUtils.formatDate(current.get(index+1).getCommitterIdent().getWhen())));
+			item.add(new Label("date", DateUtils.formatDate(Date.from(current.get(index+1).getCommitterIdent().getWhenAsInstant()))));
 			item.add(AttributeAppender.append("class", "date"));
 		}
 		item.setOutputMarkupId(true);

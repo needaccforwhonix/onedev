@@ -1,5 +1,6 @@
 package io.onedev.server.web.component.issue.list;
 
+import static io.onedev.server.oem.OemUtils.getProductName;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.onedev.server.model.User.Type.ORDINARY;
 import static io.onedev.server.search.entity.EntitySort.Direction.ASCENDING;
@@ -14,6 +15,7 @@ import java.io.OutputStreamWriter;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -21,8 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.collections4.Predicate;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.lang3.StringUtils;
@@ -58,8 +58,8 @@ import org.apache.wicket.markup.html.list.ListView;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.markup.repeater.Item;
-import org.apache.wicket.markup.repeater.RepeatingView;
-import org.apache.wicket.model.AbstractReadOnlyModel;
+import io.onedev.server.SubscriptionService;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -71,7 +71,6 @@ import org.jspecify.annotations.Nullable;
 
 import com.google.common.collect.Sets;
 
-import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.OneDev;
 import io.onedev.server.buildspecmodel.inputspec.Input;
@@ -148,7 +147,6 @@ import io.onedev.server.web.page.project.issues.list.ProjectIssueListPage;
 import io.onedev.server.web.util.Cursor;
 import io.onedev.server.web.util.LoadableDetachableDataProvider;
 import io.onedev.server.web.util.QuerySaveSupport;
-import io.onedev.server.web.util.WicketUtils;
 import io.onedev.server.web.util.paginghistory.PagingHistorySupport;
 import io.onedev.server.xodus.VisitInfoService;
 
@@ -299,7 +297,8 @@ public abstract class IssueListPanel extends Panel {
 			protected void onConfigure() {
 				super.onConfigure();
 				setEnabled(querySubmitted && queryModel.getObject() != null);
-				setVisible(SecurityUtils.getAuthUser() != null && getQuerySaveSupport() != null);
+				setVisible(SecurityUtils.getAuthUser() != null && getQuerySaveSupport() != null
+						&& (getProject() == null || SecurityUtils.canWorkOnProject(getProject())));
 			}
 
 			@Override
@@ -337,7 +336,7 @@ public abstract class IssueListPanel extends Panel {
 					public void setObject(EntityQuery<Issue> object) {
 						IssueListPanel.this.getFeedbackMessages().clear();
 						queryStringModel.setObject(object.toString());
-						var target = RequestCycle.get().find(AjaxRequestTarget.class);
+						var target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 						target.add(queryInput);
 						doQuery(target);
 					}
@@ -384,7 +383,7 @@ public abstract class IssueListPanel extends Panel {
 							query = new IssueQuery();
 						query.setSorts(object);
 						queryStringModel.setObject(query.toString());
-						AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class);
+						AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 						target.add(queryInput);
 						doQuery(target);
 					}
@@ -451,7 +450,7 @@ public abstract class IssueListPanel extends Panel {
 		if (getProject() != null)
 			option.withCurrentProjectCriteria(true);
 		
-		queryInput.add(new IssueQueryBehavior(new AbstractReadOnlyModel<Project>() {
+		queryInput.add(new IssueQueryBehavior(new IModel<Project>() {
 
 			@Override
 			public Project getObject() {
@@ -489,8 +488,8 @@ public abstract class IssueListPanel extends Panel {
 		queryForm.add(new AjaxButton("submit") {
 
 			@Override
-			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-				super.onSubmit(target, form);
+			protected void onSubmit(AjaxRequestTarget target) {
+				super.onSubmit(target);
 				IssueListPanel.this.getFeedbackMessages().clear();
 				doQuery(target);
 			}
@@ -507,17 +506,10 @@ public abstract class IssueListPanel extends Panel {
 	
 						@Override
 						protected List<Project> load() {
-							List<Project> projects = new ArrayList<>(SecurityUtils.getAuthorizedProjects(new AccessProject()));
-							
 							ProjectCache cache = getProjectService().cloneCache();
-							CollectionUtils.filter(projects, new Predicate<Project>() {
-
-								@Override
-								public boolean evaluate(Project object) {
-									return cache.get(object.getId()).isIssueManagement();
-								}
-								
-							});							
+							List<Project> projects = new ArrayList<>(SecurityUtils.getAuthorizedProjects(cache, new AccessProject()));
+							projects.removeIf(it -> !cache.get(it.getId()).isIssueManagement());
+							SecurityUtils.filterProjectsToWorkOn(SecurityUtils.getSubject(), cache, projects);
 							projects.sort(cache.comparingPath());
 							return projects;
 						}
@@ -541,7 +533,8 @@ public abstract class IssueListPanel extends Panel {
 			});	
 		} else {
 			PageParameters params = NewIssuePage.paramsOf(getProject(), getBaseQuery().toString());
-			add(new BookmarkablePageLink<Void>("newIssue", NewIssuePage.class, params));
+			add(new BookmarkablePageLink<Void>("newIssue", NewIssuePage.class, params)
+					.setVisible(SecurityUtils.canWorkOnProject(getProject())));
 		}
 		
 		add(new ModalLink("fieldsAndLinks") {
@@ -590,8 +583,8 @@ public abstract class IssueListPanel extends Panel {
 				form.add(new AjaxButton("save") {
 
 					@Override
-					protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-						super.onSubmit(target, form);
+					protected void onSubmit(AjaxRequestTarget target) {
+						super.onSubmit(target);
 						modal.close();
 						if (getProject() != null) {
 							var oldAuditContent = getAuditContent(getProject());
@@ -678,7 +671,7 @@ public abstract class IssueListPanel extends Panel {
 						if (version.startsWith("v"))
 							version = version.substring(1);
 							
-						try (var workBook = new Workbook(os, "OneDev", version)) {
+						try (var workBook = new Workbook(os, getProductName(), version)) {
 							var worksheet = workBook.newWorksheet(_T("Issues"));
 							
 							var colIndex = 0;
@@ -699,7 +692,7 @@ public abstract class IssueListPanel extends Panel {
 							var issues = new ArrayList<Issue>();
 							for (@SuppressWarnings("unchecked") var it = (Iterator<Issue>) dataProvider.iterator(0, issuesTable.getItemCount()); it.hasNext(); ) {
 								var issue = it.next();
-								if (issue.getProject().isTimeTracking() && issue.getTotalEstimatedTime() != 0 && WicketUtils.isSubscriptionActive()) {
+								if (issue.getProject().isTimeTracking() && issue.getTotalEstimatedTime() != 0 && OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()) {
 									withTimeTracking = true;
 								}
 								issues.add(issue);
@@ -781,7 +774,7 @@ public abstract class IssueListPanel extends Panel {
 							var issues = new ArrayList<Issue>();
 							for (@SuppressWarnings("unchecked") var it = (Iterator<Issue>) dataProvider.iterator(0, issuesTable.getItemCount()); it.hasNext(); ) {
 								var issue = it.next();
-								if (issue.getProject().isTimeTracking() && issue.getTotalEstimatedTime() != 0 && WicketUtils.isSubscriptionActive()) {
+								if (issue.getProject().isTimeTracking() && issue.getTotalEstimatedTime() != 0 && OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()) {
 									withTimeTracking = true;
 								}
 								issues.add(issue);
@@ -853,7 +846,7 @@ public abstract class IssueListPanel extends Panel {
 
 				if (getProject() != null && getProject().isTimeTracking() 
 						&& SecurityUtils.canManageIssues(getProject()) 
-						&& WicketUtils.isSubscriptionActive()) {
+						&& OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()) {
 					menuItems.add(new MenuItem() {
 
 						@Override
@@ -949,7 +942,7 @@ public abstract class IssueListPanel extends Panel {
 										@Override
 										protected IssueQuery getIssueQuery() {
 											if (queryModel.getObject() != null)
-												return (IssueQuery) queryModel.getObject();
+												return queryModel.getObject();
 											else
 												return null;
 										}
@@ -1018,6 +1011,7 @@ public abstract class IssueListPanel extends Panel {
 													for (IModel<Issue> each : selectionColumn.getSelections())
 														issues.add(each.getObject());
 													var user = SecurityUtils.getUser();
+													issues.forEach(it -> SecurityUtils.checkWorkOnProject(it.getProject()));
 													getIssueService().move(user, issues, getProject(), getTargetProject());
 													setResponsePage(ProjectIssueListPage.class,
 															ProjectIssueListPage.paramsOf(getTargetProject(), getQueryAfterCopyOrMove(), 0));
@@ -1173,6 +1167,7 @@ public abstract class IssueListPanel extends Panel {
 												return;
 											}
 											getTransactionService().run(()-> {
+												issues.forEach(it -> SecurityUtils.checkWorkOnProject(it.getProject()));
 												getIssueService().delete(issues, getProject());
 												for (var issue: issues) {
 													var oldAuditContent = VersionedXmlDoc.fromBean(issue).toXML();
@@ -1222,7 +1217,7 @@ public abstract class IssueListPanel extends Panel {
 
 				if (getProject() != null && getProject().isTimeTracking() 
 						&& SecurityUtils.canManageIssues(getProject())
-						&& WicketUtils.isSubscriptionActive()) {
+						&& OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()) {
 					menuItems.add(new MenuItem() {
 
 						@Override
@@ -1387,6 +1382,7 @@ public abstract class IssueListPanel extends Panel {
 														issues.add(it.next());
 													}
 													var user = SecurityUtils.getUser();
+													issues.forEach(it -> SecurityUtils.checkWorkOnProject(it.getProject()));
 													OneDev.getInstance(IssueService.class).move(user, issues, getProject(), getTargetProject());
 													setResponsePage(ProjectIssueListPage.class,
 															ProjectIssueListPage.paramsOf(getTargetProject(), getQueryAfterCopyOrMove(), 0));
@@ -1546,6 +1542,7 @@ public abstract class IssueListPanel extends Panel {
 												return;
 											}
 											getTransactionService().run(()-> {
+												issues.forEach(it -> SecurityUtils.checkWorkOnProject(it.getProject()));
 												getIssueService().delete(issues, getProject());
 												for (var issue: issues) {
 													var oldAuditContent = VersionedXmlDoc.fromBean(issue).toXML();
@@ -1622,6 +1619,7 @@ public abstract class IssueListPanel extends Panel {
 											Collection<Issue> issues = new ArrayList<>();
 											for (@SuppressWarnings("unchecked") var it = (Iterator<Issue>) dataProvider.iterator(0, issuesTable.getItemCount()); it.hasNext(); )
 												issues.add(it.next());
+											issues.forEach(it -> SecurityUtils.checkWorkOnProject(it.getProject()));
 											getWatchService().setWatchStatus(SecurityUtils.getAuthUser(), issues, watchStatus);
 											Session.get().success(_T("Watch status changed"));
 										}
@@ -1776,18 +1774,11 @@ public abstract class IssueListPanel extends Panel {
 			}
 			
 			private List<Project> getTargetProjects(boolean excludeCurrent) {
-				Collection<Project> collection = SecurityUtils.getAuthorizedProjects(new AccessProject());
 				ProjectCache cache = getProjectService().cloneCache();
-				
-				CollectionUtils.filter(collection, new Predicate<Project>() {
+				Collection<Project> collection = SecurityUtils.getAuthorizedProjects(cache, new AccessProject());
+				collection.removeIf(it -> !cache.get(it.getId()).isIssueManagement());
+				SecurityUtils.filterProjectsToWorkOn(SecurityUtils.getSubject(), cache, collection);
 
-					@Override
-					public boolean evaluate(Project object) {
-						return cache.get(object.getId()).isIssueManagement();
-					}
-					
-				});
-				
 				if (excludeCurrent)
 					collection.remove(getProject());
 				
@@ -1800,12 +1791,13 @@ public abstract class IssueListPanel extends Panel {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(SecurityUtils.getAuthUser() != null);
+				setVisible(SecurityUtils.getAuthUser() != null
+						&& (getProject() == null || SecurityUtils.canWorkOnProject(getProject())));
 			}
 			
 		});
 		
-		if (getProject() != null && getProject().isTimeTracking() && WicketUtils.isSubscriptionActive()) {
+		if (getProject() != null && getProject().isTimeTracking() && OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()) {
 			add(new DropdownLink("showProgress") {
 				@Override
 				protected Component newContent(String id, FloatingPanel dropdown) {
@@ -2038,7 +2030,6 @@ public abstract class IssueListPanel extends Panel {
 					} else {
 						fieldsView.add(new FieldValuesPanel(fieldsView.newChildId(), Mode.AVATAR_AND_NAME, true) {
 
-							@SuppressWarnings("deprecation")
 							@Override
 							protected AttachAjaxIndicatorListener getInplaceEditAjaxIndicator() {
 								return new AttachAjaxIndicatorListener(

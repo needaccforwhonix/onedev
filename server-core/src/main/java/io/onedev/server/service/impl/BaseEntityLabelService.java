@@ -4,8 +4,8 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.stream.Collectors;
 
-import javax.inject.Inject;
-import javax.persistence.EntityNotFoundException;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityNotFoundException;
 
 import io.onedev.server.model.AbstractEntity;
 import io.onedev.server.model.LabelSpec;
@@ -35,10 +35,12 @@ public abstract class BaseEntityLabelService<T extends EntityLabel> extends Base
 			if (labelSpec == null)
 				throw new EntityNotFoundException("Label spec not found: " + it);
 			var label = newEntityLabel((AbstractEntity) entity, labelSpec);
-			dao.persist(label);
+			create(label);
 			entity.getLabels().add(label);
 		});
 	}
+
+	public abstract void create(T label);
 
 	protected abstract T newEntityLabel(AbstractEntity entity, LabelSpec spec);
 	

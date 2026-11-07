@@ -1,14 +1,15 @@
 package io.onedev.server.git.service;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -23,7 +24,7 @@ import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.TreeWalk;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -61,6 +62,7 @@ public class DefaultGitServiceTest extends AbstractGitTest {
 		var settingService = mock(SettingService.class);
 		when(settingService.getGpgSetting()).thenReturn(new GpgSetting() {
 
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override
@@ -93,7 +95,7 @@ public class DefaultGitServiceTest extends AbstractGitTest {
 		try (var walk = new RevWalk(git.getRepository())) {
 			assertEquals(0, walk.parseCommit(commitId).getParentCount());
 		}
-		var exception = org.junit.Assert.assertThrows(Exception.class, () -> gitService.commit(project, edits,
+		var exception = org.junit.jupiter.api.Assertions.assertThrows(Exception.class, () -> gitService.commit(project, edits,
 				"refs/heads/main", ObjectId.zeroId(), ObjectId.zeroId(), user, "Stale initial wiki save", false));
 		assertNotNull(ExceptionUtils.find(exception, ObsoleteCommitException.class));
 		assertEquals(commitId, git.getRepository().resolve("refs/heads/main"));
@@ -171,7 +173,7 @@ public class DefaultGitServiceTest extends AbstractGitTest {
 		try {
 			gitService.commit(new Project(), edits, refName, oldCommitId, oldCommitId, 
 					user, "test delete", false);
-			assertTrue("An ObjectNotExistException should be thrown", false);
+			assertTrue(false, "An ObjectNotExistException should be thrown");
 		} catch (Exception e) {
 			if (ExceptionUtils.find(e, NotFoundException.class) == null)
 				throw ExceptionUtils.unchecked(e);
@@ -258,7 +260,7 @@ public class DefaultGitServiceTest extends AbstractGitTest {
 		try {
 			gitService.commit(new Project(), edits, refName, oldCommitId, oldCommitId, user, 
 					"test rename tree", false);
-			assertTrue("A NotTreeException should be thrown", false);
+			assertTrue(false, "A NotTreeException should be thrown");
 		} catch (Exception e) {
 			if (ExceptionUtils.find(e, NotTreeException.class) == null)
 				throw ExceptionUtils.unchecked(e);
@@ -330,7 +332,7 @@ public class DefaultGitServiceTest extends AbstractGitTest {
 		try {
 			gitService.commit(new Project(), edits, refName, oldCommitId, oldCommitId, user, 
 					"test add", false);
-			assertTrue("An ObjectAlreadyException should be thrown", false);
+			assertTrue(false, "An ObjectAlreadyException should be thrown");
 		} catch (Exception e) {
 			if (ExceptionUtils.find(e, ObjectAlreadyExistsException.class) == null)
 				throw ExceptionUtils.unchecked(e);
@@ -492,7 +494,7 @@ public class DefaultGitServiceTest extends AbstractGitTest {
 		try {
 			gitService.commit(new Project(), edits, refName, oldCommitId, oldCommitId, user, 
 					"test add", false);
-			assertTrue("An ObsoleteCommitException should be thrown", false);
+			assertTrue(false, "An ObsoleteCommitException should be thrown");
 		} catch (Exception e) {
 			ObsoleteCommitException obsoleteCommitException = 
 					ExceptionUtils.find(e, ObsoleteCommitException.class);

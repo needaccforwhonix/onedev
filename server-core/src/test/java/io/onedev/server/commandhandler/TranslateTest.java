@@ -1,14 +1,14 @@
 package io.onedev.server.commandhandler;
 
-import static org.junit.Assert.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 import java.util.List;
 import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class TranslateTest {
 
@@ -57,6 +57,38 @@ public class TranslateTest {
                 content = "text = _T(\"hello\" \n + \"world\")\n\n _T(\"one\" + \n \"two\"\n + \"three\")";
                 assertArrayEquals(new String[] { "helloworld", "onetwothree" },
                                 Translate.scanJavaMethods(content).toArray());
+        }
+
+        @Test
+        public void testOemKeysPreservePlaceholders() {
+                var content = "OemUtils.translateHtml(\"${productName}: ${website}, ${docsite}\") + "
+                                + "_T(\"${productName}: ${website}, ${docsite}\")";
+                var scanned = Translate.scanJavaMethods(content);
+                Assertions.assertEquals(2, scanned.size());
+                var englishTranslations = new TreeMap<String, String>();
+                for (var key : scanned) {
+                        englishTranslations.put(key, key);
+                }
+                Assertions.assertEquals(1, englishTranslations.size());
+
+                var existingTranslations = new TreeMap<String, String>();
+                existingTranslations.put("${productName}: https://onedev.io, https://docs.onedev.io", "existing translation");
+                var oldContent = "{\n\tm.clear();\n}";
+                var generated = Translate.generateFileContent(englishTranslations, existingTranslations,
+                                oldContent, keys -> {
+                                        Assertions.assertEquals(List.of("${productName}: ${website}, ${docsite}"), keys);
+                                        return List.of("${productName}：网站 ${website}，文档 ${docsite}");
+                                }, 100);
+                Assertions.assertFalse(generated.contains("existing translation"));
+                Assertions.assertTrue(generated.contains("${productName}: ${website}, ${docsite}"));
+                Assertions.assertTrue(generated.contains("${productName}：网站 ${website}，文档 ${docsite}"));
+                Assertions.assertFalse(generated.contains("https://onedev.io"));
+                Assertions.assertFalse(generated.contains("https://docs.onedev.io"));
+
+                existingTranslations.put("${productName}: ${website}, ${docsite}",
+                                "${productName}：网站 ${website}，文档 ${docsite}");
+                Assertions.assertEquals(generated, Translate.generateFileContent(englishTranslations, existingTranslations,
+                                oldContent, keys -> Assertions.fail("Placeholder translations must be reused"), 100));
         }
 
         @Test
@@ -111,7 +143,7 @@ public class TranslateTest {
                 "\t\tm.put(\"container:image\", \"translated Image <<<translation context: container>>>\");\n" + 
                 "\t\tm.put(\"world\", \"translated world\");\n" + 
                 "}";
-            Assert.assertEquals(expected, translated);
+            Assertions.assertEquals(expected, translated);
         }
     
 }

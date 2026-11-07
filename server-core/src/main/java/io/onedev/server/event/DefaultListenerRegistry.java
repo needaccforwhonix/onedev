@@ -10,13 +10,12 @@ import io.onedev.server.event.project.ProjectEvent;
 import io.onedev.server.event.project.ActiveServerChanged;
 import io.onedev.server.persistence.SessionService;
 import io.onedev.server.persistence.TransactionService;
-import io.onedev.server.persistence.annotation.Transactional;
 import io.onedev.server.security.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.lang.reflect.Method;
@@ -104,12 +103,10 @@ public class DefaultListenerRegistry implements ListenerRegistry, Serializable {
 			listener.notify(event);
 	}
 
-	@Transactional
 	@Override
 	public void post(Object event) {
-		if (event instanceof ProjectEvent) {
-			ProjectEvent projectEvent = (ProjectEvent) event;
-			Long projectId = projectEvent.getProject().getId();
+		if (event instanceof ProjectEvent projectEvent) {
+            Long projectId = projectEvent.getProjectId();
 			transactionService.runAfterCommit(() -> projectService.submitToActiveServer(projectId, () -> {
 				SecurityUtils.bindAsSystem();
 				try {
@@ -127,9 +124,8 @@ public class DefaultListenerRegistry implements ListenerRegistry, Serializable {
 				}
 				return null;
 			}));
-		} else if (event instanceof ProjectDeleted) {
-			ProjectDeleted projectDeleted = (ProjectDeleted) event;
-			Long projectId = projectDeleted.getProjectId();
+		} else if (event instanceof ProjectDeleted projectDeleted) {
+            Long projectId = projectDeleted.getProjectId();
 			String activeServer = projectService.getActiveServer(projectId, false);
 			if (activeServer != null) {
 				transactionService.runAfterCommit(() -> clusterService.submitToServer(activeServer, () -> {
@@ -141,11 +137,10 @@ public class DefaultListenerRegistry implements ListenerRegistry, Serializable {
 					return null;
 				}));
 			}
-		} else if (event instanceof ActiveServerChanged) {
-			ActiveServerChanged activeServerChanged = (ActiveServerChanged) event;
+		} else if (event instanceof ActiveServerChanged activeServerChanged) {
 			transactionService.runAfterCommit(() -> clusterService.submitToServer(activeServerChanged.getActiveServer(), () -> {
 				try {
-					sessionService.run(() -> invokeListeners(event));
+					invokeListeners(event);
 				} catch (Throwable t) {
 					logger.error("Error invoking listeners", t);
 				}

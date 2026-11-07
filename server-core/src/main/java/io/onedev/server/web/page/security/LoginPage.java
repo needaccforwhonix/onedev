@@ -7,7 +7,7 @@ import static io.onedev.server.web.translation.Translation._T;
 import java.text.MessageFormat;
 import java.util.Collection;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.apache.shiro.authc.AuthenticationException;
 import org.apache.shiro.authc.AuthenticationToken;
@@ -16,6 +16,7 @@ import org.apache.shiro.authc.IncorrectCredentialsException;
 import org.apache.shiro.authc.UnknownAccountException;
 import org.apache.shiro.authc.UsernamePasswordToken;
 import org.apache.shiro.mgt.RememberMeManager;
+import org.apache.wicket.RestartResponseAtInterceptPageException;
 import org.apache.wicket.RestartResponseException;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.feedback.FencedFeedbackPanel;
@@ -30,11 +31,12 @@ import org.apache.wicket.markup.html.image.ExternalImage;
 import org.apache.wicket.markup.html.link.ExternalLink;
 import org.apache.wicket.markup.html.link.Link;
 import org.apache.wicket.markup.html.panel.Fragment;
-import org.apache.wicket.markup.repeater.RepeatingView;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.request.flow.RedirectToUrlException;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
+import org.apache.wicket.request.resource.CssResourceReference;
 
 import io.onedev.server.model.SsoProvider;
 import io.onedev.server.model.User;
@@ -45,7 +47,6 @@ import io.onedev.server.service.SsoProviderService;
 import io.onedev.server.service.UserService;
 import io.onedev.server.web.component.link.ViewStateAwarePageLink;
 import io.onedev.server.web.component.user.twofactorauthentication.TwoFactorAuthenticationSetupPanel;
-import io.onedev.server.web.page.simple.SimpleCssResourceReference;
 import io.onedev.server.web.page.simple.SimplePage;
 
 public class LoginPage extends SimplePage {
@@ -77,7 +78,7 @@ public class LoginPage extends SimplePage {
 	
 	private String errorMessage;
 	
-	private String subTitle = _T("Enter your details to login to your account");
+	private String subTitle;
 
 	private boolean disableInternalLogin;
 	
@@ -97,8 +98,7 @@ public class LoginPage extends SimplePage {
 	protected void onInitialize() {
 		super.onInitialize();
 
-		// replace session to avoid session fixation attack
-		getSession().replaceSession();
+		RestartResponseAtInterceptPageException.replaceSessionPreservingOriginalDestination();
 
 		String serverUrl = settingService.getSystemSetting().getServerUrl();
 		var ssoProviders = ssoProviderService.query();
@@ -122,7 +122,7 @@ public class LoginPage extends SimplePage {
 					var user = (User) authenticationService.getAuthenticationInfo(token);
 					if (user.isEnforce2FA()) {
 						if (user.getTwoFactorAuthentication() != null) {
-							subTitle = _T("Two-factor authentication is enabled. Please input passcode displayed on your TOTP authenticator. If you encounter problems, make sure time of OneDev server and your device running TOTP authenticator is in sync");
+							subTitle = _T("Two-factor authentication is enabled. Please input passcode displayed on your TOTP authenticator. If you encounter problems, make sure time of ${productName} server and your device running TOTP authenticator is in sync");
 							newPasscodeVerifyFrag(user.getId());
 						} else {
 							subTitle = _T("Set up two-factor authentication");
@@ -337,12 +337,12 @@ public class LoginPage extends SimplePage {
 	@Override
 	public void renderHead(IHeaderResponse response) {
 		super.renderHead(response);
-		response.render(CssHeaderItem.forReference(new SimpleCssResourceReference()));
+		response.render(CssHeaderItem.forReference(new CssResourceReference(LoginPage.class, "login.css")));
 	}
 
 	@Override
 	protected String getTitle() {
-		return _T("Sign In To") + " " + settingService.getBrandingSetting().getName();
+		return _T("Sign In To") + " " + settingService.getBrandingSetting().getEffectiveName();
 	}
 
 	@Override

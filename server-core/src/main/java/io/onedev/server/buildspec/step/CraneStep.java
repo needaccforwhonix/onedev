@@ -3,6 +3,7 @@ package io.onedev.server.buildspec.step;
 import static io.onedev.agent.AgentUtils.buildAuthConfig;
 import static io.onedev.k8shelper.RegistryLoginFacade.merge;
 
+import java.io.Serial;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,15 +23,16 @@ import io.onedev.server.buildspec.param.ParamCombination;
 import io.onedev.server.buildspec.step.commandinterpreter.PosixInterpreter;
 import io.onedev.server.buildspec.step.commandinterpreter.Interpreter;
 import io.onedev.server.model.Build;
-import io.onedev.server.model.support.administration.DockerAware;
+import io.onedev.server.model.support.administration.RegistryLoginAware;
 import io.onedev.server.model.support.administration.jobexecutor.JobExecutor;
 
 public abstract class CraneStep extends CommandStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
-	
+
 	private String trustCertificates;
-	
+
 	@Editable
 	@Override
 	public boolean isRunInContainer() {
@@ -89,11 +91,10 @@ public abstract class CraneStep extends CommandStep {
 	}
 
 	@Override
-	public StepFacade getFacade(Build build, JobExecutor jobExecutor, String jobToken, ParamCombination paramCombination, 
+	public StepFacade getFacade(Build build, JobExecutor jobExecutor, String jobToken, ParamCombination paramCombination,
 			List<RegistryLoginFacade> registryLogins, Map<String, String> envMap) {
 		var commandsBuilder = new StringBuilder();
-		if (jobExecutor instanceof DockerAware) {
-			DockerAware registryLoginAware = (DockerAware) jobExecutor;
+		if (jobExecutor instanceof RegistryLoginAware registryLoginAware) {
 			commandsBuilder.append("mkdir /root/.docker\n");
 			commandsBuilder.append("cat <<EOF>> /root/.docker/config.json\n");
 			var mergedRegistryLogins = merge(registryLogins, registryLoginAware.getRegistryLogins(jobToken));
@@ -118,5 +119,5 @@ public abstract class CraneStep extends CommandStep {
 	}
 
 	protected abstract String getCommand();
-	
+
 }

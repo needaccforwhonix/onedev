@@ -1,5 +1,6 @@
 package io.onedev.server.model.support.issue.field.instance;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,6 +12,7 @@ import io.onedev.server.annotation.Editable;
 @Editable
 public class SpecifiedValue implements ValueProvider {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String DISPLAY_NAME = "Use specified value";
@@ -31,7 +33,7 @@ public class SpecifiedValue implements ValueProvider {
 
 	@Override
 	public boolean equals(Object other) {
-		if (!(other instanceof SpecifiedValue)) 
+		if (other == null || getClass() != other.getClass())
 			return false;
 		if (this == other)
 			return true;

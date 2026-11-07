@@ -126,7 +126,7 @@ public class IssueListPage extends LayoutPage {
 				params.set(PARAM_QUERY, query);
 				params.remove(PARAM_PAGE);
 				CharSequence url = RequestCycle.get().urlFor(IssueListPage.class, params);
-				pushState(RequestCycle.get().find(AjaxRequestTarget.class), url.toString(), query);
+				pushState(RequestCycle.get().find(AjaxRequestTarget.class).orElse(null), url.toString(), query);
 			}
 			
 		}) {
@@ -263,7 +263,7 @@ public class IssueListPage extends LayoutPage {
 	
 	@Override
 	protected String getPageTitle() {
-		return _T("Issues") + " - " + OneDev.getInstance(SettingService.class).getBrandingSetting().getName();
+		return _T("Issues") + " - " + OneDev.getInstance(SettingService.class).getBrandingSetting().getEffectiveName();
 	}
 	
 }

@@ -1,5 +1,6 @@
 package io.onedev.server.model.support.code;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -8,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import org.eclipse.jgit.lib.ObjectId;
 
@@ -27,6 +28,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 @Editable
 public class TagProtection implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private boolean enabled = true;
@@ -53,7 +55,7 @@ public class TagProtection implements Serializable {
 		this.enabled = enabled;
 	}
 
-	@Editable(order=100, description="Specify space-separated tags to be protected. Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
+	@Editable(order=100, description="Specify space-separated tags to be protected. Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
 			+ "Prefix with '-' to exclude")
 	@Patterns(suggester = "suggestTags", path=true)
 	@NotEmpty

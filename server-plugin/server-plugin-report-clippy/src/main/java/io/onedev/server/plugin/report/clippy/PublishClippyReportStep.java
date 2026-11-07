@@ -16,9 +16,10 @@ import io.onedev.server.codequality.CodeProblem;
 import io.onedev.server.model.Build;
 import io.onedev.server.plugin.report.problem.PublishProblemReportStep;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serial;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,9 +27,10 @@ import java.util.List;
 @Editable(order=10000, group=StepGroup.PUBLISH, name="Clippy Report")
 public class PublishClippyReportStep extends PublishProblemReportStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
-	@Editable(order=100, description="Specify <a href='https://github.com/rust-lang/rust-clippy'>rust clippy</a> json output file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. "
+	@Editable(order=100, description="Specify <a href='https://github.com/rust-lang/rust-clippy'>rust clippy</a> json output file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>. "
 			+ "This file can be generated with clippy json output option, for instance <code>cargo clippy --message-format json>check-result.json</code>. Use * or ? for pattern match")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Patterns(path=true)

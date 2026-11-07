@@ -1,12 +1,13 @@
 package io.onedev.server.web.component.stringchoice;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 import org.json.JSONException;
@@ -20,6 +21,7 @@ import io.onedev.server.web.component.select2.ResponseFiller;
 
 public class StringChoiceProvider extends ChoiceProvider<String> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String SPECIAL_CHOICE_PREFIX = "<$OneDevSpecialChoice$>";
@@ -88,6 +90,7 @@ public class StringChoiceProvider extends ChoiceProvider<String> {
 			List<String> choices = choicesModel.getObject();
 			similarities =  new Similarities<String>(choices) {
 
+				@Serial
 				private static final long serialVersionUID = 1L;
 
 				@Override

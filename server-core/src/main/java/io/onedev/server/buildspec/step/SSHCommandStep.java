@@ -2,11 +2,12 @@ package io.onedev.server.buildspec.step;
 
 import static io.onedev.server.buildspec.step.StepGroup.UTILITIES;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.commons.utils.StringUtils;
@@ -24,6 +25,7 @@ import io.onedev.server.model.Project;
 		"This step can only be executed by a docker aware executor")
 public class SSHCommandStep extends CommandStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String remoteMachine;
@@ -58,7 +60,7 @@ public class SSHCommandStep extends CommandStep {
 		this.userName = userName;
 	}
 
-	@Editable(order=200, description="Specify a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as private key of above user " +
+	@Editable(order=200, description="Specify a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as private key of above user " +
 			"for SSH authentication. <b class='text-info'>NOTE:</b> Private key with passphrase is not supported")
 	@ChoiceProvider("getPrivateKeySecretChoices")
 	@NotEmpty

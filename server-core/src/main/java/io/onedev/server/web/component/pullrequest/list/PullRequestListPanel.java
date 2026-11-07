@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.wicket.Component;
@@ -46,8 +46,7 @@ import org.apache.wicket.markup.html.link.BookmarkablePageLink;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.markup.repeater.Item;
-import org.apache.wicket.markup.repeater.RepeatingView;
-import org.apache.wicket.model.AbstractReadOnlyModel;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -263,7 +262,8 @@ public abstract class PullRequestListPanel extends Panel {
 			protected void onConfigure() {
 				super.onConfigure();
 				setEnabled(querySubmitted && queryModel.getObject() != null);
-				setVisible(SecurityUtils.getAuthUser() != null && getQuerySaveSupport() != null);
+				setVisible(SecurityUtils.getAuthUser() != null && getQuerySaveSupport() != null
+						&& (getProject() == null || SecurityUtils.canWorkOnProject(getProject())));
 			}
 
 			@Override
@@ -319,6 +319,7 @@ public abstract class PullRequestListPanel extends Panel {
 
 											var requests = selectionColumn.getSelections().stream()
 													.map(it->it.getObject()).collect(toList());
+											requests.forEach(it -> SecurityUtils.checkWorkOnProject(it.getProject()));
 											pullRequestWatchService.setWatchStatus(SecurityUtils.getAuthUser(), requests, watchStatus);
 											selectionColumn.getSelections().clear();
 											Session.get().success(_T("Watch status changed"));
@@ -519,6 +520,7 @@ public abstract class PullRequestListPanel extends Panel {
 											Collection<PullRequest> requests = new ArrayList<>();
 											for (@SuppressWarnings("unchecked") var it = (Iterator<PullRequest>) dataProvider.iterator(0, requestsTable.getItemCount()); it.hasNext(); )
 												requests.add(it.next());
+											requests.forEach(it -> SecurityUtils.checkWorkOnProject(it.getProject()));
 											pullRequestWatchService.setWatchStatus(SecurityUtils.getAuthUser(), requests, watchStatus);
 											Session.get().success(_T("Watch status changed"));
 										}
@@ -739,7 +741,8 @@ public abstract class PullRequestListPanel extends Panel {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(SecurityUtils.getAuthUser() != null);
+				setVisible(SecurityUtils.getAuthUser() != null
+						&& (getProject() == null || SecurityUtils.canWorkOnProject(getProject())));
 			}
 			
 		});
@@ -760,7 +763,7 @@ public abstract class PullRequestListPanel extends Panel {
 					public void setObject(EntityQuery<PullRequest> object) {
 						PullRequestListPanel.this.getFeedbackMessages().clear();
 						queryStringModel.setObject(object.toString());
-						var target = RequestCycle.get().find(AjaxRequestTarget.class);
+						var target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 						target.add(queryInput);
 						doQuery(target);
 					}
@@ -798,7 +801,7 @@ public abstract class PullRequestListPanel extends Panel {
 							query = new PullRequestQuery();
 						query.setSorts(object);
 						queryStringModel.setObject(query.toString());
-						var target = RequestCycle.get().find(AjaxRequestTarget.class);
+						var target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 						target.add(queryInput);
 						doQuery(target);
 					}
@@ -814,7 +817,7 @@ public abstract class PullRequestListPanel extends Panel {
 			extraActionsView.add(renderer.render(extraActionsView.newChildId()));
 		
 		queryInput = new TextField<String>("input", queryStringModel);
-		queryInput.add(new PullRequestQueryBehavior(new AbstractReadOnlyModel<>() {
+		queryInput.add(new PullRequestQueryBehavior(new IModel<>() {
 
 			@Override
 			public Project getObject() {
@@ -851,8 +854,8 @@ public abstract class PullRequestListPanel extends Panel {
 		queryForm.add(new AjaxButton("submit") {
 
 			@Override
-			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-				super.onSubmit(target, form);
+			protected void onSubmit(AjaxRequestTarget target) {
+				super.onSubmit(target);
 				PullRequestListPanel.this.getFeedbackMessages().clear();
 				doQuery(target);
 			}
@@ -869,8 +872,10 @@ public abstract class PullRequestListPanel extends Panel {
 	
 						@Override
 						protected List<Project> load() {
-							List<Project> projects = new ArrayList<>(SecurityUtils.getAuthorizedProjects(new ReadCode()));
-							projects.sort(projectService.cloneCache().comparingPath());
+							var cache = projectService.cloneCache();
+							List<Project> projects = new ArrayList<>(SecurityUtils.getAuthorizedProjects(cache, new ReadCode()));
+							SecurityUtils.filterProjectsToWorkOn(SecurityUtils.getSubject(), cache, projects);
+							projects.sort(cache.comparingPath());
 							return projects;
 						}
 						
@@ -891,7 +896,7 @@ public abstract class PullRequestListPanel extends Panel {
 			});
 		} else {
 			add(new BookmarkablePageLink<Void>("newPullRequest", NewPullRequestPage.class,
-					NewPullRequestPage.paramsOf(getProject())));		
+					NewPullRequestPage.paramsOf(getProject())).setVisible(SecurityUtils.canWorkOnProject(getProject())));
 		}
 		body = new WebMarkupContainer("body");
 		add(body.setOutputMarkupId(true));
@@ -969,6 +974,7 @@ public abstract class PullRequestListPanel extends Panel {
 					
 				}.setEscapeModelStrings(false).setOutputMarkupId(true));
 
+				fragment.add(new WebMarkupContainer("workInProgress").setVisible(request.isWorkInProgress()));
 				fragment.add(new EntityLabelsPanel<PullRequestLabel>("labels", rowModel));
 
 				RepeatingView reviewsView = new RepeatingView("reviews");

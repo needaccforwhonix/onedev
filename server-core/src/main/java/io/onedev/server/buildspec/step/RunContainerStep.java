@@ -2,14 +2,15 @@ package io.onedev.server.buildspec.step;
 
 import static java.util.stream.Collectors.toList;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.Pattern;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
 
 import org.jspecify.annotations.Nullable;
 
@@ -25,13 +26,14 @@ import io.onedev.server.model.Build;
 import io.onedev.server.model.support.administration.DockerAware;
 import io.onedev.server.model.support.administration.jobexecutor.JobExecutor;
 import io.onedev.server.model.support.administration.jobexecutor.KubernetesAware;
+import io.onedev.server.model.support.administration.jobexecutor.SandboxAware;
 
-@Editable(order=150, name="Run Docker Container", description="Run specified docker container. <a href='https://docs.onedev.io/concepts#job-workdir' target='_blank'>Job workdir</a> "
+@Editable(order=150, name="Run Docker Container", description="Run specified docker container. <a href='${docsite}/concepts#job-workdir' target='_blank'>Job workdir</a> "
 		+ "is mounted into the container and its path is placed in environment variable <code>ONEDEV_WORKDIR</code>. " +
-		"<b class='text-warning'>Note: </b> this step can only be executed by server docker executor or remote " +
-		"docker executor")
+		"This step can be executed by Docker or sandbox executors")
 public class RunContainerStep extends Step {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String image;
@@ -98,8 +100,7 @@ public class RunContainerStep extends Step {
 
 	@Editable(order=400, name="Environment Variables", group="More Settings", description="Optionally specify environment "
 			+ "variables for the container")
-	@Valid
-	public List<EnvVar> getEnvVars() {
+	public List<@Valid EnvVar> getEnvVars() {
 		return envVars;
 	}
 
@@ -108,8 +109,7 @@ public class RunContainerStep extends Step {
 	}
 	
 	@Editable(order=500, group = "More Settings", description="Optionally mount directories or files under job working directory into container")
-	@Valid
-	public List<VolumeMount> getVolumeMounts() {
+	public List<@Valid VolumeMount> getVolumeMounts() {
 		return volumeMounts;
 	}
 
@@ -120,8 +120,7 @@ public class RunContainerStep extends Step {
 	@Editable(order=600, group="More Settings", description="Optionally specify registry logins to override " +
 			"those defined in job executor. For built-in registry, use <code>@server_url@</code> for registry url, " +
 			"<code>@job_token@</code> for user name, and access token secret for password secret")
-	@Valid
-	public List<RegistryLogin> getRegistryLogins() {
+	public List<@Valid RegistryLogin> getRegistryLogins() {
 		return registryLogins;
 	}
 
@@ -165,7 +164,8 @@ public class RunContainerStep extends Step {
 	
 	@Override
 	public boolean isApplicable(Build build, JobExecutor executor) {
-		return executor instanceof DockerAware && !(executor instanceof KubernetesAware);
+		return executor instanceof SandboxAware
+				|| executor instanceof DockerAware && !(executor instanceof KubernetesAware);
 	}
 
 }

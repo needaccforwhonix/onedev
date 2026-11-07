@@ -15,21 +15,21 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import javax.inject.Singleton;
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.JoinColumn;
-import javax.persistence.OneToMany;
-import javax.persistence.OneToOne;
-import javax.persistence.Transient;
-import javax.persistence.Version;
-import javax.validation.Configuration;
-import javax.validation.Path;
-import javax.validation.Path.Node;
-import javax.validation.TraversableResolver;
-import javax.validation.Validation;
-import javax.validation.Validator;
-import javax.validation.ValidatorFactory;
+import jakarta.inject.Singleton;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Transient;
+import jakarta.persistence.Version;
+import jakarta.validation.Configuration;
+import jakarta.validation.Path;
+import jakarta.validation.Path.Node;
+import jakarta.validation.TraversableResolver;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
 
 import org.apache.shiro.authc.credential.PasswordService;
 import org.apache.shiro.guice.aop.ShiroAopModule;
@@ -42,19 +42,18 @@ import org.apache.shiro.web.servlet.ShiroFilter;
 import org.apache.wicket.Application;
 import org.apache.wicket.protocol.http.WicketFilter;
 import org.apache.wicket.protocol.http.WicketServlet;
-import org.eclipse.jetty.server.session.SessionDataStoreFactory;
+import org.eclipse.jetty.session.SessionDataStoreFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
-import org.hibernate.CallbackException;
 import org.hibernate.Interceptor;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.boot.model.naming.PhysicalNamingStrategy;
-import org.hibernate.collection.internal.PersistentBag;
+import org.hibernate.collection.spi.PersistentBag;
 import org.hibernate.type.Type;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.matcher.AbstractMatcher;
+import com.google.inject.matcher.Matcher;
 import com.google.inject.matcher.Matchers;
 import com.thoughtworks.xstream.XStream;
 import com.thoughtworks.xstream.annotations.XStreamOmitField;
@@ -70,7 +69,6 @@ import io.onedev.commons.bootstrap.Bootstrap;
 import io.onedev.commons.loader.AbstractPlugin;
 import io.onedev.commons.loader.AbstractPluginModule;
 import io.onedev.commons.utils.ExceptionUtils;
-import io.onedev.commons.utils.StringUtils;
 import io.onedev.k8shelper.KubernetesHelper;
 import io.onedev.server.ai.BuildSpecSchemaResource;
 import io.onedev.server.ai.ChatToolsContribution;
@@ -89,6 +87,8 @@ import io.onedev.server.commandhandler.EnableInternalLogin;
 import io.onedev.server.commandhandler.RestoreDatabase;
 import io.onedev.server.commandhandler.Translate;
 import io.onedev.server.commandhandler.Upgrade;
+import io.onedev.server.crypto.CryptoService;
+import io.onedev.server.crypto.DefaultCryptoService;
 import io.onedev.server.data.DataService;
 import io.onedev.server.data.DefaultDataService;
 import io.onedev.server.entityreference.DefaultReferenceChangeService;
@@ -118,6 +118,8 @@ import io.onedev.server.job.DefaultJobService;
 import io.onedev.server.job.JobService;
 import io.onedev.server.logging.DefaultLogService;
 import io.onedev.server.logging.LogService;
+import io.onedev.server.logging.build.BuildLogService;
+import io.onedev.server.logging.build.DefaultBuildLogService;
 import io.onedev.server.mail.DefaultMailService;
 import io.onedev.server.mail.MailService;
 import io.onedev.server.markdown.DefaultMarkdownService;
@@ -134,6 +136,8 @@ import io.onedev.server.notification.PackNotificationManager;
 import io.onedev.server.notification.PullRequestNotificationManager;
 import io.onedev.server.notification.WebHookManager;
 import io.onedev.server.notification.WorkspaceNotificationManager;
+import io.onedev.server.oem.DefaultOemService;
+import io.onedev.server.oem.OemService;
 import io.onedev.server.pack.PackFilter;
 import io.onedev.server.persistence.DefaultIdService;
 import io.onedev.server.persistence.DefaultSessionFactoryService;
@@ -179,12 +183,16 @@ import io.onedev.server.security.DefaultAuthorizingService;
 import io.onedev.server.security.DefaultFilterChainResolver;
 import io.onedev.server.security.DefaultPasswordService;
 import io.onedev.server.security.DefaultRememberMeManager;
+import io.onedev.server.security.DefaultShiroFilter;
 import io.onedev.server.security.DefaultShiroFilterConfiguration;
 import io.onedev.server.security.DefaultWebSecurityManager;
 import io.onedev.server.security.FilterChainConfigurator;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.service.AccessTokenAuthorizationService;
 import io.onedev.server.service.AccessTokenService;
+import io.onedev.server.oauth.OAuthProviderService;
+import io.onedev.server.oauth.DefaultOAuthProviderService;
+import io.onedev.server.oauth.OAuthEndpointServlet;
 import io.onedev.server.service.AgentAttributeService;
 import io.onedev.server.service.AgentService;
 import io.onedev.server.service.AgentTokenService;
@@ -383,6 +391,7 @@ import io.onedev.server.util.oauth.DefaultOAuthTokenService;
 import io.onedev.server.util.oauth.OAuthTokenService;
 import io.onedev.server.util.xstream.CollectionConverter;
 import io.onedev.server.util.xstream.HibernateProxyConverter;
+import io.onedev.server.util.xstream.HibernateProxyMapper;
 import io.onedev.server.util.xstream.MapConverter;
 import io.onedev.server.util.xstream.ObjectMapperConverter;
 import io.onedev.server.util.xstream.ReflectionConverter;
@@ -500,6 +509,7 @@ public class CoreModule extends AbstractPluginModule {
 		bind(SshService.class).to(DefaultSshService.class);
 		bind(MarkdownService.class).to(DefaultMarkdownService.class);
 		bind(SettingService.class).to(DefaultSettingService.class);
+		bind(CryptoService.class).to(DefaultCryptoService.class);
 		bind(DataService.class).to(DefaultDataService.class);
 		bind(TaskScheduler.class).to(DefaultTaskScheduler.class);
 		bind(PullRequestCommentService.class).to(DefaultPullRequestCommentService.class);
@@ -514,6 +524,7 @@ public class CoreModule extends AbstractPluginModule {
 		bind(JobService.class).to(DefaultJobService.class);
 		bind(RunCacheService.class).to(DefaultRunCacheService.class);
 		bind(LogService.class).to(DefaultLogService.class);
+		bind(BuildLogService.class).to(DefaultBuildLogService.class);
 		bind(MailService.class).to(DefaultMailService.class);
 		bind(IssueService.class).to(DefaultIssueService.class);
 		bind(IssueFieldService.class).to(DefaultIssueFieldService.class);
@@ -546,6 +557,8 @@ public class CoreModule extends AbstractPluginModule {
 		bind(CodeCommentNotificationManager.class);
 		bind(CodeCommentService.class).to(DefaultCodeCommentService.class);
 		bind(AccessTokenService.class).to(DefaultAccessTokenService.class);
+		bind(OAuthProviderService.class).to(DefaultOAuthProviderService.class);
+		bind(OAuthEndpointServlet.class);
 		bind(UserService.class).to(DefaultUserService.class);
 		bind(IssueWatchService.class).to(DefaultIssueWatchService.class);
 		bind(IssueChangeService.class).to(DefaultIssueChangeService.class);
@@ -592,6 +605,7 @@ public class CoreModule extends AbstractPluginModule {
 		bind(CodeCommentTouchService.class).to(DefaultCodeCommentTouchService.class);
 		bind(AlertService.class).to(DefaultAlertService.class);
 		bind(UpdateCheckService.class).to(DefaultUpdateCheckService.class);
+		bind(OemService.class).to(DefaultOemService.class);
 		bind(StopwatchService.class).to(DefaultStopwatchService.class);
 		bind(PackService.class).to(DefaultPackService.class);
 		bind(PackBlobService.class).to(DefaultPackBlobService.class);
@@ -672,9 +686,12 @@ public class CoreModule extends AbstractPluginModule {
 		bind(BasicAuthenticationFilter.class);
 		bind(BearerAuthenticationFilter.class);
 		bind(PasswordService.class).to(DefaultPasswordService.class);
-		bind(ShiroFilter.class);
+		bind(ShiroFilter.class).to(DefaultShiroFilter.class);
 		install(new ShiroAopModule());
         contribute(FilterChainConfigurator.class, filterChainManager -> {
+			for (String path: List.of("/~oauth/token", "/~oauth/revoke", "/~oauth/userinfo", "/~oauth/jwks",
+					"/.well-known/oauth-authorization-server", "/.well-known/openid-configuration"))
+				filterChainManager.createChain(path, "noSessionCreation");
 			filterChainManager.createChain("/**/info/refs", "noSessionCreation, authcBasic, authcBearer");
 			filterChainManager.createChain("/**/git-upload-pack", "noSessionCreation, authcBasic, authcBearer");
 			filterChainManager.createChain("/**/git-receive-pack", "noSessionCreation, authcBasic, authcBearer");
@@ -820,7 +837,7 @@ public class CoreModule extends AbstractPluginModule {
 	    TransactionInterceptor transactionInterceptor = new TransactionInterceptor();
 	    requestInjection(transactionInterceptor);
 	    
-	    bindInterceptor(Matchers.any(), new AbstractMatcher<AnnotatedElement>() {
+	    bindInterceptor(Matchers.any(), new Matcher<AnnotatedElement>() {
 
 			@Override
 			public boolean matches(AnnotatedElement element) {
@@ -832,7 +849,7 @@ public class CoreModule extends AbstractPluginModule {
 	    SessionInterceptor sessionInterceptor = new SessionInterceptor();
 	    requestInjection(sessionInterceptor);
 	    
-	    bindInterceptor(Matchers.any(), new AbstractMatcher<AnnotatedElement>() {
+	    bindInterceptor(Matchers.any(), new Matcher<AnnotatedElement>() {
 
 			@Override
 			public boolean matches(AnnotatedElement element) {
@@ -844,26 +861,23 @@ public class CoreModule extends AbstractPluginModule {
 	    contribute(PersistListener.class, new PersistListener() {
 			
 			@Override
-			public boolean onSave(Object entity, Serializable id, Object[] state, String[] propertyNames, Type[] types)
-					throws CallbackException {
+			public boolean onSave(Object entity, Serializable id, Object[] state, String[] propertyNames, Type[] types) {
 				return false;
 			}
 			
 			@Override
-			public boolean onLoad(Object entity, Serializable id, Object[] state, String[] propertyNames, Type[] types)
-					throws CallbackException {
+			public boolean onLoad(Object entity, Serializable id, Object[] state, String[] propertyNames, Type[] types) {
 				return false;
 			}
 			
 			@Override
 			public boolean onFlushDirty(Object entity, Serializable id, Object[] currentState, Object[] previousState,
-					String[] propertyNames, Type[] types) throws CallbackException {
+					String[] propertyNames, Type[] types) {
 				return false;
 			}
 			
 			@Override
-			public void onDelete(Object entity, Serializable id, Object[] state, String[] propertyNames, Type[] types)
-					throws CallbackException {
+			public void onDelete(Object entity, Serializable id, Object[] state, String[] propertyNames, Type[] types) {
 			}
 
 		});
@@ -878,7 +892,7 @@ public class CoreModule extends AbstractPluginModule {
 
 					@Override
 					protected MapperWrapper wrapMapper(MapperWrapper next) {
-						return new MapperWrapper(next) {
+						return new MapperWrapper(new HibernateProxyMapper(next)) {
 							
 							@Override
 							public boolean shouldSerializeMember(Class definedIn, String fieldName) {
@@ -897,8 +911,6 @@ public class CoreModule extends AbstractPluginModule {
 									return super.serializedClass(type);
 								else if (type == PersistentBag.class)
 									return super.serializedClass(ArrayList.class);
-								else if (type.getName().contains("$HibernateProxy$"))
-									return StringUtils.substringBefore(type.getName(), "$HibernateProxy$");
 								else
 									return super.serializedClass(type);
 							}

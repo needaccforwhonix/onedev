@@ -1,5 +1,6 @@
 package io.onedev.server.web.page.help;
 
+import static io.onedev.server.oem.OemUtils.interpolateHtml;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,7 +27,6 @@ import org.apache.wicket.markup.html.list.ListItem;
 import org.apache.wicket.markup.html.list.ListView;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.Panel;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -34,11 +34,11 @@ import org.apache.wicket.util.visit.IVisitor;
 import org.glassfish.jersey.server.ResourceConfig;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -283,7 +283,7 @@ public class ExampleValuePanel extends Panel {
 		}
 		if (description.length() != 0) {
 			hasHint = true;
-			fragment.add(new Label("description", description).setEscapeModelStrings(false));
+			fragment.add(new Label("description", interpolateHtml(description)).setEscapeModelStrings(false));
 		} else {
 			fragment.add(new WebMarkupContainer("description").setVisible(false));
 		}
@@ -311,7 +311,7 @@ public class ExampleValuePanel extends Panel {
 	
 	private Fragment newArrayFragment() {
 		Fragment fragment = new Fragment("content", "arrayFrag", this);
-		fragment.add(new ListView<>("elements", new AbstractReadOnlyModel<List<Serializable>>() {
+		fragment.add(new ListView<>("elements", new IModel<List<Serializable>>() {
 
 			@SuppressWarnings("unchecked")
 			@Override
@@ -371,7 +371,7 @@ public class ExampleValuePanel extends Panel {
 		fragment.add(new WebMarkupContainer("typeInfo").setVisible(false));
 		
 		IModel<List<Map.Entry<Serializable, Serializable>>> entriesModel =
-				new AbstractReadOnlyModel<>() {
+				new IModel<>() {
 
 					@SuppressWarnings("unchecked")
 					@Override
@@ -471,7 +471,7 @@ public class ExampleValuePanel extends Panel {
 			};
 			typeInfoFragment.add(new ExampleValuePanel("name", Model.of(JsonTypeInfo.Id.NAME.getDefaultPropertyName()), 
 					valueInfoModel, requestBodyClass));
-			typeInfoFragment.add(new ExampleValuePanel("value", new AbstractReadOnlyModel<>() {
+			typeInfoFragment.add(new ExampleValuePanel("value", new IModel<>() {
 
 				@Override
 				public Serializable getObject() {

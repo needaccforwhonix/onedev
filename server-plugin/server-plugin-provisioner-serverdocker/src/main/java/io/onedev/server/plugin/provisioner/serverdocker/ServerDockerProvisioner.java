@@ -1,5 +1,6 @@
 package io.onedev.server.plugin.provisioner.serverdocker;
 
+import static io.onedev.server.oem.OemUtils.interpolate;
 import static io.onedev.agent.AgentUtils.callWithRegistryLogins;
 import static io.onedev.agent.AgentUtils.changeOwner;
 import static io.onedev.agent.AgentUtils.getOsIds;
@@ -16,6 +17,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
 import java.io.File;
+import java.io.Serial;
 import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
@@ -25,22 +27,25 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
-import javax.validation.Valid;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotEmpty;
 
 import org.apache.commons.lang3.SystemUtils;
 import org.jspecify.annotations.Nullable;
 
 import io.onedev.agent.AgentUtils;
 import io.onedev.agent.AwaitableFutureTask;
+import io.onedev.agent.RuntimeTestUtils;
 import io.onedev.agent.workspace.FileData;
 import io.onedev.agent.workspace.GitExecutionResult;
+import io.onedev.agent.workspace.ProvisionMode;
 import io.onedev.agent.workspace.WorkspaceUtils;
 import io.onedev.commons.bootstrap.Bootstrap;
 import io.onedev.commons.codeassist.InputSuggestion;
@@ -68,6 +73,7 @@ import io.onedev.server.model.support.administration.workspaceprovisioner.Worksp
 import io.onedev.server.model.support.workspace.spec.ConfigFile;
 import io.onedev.server.model.support.workspace.spec.EnvVar;
 import io.onedev.server.model.support.workspace.spec.UserData;
+import io.onedev.server.service.SettingService;
 import io.onedev.server.terminal.CommandlineShell;
 import io.onedev.server.terminal.Shell;
 import io.onedev.server.terminal.Terminal;
@@ -77,11 +83,15 @@ import io.onedev.server.web.util.Testable;
 import io.onedev.server.workspace.ServerProvisionerUtils;
 import io.onedev.server.workspace.WorkspaceContext;
 import io.onedev.server.workspace.WorkspaceRuntime;
+import nl.altindag.ssl.SSLFactory;
 
 @Editable(order=ServerDockerProvisioner.ORDER, name="Server Docker Provisioner", description = """
-			This provisioner creates workspaces inside Docker containers on OneDev server""")
+			This provisioner creates workspaces inside Docker containers on ${productName} server.
+			<b class='text-warning'>WARNING:</b> For better security, use a Remote Docker Provisioner
+			on a dedicated agent host, especially for untrusted workspaces.""")
 public class ServerDockerProvisioner extends WorkspaceProvisioner implements DockerAware, Testable<ServerDockerProvisioner.TestData> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static final int ORDER = 50;
@@ -121,8 +131,7 @@ public class ServerDockerProvisioner extends WorkspaceProvisioner implements Doc
 	@Editable(order=400, description="Specify registry logins if necessary. For built-in registry, " +
 			"use <code>@server_url@</code> for registry url, <code>@job_token@</code> for user name, and " +
 			"access token for password")
-	@Valid
-	public List<RegistryLogin> getRegistryLogins() {
+	public List<@Valid RegistryLogin> getRegistryLogins() {
 		return registryLogins;
 	}
 
@@ -156,7 +165,7 @@ public class ServerDockerProvisioner extends WorkspaceProvisioner implements Doc
 
 	@Editable(order=30, group="Security Settings", description="Whether or not to mount docker sock into workspace container to "
 			+ "support docker operations in workspace<br>"
-			+ "<b class='text-danger'>WARNING</b>: Malicious workspaces can take control of whole OneDev "
+			+ "<b class='text-danger'>WARNING</b>: Malicious workspaces can take control of whole ${productName} "
 			+ "by operating the mounted docker sock. Make sure this provisioner can only be used by "
 			+ "trusted workspaces if this option is enabled")
 	public boolean isMountDockerSock() {
@@ -189,7 +198,7 @@ public class ServerDockerProvisioner extends WorkspaceProvisioner implements Doc
 	}
 
 	@Editable(order=10000, placeholder="Any project", description="Optionally specify projects applicable for this provisioner. " +
-			"Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. " +
+			"Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. " +
 			"Multiple projects should be separated by space")
 	@Patterns(suggester="suggestProjects", path=true)
 	public String getApplicableProjects() {
@@ -255,7 +264,7 @@ public class ServerDockerProvisioner extends WorkspaceProvisioner implements Doc
 
 	private void checkApplicable() {
 		if (OneDev.getK8sService() != null) {
-			throw new ExplicitException("OneDev running inside kubernetes cluster does not support workspaces yet");
+			throw new ExplicitException(interpolate("${productName} running inside kubernetes cluster does not support workspaces yet"));
 		}
 	}
 
@@ -263,19 +272,25 @@ public class ServerDockerProvisioner extends WorkspaceProvisioner implements Doc
 	public void test(TestData testData, TaskLogger jobLogger) {
 		checkApplicable();
 		var docker = newDocker();
-		AgentUtils.testDocker(docker, getRegistryLoginFacades(testData.getDockerImage()),
+		var token = UUID.randomUUID().toString();
+		var registryLogins = getRegistryLoginFacades(token);
+		RuntimeTestUtils.testDocker(docker, registryLogins,
 				testData.getDockerImage(), getCpuLimit(), getMemoryLimit(), getRunOptions(),
-				this::getHostPath, jobLogger);
+				true, this::getHostPath, jobLogger);
+		var serverUrl = OneDev.getInstance(SettingService.class).getSystemSetting().getServerUrl();
+		RuntimeTestUtils.testDockerServerConnection(docker, registryLogins, serverUrl, token, getRunOptions(),
+				OneDev.getInstance(SSLFactory.class), jobLogger);
 	}
 
 	@Editable(name="Specify a Docker Image to Test Against")
 	public static class TestData implements Serializable {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		private String dockerImage;
 
-		@Editable
+		@Editable(description="Specify a Docker image to test against. The image must have shell, Git, Git LFS, and tmux installed")
 		@OmitName
 		@NotEmpty
 		public String getDockerImage() {
@@ -289,15 +304,23 @@ public class ServerDockerProvisioner extends WorkspaceProvisioner implements Doc
 	}
 
 	@Override
+	public ProvisionMode getProvisionMode() {
+		return ProvisionMode.DOCKER;
+	}
+
+	@Override
 	public WorkspaceRuntime provision(WorkspaceContext context, TaskLogger workspaceLogger) {		
 		checkApplicable();
-
-		if (!context.getSpec().isRunInContainer()) 
-			throw new ExplicitException("This workspace can only be provisioned by shell provisioner");
 
 		var serverAddress = getClusterService().getLocalServerAddress();
 		workspaceLogger.log("Provisioning workspace on server '" + serverAddress + "'...");
 		ServerProvisionerUtils.persistServerAddress(context.getWorkspaceId(), serverAddress);		
+
+		var containerName = "workspace-" + getName() + "-" + context.getProjectId() + "-" + context.getWorkspaceNumber();
+		var initContainerName = containerName + "-user-data-init";
+		// Stop containers left by a crash before accessing their writable workspace on the host.
+		WorkspaceUtils.deleteContainerIfExist(newDocker(), containerName, workspaceLogger);
+		WorkspaceUtils.deleteContainerIfExist(newDocker(), initContainerName, workspaceLogger);
 
 		var workspaceDir = ServerProvisionerUtils.getWorkspaceDir(context);
 		FileUtils.createDir(workspaceDir);
@@ -326,10 +349,9 @@ public class ServerDockerProvisioner extends WorkspaceProvisioner implements Doc
 				WORKSPACE_PATH + "/work");
 		
 		var cacheProvisioners = new ArrayList<CacheProvisioner>();
-		var cacheConfigIndex = 1;
 		for (var cacheConfig : context.getSpec().getCacheConfigs()) {
-			var cacheProvisioner = new ServerWorkspaceCacheProvisioner(cacheConfig.getFacade(), cacheConfigIndex++, context);
-			cacheProvisioner.download(workspaceDir, workspaceLogger);
+			var cacheProvisioner = new ServerWorkspaceCacheProvisioner(cacheConfig.getFacade(), context);
+			cacheProvisioner.download(workspaceDir, workspaceLogger, true);
 			cacheProvisioners.add(cacheProvisioner);
 		}
 
@@ -354,7 +376,7 @@ public class ServerDockerProvisioner extends WorkspaceProvisioner implements Doc
 
 		var containerReadyFile = new File(workspaceDir, CONTAINER_READY_FILE);
 		if (containerReadyFile.exists())
-			FileUtils.deleteFile(containerReadyFile);
+			FileUtils.deletePath(containerReadyFile);
 
 		var docker = newDocker();
 		var runAs = context.getSpec().getRunAs();
@@ -365,15 +387,11 @@ public class ServerDockerProvisioner extends WorkspaceProvisioner implements Doc
 		}
 		
 		try {
-			var containerName = "workspace-" + getName() + "-" + context.getProjectId() + "-" + context.getWorkspaceNumber();
 			var userDataInitEntrypointArgs = userDataProvisioner.getInitEntrypointArgs(WORKSPACE_PATH);
 			if (userDataInitEntrypointArgs != null) {
 				workspaceLogger.log("Initializing new user data...");
 
 				callWithRegistryLogins(docker, allRegistryLogins, () -> {
-					var initContainerName = containerName + "-user-data-init";
-					WorkspaceUtils.deleteContainerIfExist(docker, initContainerName, workspaceLogger);
-
 					WorkspaceUtils.setCommonDockerRunOptions(docker, initContainerName, runAs, isAlwaysPullImage(),
 							getCpuLimit(), getMemoryLimit());
 					docker.processKiller(newDockerKiller(newDocker(), initContainerName, workspaceLogger));
@@ -391,15 +409,13 @@ public class ServerDockerProvisioner extends WorkspaceProvisioner implements Doc
 				workspaceLogger.log("Starting docker container...");
 
 				callWithRegistryLogins(docker, allRegistryLogins, () -> {
-					WorkspaceUtils.deleteContainerIfExist(docker, containerName, workspaceLogger);
-
 					WorkspaceUtils.setCommonDockerRunOptions(docker, containerName, runAs, 
 							isAlwaysPullImage() && userDataInitEntrypointArgs == null,
 							getCpuLimit(), getMemoryLimit());
 					docker.processKiller(newDockerKiller(newDocker(), containerName, workspaceLogger));
 
-					if (!context.getSpec().getContainerPorts().isEmpty()) {
-						for (int containerPort : context.getSpec().getContainerPorts())
+					if (!context.getSpec().getExposedPorts().isEmpty()) {
+						for (int containerPort : context.getSpec().getExposedPorts())
 							docker.addArgs("--expose", String.valueOf(containerPort));
 						docker.addArgs("-P");
 					}
@@ -439,14 +455,14 @@ public class ServerDockerProvisioner extends WorkspaceProvisioner implements Doc
 				awaitContainerReady(future, containerReadyFile);
 
 				Map<Integer, Integer> portMappings;
-				if (!context.getSpec().getContainerPorts().isEmpty())
-					portMappings = getPublishedPorts(newDocker(), containerName, context.getSpec().getContainerPorts());
+				if (!context.getSpec().getExposedPorts().isEmpty())
+					portMappings = getPublishedPorts(newDocker(), containerName, context.getSpec().getExposedPorts());
 				else
 					portMappings = new HashMap<>();
 
 				var portHost = getPortHost();
 				var tailscaleIp = getTailscaleIp(newDocker(), containerName,
-						context.getScriptConfig(), context.getSpec().getContainerPorts());
+						context.getScriptConfig(), context.getSpec().getExposedPorts());
 				
 				var containerWorkDirPath = containerWorkspacePath + "/work";
 				return new WorkspaceRuntime() {
@@ -459,8 +475,8 @@ public class ServerDockerProvisioner extends WorkspaceProvisioner implements Doc
 
 					@Override
 					@Nullable
-					public FileData readFileData(String path) {
-						return WorkspaceUtils.readFileData(workspaceDir, path);
+					public FileData readFile(String path) {
+						return WorkspaceUtils.readFileData(newDocker(), containerName, containerWorkDirPath, path);
 					}
 
 					@Override
@@ -494,7 +510,8 @@ public class ServerDockerProvisioner extends WorkspaceProvisioner implements Doc
 							if (SystemUtils.IS_OS_LINUX && !osIds.equals("0:0")) 
 								changeOwner(newDocker(), osIds, workspaceDir, osIds, workspaceLogger);
 
-							upload(workspaceDir, userDataProvisioner, cacheProvisioners, workspaceLogger);
+							if (context.isDeleted())
+								upload(workspaceDir, userDataProvisioner, cacheProvisioners, workspaceLogger);
 						}
 					}
 

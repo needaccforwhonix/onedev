@@ -1,8 +1,9 @@
 package io.onedev.server.buildspecmodel.inputspec.showcondition;
 
+import java.io.Serial;
 import java.util.List;
 
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.Size;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.slf4j.Logger;
@@ -21,6 +22,7 @@ import io.onedev.server.annotation.OmitName;
 @Editable(order=200, name="does not have any value of")
 public class ValueIsNotAnyOf implements ValueMatcher {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private static final Logger logger = LoggerFactory.getLogger(ValueIsNotAnyOf.class);

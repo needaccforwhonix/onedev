@@ -306,17 +306,6 @@ body.markdown-editor-expanded {
 	word-break: break-word !important;
 	overflow-wrap: break-word !important;	
 }
-.markdown-rendered code.code-span {
-	cursor: pointer;
-}
-.markdown-rendered code.code-span.copied {
-	background-color: var(--primary);
-	color: white;
-}
-.dark-mode .markdown-rendered code.code-span.copied {
-	background-color: var(--primary);
-	color: white;
-}
 .markdown-rendered pre.code.suggestion {
 	white-space: normal;
 }
@@ -507,20 +496,6 @@ body.markdown-editor-expanded {
 	color: var(--primary);
 }
 
-#reference-tooltip {
-	z-index: 1000;
-	background-color: var(--light-info); 
-	border-radius: 0.42rem; 
-	color: var(--info);
-	font-size: 12px; 
-	padding: 1rem; 
-	box-shadow: 0px 10px 30px 0px rgba(82, 63, 105, 0.08);
-}
-.dark-mode #reference-tooltip {
-	background-color: var(--dark-mode-light-info); 
-	color: var(--info);
-}
-
 .markdown-image-loading {
 	position: absolute;
 	left: 0;
@@ -597,15 +572,23 @@ body.markdown-editor-expanded {
 	color: var(--dark-mode-gray) !important;
 }
 
+.markdown-rendered .mermaid,
 .markdown-rendered .plantuml {
 	overflow-x: auto;
 	margin-bottom: 1.2rem;
 }
 .markdown-rendered .plantuml svg {
-	max-width: 100%;
+	max-width: none;
 	height: auto;
 }
 .markdown-rendered .plantuml-error {
 	color: var(--danger);
 	white-space: pre-wrap;
+}
+.markdown-rendered .mermaid-error-summary {
+	margin-bottom: 1.2rem;
+}
+.markdown-rendered .mermaid-error {
+	color: var(--danger);
+	white-space: pre;
 }

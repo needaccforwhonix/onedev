@@ -4,6 +4,7 @@ import static io.onedev.commons.utils.match.WildcardUtils.matchPath;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toSet;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -11,7 +12,9 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.jspecify.annotations.Nullable;
 
@@ -27,7 +30,13 @@ import io.onedev.server.util.patternset.PatternSet;
 
 public class ProjectCache extends MapProxy<Long, ProjectFacade> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
+
+	// Keep only lookup hints and validate against the current replicated records.
+	private final Map<String, Long> idsByPath = new ConcurrentHashMap<>();
+
+	private final Map<String, Long> idsByKey = new ConcurrentHashMap<>();
 
 	public ProjectCache(Map<Long, ProjectFacade> delegate) {
 		super(delegate);
@@ -75,20 +84,39 @@ public class ProjectCache extends MapProxy<Long, ProjectFacade> {
 		return subtreeIds;
 	}
 
-    @Nullable
-    public ProjectFacade findByPath(String path) {
-    	for (ProjectFacade project: values()) {
-    		if (project.getPath().equalsIgnoreCase(path))
-    			return project;
-    	}
-    	return null;
-    }
+	@Nullable
+	public ProjectFacade findByPath(String path) {
+		var lookupPath = path.toLowerCase(Locale.ROOT);
+		var id = idsByPath.get(lookupPath);
+		if (id != null) {
+			var project = get(id);
+			if (project != null && project.getPath().equalsIgnoreCase(path))
+				return project;
+			idsByPath.remove(lookupPath, id);
+		}
+		for (ProjectFacade project: values()) {
+			if (project.getPath().equalsIgnoreCase(path)) {
+				idsByPath.put(lookupPath, project.getId());
+				return project;
+			}
+		}
+		return null;
+	}
 
 	@Nullable
 	public ProjectFacade findByKey(String key) {
-		for (ProjectFacade project: values()) {
-			if (key.equals(project.getKey()))
+		var id = idsByKey.get(key);
+		if (id != null) {
+			var project = get(id);
+			if (project != null && key.equals(project.getKey()))
 				return project;
+			idsByKey.remove(key, id);
+		}
+		for (ProjectFacade project: values()) {
+			if (key.equals(project.getKey())) {
+				idsByKey.put(key, project.getId());
+				return project;
+			}
 		}
 		return null;
 	}

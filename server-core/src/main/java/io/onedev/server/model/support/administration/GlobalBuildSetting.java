@@ -1,12 +1,13 @@
 package io.onedev.server.model.support.administration;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.jspecify.annotations.Nullable;
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.model.support.build.NamedBuildQuery;
@@ -14,6 +15,7 @@ import io.onedev.server.model.support.build.NamedBuildQuery;
 @Editable
 public class GlobalBuildSetting implements Serializable {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private List<NamedBuildQuery> namedQueries = new ArrayList<>();
@@ -32,8 +34,7 @@ public class GlobalBuildSetting implements Serializable {
 		namedQueries.add(new NamedBuildQuery("Build recently", "\"Submit Date\" is since \"last week\""));		
 	}
 	
-	@Valid
-	public List<NamedBuildQuery> getNamedQueries() {
+	public List<@Valid NamedBuildQuery> getNamedQueries() {
 		return namedQueries;
 	}
 

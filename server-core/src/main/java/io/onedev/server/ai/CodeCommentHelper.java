@@ -23,6 +23,7 @@ import io.onedev.server.model.CodeCommentStatusChange;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.service.CodeCommentReplyService;
 import io.onedev.server.service.CodeCommentStatusChangeService;
+import io.onedev.server.service.UrlService;
 
 public class CodeCommentHelper {
     
@@ -33,6 +34,7 @@ public class CodeCommentHelper {
 
         if (!SecurityUtils.canReadCode(subject, comment.getProject()))
             throw new UnauthorizedException();
+        SecurityUtils.checkWorkOnProject(subject, comment.getProject());
 
         var reply = new CodeCommentReply();
         reply.setComment(comment);
@@ -42,7 +44,7 @@ public class CodeCommentHelper {
         reply.setCompareContext(comment.getCompareContext());
         getCodeCommentReplyService().create(reply);
 
-        return getDetail(reply);
+        return Map.of("id", reply.getId(), "link", getUrlService().urlFor(reply, true));
     }
 
     public static Map<String, Object> changeStatus(Subject subject, CodeComment comment, 
@@ -59,7 +61,11 @@ public class CodeCommentHelper {
             getCodeCommentStatusChangeService().create(statusChange, note);    
         }
 
-        return getDetail(comment);
+        return getIdentity(comment);
+    }
+
+    public static Map<String, Object> getIdentity(CodeComment comment) {
+        return Map.of("id", comment.getId(), "link", getUrlService().urlFor(comment, true));
     }
 
     public static Map<String, Object> getDetail(CodeComment comment) {        
@@ -105,6 +111,10 @@ public class CodeCommentHelper {
 
     private static CodeCommentStatusChangeService getCodeCommentStatusChangeService() {
         return OneDev.getInstance(CodeCommentStatusChangeService.class);
+    }
+
+    private static UrlService getUrlService() {
+        return OneDev.getInstance(UrlService.class);
     }
     
 }

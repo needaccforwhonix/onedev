@@ -1,11 +1,12 @@
 package io.onedev.server.model.support.administration;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.Pattern;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.commons.utils.match.WildcardUtils;
@@ -23,6 +24,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 @Editable
 public class GroovyScript implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String BUILTIN_PREFIX = "builtin:";
@@ -91,7 +93,7 @@ public class GroovyScript implements Serializable {
 	}
 	
 	@Editable(order=600, placeholder="Any project", description="Optionally specify projects applicable for this provider. " +
-			"Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. " +
+			"Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. " +
 			"Multiple projects should be separated by space")
 	@Patterns(suggester="suggestProjects", path=true)
 	@DependsOn(property="canBeUsedByWorkspaceSpecs")		

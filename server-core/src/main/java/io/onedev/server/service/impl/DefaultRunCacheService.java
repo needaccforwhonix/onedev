@@ -4,6 +4,7 @@ import static io.onedev.commons.utils.LockUtils.read;
 import static io.onedev.commons.utils.LockUtils.write;
 import static io.onedev.server.util.IOUtils.BUFFER_SIZE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -12,17 +13,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectStreamException;
 import java.io.OutputStream;
+import java.io.Serial;
 import java.io.Serializable;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
 import org.joda.time.DateTime;
 import org.jspecify.annotations.Nullable;
@@ -32,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.onedev.commons.loader.ManagedSerializedForm;
+import io.onedev.commons.utils.ExplicitException;
 import io.onedev.commons.utils.FileUtils;
 import io.onedev.k8shelper.CacheAvailability;
 import io.onedev.server.event.Listen;
@@ -54,6 +58,7 @@ import io.onedev.server.util.concurrent.Prioritized;
 @Singleton
 public class DefaultRunCacheService implements RunCacheService, Serializable, SchedulableTask {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private static final int HOUSE_KEEPING_PRIORITY = 50;
@@ -93,10 +98,18 @@ public class DefaultRunCacheService implements RunCacheService, Serializable, Sc
 	}
 
 	private String getDirName(String key, @Nullable String checksum) {
-		if (checksum != null)
+		checkDirNamePart("key", key);
+		if (checksum != null) {
+			checkDirNamePart("checksum", checksum);
 			return encodePathSegment(key) + ":" + encodePathSegment(checksum);
-		else
+		} else {
 			return encodePathSegment(key);
+		}
+	}
+
+	private void checkDirNamePart(String name, String value) {
+		if (value.length() == 0 || value.equals(".") || value.contains(".."))
+			throw new ExplicitException("Invalid cache " + name + ": " + value);
 	}
 
 	private String getKeyFromDirName(String dirName) {
@@ -262,10 +275,16 @@ public class DefaultRunCacheService implements RunCacheService, Serializable, Sc
 			boolean wasNew = !pathIndexes.containsKey(path);
 			int index = PathIndexUtils.allocate(pathIndexes, path);
 			var pathFile = new File(cacheDir, String.valueOf(index));
-			try (var os = new FileOutputStream(pathFile)) {
-				cacheStreamHandler.accept(os);
+			var tempFile = FileUtils.createTempFile("data-", ".tmp", cacheDir);
+			try {
+				try (var os = new FileOutputStream(tempFile)) {
+					cacheStreamHandler.accept(os);
+				}
+				Files.move(tempFile.toPath(), pathFile.toPath(), REPLACE_EXISTING);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
+			} finally {
+				FileUtils.deletePath(tempFile);
 			}
 			if (wasNew)
 				PathIndexUtils.write(cacheDir, pathIndexes);
@@ -317,7 +336,7 @@ public class DefaultRunCacheService implements RunCacheService, Serializable, Sc
 	public void deleteCache(Long projectId, String key, @Nullable String checksum) {
 		var dirName = getDirName(key, checksum);
 		projectService.runOnActiveServer(projectId, () -> write(getLockName(projectId, dirName), () -> {
-			FileUtils.deleteDir(getCacheDir(projectId, dirName));
+			FileUtils.deletePath(getCacheDir(projectId, dirName));
 			return null;
 		}));
 	}
@@ -360,12 +379,12 @@ public class DefaultRunCacheService implements RunCacheService, Serializable, Sc
 							var dirName = child.getName();
 							write(getLockName(projectId, dirName), () -> {
 								if (!isCacheDirValid(child)) {
-									FileUtils.deleteDir(child);
+									FileUtils.deletePath(child);
 									return null;
 								}
 								var lastAccessTime = readLastAccessTime(child);
 								if (lastAccessTime < thresholdMillis)
-									FileUtils.deleteDir(child);
+									FileUtils.deletePath(child);
 								return null;
 							});
 						}

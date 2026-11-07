@@ -4,6 +4,7 @@ import static io.onedev.server.model.Alert.PROP_DATE;
 import static io.onedev.server.model.User.Type.AI;
 import static io.onedev.server.model.User.Type.ORDINARY;
 import static io.onedev.server.model.User.Type.SERVICE;
+import static io.onedev.server.oem.OemService.DEFAULT_WEBSITE;
 import static io.onedev.server.web.translation.Translation._T;
 import static org.apache.wicket.ajax.attributes.CallbackParameter.explicit;
 
@@ -18,8 +19,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Cookie;
+import jakarta.inject.Inject;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.wicket.Component;
 import org.apache.wicket.Page;
@@ -50,7 +52,6 @@ import org.apache.wicket.markup.html.list.ListItem;
 import org.apache.wicket.markup.html.list.ListView;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.repeater.Item;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -58,7 +59,7 @@ import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.flow.RedirectToUrlException;
 import org.apache.wicket.request.http.WebRequest;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
-import org.hibernate.criterion.Order;
+import io.onedev.server.persistence.dao.Order;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -66,8 +67,12 @@ import com.google.common.collect.Sets;
 import io.onedev.commons.bootstrap.Bootstrap;
 import io.onedev.commons.loader.AppLoader;
 import io.onedev.server.OneDev;
+import io.onedev.server.oem.OemService;
 import io.onedev.server.ServerConfig;
 import io.onedev.server.SubscriptionService;
+import io.onedev.server.model.Project;
+import io.onedev.server.service.ProjectService;
+import io.onedev.server.web.page.project.setting.ProjectSettingMenu;
 import io.onedev.server.cluster.ClusterService;
 import io.onedev.server.model.Alert;
 import io.onedev.server.model.User;
@@ -101,6 +106,7 @@ import io.onedev.server.web.page.HomePage;
 import io.onedev.server.web.page.admin.aisetting.ChatPreserveDaysPage;
 import io.onedev.server.web.page.admin.aisetting.ChatPromptsPage;
 import io.onedev.server.web.page.admin.aisetting.LiteModelPage;
+import io.onedev.server.web.page.admin.aisetting.JevPage;
 import io.onedev.server.web.page.admin.alertsettings.AlertSettingPage;
 import io.onedev.server.web.page.admin.authenticator.AuthenticatorPage;
 import io.onedev.server.web.page.admin.brandingsetting.BrandingSettingPage;
@@ -124,6 +130,7 @@ import io.onedev.server.web.page.admin.emailtemplates.ServiceDeskIssueOpenedTemp
 import io.onedev.server.web.page.admin.emailtemplates.StopwatchOverdueTemplatePage;
 import io.onedev.server.web.page.admin.emailtemplates.UserInvitationTemplatePage;
 import io.onedev.server.web.page.admin.gpgsigningkey.GpgSigningKeyPage;
+import io.onedev.server.web.page.admin.oauthsigningkey.OAuthSigningKeyPage;
 import io.onedev.server.web.page.admin.gpgtrustedkeys.GpgTrustedKeysPage;
 import io.onedev.server.web.page.admin.groovyscript.GroovyScriptListPage;
 import io.onedev.server.web.page.admin.groupmanagement.GroupListPage;
@@ -162,6 +169,10 @@ import io.onedev.server.web.page.base.BasePage;
 import io.onedev.server.web.page.help.IncompatibilitiesPage;
 import io.onedev.server.web.page.my.MyPage;
 import io.onedev.server.web.page.my.accesstoken.MyAccessTokensPage;
+import io.onedev.server.web.page.oauth.MyOAuthApplicationsPage;
+import io.onedev.server.web.page.oauth.MyOAuthApplicationPage;
+import io.onedev.server.web.page.oauth.MyAuthorizedApplicationPage;
+import io.onedev.server.web.page.oauth.MyAuthorizedApplicationsPage;
 import io.onedev.server.web.page.my.aisetting.MyEntitlementSettingPage;
 import io.onedev.server.web.page.my.aisetting.MyModelSettingPage;
 import io.onedev.server.web.page.my.aisetting.MyBehaviorPage;
@@ -182,6 +193,9 @@ import io.onedev.server.web.page.user.UserPage;
 import io.onedev.server.web.util.WicketUtils;
 
 public abstract class LayoutPage extends BasePage {
+
+	@Inject
+	private OemService oemService;
 	
 	private AbstractDefaultAjaxBehavior commandPaletteBehavior;
 
@@ -217,7 +231,7 @@ public abstract class LayoutPage extends BasePage {
 
 					@Override
 					protected String load() {
-						return getSettingService().getBrandingSetting().getName();
+						return getSettingService().getBrandingSetting().getEffectiveName();
 					}
 
 				}));
@@ -266,9 +280,10 @@ public abstract class LayoutPage extends BasePage {
 							GpgSigningKeyPage.class, new PageParameters()));
 					keyManagementMenuItems.add(new SidebarMenuItem.Page(null, _T("GPG Trusted Keys"),
 							GpgTrustedKeysPage.class, new PageParameters()));
+					keyManagementMenuItems.add(new SidebarMenuItem.Page(null, _T("OAuth Signing Key"),
+							OAuthSigningKeyPage.class, new PageParameters()));
 
-					var keysTitle = sshPort!=0? _T("SSH & GPG Keys"): _T("GPG Keys");
-					administrationMenuItems.add(new SidebarMenuItem.SubMenu(null, keysTitle, keyManagementMenuItems));
+					administrationMenuItems.add(new SidebarMenuItem.SubMenu(null, _T("Keys"), keyManagementMenuItems));
 
 					List<SidebarMenuItem> issueSettingMenuItems = new ArrayList<>();
 					issueSettingMenuItems.add(new SidebarMenuItem.Page(null, _T("Fields"), IssueFieldListPage.class, new PageParameters()));
@@ -365,6 +380,8 @@ public abstract class LayoutPage extends BasePage {
 					
 					aiMenuItems.add(new SidebarMenuItem.Page(null, _T("Lite Model"),
 							LiteModelPage.class, new PageParameters()));
+					aiMenuItems.add(new SidebarMenuItem.Page(null, _T("Jev"),
+							JevPage.class, new PageParameters()));
 					
 					aiMenuItems.add(new SidebarMenuItem.Page(null, _T("Builtin Chat Prompts"),
 							ChatPromptsPage.class, new PageParameters()));
@@ -373,6 +390,12 @@ public abstract class LayoutPage extends BasePage {
 							ChatPreserveDaysPage.class, new PageParameters()));
 
 					administrationMenuItems.add(new SidebarMenuItem.SubMenu(null, _T("AI Settings"), aiMenuItems));
+					if (isSubscriptionActive()) {
+						administrationMenuItems.add(new SidebarMenuItem.SubMenu(null, _T("Project Defaults"),
+								ProjectSettingMenu.getMenuItems(OneDev.getInstance(ProjectService.class).load(Project.DEFAULT_ID))));
+					} else {
+						administrationMenuItems.add(new SidebarMenuItem.SubscriptionRequired(null, _T("Project Defaults")));
+					}
 
 					administrationMenuItems.add(new SidebarMenuItem.Page(null, _T("Branding"),
 							BrandingSettingPage.class, new PageParameters()));
@@ -453,6 +476,7 @@ public abstract class LayoutPage extends BasePage {
 					Fragment fragment = new Fragment("header", "menuHeaderFrag", LayoutPage.this);
 					fragment.add(new ExternalImage("icon", Model.of(header.getImageUrl())));
 					fragment.add(new Label("label", header.getLabel()));
+					fragment.add(header.newBadge("badge"));
 					if (header.hasMoreInfo()) {
 						fragment.add(new DropdownLink("moreInfo") {
 
@@ -502,7 +526,7 @@ public abstract class LayoutPage extends BasePage {
 
 												@Override
 												protected Component newMessageContent(String componentId) {
-													return new Label(componentId, _T("This is an enterprise feature. <a href='https://onedev.io/pricing' target='_blank'>Try free</a> for 30 days")).setEscapeModelStrings(false);
+													return new Label(componentId, _T("This is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days")).setEscapeModelStrings(false);
 												}
 											};																
 										}
@@ -551,7 +575,7 @@ public abstract class LayoutPage extends BasePage {
 		});
 
 		var version = AppLoader.getProduct().getVersion();
-		sidebar.add(new ExternalLink("productVersion", "https://onedev.io", "OneDev " + version));
+		sidebar.add(new ExternalLink("productVersion", oemService.getWebsite(), oemService.getProductName() + " " + version));
 		
 		sidebar.add(new WebMarkupContainer("tryEE") {
 			@Override
@@ -570,14 +594,14 @@ public abstract class LayoutPage extends BasePage {
 			throw new RuntimeException(e);
 		}
 
-		var checkUpdateUrl = "https://onedev.io/check-update/" + commitHash + "-"
-				+ (WicketUtils.isSubscriptionActive()? "1": "0");
+		var checkUpdateUrl = oemService.getWebsite() + "/check-update/" + commitHash + "-"
+				+ (OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()? "1": "0");
 		sidebar.add(new AjaxLink<Void>("checkUpdate") {
 
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(getLoginUser() != null);
+				setVisible(DEFAULT_WEBSITE.equals(oemService.getWebsite()) && getLoginUser() != null);
 			}
 
 			@Override
@@ -596,17 +620,23 @@ public abstract class LayoutPage extends BasePage {
 			}
 		});
 		sidebar.add(new BookmarkablePageLink<Void>("incompatibilities", IncompatibilitiesPage.class));
-		sidebar.add(new Label("bugReport", new LoadableDetachableModel<String>() {
+		var isDefaultWebsite = DEFAULT_WEBSITE.equals(oemService.getWebsite());
+		var supportUrl = isDefaultWebsite
+				? "https://code.onedev.io/onedev/server/~issues?query=%22State%22+is+%22Open%22"
+				: oemService.getWebsite() + "/support";
+		sidebar.add(new ExternalLink("bugReport", Model.of(supportUrl), new LoadableDetachableModel<String>() {
 			@Override
 			protected String load() {
-				if (isSubscriptionActive() && SecurityUtils.isAdministrator())
+				if (!isDefaultWebsite)
+					return _T("Support & Bug Report");
+				else if (isSubscriptionActive() && SecurityUtils.isAdministrator())
 					return _T("Bug Report");
 				else
 					return _T("Support & Bug Report");
 			}
 
 		}));
-		if (SecurityUtils.isAdministrator())
+		if (isDefaultWebsite && SecurityUtils.isAdministrator())
 			sidebar.add(getSubscriptionService().renderSupportRequestLink("supportRequest"));
 		else
 			sidebar.add(new WebMarkupContainer("supportRequest").setVisible(false));
@@ -659,7 +689,7 @@ public abstract class LayoutPage extends BasePage {
 						var fragment = new Fragment(componentId, "alertMessageFrag", LayoutPage.this);
 						fragment.add(new Label("subject", alert.getSubject()).setEscapeModelStrings(false));
 
-						var detail = new Label("detail", new AbstractReadOnlyModel<String>() {
+						var detail = new Label("detail", new IModel<String>() {
 							@Override
 							public String getObject() {
 								return rowModel.getObject().getDetail();
@@ -926,7 +956,8 @@ public abstract class LayoutPage extends BasePage {
 			@Override
 			protected void onConfigure() {
 				super.onConfigure();
-				setVisible(getLoginUser() != null && !getSettingService().getSystemSetting().isDisableAutoUpdateCheck());
+				setVisible(DEFAULT_WEBSITE.equals(oemService.getWebsite()) && getLoginUser() != null
+						&& !getSettingService().getSystemSetting().isDisableAutoUpdateCheck());
 			}
 
 		});
@@ -1253,6 +1284,10 @@ public abstract class LayoutPage extends BasePage {
 							getPage() instanceof MyGpgKeysPage));
 					menuItems.add(newPageMenuItem(_T("Access Tokens"), "token", MyAccessTokensPage.class,
 							getPage() instanceof MyAccessTokensPage));
+					menuItems.add(newPageMenuItem(_T("OAuth Applications"), "application", MyOAuthApplicationsPage.class,
+							getPage() instanceof MyOAuthApplicationsPage || getPage() instanceof MyOAuthApplicationPage));
+					menuItems.add(newPageMenuItem(_T("Authorized Applications"), "application2", MyAuthorizedApplicationsPage.class,
+							getPage() instanceof MyAuthorizedApplicationsPage || getPage() instanceof MyAuthorizedApplicationPage));
 				}
 				if (user.getType() == ORDINARY && !user.isDisabled() && user.isEnforce2FA()) {
 					menuItems.add(newPageMenuItem(_T("Two-factor Authentication"), "shield",

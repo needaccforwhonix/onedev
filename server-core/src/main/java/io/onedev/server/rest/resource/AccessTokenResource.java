@@ -4,21 +4,15 @@ import static io.onedev.server.security.SecurityUtils.getAuthUser;
 import static io.onedev.server.security.SecurityUtils.isAdministrator;
 
 import java.util.Collection;
+import java.util.Objects;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
-import javax.ws.rs.BadRequestException;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import org.apache.shiro.authz.UnauthorizedException;
 
@@ -35,22 +29,20 @@ import io.onedev.server.rest.annotation.Api;
 @Produces(MediaType.APPLICATION_JSON)
 @Singleton
 public class AccessTokenResource {
-	
-	private final AccessTokenService accessTokenService;
 
-	private final AuditService auditService;
-	
 	@Inject
-	public AccessTokenResource(AccessTokenService accessTokenService, AuditService auditService) {
-		this.accessTokenService = accessTokenService;
-		this.auditService = auditService;
-	}
+	private AccessTokenService accessTokenService;
+
+	@Inject
+	private AuditService auditService;
 
 	@Api(order=100)
 	@Path("/{accessTokenId}")
 	@GET
 	public AccessToken getToken(@PathParam("accessTokenId") Long accessTokenId) {
 		var accessToken = accessTokenService.load(accessTokenId);
+		if (accessToken.getOauthGrant() != null)
+			throw new NotFoundException("Access token not found");
     	if (!isAdministrator() && !accessToken.getOwner().equals(getAuthUser())) 
 			throw new UnauthorizedException();
     	return accessToken;
@@ -61,6 +53,8 @@ public class AccessTokenResource {
 	@GET
 	public Collection<AccessTokenAuthorization> getAuthorizations(@PathParam("accessTokenId") Long accessTokenId) {
 		var accessToken = accessTokenService.load(accessTokenId);
+		if (accessToken.getOauthGrant() != null)
+			throw new NotFoundException("Access token not found");
 		if (!isAdministrator() && !accessToken.getOwner().equals(getAuthUser()))
 			throw new UnauthorizedException();
 		return accessToken.getAuthorizations();
@@ -69,6 +63,7 @@ public class AccessTokenResource {
 	@Api(order=200, description="Create access token")
 	@POST
 	public Long createToken(@NotNull @Valid AccessToken accessToken) {
+		// REST creation deserializes a new token, and @JsonIgnore keeps oauthGrant null.
 		var owner = accessToken.getOwner();
 		if (!isAdministrator() && !owner.equals(getAuthUser()))
 			throw new UnauthorizedException();
@@ -80,7 +75,7 @@ public class AccessTokenResource {
 			
 		accessTokenService.createOrUpdate(accessToken);
 
-		if (!getAuthUser().equals(owner)) {
+		if (!Objects.equals(getAuthUser(), owner)) {
 			var newAuditContent = VersionedXmlDoc.fromBean(accessToken.getFacade()).toXML();
 			auditService.audit(null, "created access token \"" + accessToken.getName() + "\" in account \"" + owner.getName() + "\" via RESTful API", 
 					null, newAuditContent);
@@ -93,6 +88,8 @@ public class AccessTokenResource {
 	@Path("/{accessTokenId}")
 	@POST
 	public Response updateToken(@PathParam("accessTokenId") Long accessTokenId, @NotNull @Valid AccessToken accessToken) {
+		if (accessToken.getOauthGrant() != null)
+			throw new NotFoundException("Access token not found");
 		var owner = accessToken.getOwner();
 		if (!isAdministrator() && !owner.equals(getAuthUser()))
 			throw new UnauthorizedException();
@@ -103,7 +100,7 @@ public class AccessTokenResource {
 		
 		accessTokenService.createOrUpdate(accessToken);
 
-		if (!getAuthUser().equals(owner)) {
+		if (!Objects.equals(getAuthUser(), owner)) {
 			var oldAuditContent = accessToken.getOldVersion().toXML();
 			var newAuditContent = VersionedXmlDoc.fromBean(accessToken).toXML();
 			auditService.audit(null, "changed access token \"" + accessToken.getName() + "\" in account \"" + owner.getName() + "\" via RESTful API", 
@@ -117,11 +114,13 @@ public class AccessTokenResource {
 	@DELETE
 	public Response deleteToken(@PathParam("accessTokenId") Long accessTokenId) {
 		var accessToken = accessTokenService.load(accessTokenId);
-		if (!isAdministrator() && !accessToken.getOwner().equals(getAuthUser())) 
+		if (accessToken.getOauthGrant() != null)
+			throw new NotFoundException("Access token not found");
+		if (!isAdministrator() && !accessToken.getOwner().equals(getAuthUser()))
 			throw new UnauthorizedException();
 		accessTokenService.delete(accessToken);
 
-		if (!getAuthUser().equals(accessToken.getOwner())) {
+		if (!Objects.equals(getAuthUser(), accessToken.getOwner())) {
 			var oldAuditContent = VersionedXmlDoc.fromBean(accessToken.getFacade()).toXML();
 			auditService.audit(null, "deleted access token \"" + accessToken.getName() + "\" from account \"" + accessToken.getOwner().getName() + "\" via RESTful API", 
 					oldAuditContent, null);

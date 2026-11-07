@@ -30,7 +30,7 @@ public class OAuthCallbackPage extends SimplePage {
 		
 		if (!state.equals(Session.get().getAttribute("oauthState"))) {
 			throw new ExplicitException(_T("Invalid state. Please make sure you are visiting "
-					+ "OneDev using server url specified in system setting"));
+					+ "${productName} using server url specified in system setting"));
 		} else {
 			Session.get().setAttribute("oauthCode", code);
 		}
@@ -50,13 +50,10 @@ public class OAuthCallbackPage extends SimplePage {
 	public void renderHead(IHeaderResponse response) {
 		super.renderHead(response);
 		
-		if (code != null) {
-			String script = String.format("window.open('', '%s').callback();", 
-					JavaScriptEscape.escapeJavaScript(state));
-			response.render(OnDomReadyHeaderItem.forScript(script));
-		} else {
-			response.render(OnDomReadyHeaderItem.forScript("window.close();"));
-		}
+		String script = String.format("var channel = new BroadcastChannel('onedev-refresh-token-%s');"
+				+ "channel.postMessage(%s);channel.close();window.close();",
+				JavaScriptEscape.escapeJavaScript(state), code != null);
+		response.render(OnDomReadyHeaderItem.forScript(script));
 	}
 	
 }

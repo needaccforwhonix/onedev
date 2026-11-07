@@ -1,12 +1,14 @@
 package io.onedev.server.model;
 
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.Index;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
+import java.io.Serial;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
@@ -15,12 +17,13 @@ import io.onedev.server.rest.annotation.Immutable;
 
 @Entity
 @Table(
-		indexes={@Index(columnList="o_project_id"), @Index(columnList="o_role_id")},
-		uniqueConstraints={@UniqueConstraint(columnNames={"o_project_id", "o_role_id"})
+		indexes={@Index(columnList="project_id"), @Index(columnList="role_id")},
+		uniqueConstraints={@UniqueConstraint(columnNames={"project_id", "role_id"})
 })
 @Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
 public class BaseAuthorization extends AbstractEntity {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static final String PROP_PROJECT = "project";

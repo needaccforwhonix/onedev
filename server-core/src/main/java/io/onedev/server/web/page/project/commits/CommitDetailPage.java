@@ -6,6 +6,7 @@ import static io.onedev.server.entityreference.ReferenceUtils.transformReference
 import static io.onedev.server.web.translation.Translation._T;
 import static java.util.stream.Collectors.toList;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -643,7 +644,7 @@ public class CommitDetailPage extends ProjectPage implements RevisionAnnotationS
 			@Override
 			public void setObject(String object) {
 				state.blameFile = object;
-				pushState(RequestCycle.get().find(AjaxRequestTarget.class));
+				pushState(RequestCycle.get().find(AjaxRequestTarget.class).orElse(null));
 			}
 
 		};
@@ -661,7 +662,7 @@ public class CommitDetailPage extends ProjectPage implements RevisionAnnotationS
 			@Override
 			public void setObject(String object) {
 				state.pathFilter = object;
-				pushState(RequestCycle.get().find(AjaxRequestTarget.class));
+				pushState(RequestCycle.get().find(AjaxRequestTarget.class).orElse(null));
 			}
 
 		};
@@ -679,7 +680,7 @@ public class CommitDetailPage extends ProjectPage implements RevisionAnnotationS
 			@Override
 			public void setObject(WhitespaceOption object) {
 				state.whitespaceOption = object;
-				AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class);
+				AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 				newParentsContainer(target);
 				pushState(target);
 			}
@@ -782,6 +783,7 @@ public class CommitDetailPage extends ProjectPage implements RevisionAnnotationS
 	
 	public static class State implements Serializable {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 		
 		public String revision;

@@ -2,6 +2,7 @@ package io.onedev.server.service.impl;
 
 import static io.onedev.server.model.Issue.PROP_OWN_ESTIMATED_TIME;
 import static io.onedev.server.model.Issue.PROP_OWN_SPENT_TIME;
+import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
@@ -10,6 +11,7 @@ import java.io.Serializable;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -19,27 +21,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Join;
-import javax.persistence.criteria.JoinType;
-import javax.persistence.criteria.Path;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
-import javax.persistence.criteria.Subquery;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 
 import org.apache.shiro.authz.UnauthorizedException;
 import org.apache.shiro.subject.Subject;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
-import org.hibernate.criterion.Order;
-import org.hibernate.criterion.Restrictions;
+import io.onedev.server.OneDev;
+import io.onedev.server.SubscriptionService;
+import io.onedev.server.persistence.dao.Order;
+import io.onedev.server.persistence.dao.Restrictions;
 import org.hibernate.query.Query;
-import org.hibernate.query.criteria.internal.path.SingularAttributePath;
+import org.hibernate.query.MutationQuery;
+import org.hibernate.query.sqm.tree.domain.SqmPath;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,13 +55,13 @@ import com.hazelcast.map.IMap;
 
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
-import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.commons.loader.ManagedSerializedForm;
 import io.onedev.commons.utils.StringUtils;
 import io.onedev.server.buildspecmodel.inputspec.choiceinput.choiceprovider.SpecifiedChoices;
 import io.onedev.server.cluster.ClusterService;
 import io.onedev.server.data.migration.VersionedXmlDoc;
 import io.onedev.server.entityreference.ReferenceMigrator;
+import io.onedev.server.data.DataService;
 import io.onedev.server.event.Listen;
 import io.onedev.server.event.ListenerRegistry;
 import io.onedev.server.event.entity.EntityPersisted;
@@ -84,6 +89,7 @@ import io.onedev.server.model.IssueSchedule;
 import io.onedev.server.model.Iteration;
 import io.onedev.server.model.LinkSpec;
 import io.onedev.server.model.Project;
+import io.onedev.server.model.ProjectNumberCounter;
 import io.onedev.server.model.User;
 import io.onedev.server.model.support.LastActivity;
 import io.onedev.server.model.support.administration.GlobalIssueSetting;
@@ -180,13 +186,16 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 	@Inject
 	private GitService gitService;
 	
+	@Inject
+	private DataService dataService;
+
 	private SequenceGenerator numberGenerator;
 	
 	private volatile IMap<String, Long> idCache;
 
 	private synchronized SequenceGenerator getNumberGenerator() {
 		if (numberGenerator == null) 
-			numberGenerator = new SequenceGenerator(Issue.class, clusterService, dao);
+			numberGenerator = new SequenceGenerator(Issue.class, ProjectNumberCounter.PROP_NEXT_ISSUE_NUMBER, clusterService, dao, dataService);
 		return numberGenerator;
 	}
 
@@ -203,9 +212,9 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		HazelcastInstance hazelcastInstance = clusterService.getHazelcastInstance();
         idCache = hazelcastInstance.getMap("issueIds");
         
-		var cacheInited = hazelcastInstance.getCPSubsystem().getAtomicLong("issueCacheInited");
+		var cacheInited = clusterService.getAtomicLong("issueCacheInited");
 		clusterService.initWithLead(cacheInited, () -> {
-			Query<?> query = dao.getSession().createQuery("select id, project.id, number from Issue");
+			Query<?> query = dao.getSession().createQuery("select id, project.id, number from Issue", Object[].class);
 			for (Object[] fields: (List<Object[]>)query.list()) {
 				Long issueId = (Long) fields[0];
 				Long projectId = (Long)fields[1];
@@ -308,7 +317,7 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		dao.persist(issue);
 	}
 
-	private javax.persistence.criteria.Order getOrder(EntitySort sort, CriteriaBuilder builder, From<Issue, Issue> issue) {
+	private jakarta.persistence.criteria.Order getOrder(EntitySort sort, CriteriaBuilder builder, From<Issue, Issue> issue) {
 		if (Issue.SORT_FIELDS.containsKey(sort.getField())) {
 			if (sort.getDirection() == Direction.ASCENDING)
 				return builder.asc(QueryUtils.getPath(issue, Issue.SORT_FIELDS.get(sort.getField()).getProperty()));
@@ -326,10 +335,10 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 
 	@SuppressWarnings("rawtypes")
 	@Override
-	public List<javax.persistence.criteria.Order> buildOrders(EntityQuery<Issue> query, CriteriaBuilder builder, 
+	public List<jakarta.persistence.criteria.Order> buildOrders(EntityQuery<Issue> query, CriteriaBuilder builder,
 															  From<Issue, Issue> issue, 
-															  List<javax.persistence.criteria.Order> preferOrders) {
-		List<javax.persistence.criteria.Order> orders = new ArrayList<>();
+															  List<jakarta.persistence.criteria.Order> preferOrders) {
+		List<jakarta.persistence.criteria.Order> orders = new ArrayList<>();
 
 		for (EntitySort sort: query.getSorts()) 
 			orders.add(getOrder(sort, builder, issue));
@@ -341,11 +350,11 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 				
 		var found = false;
 		for (var order: orders) {
-			if (order.getExpression() instanceof SingularAttributePath) {
-				var expr = (SingularAttributePath) order.getExpression();
-				if (expr.getAttribute().getName().equals(LastActivity.PROP_DATE) 
-						&& expr.getPathSource() instanceof SingularAttributePath 
-						&& ((SingularAttributePath) expr.getPathSource()).getAttribute().getName().equals(Issue.PROP_LAST_ACTIVITY)) {
+			if (order.getExpression() instanceof SqmPath) {
+				var expr = (SqmPath) order.getExpression();
+				if (expr.getReferencedPathSource().getPathName().equals(LastActivity.PROP_DATE)
+						&& expr.getLhs() instanceof SqmPath
+						&& ((SqmPath) expr.getLhs()).getReferencedPathSource().getPathName().equals(Issue.PROP_LAST_ACTIVITY)) {
 					found = true;
 					break;
 				}
@@ -371,7 +380,7 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 
 		criteriaQuery.where(buildPredicates(subject, projectScope, query.getCriteria(), criteriaQuery, builder, root));
 		var criteria = query.getCriteria();
-		List<javax.persistence.criteria.Order> preferOrders = new ArrayList<>();
+		List<jakarta.persistence.criteria.Order> preferOrders = new ArrayList<>();
 		if (criteria != null)
 			preferOrders.addAll(criteria.getPreferOrders(builder, root));
 		criteriaQuery.orderBy(buildOrders(query, builder, root, preferOrders));
@@ -417,9 +426,9 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 
 		criteriaQuery.where(buildPredicates(subject, projectScope, criteria, criteriaQuery, builder, root));
 		
-		criteriaQuery.multiselect(
+		criteriaQuery.select(builder.construct(IssueTimes.class,
 				builder.sum(root.get(PROP_OWN_ESTIMATED_TIME)), 
-				builder.sum(root.get(PROP_OWN_SPENT_TIME)));
+				builder.sum(root.get(PROP_OWN_SPENT_TIME))));
 		return getSession().createQuery(criteriaQuery).uniqueResult();
 	}
 	
@@ -556,25 +565,31 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		
 	}
 	
-	@SuppressWarnings("unchecked")
+	private List<Project> getProjectsForWorkflowReconciliation() {
+		var projects = new ArrayList<>(projectService.query());
+		if (OneDev.getInstance(SubscriptionService.class).isSubscriptionActive())
+			projects.add(projectService.load(Project.DEFAULT_ID));
+		return projects;
+	}
+
 	@Sessional
 	@Override
 	public Collection<String> getUndefinedStates() {
 		Collection<String> undefinedStates = getIssueSetting().getUndefinedStates();
 		
-		Query<String> query = getSession().createQuery("select distinct state from Issue");
+		Query<String> query = getSession().createQuery("select distinct state from Issue", String.class);
 		for (String state: query.getResultList()) {
 			if (getIssueSetting().getStateSpec(state) == null)
 				undefinedStates.add(state);
 		}
 
-		query = getSession().createQuery("select distinct state from IssueStateHistory");
+		query = getSession().createQuery("select distinct state from IssueStateHistory", String.class);
 		for (String state: query.getResultList()) {
 			if (getIssueSetting().getStateSpec(state) == null)
 				undefinedStates.add(state);
 		}
 		
-		for (Project project: projectService.query()) {
+		for (Project project: getProjectsForWorkflowReconciliation()) {
 			undefinedStates.addAll(project.getIssueSetting().getUndefinedStates());
 			undefinedStates.addAll(project.getBuildSetting().getUndefinedStates());
 		}
@@ -603,7 +618,6 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	@Sessional
 	@Override
 	public Collection<String> getUndefinedFields() {
@@ -611,14 +625,14 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		undefinedFields.addAll(settingService.getUndefinedIssueFields());
 		undefinedFields.addAll(roleService.getUndefinedIssueFields());
 		
-		Query<String> query = getSession().createQuery("select distinct name from IssueField");
+		Query<String> query = getSession().createQuery("select distinct name from IssueField", String.class);
 		for (String fieldName: query.getResultList()) {
 			FieldSpec field = getIssueSetting().getFieldSpec(fieldName);
 			if (field == null)
 				undefinedFields.add(fieldName);
 		}
 
-		for (Project project: projectService.query()) { 
+		for (Project project: getProjectsForWorkflowReconciliation()) {
 			undefinedFields.addAll(project.getIssueSetting().getUndefinedFields());
 			undefinedFields.addAll(project.getBuildSetting().getUndefinedFields());
 		}
@@ -655,7 +669,7 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		
 		undefinedFieldValues.addAll(settingService.getUndefinedIssueFieldValues());
 		
-		Query query = getSession().createQuery("select distinct name, value from IssueField where type=:choice");
+		Query query = getSession().createQuery("select distinct name, value from IssueField where type=:choice", Object[].class);
 		query.setParameter("choice", FieldSpec.ENUMERATION);
 		for (Object[] row: (List<Object[]>)query.getResultList()) {
 			String fieldName = (String) row[0];
@@ -667,7 +681,7 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 			}
 		}
 
-		for (Project project: projectService.query()) {
+		for (Project project: getProjectsForWorkflowReconciliation()) {
 			undefinedFieldValues.addAll(project.getIssueSetting().getUndefinedFieldValues());
 			undefinedFieldValues.addAll(project.getBuildSetting().getUndefinedFieldValues());
 		}
@@ -704,56 +718,30 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		
 		for (Map.Entry<String, UndefinedStateResolution> entry: resolutions.entrySet()) {
 			if (entry.getValue().getFixType() == UndefinedStateResolution.FixType.CHANGE_TO_ANOTHER_STATE) {
-				Query<?> query = getSession().createQuery("update Issue set state=:newState, stateOrdinal=:newStateOrdinal where state=:oldState");
+				var query = getSession().createMutationQuery("update Issue set state=:newState, stateOrdinal=:newStateOrdinal where state=:oldState");
 				query.setParameter("oldState", entry.getKey());
 				query.setParameter("newState", entry.getValue().getNewState());
 				query.setParameter("newStateOrdinal", getIssueSetting().getStateOrdinal(entry.getValue().getNewState()));
 				query.executeUpdate();
 
-				query = getSession().createQuery("update IssueStateHistory set state=:newState where state=:oldState");
+				query = getSession().createMutationQuery("update IssueStateHistory set state=:newState where state=:oldState");
 				query.setParameter("oldState", entry.getKey());
 				query.setParameter("newState", entry.getValue().getNewState());
 				query.executeUpdate();
 			} else {
-				Query<?> query = getSession().createQuery("delete from IssueField where issue in (select issue from Issue issue where issue.state=:state)");
-				query.setParameter("state", entry.getKey());
-				query.executeUpdate();
-				
-				query = getSession().createQuery("delete from IssueComment where issue in (select issue from Issue issue where issue.state=:state)");
-				query.setParameter("state", entry.getKey());
-				query.executeUpdate();
-				
-				query = getSession().createQuery("delete from IssueChange where issue in (select issue from Issue issue where issue.state=:state)");
-				query.setParameter("state", entry.getKey());
-				query.executeUpdate();
-				
-				query = getSession().createQuery("delete from IssueVote where issue in (select issue from Issue issue where issue.state=:state)");
-				query.setParameter("state", entry.getKey());
-				query.executeUpdate();
-				
-				query = getSession().createQuery("delete from IssueWatch where issue in (select issue from Issue issue where issue.state=:state)");
-				query.setParameter("state", entry.getKey());
-				query.executeUpdate();
+				// Bulk deletion checks workspaces and cascades all issue dependents.
+				getSession().createQuery("from Issue where state=:state", Issue.class)
+						.setParameter("state", entry.getKey()).getResultList().stream()
+						.collect(groupingBy(Issue::getProject))
+						.forEach((project, issues) -> delete(issues, project));
 
-				query = getSession().createQuery("delete from IssueAuthorization where issue in (select issue from Issue issue where issue.state=:state)");
-				query.setParameter("state", entry.getKey());
-				query.executeUpdate();
-
-				query = getSession().createQuery("delete from IssueStateHistory where issue in (select issue from Issue issue where issue.state=:state)");
-				query.setParameter("state", entry.getKey());
-				query.executeUpdate();
-				
-				query = getSession().createQuery("delete from Issue where state=:state");
-				query.setParameter("state", entry.getKey());
-				query.executeUpdate();
-
-				query = getSession().createQuery("delete from IssueStateHistory where state=:state");
+				var query = getSession().createMutationQuery("delete from IssueStateHistory where state=:state");
 				query.setParameter("state", entry.getKey());
 				query.executeUpdate();
 			}
 		}
 		
-		for (Project project: projectService.query()) { 
+		for (Project project: getProjectsForWorkflowReconciliation()) {
 			project.getIssueSetting().fixUndefinedStates(resolutions);
 			project.getBuildSetting().fixUndefinedStates(resolutions);
 		}
@@ -792,19 +780,19 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		roleService.fixUndefinedIssueFields(resolutions);
 		
 		for (Map.Entry<String, UndefinedFieldResolution> entry: resolutions.entrySet()) {
-			Query<?> query;
+			MutationQuery query;
 			if (entry.getValue().getFixType() == UndefinedFieldResolution.FixType.CHANGE_TO_ANOTHER_FIELD) {
-				query = getSession().createQuery("update IssueField set name=:newName where name=:oldName");
+				query = getSession().createMutationQuery("update IssueField set name=:newName where name=:oldName");
 				query.setParameter("oldName", entry.getKey());
 				query.setParameter("newName", entry.getValue().getNewField());
 			} else {
-				query = getSession().createQuery("delete from IssueField where name=:fieldName");
+				query = getSession().createMutationQuery("delete from IssueField where name=:fieldName");
 				query.setParameter("fieldName", entry.getKey());
 			}				
 			query.executeUpdate();
 		}
 		
-		for (Project project: projectService.query()) { 
+		for (Project project: getProjectsForWorkflowReconciliation()) {
 			project.getIssueSetting().fixUndefinedFields(resolutions);
 			project.getBuildSetting().fixUndefinedFields(resolutions);
 		}
@@ -842,19 +830,18 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		}
 	}
 
-	@SuppressWarnings("rawtypes")
 	@Transactional
 	@Override
 	public void fixUndefinedFieldValues(Map<String, UndefinedFieldValuesResolution> resolutions) {
 		for (Map.Entry<String, UndefinedFieldValuesResolution> resolutionEntry: resolutions.entrySet()) {
 			for (String deletion: resolutionEntry.getValue().getDeletions()) {
-				Query query = getSession().createQuery("delete from IssueField where name=:fieldName and value=:fieldValue");
+				var query = getSession().createMutationQuery("delete from IssueField where name=:fieldName and value=:fieldValue");
 				query.setParameter("fieldName", resolutionEntry.getKey());
 				query.setParameter("fieldValue", deletion);
 				query.executeUpdate();
 			}
 			for (Map.Entry<String, String> renameEntry: resolutionEntry.getValue().getRenames().entrySet()) {
-				Query query = getSession().createQuery("update IssueField set value=:newValue where name=:fieldName and value=:oldValue");
+				var query = getSession().createMutationQuery("update IssueField set value=:newValue where name=:fieldName and value=:oldValue");
 				query.setParameter("fieldName", resolutionEntry.getKey());
 				query.setParameter("oldValue", renameEntry.getKey());
 				query.setParameter("newValue", renameEntry.getValue());
@@ -862,7 +849,7 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 			}
 		}
 		
-		for (Project project: projectService.query()) {
+		for (Project project: getProjectsForWorkflowReconciliation()) {
 			project.getIssueSetting().fixUndefinedFieldValues(resolutions);
 			project.getBuildSetting().fixUndefinedFieldValues(resolutions);
 		}
@@ -906,7 +893,7 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 	public void fixStateAndFieldOrdinals() {
 		int stateOrdinal = 0;
 		for (StateSpec state: getIssueSetting().getStateSpecs()) {
-			Query query = getSession().createQuery("update Issue set stateOrdinal=:stateOrdinal "
+			var query = getSession().createMutationQuery("update Issue set stateOrdinal=:stateOrdinal "
 					+ "where state=:state and stateOrdinal!=:stateOrdinal");
 			query.setParameter("state", state.getName());
 			query.setParameter("stateOrdinal", stateOrdinal);
@@ -914,7 +901,7 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 			stateOrdinal++;
 		}
 		
-		Query query = getSession().createQuery("select distinct name, value, ordinal from IssueField where type=:choice");
+		Query query = getSession().createQuery("select distinct name, value, ordinal from IssueField where type=:choice", Object[].class);
 		query.setParameter("choice", FieldSpec.ENUMERATION);
 
 		for (Object[] row: (List<Object[]>)query.getResultList()) {
@@ -925,11 +912,11 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 			if (specifiedChoices != null) {
 				long newOrdinal = specifiedChoices.getChoiceValues().indexOf(value);
 				if (ordinal != newOrdinal) {
-					query = getSession().createQuery("update IssueField set ordinal=:newOrdinal where name=:fieldName and value=:fieldValue");
-					query.setParameter("fieldName", name);
-					query.setParameter("fieldValue", value);
-					query.setParameter("newOrdinal", newOrdinal);
-					query.executeUpdate();
+					var updateQuery = getSession().createMutationQuery("update IssueField set ordinal=:newOrdinal where name=:fieldName and value=:fieldValue");
+					updateQuery.setParameter("fieldName", name);
+					updateQuery.setParameter("fieldValue", value);
+					updateQuery.setParameter("newOrdinal", newOrdinal);
+					updateQuery.executeUpdate();
 				}
 			}
 		}
@@ -989,8 +976,8 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 			transactionService.runAfterCommit(() -> idCache.remove(cacheKey));			
 		} else if (event.getEntity() instanceof Project) {
 			Project project = (Project) event.getEntity();
-	    	if (project.getForkRoot().equals(project))
-	    		getNumberGenerator().removeNextSequence(project);
+			if (project.getForkRoot().equals(project))
+				transactionService.runAfterCommit(() -> getNumberGenerator().removeNextSequence(project));
 			
 			Long projectId = project.getId();
 			transactionService.runAfterCommit(() -> idCache.removeAll(entry -> entry.getKey().startsWith(projectId + ":")));
@@ -1008,9 +995,9 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		CriteriaQuery<IterationAndIssueState> criteriaQuery = builder.createQuery(IterationAndIssueState.class);
 		Root<IssueSchedule> root = criteriaQuery.from(IssueSchedule.class);
 		Join<Issue, Issue> issueJoin = root.join(IssueSchedule.PROP_ISSUE, JoinType.INNER);
-		criteriaQuery.multiselect(
+		criteriaQuery.select(builder.construct(IterationAndIssueState.class,
 				root.get(IssueSchedule.PROP_ITERATION).get(Iteration.PROP_ID), 
-				issueJoin.get(Issue.PROP_STATE));
+				issueJoin.get(Issue.PROP_STATE)));
 		
 		List<Predicate> iterationPredicates = new ArrayList<>();
 		for (Iteration iteration: iterations) 
@@ -1297,10 +1284,10 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 			CriteriaQuery<ProjectIssueStateStat> criteriaQuery = builder.createQuery(ProjectIssueStateStat.class);
 			Root<Issue> root = criteriaQuery.from(Issue.class);
 			
-			criteriaQuery.multiselect(
+			criteriaQuery.select(builder.construct(ProjectIssueStateStat.class,
 					root.get(Issue.PROP_PROJECT).get(Project.PROP_ID), 
 					root.get(Issue.PROP_STATE_ORDINAL), 
-					builder.count(root));
+					builder.count(root)));
 			criteriaQuery.groupBy(root.get(Issue.PROP_PROJECT), root.get(Issue.PROP_STATE_ORDINAL));
 			
 			Collection<Project> projectsWithConfidentialIssuePermission = new ArrayList<>();
@@ -1348,14 +1335,16 @@ public class DefaultIssueService extends BaseEntityService<Issue> implements Iss
 		return issueIds;
 	}
 
+	@Transactional
 	@Override
 	public Long getNextNumber(Project numberScope) {
-		return getNumberGenerator().getNextSequence(numberScope);
+		return getNumberGenerator().getNextSequence(numberScope.getForkRoot());
 	}
 
+	@Transactional
 	@Override
 	public void resetNextNumber(Project numberScope) {
-		getNumberGenerator().removeNextSequence(numberScope);
+		getNumberGenerator().resetNextSequence(numberScope.getForkRoot());
 	}
 
 	@Sessional

@@ -25,10 +25,15 @@ public class ProjectPermission implements BasePermission {
 	}
 
 	@Override
+	public boolean isWrite() {
+		return privilege.isWrite();
+	}
+
+	@Override
 	public boolean implies(Permission p) {
 		if (p instanceof ProjectPermission) {
 			ProjectPermission projectPermission = (ProjectPermission) p;
-			return project.isSelfOrAncestorOf(projectPermission.project) 
+			return project.isSelfOrSettingsAncestorOf(projectPermission.project)
 					&& privilege.implies(projectPermission.privilege);
 		} else {
 			return false;

@@ -10,7 +10,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 
-import javax.mail.MessagingException;
+import jakarta.mail.MessagingException;
 
 import org.apache.wicket.Component;
 import org.apache.wicket.event.IEvent;
@@ -20,14 +20,17 @@ import org.apache.wicket.markup.html.form.Button;
 import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.util.visit.IVisitor;
+import org.unbescape.html.HtmlEscape;
 
 import com.google.common.collect.Sets;
 
 import io.onedev.commons.utils.TaskLogger;
 import io.onedev.server.OneDev;
+import io.onedev.server.SubscriptionService;
 import io.onedev.server.annotation.SubscriptionRequired;
 import io.onedev.server.data.migration.VersionedXmlDoc;
 import io.onedev.server.mail.MailService;
+import io.onedev.server.oem.OemUtils;
 import io.onedev.server.persistence.SessionService;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.service.SettingService;
@@ -41,7 +44,6 @@ import io.onedev.server.web.editable.PropertyContext;
 import io.onedev.server.web.editable.PropertyEditor;
 import io.onedev.server.web.editable.PropertyUpdating;
 import io.onedev.server.web.page.admin.AdministrationPage;
-import io.onedev.server.web.util.WicketUtils;
 
 public class MailConnectorPage extends AdministrationPage {
 	
@@ -86,7 +88,7 @@ public class MailConnectorPage extends AdministrationPage {
 						(IVisitor<BeanEditor, BeanEditor>) (component, visit) -> visit.stop(component));
 				setEnabled(beanEditor == null 
 						|| beanEditor.getDescriptor().getBeanClass().getAnnotation(SubscriptionRequired.class) == null 
-						|| WicketUtils.isSubscriptionActive());
+						|| OneDev.getInstance(SubscriptionService.class).isSubscriptionActive());
 			}
 		};
 		saveButton.add(new DisableAwareBehavior());
@@ -117,7 +119,7 @@ public class MailConnectorPage extends AdministrationPage {
 				setVisible(beanEditor != null && beanEditor.isVisibleInHierarchy());
 				setEnabled(beanEditor == null
 						|| beanEditor.getDescriptor().getBeanClass().getAnnotation(SubscriptionRequired.class) == null
-						|| WicketUtils.isSubscriptionActive());
+						|| OneDev.getInstance(SubscriptionService.class).isSubscriptionActive());
 			}
 
 			@Override
@@ -149,8 +151,8 @@ public class MailConnectorPage extends AdministrationPage {
 						String subAddressed = systemAddress.getSubaddress(MailService.TEST_SUB_ADDRESS);
 						logger.log(MessageFormat.format(sendingMailText, subAddressed));
 						mailConnector.sendMail(Sets.newHashSet(subAddressed), Sets.newHashSet(), 
-								Sets.newHashSet(), uuid, "[Test] Test Email From OneDev", 
-								"This is a test email from OneDev", null, 
+								Sets.newHashSet(), uuid, HtmlEscape.escapeHtml5(OemUtils.interpolate("[Test] Test Email From ${productName}")),
+								OemUtils.interpolate("This is a test email from ${productName}"), null,
 								null, null, true);
 
 						logger.log(waitingMailText);
@@ -173,7 +175,7 @@ public class MailConnectorPage extends AdministrationPage {
 						if (emailAddress != null) {
 							String body = "Great, your mail service configuration is working!";
 							mailConnector.sendMail(Sets.newHashSet(emailAddress.getValue()),
-									Sets.newHashSet(), Sets.newHashSet(), "[Test] Test Email From OneDev",
+									Sets.newHashSet(), Sets.newHashSet(), OemUtils.interpolate("[Test] Test Email From ${productName}"),
 									body, body, null, null, null, true);
 							return new TaskResult(true, new PlainMessage(MessageFormat.format(mailSentText, emailAddress.getValue())));
 						} else {

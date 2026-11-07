@@ -1,24 +1,25 @@
 package io.onedev.server.rest.resource;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.NotAcceptableException;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotAcceptableException;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import org.apache.shiro.authz.UnauthorizedException;
 import org.eclipse.jgit.lib.ObjectId;
@@ -30,6 +31,7 @@ import io.onedev.server.model.Project;
 import io.onedev.server.model.PullRequest;
 import io.onedev.server.model.Workspace;
 import io.onedev.server.model.Workspace.Status;
+import io.onedev.server.rest.RestProjectUtils;
 import io.onedev.server.rest.annotation.Api;
 import io.onedev.server.rest.annotation.EntityCreate;
 import io.onedev.server.rest.resource.support.RestConstants;
@@ -103,7 +105,7 @@ public class WorkspaceResource {
 		if (user == null)
 			throw new UnauthorizedException();
 
-		Project project = projectService.load(data.getProjectId());
+		Project project = RestProjectUtils.loadProject(projectService, data.getProjectId());
 		if (!SecurityUtils.canCreateWorkspaces(subject, project))
 			throw new UnauthorizedException();
 
@@ -171,6 +173,7 @@ public class WorkspaceResource {
 	@EntityCreate(Workspace.class)
 	public static class WorkspaceCreateData implements Serializable {
 
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		@Api(order=100)

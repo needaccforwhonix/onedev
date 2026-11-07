@@ -5,21 +5,23 @@ import static io.onedev.server.util.IOUtils.BUFFER_SIZE;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.Serial;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.Invocation;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.Response;
+import jakarta.ws.rs.client.Client;
+import jakarta.ws.rs.client.ClientBuilder;
+import jakarta.ws.rs.client.Invocation;
+import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.Response;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.authz.UnauthorizedException;
 import org.apache.tika.mime.MimeTypes;
+import org.apache.wicket.request.Url;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.request.resource.AbstractResource;
@@ -42,6 +44,7 @@ import io.onedev.server.service.ProjectService;
 
 public class ArchiveResource extends AbstractResource {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private static final String PARAM_PROJECT = "project";
@@ -128,12 +131,14 @@ public class ArchiveResource extends AbstractResource {
 				} else {
 	    			Client client = ClientBuilder.newClient();
 	    			try {
-	    				CharSequence path = RequestCycle.get().urlFor(
+						var pathAndQuery = Url.parse(RequestCycle.get().urlFor(
 	    						new ArchiveResourceReference(), 
-	    						ArchiveResource.paramsOf(projectId, revision, format));
-	    				String activeServerUrl = clusterService.getServerUrl(activeServer) + path;
+								ArchiveResource.paramsOf(projectId, revision, format)));
+						String activeServerUrl = clusterService.getServerUrl(activeServer);
 	    				
-	    				WebTarget target = client.target(activeServerUrl).path(path.toString());
+						WebTarget target = client.target(activeServerUrl).path(pathAndQuery.getPath());
+						for (var entry: pathAndQuery.getQueryParameters())
+							target = target.queryParam(entry.getName(), entry.getValue());
 	    				Invocation.Builder builder =  target.request();
 	    				builder.header(HttpHeaders.AUTHORIZATION, 
 	    						KubernetesHelper.BEARER + " " + clusterService.getCredential());

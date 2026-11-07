@@ -2,6 +2,7 @@ package io.onedev.server.web.page.project.workspaces.detail;
 
 import static io.onedev.server.web.translation.Translation._T;
 
+import java.io.Serial;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -9,8 +10,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 
-import javax.inject.Inject;
-import javax.persistence.EntityNotFoundException;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityNotFoundException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.wicket.Component;
@@ -27,7 +28,6 @@ import org.apache.wicket.markup.html.link.BookmarkablePageLink;
 import org.apache.wicket.markup.html.link.ExternalLink;
 import org.apache.wicket.markup.html.link.Link;
 import org.apache.wicket.markup.html.panel.Fragment;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -74,6 +74,7 @@ import io.onedev.server.workspace.WorkspaceService;
 
 public abstract class WorkspaceDetailPage extends ProjectPage {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String PARAM_WOPKSPACE = "workspace";
@@ -149,7 +150,7 @@ public abstract class WorkspaceDetailPage extends ProjectPage {
 		head.add(new Label("spec", workspace.getSpecName()));
 		head.add(new InvalidWorkspaceSpecIcon("invalidSpec", workspaceModel));
 
-		head.add(new WorkspaceStatusIcon("statusIcon", new AbstractReadOnlyModel<Status>() {
+		head.add(new WorkspaceStatusIcon("statusIcon", new IModel<Status>() {
 
 			@Override
 			public Status getObject() {
@@ -157,7 +158,7 @@ public abstract class WorkspaceDetailPage extends ProjectPage {
 			}
 	
 		}));
-		head.add(new Label("statusLabel", new AbstractReadOnlyModel<String>() {
+		head.add(new Label("statusLabel", new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -422,6 +423,11 @@ public abstract class WorkspaceDetailPage extends ProjectPage {
 		return fragment;
 	}
 
+	@Override
+	protected String getPageTitle() {
+		return "workspace " + getWorkspace().getReference().toString(getProject());
+	}
+
 	public static PageParameters paramsOf(Workspace workspace) {
 		return paramsOf(workspace.getProject(), workspace.getNumber());
 	}
@@ -431,7 +437,7 @@ public abstract class WorkspaceDetailPage extends ProjectPage {
 		params.add(PARAM_WOPKSPACE, workspaceNumber);
 		return params;
 	}
-
+	
 	private List<ShortcutConfig> getShortcutConfigs() {
 		var spec = getProject().getHierarchyWorkspaceSpecs().stream()
 			.filter(it -> it.getName().equals(getWorkspace().getSpecName()))

@@ -1,14 +1,17 @@
 package org.apache.wicket.util.string;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.Test;
+import java.io.Serial;
+
+import org.junit.jupiter.api.Test;
 
 public class StringsCustomizationTest {
 
 	@Test
 	public void diagnosticsKeepMessagesAndStackWithoutRenderingHtmlTemplate() {
 		var cause = new RuntimeException("Missing component") {
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override

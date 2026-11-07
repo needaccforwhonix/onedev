@@ -2,6 +2,7 @@ package io.onedev.server.buildspec.step;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.Serial;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -26,6 +27,7 @@ import io.onedev.server.service.ProjectService;
 		description="This step pushes current commit to same ref on remote")
 public class PushRepository extends SyncRepository {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@Override
@@ -167,7 +169,7 @@ public class PushRepository extends SyncRepository {
 			} finally {
 				SecretMasker.pop();
 				if (certificateFile != null)
-					FileUtils.deleteFile(certificateFile);
+					FileUtils.deletePath(certificateFile);
 			}
 			return new ServerStepResult(true);
 		});

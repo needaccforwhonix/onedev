@@ -1,5 +1,6 @@
 package io.onedev.server.git.hook;
 
+import static io.onedev.server.oem.OemUtils.interpolate;
 import static io.onedev.server.security.SecurityUtils.asPrincipals;
 import static io.onedev.server.security.SecurityUtils.asSubject;
 
@@ -7,12 +8,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
@@ -73,7 +74,7 @@ public class GitPostReceiveCallback extends HttpServlet {
         
         if (!fields.get(2).equals(HookUtils.RECEIVE_HOOK_TOKEN)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN,
-                    "Git hook callbacks can only be accessed by OneDev itself");
+                    interpolate("Git hook callbacks can only be accessed by ${productName} itself"));
             return;
         }
 		

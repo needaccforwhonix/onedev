@@ -1,11 +1,13 @@
 package io.onedev.server.model;
 
-import javax.persistence.*;
+import java.io.Serial;
+
+import jakarta.persistence.*;
 
 @Entity
 @Table(
-		indexes={@Index(columnList="o_issue_id"), @Index(columnList="o_user_id")},
-		uniqueConstraints={@UniqueConstraint(columnNames={"o_issue_id", "o_user_id"})}
+		indexes={@Index(columnList="issue_id"), @Index(columnList="user_id")},
+		uniqueConstraints={@UniqueConstraint(columnNames={"issue_id", "user_id"})}
 )
 public class IssueMention extends AbstractEntity {
 
@@ -13,6 +15,7 @@ public class IssueMention extends AbstractEntity {
 	
 	public static final String PROP_ISSUE = "issue";
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@ManyToOne

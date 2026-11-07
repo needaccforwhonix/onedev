@@ -1,12 +1,14 @@
 package io.onedev.server.search.entity.project;
 
+import java.io.Serial;
+
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Join;
-import javax.persistence.criteria.JoinType;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 
 import io.onedev.server.model.GroupAuthorization;
 import io.onedev.server.model.Project;
@@ -18,6 +20,7 @@ import io.onedev.server.util.criteria.Criteria;
 
 public class OwnedByUserCriteria extends OwnedByCriteria {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final User user;
@@ -36,7 +39,7 @@ public class OwnedByUserCriteria extends OwnedByCriteria {
 		Join<?, ?> userAuthorizationJoin = from.join(Project.PROP_USER_AUTHORIZATIONS, JoinType.LEFT);
 
 		userAuthorizationJoin.on(builder.and(
-				builder.equal(userAuthorizationJoin.get(UserAuthorization.PROP_ROLE), Role.OWNER_ID), 
+				builder.equal(userAuthorizationJoin.get(UserAuthorization.PROP_ROLE).get(Role.PROP_ID), Role.OWNER_ID),
 				builder.equal(userAuthorizationJoin.get(UserAuthorization.PROP_USER), user)));
 		
 		if (user.getGroups().isEmpty()) {
@@ -44,7 +47,7 @@ public class OwnedByUserCriteria extends OwnedByCriteria {
 		} else {
 			Join<?, ?> groupAuthorizationJoin = from.join(Project.PROP_GROUP_AUTHORIZATIONS, JoinType.LEFT);
 			groupAuthorizationJoin.on(builder.and(
-					builder.equal(groupAuthorizationJoin.get(GroupAuthorization.PROP_ROLE), Role.OWNER_ID), 
+					builder.equal(groupAuthorizationJoin.get(GroupAuthorization.PROP_ROLE).get(Role.PROP_ID), Role.OWNER_ID),
 					groupAuthorizationJoin.get(GroupAuthorization.PROP_GROUP).in(user.getGroups())));
 			return builder.or(userAuthorizationJoin.isNotNull(), groupAuthorizationJoin.isNotNull());
 		}

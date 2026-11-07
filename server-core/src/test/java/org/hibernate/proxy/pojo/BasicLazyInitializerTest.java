@@ -1,11 +1,13 @@
 package org.hibernate.proxy.pojo;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.junit.Test;
+import java.io.Serial;
+
+import org.junit.jupiter.api.Test;
 
 import io.onedev.server.model.AbstractEntity;
 
@@ -56,12 +58,19 @@ public class BasicLazyInitializerTest {
 		var initializer = new Initializer(42L, true);
 		var proxy = new EntityReference(initializer);
 		assertEquals(42L, initializer.invoke(AbstractEntity.class.getMethod("getId"), new Object[0], proxy));
-		assertSame(BasicLazyInitializer.INVOKE_IMPLEMENTATION,
+		assertSame(Initializer.DELEGATED,
 				initializer.invoke(AbstractEntity.class.getMethod("isNew"), new Object[0], proxy));
 		assertTrue(initializer.isUninitialized());
 	}
 
 	private static class Initializer extends BasicLazyInitializer {
+		private static final Object DELEGATED = new Object();
+
+		@Override
+		protected Object call(Object proxy, java.lang.reflect.Method method, Object[] args) {
+			return DELEGATED;
+		}
+
 		private Initializer(Long id, boolean overridesEquals) throws NoSuchMethodException {
 			super(EntityReference.class.getName(), EntityReference.class, id,
 					AbstractEntity.class.getMethod("getId"), AbstractEntity.class.getMethod("setId", Long.class),
@@ -80,6 +89,7 @@ public class BasicLazyInitializerTest {
 	}
 
 	private static class EntityReference extends AbstractEntity {
+		@Serial
 		private static final long serialVersionUID = 1L;
 
 		private final Initializer initializer;

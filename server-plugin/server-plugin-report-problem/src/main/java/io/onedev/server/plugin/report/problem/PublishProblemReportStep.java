@@ -21,7 +21,7 @@ import io.onedev.server.persistence.SessionService;
 import io.onedev.server.persistence.dao.Dao;
 import org.apache.commons.lang3.SerializationUtils;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 import java.io.*;
 import java.util.Collection;
 import java.util.List;
@@ -31,6 +31,7 @@ import static io.onedev.server.codequality.CodeProblem.Severity.*;
 @Editable
 public abstract class PublishProblemReportStep extends PublishReportStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private Severity failThreshold = HIGH;
@@ -68,11 +69,11 @@ public abstract class PublishProblemReportStep extends PublishReportStep {
 								build.getProject().getId(), reportDir.getParentFile());
 						return aReport;
 					} else {
-						FileUtils.deleteDir(reportDir);
+						FileUtils.deletePath(reportDir);
 						return null;
 					}
 				} catch (Exception e) {
-					FileUtils.deleteDir(reportDir);
+					FileUtils.deletePath(reportDir);
 					throw ExceptionUtils.unchecked(e);
 				}
 			});

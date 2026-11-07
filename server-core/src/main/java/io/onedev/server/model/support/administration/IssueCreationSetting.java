@@ -16,13 +16,15 @@ import io.onedev.server.web.component.issue.workflowreconcile.UndefinedFieldValu
 import io.onedev.server.web.component.issue.workflowreconcile.UndefinedFieldValuesResolution;
 import io.onedev.server.web.util.SuggestionUtils;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.*;
 
 @Editable
 public class IssueCreationSetting implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String applicableProjects;
@@ -60,8 +62,7 @@ public class IssueCreationSetting implements Serializable {
 	@Editable(order=300)
 	@FieldNamesProvider("getFieldNames")
 	@OmitName
-	@Valid
-	public List<FieldInstance> getIssueFields() {
+	public List<@Valid FieldInstance> getIssueFields() {
 		return issueFields;
 	}
 

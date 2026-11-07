@@ -2,15 +2,16 @@ package io.onedev.server.search.entity.issue;
 
 import static io.onedev.server.search.entity.issue.IssueQuery.getRuleName;
 
+import java.io.Serial;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Predicate;
 
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.revwalk.RevCommit;
@@ -30,6 +31,7 @@ import io.onedev.server.util.criteria.Criteria;
 
 public class FixedBetweenCriteria extends Criteria<Issue> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final Project project;

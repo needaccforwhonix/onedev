@@ -1,6 +1,8 @@
 package io.onedev.server.exception.handler;
 
-import javax.servlet.http.HttpServletResponse;
+import java.io.Serial;
+
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.hibernate.StaleStateException;
 
@@ -8,6 +10,7 @@ import io.onedev.server.exception.HttpResponse;
 
 public class StaleStateExceptionHandler extends AbstractExceptionHandler<StaleStateException> {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@Override

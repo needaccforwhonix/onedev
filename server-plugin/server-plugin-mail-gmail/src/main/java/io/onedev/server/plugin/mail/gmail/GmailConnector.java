@@ -15,10 +15,11 @@ import io.onedev.server.util.EditContext;
 import io.onedev.server.util.oauth.RefreshTokenAccessor;
 import org.jetbrains.annotations.Nullable;
 
-import javax.mail.Message;
-import javax.validation.constraints.Email;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotEmpty;
+import jakarta.mail.Message;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotEmpty;
+import java.io.Serial;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,6 +29,7 @@ import java.util.function.Consumer;
 @Editable(name="Gmail", order=300)
 public class GmailConnector implements MailConnector {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private static final String AUTHORIZE_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -52,7 +54,7 @@ public class GmailConnector implements MailConnector {
 
 	private transient MailPosition mailPosition;
 
-	@Editable(order=100, description="Client ID of this OneDev instance registered in Google cloud")
+	@Editable(order=100, description="Client ID of this ${productName} instance registered in Google cloud")
 	@NotEmpty
 	public String getClientId() {
 		return clientId;
@@ -62,7 +64,7 @@ public class GmailConnector implements MailConnector {
 		this.clientId = clientId;
 	}
 
-	@Editable(order=200, description="Client secret of this OneDev instance registered in Google cloud")
+	@Editable(order=200, description="Client secret of this ${productName} instance registered in Google cloud")
 	@Password
 	@NotEmpty
 	public String getClientSecret() {

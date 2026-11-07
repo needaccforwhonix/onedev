@@ -1,10 +1,11 @@
 package io.onedev.server.buildspec.step;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.commons.codeassist.InputCompletion;
 import io.onedev.commons.codeassist.InputStatus;
@@ -18,6 +19,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 @Editable
 public class StepTemplate implements NamedElement {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String PROP_STEPS = "steps";
@@ -51,9 +53,8 @@ public class StepTemplate implements NamedElement {
 		return new ArrayList<>();
 	}
 	
-	@Editable(order=200, description="Steps will be executed serially on same node, sharing the same <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>")
-	@Valid
-	public List<Step> getSteps() {
+	@Editable(order=200, description="Steps will be executed serially on same node, sharing the same <a href='${docsite}/concepts#job-workdir'>job working directory</a>")
+	public List<@Valid Step> getSteps() {
 		return steps;
 	}
 
@@ -62,8 +63,7 @@ public class StepTemplate implements NamedElement {
 	}
 
 	@Editable(order=300, name="Parameter Specs", description="Optionally define parameter specifications of the step template")
-	@Valid
-	public List<ParamSpec> getParamSpecs() {
+	public List<@Valid ParamSpec> getParamSpecs() {
 		return paramSpecs;
 	}
 

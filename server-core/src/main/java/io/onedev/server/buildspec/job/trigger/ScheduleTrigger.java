@@ -15,12 +15,14 @@ import io.onedev.commons.utils.match.PathMatcher;
 import io.onedev.server.util.patternset.PatternSet;
 import io.onedev.server.web.util.SuggestionUtils;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
+import java.io.Serial;
 import java.util.List;
 
 @Editable(order=600, name="Cron schedule")
 public class ScheduleTrigger extends JobTrigger {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String cronExpression;
@@ -41,7 +43,7 @@ public class ScheduleTrigger extends JobTrigger {
 
 	@Editable(name="Applicable Branches", order=200, placeholder="Default branch", description=""
 			+ "Optionally specify space-separated branches applicable for this trigger. "
-			+ "Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
+			+ "Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. "
 			+ "Prefix with '-' to exclude. Leave empty for default branch")
 	@Patterns(suggester="suggestBranches", path=true)
 	public String getBranches() {

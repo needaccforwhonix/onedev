@@ -1,10 +1,11 @@
 package io.onedev.server.plugin.imports.jiracloud;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.OneDev;
 import io.onedev.server.service.SettingService;
@@ -17,6 +18,7 @@ import io.onedev.server.annotation.Editable;
 @Editable
 public class IssuePriorityMapping implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String jiraIssuePriority;
@@ -33,7 +35,7 @@ public class IssuePriorityMapping implements Serializable {
 		this.jiraIssuePriority = jiraIssuePriority;
 	}
 
-	@Editable(order=200, name="OneDev Issue Field", description="Specify a custom field of Enum type")
+	@Editable(order=200, name="${productName} Issue Field", description="Specify a custom field of Enum type")
 	@ChoiceProvider("getOneDevIssueFieldChoices")
 	@NotEmpty
 	public String getOneDevIssueField() {

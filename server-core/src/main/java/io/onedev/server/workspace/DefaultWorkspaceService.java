@@ -1,10 +1,12 @@
 package io.onedev.server.workspace;
 
+import static io.onedev.server.oem.OemUtils.interpolate;
 import static io.onedev.server.search.entity.EntitySort.Direction.ASCENDING;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.File;
 import java.io.ObjectStreamException;
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -31,20 +33,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Order;
-import javax.persistence.criteria.Path;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
-
 import org.apache.shiro.subject.Subject;
 import org.apache.wicket.protocol.ws.api.IWebSocketConnection;
 import org.eclipse.jgit.lib.ObjectId;
-import org.hibernate.criterion.Restrictions;
 import org.hibernate.query.Query;
 import org.jspecify.annotations.Nullable;
 import org.quartz.ScheduleBuilder;
@@ -58,15 +49,18 @@ import com.hazelcast.map.IMap;
 import io.onedev.agent.AgentUtils;
 import io.onedev.agent.workspace.FileData;
 import io.onedev.agent.workspace.GitExecutionResult;
+import io.onedev.agent.workspace.ProvisionMode;
 import io.onedev.commons.loader.ManagedSerializedForm;
 import io.onedev.commons.utils.ExceptionUtils;
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.commons.utils.FileUtils;
+import io.onedev.commons.utils.StringUtils;
 import io.onedev.commons.utils.TaskLogger;
 import io.onedev.k8shelper.DefaultCloneInfo;
 import io.onedev.server.OneDev;
 import io.onedev.server.cluster.ClusterService;
 import io.onedev.server.cluster.ClusterTask;
+import io.onedev.server.data.DataService;
 import io.onedev.server.event.Listen;
 import io.onedev.server.event.ListenerRegistry;
 import io.onedev.server.event.cluster.NodeStopping;
@@ -87,11 +81,11 @@ import io.onedev.server.model.AbstractEntity;
 import io.onedev.server.model.Agent;
 import io.onedev.server.model.Issue;
 import io.onedev.server.model.Project;
+import io.onedev.server.model.ProjectNumberCounter;
 import io.onedev.server.model.PullRequest;
 import io.onedev.server.model.User;
 import io.onedev.server.model.Workspace;
 import io.onedev.server.model.Workspace.Status;
-import io.onedev.server.model.support.administration.DockerAware;
 import io.onedev.server.model.support.administration.workspaceprovisioner.WorkspaceProvisioner;
 import io.onedev.server.model.support.workspace.spec.WorkspaceSpec;
 import io.onedev.server.persistence.SequenceGenerator;
@@ -100,6 +94,7 @@ import io.onedev.server.persistence.TransactionService;
 import io.onedev.server.persistence.annotation.Sessional;
 import io.onedev.server.persistence.annotation.Transactional;
 import io.onedev.server.persistence.dao.EntityCriteria;
+import io.onedev.server.persistence.dao.Restrictions;
 import io.onedev.server.search.entity.EntityQuery;
 import io.onedev.server.search.entity.EntitySort;
 import io.onedev.server.search.entity.workspace.WorkspaceQuery;
@@ -118,11 +113,21 @@ import io.onedev.server.util.criteria.Criteria;
 import io.onedev.server.util.interpolative.WorkspaceVariableInterpolator;
 import io.onedev.server.web.component.terminal.ShellExit;
 import io.onedev.server.web.editable.EditableUtils;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Order;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 
 @Singleton
 public class DefaultWorkspaceService extends BaseEntityService<Workspace> 
 		implements WorkspaceService, Runnable, SchedulableTask, Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private static final Logger logger = LoggerFactory.getLogger(DefaultWorkspaceService.class);
@@ -170,6 +175,9 @@ public class DefaultWorkspaceService extends BaseEntityService<Workspace>
 	@Inject
 	private Set<WorkspaceProvisionerDiscoverer> workspaceProvisionerDiscoverers;
 
+	@Inject
+	private DataService dataService;
+
 	private SequenceGenerator numberGenerator;
 
 	private final Map<String, WorkspaceContext> workspaceContexts = new ConcurrentHashMap<>();
@@ -202,7 +210,7 @@ public class DefaultWorkspaceService extends BaseEntityService<Workspace>
 
 	private synchronized SequenceGenerator getNumberGenerator() {
 		if (numberGenerator == null)
-			numberGenerator = new SequenceGenerator(Workspace.class, clusterService, dao);
+			numberGenerator = new SequenceGenerator(Workspace.class, ProjectNumberCounter.PROP_NEXT_WORKSPACE_NUMBER, clusterService, dao, dataService);
 		return numberGenerator;
 	}
 
@@ -260,8 +268,8 @@ public class DefaultWorkspaceService extends BaseEntityService<Workspace>
 	public void on(EntityRemoved event) {
 		if (event.getEntity() instanceof Project) {
 			Project project = (Project) event.getEntity();
-	    	if (project.getForkRoot().equals(project))
-	    		getNumberGenerator().removeNextSequence(project);
+			if (project.getForkRoot().equals(project))
+				transactionService.runAfterCommit(() -> getNumberGenerator().removeNextSequence(project));
 		} else if (event.getEntity() instanceof Workspace) {
 			var workspace = (Workspace) event.getEntity();
 			var loggingSupport = workspace.getLoggingSupport();
@@ -284,7 +292,7 @@ public class DefaultWorkspaceService extends BaseEntityService<Workspace>
 							checkSignal.release();
 
 							// Delete workspace storage after workspace server is removed to
-							// give a chance for cache to be uploaded
+							// give a chance for cache and user data to be uploaded
 							while (workspaceServers.containsKey(workspaceId))
 								Thread.sleep(1000);
 
@@ -298,7 +306,8 @@ public class DefaultWorkspaceService extends BaseEntityService<Workspace>
 								}	
 							} else if (AUTO_DISCOVERED_PROVISIONER_NAME.equals(provisionerName)) {
 								if (pinnedAgentId != null)
-									AgentProvisionerUtils.deleteWorkspace(projectId, workspaceNumber, pinnedAgentId);
+									AgentProvisionerUtils.deleteWorkspace(ProvisionMode.HOST,
+											projectId, workspaceNumber, pinnedAgentId);
 								else
 									ServerProvisionerUtils.deleteWorkspace(projectId, workspaceNumber, pinnedServerAddress);
 							} else if (provisionerName != null) {
@@ -312,7 +321,7 @@ public class DefaultWorkspaceService extends BaseEntityService<Workspace>
 
 							var logFile = getLogFile(projectId, workspaceNumber);
 							if (logFile.exists()) 
-								FileUtils.deleteFile(logFile);							
+								FileUtils.deletePath(logFile);
 						} catch (Throwable t) {
 							var message = "Error deleting workspace storage (project id: %d, workspace number: %d)"
 									.formatted(projectId, workspaceNumber);
@@ -433,9 +442,9 @@ public class DefaultWorkspaceService extends BaseEntityService<Workspace>
 			CriteriaBuilder builder = getSession().getCriteriaBuilder();
 			CriteriaQuery<ProjectWorkspaceStatusStat> criteriaQuery = builder.createQuery(ProjectWorkspaceStatusStat.class);
 			Root<Workspace> root = criteriaQuery.from(Workspace.class);
-			criteriaQuery.multiselect(
+			criteriaQuery.select(builder.construct(ProjectWorkspaceStatusStat.class,
 					root.get(Workspace.PROP_PROJECT).get(Project.PROP_ID),
-					root.get(Workspace.PROP_STATUS), builder.count(root));
+					root.get(Workspace.PROP_STATUS), builder.count(root)));
 			criteriaQuery.groupBy(root.get(Workspace.PROP_PROJECT), root.get(Workspace.PROP_STATUS));
 			criteriaQuery.where(root.get(Workspace.PROP_PROJECT).in(projects));
 			criteriaQuery.orderBy(builder.asc(root.get(Workspace.PROP_STATUS)));
@@ -461,7 +470,7 @@ public class DefaultWorkspaceService extends BaseEntityService<Workspace>
 		var workspaceNumber = workspace.getNumber();
 		
 		projectService.runOnActiveServer(projectId, (ClusterTask<Void>) () -> {
-			FileUtils.deleteFile(getLogFile(projectId, workspaceNumber));
+			FileUtils.deletePath(getLogFile(projectId, workspaceNumber));
 			return null;
 		});
 		
@@ -509,8 +518,8 @@ public class DefaultWorkspaceService extends BaseEntityService<Workspace>
 			taskFuture.cancel(true);
 
 		/*
-		 * Wait till all workspaces running on this server are stopped and finished uploading user data 
-		 * and caches. For workspaces initiated from current server, they will be cancelled above; for
+		 * Wait till all workspaces running on this server are stopped. For workspaces
+		 * initiated from current server, they will be cancelled above; for
 		 * workspaces initiated from other servers, they will be cancelled via NodeStopping event sent 
 		 * to other servers
 		 */
@@ -544,7 +553,7 @@ public class DefaultWorkspaceService extends BaseEntityService<Workspace>
 	@Sessional
 	protected Map<Long, Long> queryPendingOrActive() {
 		Query<?> query = getSession().createQuery("select id, project.id from Workspace where "
-				+ "status=:pending or status=:active");
+				+ "status=:pending or status=:active", Object[].class);
 		query.setParameter("pending", Workspace.Status.PENDING);
 		query.setParameter("active", Workspace.Status.ACTIVE);
 		
@@ -695,7 +704,7 @@ public class DefaultWorkspaceService extends BaseEntityService<Workspace>
 	}
 
 	private boolean isApplicable(Workspace workspace, WorkspaceSpec spec, WorkspaceProvisioner provisioner) {
-		if (spec.isRunInContainer() != (provisioner instanceof DockerAware))
+		if (spec.getProvisionMode() != provisioner.getProvisionMode())
 			return false;
 		else		
 			return provisioner.isApplicable(workspace.getProject());
@@ -717,8 +726,13 @@ public class DefaultWorkspaceService extends BaseEntityService<Workspace>
 		var spec = workspace.getSpec();
 		if (spec == null)
 			return null;
-		spec = new WorkspaceVariableInterpolator(workspace).interpolateProperties(spec);
-		return discoverProvisioner(workspace, spec);
+		Workspace.push(workspace);
+		try {
+			spec = new WorkspaceVariableInterpolator(workspace).interpolateProperties(spec);
+			return discoverProvisioner(workspace, spec);
+		} finally {
+			Workspace.pop();
+		}
 	}
 
 	@Nullable
@@ -761,15 +775,19 @@ public class DefaultWorkspaceService extends BaseEntityService<Workspace>
 				return provisioner;
 			}
 
-			if (spec.isRunInContainer()) {
-				throw new ExplicitException("""
+			if (spec.getProvisionMode() == ProvisionMode.DOCKER) {
+				throw new ExplicitException(interpolate("""
 					No applicable provisioner discovered for current workspace. \
-					Please check if docker is installed on OneDev server, or configure \
-					a kubernetes provisioner if you would like workspaces to run as pods""");
+					Please check if docker is installed on ${productName} server, or configure \
+					a kubernetes provisioner if you would like workspaces to run as pods"""));
+			} else if (spec.getProvisionMode() == ProvisionMode.SANDBOX) {
+				throw new ExplicitException(interpolate("""
+					No applicable provisioner discovered for current workspace. \
+					Please check if Docker Sandboxes (sbx) is installed on ${productName} server"""));
 			} else {
 				throw new ExplicitException("""
 					No applicable provisioner discovered for current workspace. \
-					Please add a shell provisioner in menu 'Administration / Workspace Provisioners'""");
+					Please add a host provisioner in menu 'Administration / Workspace Provisioners'""");
 			}
 		}
 	}
@@ -783,6 +801,11 @@ public class DefaultWorkspaceService extends BaseEntityService<Workspace>
 
 			var interpolator = new WorkspaceVariableInterpolator(workspace);
 			spec = interpolator.interpolateProperties(spec);
+			for (int i = 0; i < spec.getUserDatas().size(); i++) {
+				var key = spec.getUserDatas().get(i).getKey();
+				if (StringUtils.isBlank(key))
+					throw new ExplicitException("User data #" + (i + 1) + ": data key must not be empty after interpolation");
+			}
 
 			String token = workspace.getToken();
 			var project = workspace.getProject();
@@ -1122,7 +1145,7 @@ public class DefaultWorkspaceService extends BaseEntityService<Workspace>
 		return clusterService.runOnServer(server, () -> {
 			var runtime = workspaceRuntimes.get(workspaceId);
 			if (runtime != null)
-				return runtime.readFileData(path);
+				return runtime.readFile(path);
 			else
 				return null;
 		});

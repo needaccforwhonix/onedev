@@ -1,6 +1,7 @@
 package io.onedev.server.plugin.sso.openid;
 
 import java.io.IOException;
+import java.io.Serial;
 import java.net.URI;
 import java.net.URISyntaxException;
 
@@ -18,9 +19,10 @@ import io.onedev.server.annotation.Editable;
 import io.onedev.server.model.support.administration.sso.SsoAuthenticated;
 import net.minidev.json.JSONObject;
 
-@Editable(name="GitHub", order=100, description="Refer to this <a href='https://docs.onedev.io/tutorials/security/sso-with-github' target='_blank'>tutorial</a> for an example setup")
+@Editable(name="GitHub", order=100, description="Refer to this <a href='${docsite}/tutorials/security/sso-with-github' target='_blank'>tutorial</a> for an example setup")
 public class GitHubConnector extends OpenIdConnector {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@Override

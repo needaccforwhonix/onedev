@@ -2,6 +2,7 @@ package io.onedev.server.model.support.issue;
 
 import static io.onedev.server.web.translation.Translation._T;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -10,9 +11,9 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.validation.ValidationException;
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
+import jakarta.validation.ValidationException;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -26,6 +27,7 @@ import io.onedev.server.util.usage.Usage;
 @Editable
 public class TimeTrackingSetting implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private static final Pattern WORKING_PERIOD_PATTERN = Pattern.compile("(\\d+w)?(\\d+d)?(\\d+h)?(\\d+m)?");

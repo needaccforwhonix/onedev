@@ -1,10 +1,11 @@
 package io.onedev.server.plugin.report.jest;
 
 import java.io.File;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
@@ -27,9 +28,10 @@ import io.onedev.server.annotation.Patterns;
 @Editable(order=10000, group=StepGroup.PUBLISH, name="Jest Test Report")
 public class PublishJestReportStep extends PublishUnitTestReportStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
-	@Editable(order=100, description="Specify Jest test result file in json format relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. "
+	@Editable(order=100, description="Specify Jest test result file in json format relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>. "
 			+ "This file can be generated via Jest option <tt>'--json'</tt> and <tt>'--outputFile'</tt>. Use * or ? for pattern match")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Patterns(path=true)

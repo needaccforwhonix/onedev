@@ -1,14 +1,15 @@
 package io.onedev.server.search.entity.issue;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Order;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Order;
+import jakarta.persistence.criteria.Predicate;
 
 import io.onedev.commons.utils.StringUtils;
 import io.onedev.server.OneDev;
@@ -19,6 +20,7 @@ import io.onedev.server.util.criteria.Criteria;
 
 public class FuzzyCriteria extends Criteria<Issue> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private static final int MAX_TEXT_QUERY_COUNT = 1000;

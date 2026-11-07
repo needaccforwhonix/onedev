@@ -1,10 +1,12 @@
 package io.onedev.server.web.component.markdown;
 
+import java.util.Date;
+
 import static org.apache.wicket.ajax.attributes.CallbackParameter.explicit;
 
 import java.util.List;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.feedback.FencedFeedbackPanel;
@@ -38,18 +40,15 @@ import io.onedev.server.model.Project;
 import io.onedev.server.model.User;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.service.BuildService;
-import io.onedev.server.service.IssueService;
 import io.onedev.server.service.ProjectService;
-import io.onedev.server.service.PullRequestService;
-import io.onedev.server.service.SettingService;
 import io.onedev.server.service.UserService;
-import io.onedev.server.util.ColorUtils;
 import io.onedev.server.util.DateUtils;
-import io.onedev.server.web.asset.emoji.Emojis;
 import io.onedev.server.web.asset.lozad.LozadResourceReference;
 import io.onedev.server.web.avatar.AvatarService;
 import io.onedev.server.web.behavior.AbstractPostAjaxBehavior;
 import io.onedev.server.web.component.build.status.BuildStatusIcon;
+import io.onedev.server.web.component.referencetooltip.ReferenceTooltipBehavior;
+import io.onedev.server.web.component.referencetooltip.ReferenceTooltipTranslations;
 import io.onedev.server.web.component.svg.SpriteImage;
 import io.onedev.server.web.page.project.ProjectPage;
 import io.onedev.server.web.page.project.blob.render.BlobRenderContext;
@@ -79,15 +78,6 @@ public class MarkdownViewer extends GenericPanel<String> {
 
 	@Inject
 	private MarkdownService markdownService;
-
-	@Inject
-	private IssueService issueService;
-
-	@Inject
-	private PullRequestService pullRequestService;
-
-	@Inject
-	private SettingService settingService;
 
 	@Inject
 	private BuildService buildService;
@@ -158,7 +148,7 @@ public class MarkdownViewer extends GenericPanel<String> {
 		feedback.setOutputMarkupPlaceholderTag(true);
 		add(feedback);
 		
-		if (RequestCycle.get().find(AjaxRequestTarget.class) != null) {
+		if (RequestCycle.get().find(AjaxRequestTarget.class).orElse(null) != null) {
 			/*
 			 *  Render it as html will cause issue when markdown contains some html
 			 *  entities such as "&#27;" and when the component is rendered via ajax. 
@@ -221,48 +211,13 @@ public class MarkdownViewer extends GenericPanel<String> {
 				String referenceId = params.getParameterValue(REFERENCE_ID).toString();
 				switch (referenceType) {
 				case "issue":
-					EntityReference reference = IssueReference.of(referenceId, null);
-					var issue = issueService.find(reference.getProject(), reference.getNumber());
-					// check permission here as issue project may not be the same as current project
-					if (issue != null && SecurityUtils.canAccessIssue(issue)) {
-						String color = settingService.getIssueSetting().getStateSpec(issue.getState()).getColor();
-						String script = String.format("onedev.server.markdown.renderIssueTooltip('%s', '%s', '%s', '%s');", 
-								Emojis.getInstance().apply(JavaScriptEscape.escapeJavaScript(issue.getTitle())), 
-								JavaScriptEscape.escapeJavaScript(issue.getState()), 
-								ColorUtils.isLight(color)? "black": "white", color);
-						target.appendJavaScript(script);
-					} else {
-						target.appendJavaScript("onedev.server.markdown.renderIssueTooltip();");
-					}
+					ReferenceTooltipBehavior.renderTooltip(target, IssueReference.of(referenceId, null));
 					break;
 				case "pull request":
-					reference = PullRequestReference.of(referenceId, null);
-					var request = pullRequestService.find(reference.getProject(), reference.getNumber());
-					// check permission here as target project may not be the same as current project
-					if (request != null && SecurityUtils.canReadCode(request.getTargetProject())) {
- 	 					String status = request.getStatus().toString();
-						String statusCss;
-						switch (request.getStatus()) {
-						case OPEN:
-							statusCss = "badge-warning";
-							break;
-						case MERGED:
-							statusCss = "badge-success";
-							break;
-						default:
-							statusCss = "badge-danger";
-						}
-						
-						String script = String.format("onedev.server.markdown.renderPullRequestTooltip('%s', '%s', '%s');", 
-								Emojis.getInstance().apply(JavaScriptEscape.escapeJavaScript(request.getTitle())), 
-								status, statusCss);
-						target.appendJavaScript(script);
-					} else {
-						target.appendJavaScript("onedev.server.markdown.renderPullRequestTooltip();");
-					}
+					ReferenceTooltipBehavior.renderTooltip(target, PullRequestReference.of(referenceId, null));
 					break;
 				case "build":
-					reference = BuildReference.of(referenceId, null);
+					EntityReference reference = BuildReference.of(referenceId, null);
 					var build = buildService.find(reference.getProject(), reference.getNumber());
 					// check permission here as build project may not be the same as current project
 					if (build != null && SecurityUtils.canAccessProject(build.getProject())) {
@@ -272,18 +227,18 @@ public class MarkdownViewer extends GenericPanel<String> {
 						String title = build.getJobName();
 						if (build.getVersion() != null)
 							title += " : " + build.getVersion();
-						String script = String.format("onedev.server.markdown.renderBuildTooltip('%s', '%s', '%s');", 
+						String script = String.format("onedev.server.referenceTooltip.renderBuildTooltip('%s', '%s', '%s');",
 								JavaScriptEscape.escapeJavaScript(title), iconHref, iconCss);
 						target.appendJavaScript(script);
 					} else {
-						target.appendJavaScript("onedev.server.markdown.renderBuildTooltip();");
+						target.appendJavaScript("onedev.server.referenceTooltip.renderBuildTooltip();");
 					}
 					break;
 				case "user":
 					User user = userService.findByName(referenceId);
 					if (user != null) {
 						String avatarUrl = avatarService.getUserAvatarUrl(user.getId());
-						String script = String.format("onedev.server.markdown.renderUserTooltip('%s', '%s')", 
+						String script = String.format("onedev.server.referenceTooltip.renderUserTooltip('%s', '%s')",
 								JavaScriptEscape.escapeJavaScript(avatarUrl), 
 								JavaScriptEscape.escapeJavaScript(user.getDisplayName()));
 						target.appendJavaScript(script);
@@ -302,14 +257,14 @@ public class MarkdownViewer extends GenericPanel<String> {
 					if (commitProject != null)
 						commit = commitProject.getRevCommit(ObjectId.fromString(commitHash), false);
 					if (commit != null && SecurityUtils.canReadCode(commitProject)) {
-						String script = String.format("onedev.server.markdown.renderCommitTooltip('%s', '%s', '%s', '%s');",
+						String script = String.format("onedev.server.referenceTooltip.renderCommitTooltip('%s', '%s', '%s', '%s');",
 								JavaScriptEscape.escapeJavaScript(commit.getAuthorIdent().getName()), 
-								JavaScriptEscape.escapeJavaScript(DateUtils.formatAge(commit.getCommitterIdent().getWhen())),
-								JavaScriptEscape.escapeJavaScript(DateUtils.formatDateTime(commit.getCommitterIdent().getWhen())),
+								JavaScriptEscape.escapeJavaScript(DateUtils.formatAge(Date.from(commit.getCommitterIdent().getWhenAsInstant()))),
+								JavaScriptEscape.escapeJavaScript(DateUtils.formatDateTime(Date.from(commit.getCommitterIdent().getWhenAsInstant()))),
 								JavaScriptEscape.escapeJavaScript(commit.getFullMessage()));
 						target.appendJavaScript(script);
 					} else {
-						target.appendJavaScript("onedev.server.markdown.renderCommitTooltip();");
+						target.appendJavaScript("onedev.server.referenceTooltip.renderCommitTooltip();");
 					}
 					break;
 				case "workspace":
@@ -317,11 +272,11 @@ public class MarkdownViewer extends GenericPanel<String> {
 					var workspace = workspaceService.find(workspaceRef.getProject(), workspaceRef.getNumber());
 					if (workspace != null && SecurityUtils.canReadCode(workspace.getProject())) {
 						String title = workspace.getUser().getDisplayName() + " on " + workspace.getOnDescription() + " for " + workspace.getSpecName() + " (" + workspace.getStatus().name() + ")";
-						String script = String.format("onedev.server.markdown.renderWorkspaceTooltip('%s');",
+						String script = String.format("onedev.server.referenceTooltip.renderWorkspaceTooltip('%s');",
 								JavaScriptEscape.escapeJavaScript(title));
 						target.appendJavaScript(script);
 					} else {
-						target.appendJavaScript("onedev.server.markdown.renderWorkspaceTooltip();");
+						target.appendJavaScript("onedev.server.referenceTooltip.renderWorkspaceTooltip();");
 					}
 					break;
 				default:
@@ -381,11 +336,11 @@ public class MarkdownViewer extends GenericPanel<String> {
 		CharSequence suggestionCallback = suggestionBehavior.getCallbackFunction(
 				explicit(SUGGESTION_ACTION), explicit(SUGGESTION_CONTENT));
 		
-		String script = String.format("onedev.server.markdown.onViewerDomReady('%s', %s, '%s', %s, %s, %s);", 
+		String script = String.format("onedev.server.markdown.onViewerDomReady('%s', %s, '%s', %s, %s, %s, %s);",
 				getMarkupId(), 
 				contentVersionSupport!=null?taskCallback:"undefined", 
 				SourcePositionTrackExtension.DATA_START_ATTRIBUTE, 
-				referenceCallback, suggestionCallback, JavascriptTranslations.get());
+				referenceCallback, suggestionCallback, JavascriptTranslations.get(), ReferenceTooltipTranslations.get());
 		response.render(OnDomReadyHeaderItem.forScript(script));
 	}
 

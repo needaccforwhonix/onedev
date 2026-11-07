@@ -1,15 +1,16 @@
 package io.onedev.server.buildspec.job.gitcredential;
 
 import java.io.IOException;
+import java.io.Serial;
 import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.validation.ConstraintValidatorContext;
+import jakarta.validation.ConstraintValidatorContext;
 
 import org.apache.sshd.common.config.keys.KeyUtils;
 import org.apache.sshd.common.config.keys.PublicKeyEntry;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.k8shelper.CloneInfo;
 import io.onedev.k8shelper.SshCloneInfo;
@@ -29,11 +30,12 @@ import io.onedev.server.annotation.Editable;
 @ClassValidating
 public class SshCredential implements GitCredential, Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String keySecret;
 
-	@Editable(order=100, description="Specify a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as SSH private key")
+	@Editable(order=100, description="Specify a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as SSH private key")
 	@ChoiceProvider("getKeySecretChoices")
 	@NotEmpty
 	public String getKeySecret() {

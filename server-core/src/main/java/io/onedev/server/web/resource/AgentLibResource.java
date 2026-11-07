@@ -2,9 +2,10 @@ package io.onedev.server.web.resource;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Serial;
 import java.util.Collection;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.tika.mime.MimeTypes;
 import org.apache.wicket.request.resource.AbstractResource;
@@ -20,6 +21,7 @@ import io.onedev.server.security.SecurityUtils;
 
 public class AgentLibResource extends AbstractResource {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@Override
@@ -54,7 +56,7 @@ public class AgentLibResource extends AbstractResource {
 							TarUtils.tar(tempDir, os, false);
 						}
 					} finally {
-						FileUtils.deleteDir(tempDir);
+						FileUtils.deletePath(tempDir);
 					}
 				}				
 				

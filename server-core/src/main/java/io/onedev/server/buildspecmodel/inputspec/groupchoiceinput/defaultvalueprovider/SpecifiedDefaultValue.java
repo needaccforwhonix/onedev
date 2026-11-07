@@ -1,10 +1,11 @@
 package io.onedev.server.buildspecmodel.inputspec.groupchoiceinput.defaultvalueprovider;
 
+import java.io.Serial;
 import java.util.List;
 
-import javax.validation.Validator;
+import jakarta.validation.Validator;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import com.google.common.collect.Lists;
 
@@ -19,6 +20,7 @@ import io.onedev.server.annotation.OmitName;
 @Editable(order=100, name="Use specified default value")
 public class SpecifiedDefaultValue implements DefaultValueProvider {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String value;

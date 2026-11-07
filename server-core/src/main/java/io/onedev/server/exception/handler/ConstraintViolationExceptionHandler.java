@@ -1,13 +1,16 @@
 package io.onedev.server.exception.handler;
 
+import java.io.Serial;
+
 import io.onedev.server.exception.HttpResponse;
 
 import org.hibernate.exception.ConstraintViolationException;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 public class ConstraintViolationExceptionHandler extends AbstractExceptionHandler<ConstraintViolationException> {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@Override

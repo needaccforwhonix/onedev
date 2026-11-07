@@ -7,7 +7,7 @@
 	<parent>
 		<groupId>io.onedev</groupId>
 		<artifactId>server</artifactId>
-		<version>16.6.3</version>
+		<version>17.1.2</version>
 	</parent>
 	<dependencies>
 		<dependency>
@@ -117,7 +117,7 @@
 		</dependency>
 		<dependency>
 			<groupId>io.onedev</groupId>
-			<artifactId>server-plugin-executor-servershell</artifactId>
+			<artifactId>server-plugin-executor-serverhost</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
@@ -127,17 +127,27 @@
 		</dependency>
 		<dependency>
 			<groupId>io.onedev</groupId>
-			<artifactId>server-plugin-executor-remoteshell</artifactId>
+			<artifactId>server-plugin-executor-remotehost</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>io.onedev</groupId>
-			<artifactId>server-plugin-provisioner-servershell</artifactId>
+			<artifactId>server-plugin-executor-serversandbox</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.onedev</groupId>
+			<artifactId>server-plugin-provisioner-serverhost</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>io.onedev</groupId>
 			<artifactId>server-plugin-provisioner-serverdocker</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.onedev</groupId>
+			<artifactId>server-plugin-provisioner-serversandbox</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
@@ -321,8 +331,22 @@
 			<version>${project.version}</version>
 		</dependency>
 	</dependencies>
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>io.onedev</groupId>
+				<artifactId>plugin-maven</artifactId>
+				<configuration>
+					<distributionDirectory>${project.basedir}/wrapper/distribution</distributionDirectory>
+					<!-- These generated files are replaced on every package, including incremental builds. -->
+					<distributionCleanupIncludes>boot/**, bin/**, agent/**, conf/wrapper*.conf</distributionCleanupIncludes>
+					<agentConfigurationIncludes>conf/wrapper.conf</agentConfigurationIncludes>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
 	<properties>
-		<executables>bin/*.sh, boot/wrapper-*</executables>
+		<executables>bin/*.sh, boot/wrapper-*, agent/bin/*.sh, agent/boot/wrapper-*</executables>
 		<moduleClass>io.onedev.server.product.ProductModule</moduleClass>
 	</properties>
 </project>

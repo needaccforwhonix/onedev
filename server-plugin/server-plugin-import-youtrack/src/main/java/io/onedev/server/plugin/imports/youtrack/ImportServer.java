@@ -2,6 +2,7 @@ package io.onedev.server.plugin.imports.youtrack;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serial;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -19,13 +20,13 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jspecify.annotations.Nullable;
-import javax.validation.ConstraintValidatorContext;
-import javax.validation.constraints.NotEmpty;
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.Invocation;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.Response;
+import jakarta.validation.ConstraintValidatorContext;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.ws.rs.client.Client;
+import jakarta.ws.rs.client.ClientBuilder;
+import jakarta.ws.rs.client.Invocation;
+import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.Response;
 
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
@@ -93,6 +94,7 @@ import io.onedev.server.web.component.taskbutton.TaskResult.PlainMessage;
 @ClassValidating
 public class ImportServer implements Serializable, Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private static final Logger logger = LoggerFactory.getLogger(ImportServer.class);

@@ -20,9 +20,10 @@ import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serial;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -33,11 +34,12 @@ import static org.unbescape.html.HtmlEscape.escapeHtml5;
 @Editable(order=10000, group=StepGroup.PUBLISH, name="PMD Report")
 public class PublishPMDReportStep extends PublishProblemReportStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private static final int TAB_WIDTH = 8;
 	
-	@Editable(order=100, description="Specify PMD result xml file relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, "
+	@Editable(order=100, description="Specify PMD result xml file relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, "
 			+ "for instance, <tt>target/pmd.xml</tt>. Use * or ? for pattern match")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Patterns(path=true)

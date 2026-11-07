@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
@@ -140,6 +140,12 @@ public abstract class RunJobLink extends AjaxLink<Void> implements JobAuthorizat
 					}
 
 					new BuildOptionModalPanel(target, refNames, paramBean) {
+
+						@Override
+						public JobAuthorizationContext getJobAuthorizationContext() {
+							// The modal is attached to the page root, outside this link's hierarchy.
+							return RunJobLink.this.getJobAuthorizationContext();
+						}
 
 						@Override
 						protected void onSave(AjaxRequestTarget target, Collection<String> selectedRefNames,

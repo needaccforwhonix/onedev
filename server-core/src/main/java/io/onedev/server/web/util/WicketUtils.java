@@ -1,8 +1,8 @@
 package io.onedev.server.web.util;
 
 import io.onedev.server.OneDev;
-import io.onedev.server.SubscriptionService;
 import io.onedev.server.service.ProjectService;
+import io.onedev.server.util.HttpUtils;
 import io.onedev.server.util.LongRange;
 import io.onedev.server.util.facade.ProjectCache;
 import io.onedev.server.web.WebSession;
@@ -17,15 +17,11 @@ import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.resource.AbstractResource;
 
 import org.jspecify.annotations.Nullable;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.List;
 
 public class WicketUtils {
-
-	private static class SubscriptionActiveKey extends MetaDataKey<Boolean> {
-		static final SubscriptionActiveKey INSTANCE = new SubscriptionActiveKey();
-	};
 
 	private static class ProjectCacheKey extends MetaDataKey<ProjectCache> {
 
@@ -57,21 +53,6 @@ public class WicketUtils {
 		}
 	}
 	
-	public static boolean isSubscriptionActive() {
-		var subscriptionService = OneDev.getInstance(SubscriptionService.class);
-		var requestCycle = RequestCycle.get();
-		if (requestCycle != null) {
-			var subscriptionActive = requestCycle.getMetaData(SubscriptionActiveKey.INSTANCE);
-			if (subscriptionActive == null) {
-				subscriptionActive = subscriptionService.isSubscriptionActive();
-				requestCycle.setMetaData(SubscriptionActiveKey.INSTANCE, subscriptionActive);
-			}
-			return subscriptionActive;
-		} else {
-			return subscriptionService.isSubscriptionActive();
-		}
-	}
-
 	@Nullable
 	private static IPageRequestHandler getPageRequestHandler() {
 		var requestCycle = RequestCycle.get();
@@ -133,6 +114,11 @@ public class WicketUtils {
 		return "web-request:" + sessionId;
 	}
 	
+	public static boolean isBot() {
+		var request = (HttpServletRequest) RequestCycle.get().getRequest().getContainerRequest();
+		return HttpUtils.isBot(request);
+	}
+
 	public static boolean isDevice() {
 		HttpServletRequest request = (HttpServletRequest) RequestCycle.get().getRequest().getContainerRequest();
 		String userAgent = request.getHeader("User-Agent").toLowerCase();

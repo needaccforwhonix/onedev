@@ -9,8 +9,8 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
-import javax.inject.Inject;
-import javax.servlet.http.Cookie;
+import jakarta.inject.Inject;
+import jakarta.servlet.http.Cookie;
 
 import org.apache.wicket.AttributeModifier;
 import org.apache.wicket.Component;
@@ -28,8 +28,10 @@ import org.apache.wicket.markup.head.IHeaderResponse;
 import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.Panel;
-import org.apache.wicket.markup.repeater.RepeatingView;
-import org.apache.wicket.model.AbstractReadOnlyModel;
+import io.onedev.server.OneDev;
+import io.onedev.server.SubscriptionService;
+import io.onedev.server.web.component.RepeatingView;
+import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.http.WebRequest;
@@ -64,7 +66,6 @@ import io.onedev.server.web.component.issue.activities.activity.IssueWorkActivit
 import io.onedev.server.web.page.base.BasePage;
 import io.onedev.server.web.page.layout.LayoutPage;
 import io.onedev.server.web.page.security.LoginPage;
-import io.onedev.server.web.util.WicketUtils;
 
 public abstract class IssueActivitiesPanel extends Panel {
 
@@ -156,7 +157,7 @@ public abstract class IssueActivitiesPanel extends Panel {
 		}
 		
 		if (showWorkLog && getIssue().getProject().isTimeTracking() 
-				&& WicketUtils.isSubscriptionActive() 
+				&& OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()
 				&& canAccessTimeTracking(getIssue().getProject())) {
 			for (IssueWork work: getIssue().getWorks())
 				otherActivities.add(new IssueWorkActivity(work));
@@ -192,7 +193,6 @@ public abstract class IssueActivitiesPanel extends Panel {
 				updateActivities(handler);
 			}
 			
-			@SuppressWarnings("deprecation")
 			private void updateActivities(IPartialPageRequestHandler handler) {
 				Component prevActivityRow = null;
 				IssueActivity lastActivity = null;
@@ -232,7 +232,7 @@ public abstract class IssueActivitiesPanel extends Panel {
 			
 		});
 		
-		if (SecurityUtils.getAuthUser() != null) {
+		if (SecurityUtils.getAuthUser() != null && SecurityUtils.canWorkOnProject(getIssue().getProject())) {
 			Fragment fragment = new Fragment("addComment", "addCommentFrag", this);
 			fragment.setOutputMarkupId(true);
 			CommentInput input = new CommentInput("comment", Model.of(""), false) {
@@ -272,8 +272,9 @@ public abstract class IssueActivitiesPanel extends Panel {
 			form.add(new AjaxSubmitLink("save") {
 
 				@Override
-				protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-					super.onSubmit(target, form);
+				protected void onSubmit(AjaxRequestTarget target) {
+				Form<?> form = getForm();
+					super.onSubmit(target);
 					String content = input.getModelObject();
 					if (content.length() > IssueComment.MAX_CONTENT_LEN) {
 						error(_T("Comment too long"));
@@ -300,8 +301,9 @@ public abstract class IssueActivitiesPanel extends Panel {
 				}
 
 				@Override
-				protected void onError(AjaxRequestTarget target, Form<?> form) {
-					super.onError(target, form);
+				protected void onError(AjaxRequestTarget target) {
+				Form<?> form = getForm();
+					super.onError(target);
 					target.add(form);
 				}
 				
@@ -311,6 +313,7 @@ public abstract class IssueActivitiesPanel extends Panel {
 			add(fragment);
 		} else {
 			Fragment fragment = new Fragment("addComment", "loginToCommentFrag", this);
+			fragment.setVisible(SecurityUtils.canWorkOnProject(getIssue().getProject()));
 			fragment.add(new AjaxLink<Void>("login") {
 
 				@Override
@@ -375,7 +378,7 @@ public abstract class IssueActivitiesPanel extends Panel {
 			}
 
 		});
-		showCommentsLink.add(AttributeAppender.append("class", new AbstractReadOnlyModel<String>() {
+		showCommentsLink.add(AttributeAppender.append("class", new IModel<String>() {
 			@Override
 			public String getObject() {
 				return showComments?"active":"";
@@ -443,7 +446,7 @@ public abstract class IssueActivitiesPanel extends Panel {
 				super.onConfigure();
 				var project = getIssue().getProject();
 				setVisible(project.isTimeTracking() 
-						&& WicketUtils.isSubscriptionActive() 
+						&& OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()
 						&& canAccessTimeTracking(project));
 			}
 			

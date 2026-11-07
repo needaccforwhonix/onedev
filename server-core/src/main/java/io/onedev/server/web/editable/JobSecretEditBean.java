@@ -1,10 +1,11 @@
 package io.onedev.server.web.editable;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.model.support.build.JobSecret;
 import io.onedev.server.annotation.ChoiceProvider;
@@ -15,6 +16,7 @@ import io.onedev.server.web.util.WicketUtils;
 @Editable
 public class JobSecretEditBean implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String secret;

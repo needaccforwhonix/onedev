@@ -1,11 +1,12 @@
 package io.onedev.server.plugin.imports.bitbucketcloud;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.annotation.ChoiceProvider;
 import io.onedev.server.annotation.Editable;
@@ -15,6 +16,7 @@ import io.onedev.server.web.editable.BeanEditor;
 @Editable
 public class ImportWorkspace implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	ImportServer server;

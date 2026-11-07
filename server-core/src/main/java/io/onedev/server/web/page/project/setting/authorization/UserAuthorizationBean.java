@@ -1,10 +1,11 @@
 package io.onedev.server.web.page.project.setting.authorization;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.RoleChoice;
@@ -13,6 +14,7 @@ import io.onedev.server.annotation.UserChoice;
 @Editable
 public class UserAuthorizationBean implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String userName;

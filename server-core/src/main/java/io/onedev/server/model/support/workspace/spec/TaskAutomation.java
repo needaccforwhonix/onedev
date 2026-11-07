@@ -2,12 +2,14 @@ package io.onedev.server.model.support.workspace.spec;
 
 import static io.onedev.server.model.User.Type.AI;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 
 import io.onedev.server.OneDev;
 import io.onedev.server.annotation.Editable;
@@ -18,6 +20,7 @@ import io.onedev.server.service.UserService;
 @Editable
 public class TaskAutomation implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String runTaskCmd;
@@ -31,8 +34,8 @@ public class TaskAutomation implements Serializable {
 			prompt. The combined prompt is stored in environment variable <code>$TASK_PROMPT</code>. 
 			The system prompt and user prompt are also available separately as 
 			<code>$TASK_SYSTEM_PROMPT</code> and <code>$TASK_USER_PROMPT</code>.<br>
-			<b>NOTE: </b> <a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>OneDev tod CLI and companion skills</a> must also be installed to make task
-			automation work. OneDev workspace images ship these components out of the box""")
+			<b>NOTE: </b> <a href='https://code.onedev.io/onedev/tod/~files/main/readme.md' target='_blank'>${productName} tod CLI and companion skills</a> must also be installed to make task
+			automation work. ${productName} workspace images ship these components out of the box""")
 	@NotEmpty
 	public String getRunTaskCmd() {
 		return runTaskCmd;
@@ -46,7 +49,8 @@ public class TaskAutomation implements Serializable {
 			Optionally specify applicable AI users to use this workspace spec for task automation. Leave empty to allow all AI users. 
 			When a AI user creates workspace to do its job, the first applicable spec will be used.""")
 	@UserChoice("getAiUsers")
-	public List<String> getApplicableAis() {
+	@NotNull
+	public List<@NotNull String> getApplicableAis() {
 		return applicableAis;
 	}
 

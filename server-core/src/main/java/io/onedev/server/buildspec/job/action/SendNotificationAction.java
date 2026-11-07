@@ -1,6 +1,8 @@
 package io.onedev.server.buildspec.job.action;
 
-import javax.validation.constraints.NotEmpty;
+import java.io.Serial;
+
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.OneDev;
 import io.onedev.server.event.project.build.BuildFinished;
@@ -12,6 +14,7 @@ import io.onedev.server.annotation.NotificationReceiver;
 @Editable(name="Send notification", order=200)
 public class SendNotificationAction extends PostBuildAction {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private String receivers;

@@ -1,6 +1,5 @@
 package io.onedev.server.model.support.role;
 
-import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.server.OneDev;
 import io.onedev.server.annotation.Editable;
@@ -10,14 +9,17 @@ import io.onedev.server.service.BuildService;
 import io.onedev.server.web.util.SuggestionUtils;
 
 import org.jspecify.annotations.Nullable;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List; 
 
 @Editable
 public class JobPrivilege implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String jobNames;

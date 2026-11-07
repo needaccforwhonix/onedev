@@ -17,9 +17,10 @@ import io.onedev.server.util.XmlUtils;
 import org.dom4j.DocumentException;
 import org.dom4j.io.SAXReader;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serial;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -28,9 +29,10 @@ import java.util.List;
 @Editable(order=10000, group=StepGroup.PUBLISH, name="JUnit Report")
 public class PublishJUnitReportStep extends PublishUnitTestReportStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
-	@Editable(order=100, description="Specify JUnit test result file in XML format relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>, "
+	@Editable(order=100, description="Specify JUnit test result file in XML format relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a>, "
 			+ "for instance <tt>target/surefire-reports/TEST-*.xml</tt>. Use * or ? for pattern match")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Patterns(path=true)

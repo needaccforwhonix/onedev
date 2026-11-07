@@ -23,11 +23,11 @@ import org.hibernate.Transaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.persistence.FlushModeType;
-import javax.transaction.Status;
-import javax.transaction.Synchronization;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.persistence.FlushModeType;
+import jakarta.transaction.Status;
+import jakarta.transaction.Synchronization;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
@@ -42,6 +42,9 @@ public class DefaultTransactionService implements TransactionService {
 
 	@Inject
 	private SessionService sessionService;
+
+	@Inject
+	private IdService idService;
 
 	@Inject
 	private ExecutorService executorService;
@@ -66,6 +69,8 @@ public class DefaultTransactionService implements TransactionService {
 					tx.rollback();
 					throw ExceptionUtils.unchecked(t);
 				} finally {
+					// Hibernate skips remaining synchronizations if an earlier callback throws.
+					idService.clearTransaction(tx);
 					Collection<Runnable> runnables = completionRunnables.remove(tx);
 					if (runnables != null) {
 						for (Runnable runnable: runnables) {

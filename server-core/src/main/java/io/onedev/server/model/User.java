@@ -7,12 +7,14 @@ import static io.onedev.server.security.SecurityUtils.asPrincipals;
 import static io.onedev.server.security.SecurityUtils.asUserPrincipal;
 import static io.onedev.server.security.SecurityUtils.isAdministrator;
 
+import java.io.Serial;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -23,14 +25,14 @@ import java.util.Set;
 import java.util.Stack;
 import java.util.stream.Collectors;
 
-import javax.persistence.CascadeType;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Index;
-import javax.persistence.Lob;
-import javax.persistence.OneToMany;
-import javax.persistence.Table;
-import javax.validation.constraints.NotEmpty;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
+import jakarta.persistence.Lob;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotEmpty;
 
 import org.apache.shiro.authc.AuthenticationInfo;
 import org.apache.shiro.subject.PrincipalCollection;
@@ -43,9 +45,9 @@ import org.jspecify.annotations.Nullable;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.base.MoreObjects;
 
-import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.OneDev;
+import io.onedev.server.oem.OemUtils;
 import io.onedev.server.annotation.DependsOn;
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Password;
@@ -74,6 +76,7 @@ import io.onedev.server.exception.NotAcceptableException;
 @Editable
 public class User extends AbstractEntity implements AuthenticationInfo {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public enum Type {ORDINARY, SERVICE, AI};
@@ -143,6 +146,12 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 	@OneToMany(mappedBy="owner", cascade=CascadeType.REMOVE)
 	@Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
 	private Collection<AccessToken> accessTokens = new ArrayList<>();
+
+	@OneToMany(mappedBy="owner", cascade=CascadeType.REMOVE)
+	private Collection<OAuthGrant> oauthGrants = new ArrayList<>();
+
+	@OneToMany(mappedBy="owner", cascade=CascadeType.REMOVE)
+	private Collection<OAuthApplication> oauthApplications = new ArrayList<>();
 	
 	@OneToMany(mappedBy="user", cascade=CascadeType.REMOVE)
 	@Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
@@ -781,7 +790,9 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 	}
 	
 	public String getDisplayName() {
-		if (getFullName() != null)
+		if (isSystem())
+			return OemUtils.getProductName();
+		else if (getFullName() != null)
 			return getFullName();
 		else
 			return getName();
@@ -1347,6 +1358,8 @@ public class User extends AbstractEntity implements AuthenticationInfo {
 	}
 
 	public static String encodeWorkspaceDataKey(String dataKey) {
+		if (dataKey.equals(".") || dataKey.equals(".."))
+			throw new ExplicitException("Invalid workspace data key: " + dataKey);
 		try {
 			return URLEncoder.encode(dataKey, StandardCharsets.UTF_8.name());
 		} catch (UnsupportedEncodingException e) {

@@ -1,5 +1,6 @@
 package io.onedev.server.search.commit;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -16,6 +17,7 @@ import io.onedev.server.util.DateUtils;
 
 public class BeforeCriteria extends CommitCriteria {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final List<String> values;
@@ -39,7 +41,7 @@ public class BeforeCriteria extends CommitCriteria {
 	public boolean matches(RefUpdated event) {
 		RevCommit commit = event.getProject().getRevCommit(event.getNewCommitId(), true);
 		for (String value: values) {
-			if (!commit.getCommitterIdent().getWhen().before(DateUtils.parseRelaxed(value)))
+			if (!commit.getCommitterIdent().getWhenAsInstant().isBefore(DateUtils.parseRelaxed(value).toInstant()))
 				return false;
 		}
 		return true;

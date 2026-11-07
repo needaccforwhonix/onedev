@@ -21,8 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import javax.inject.Inject;
-import javax.ws.rs.core.MediaType;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.core.MediaType;
 
 import io.onedev.server.web.component.tabbable.AjaxActionTab;
 import io.onedev.server.web.component.tabbable.Tab;
@@ -155,16 +155,16 @@ public class MavenPackPanel extends GenericPanel<Pack> {
 							@Override
 							protected void onSelect(AjaxRequestTarget target, Component tabLink) {
 								Component content = newMavenInstructions(packaging, bindings, requireSettings);
-								target.add(content);
 								usageFrag.replace(content);
+								target.add(content);
 							}
 						}.setSelected(true));
 						buildToolTabs.add(new AjaxActionTab(Model.of(_T("Gradle"))) {
 							@Override
 							protected void onSelect(AjaxRequestTarget target, Component tabLink) {
 								Component content = newGradleInstructions(bindings, canAccessAnonymously);
-								target.add(content);
 								usageFrag.replace(content);
+								target.add(content);
 							}
 						});
 						usageFrag.add(new Tabbable("buildToolTabs", buildToolTabs));
@@ -281,7 +281,7 @@ public class MavenPackPanel extends GenericPanel<Pack> {
 			var template = Resources.toString(tplUrl, UTF_8);
 			fragment.add(new CodeSnippetPanel("pom", Model.of(evalTemplate(template, bindings).trim())));
 			fragment.add(new CodeSnippetPanel("settings", Model.of(evalTemplate(MavenPackSupport.getServersAndMirrorsTemplate(), bindings).trim())).setVisible(requireSettings));
-			fragment.add(new CodeSnippetPanel("jobCommands", Model.of(evalTemplate(MavenPackSupport.getJobCommandsTemplate(), bindings).trim())).setVisible(requireSettings));
+			fragment.add(new CodeSnippetPanel("jobCommands", Model.of(MavenPackSupport.getJobCommands(bindings).trim())).setVisible(requireSettings));
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -298,7 +298,7 @@ public class MavenPackPanel extends GenericPanel<Pack> {
 			fragment.add(new CodeSnippetPanel("gradleGroovy", Model.of(evalTemplate(groovyTpl, bindings).trim())));
 			fragment.add(new CodeSnippetPanel("gradleKotlin", Model.of(evalTemplate(kotlinTpl, bindings).trim())));
 			fragment.add(new CodeSnippetPanel("gradleProperties", Model.of(evalTemplate(MavenPackSupport.getGradlePropertiesTemplate(), bindings).trim())).setVisible(requireGradleCredentials));
-			fragment.add(new CodeSnippetPanel("gradleJobCommands", Model.of(evalTemplate(MavenPackSupport.getGradleJobCommandsTemplate(), bindings).trim())).setVisible(requireGradleCredentials));
+			fragment.add(new CodeSnippetPanel("gradleJobCommands", Model.of(MavenPackSupport.getGradleJobCommands(bindings).trim())).setVisible(requireGradleCredentials));
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}

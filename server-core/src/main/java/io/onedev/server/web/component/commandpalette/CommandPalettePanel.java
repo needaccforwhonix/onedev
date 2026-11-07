@@ -2,12 +2,11 @@ package io.onedev.server.web.component.commandpalette;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import edu.emory.mathcs.backport.java.util.Arrays;
-import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.commons.utils.PathUtils;
 import io.onedev.commons.utils.StringUtils;
 import io.onedev.commons.utils.match.PathMatcher;
 import io.onedev.server.OneDev;
+import io.onedev.server.SubscriptionService;
 import io.onedev.server.model.Project;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.util.ReflectionUtils;
@@ -23,7 +22,6 @@ import io.onedev.server.web.page.project.ProjectPage;
 import io.onedev.server.web.page.project.setting.ContributedProjectSetting;
 import io.onedev.server.web.page.project.setting.ProjectSettingContribution;
 import io.onedev.server.web.page.project.setting.pluginsettings.ContributedProjectSettingPage;
-import io.onedev.server.web.util.WicketUtils;
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
@@ -37,7 +35,7 @@ import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.TextField;
 import org.apache.wicket.markup.html.panel.Panel;
-import org.apache.wicket.markup.repeater.RepeatingView;
+import io.onedev.server.web.component.RepeatingView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -50,7 +48,6 @@ import static io.onedev.server.web.translation.Translation._T;
 import java.lang.reflect.Field;
 import java.util.*;
 
-@SuppressWarnings("unchecked")
 public abstract class CommandPalettePanel extends Panel {
 
 	private static final int PAGE_SIZE = 100;
@@ -66,6 +63,7 @@ public abstract class CommandPalettePanel extends Panel {
 
 	private static final PatternSet eeUrlPatterns = PatternSet.parse("" +
 			"~dashboards/** ~code-search/** ~administration/settings/storage-setting " +
+			"~administration/project-defaults/** " +
 			"~administration/cluster ~administration/audits ~administration/settings/time-tracking ${project}/~timesheets " +
 			"${project}/~stats/pull-request/duration ${project}/~stats/pull-request/frequency ${project}/~stats/build/duration " + 
 			"${project}/~stats/build/frequency ${project}/~stats/issue/state-frequency ${project}/~stats/issue/state-duration " + 
@@ -195,9 +193,9 @@ public abstract class CommandPalettePanel extends Panel {
 		super.onInitialize();
 
 		var matcher = new PathMatcher();
-		if (getPage() instanceof ProjectPage) {
+		if (getPage() instanceof ProjectPage && ((ProjectPage) getPage()).getProject().getId() > 0) {
 			for (String[] url: availableUrls) {
-				if (WicketUtils.isSubscriptionActive() 
+				if (OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()
 						|| !eeUrlPatterns.matches(matcher, Joiner.on("/").join(url))) {
 					try {
 						if (url.length > 1 && url[0].equals("${project}")) {
@@ -211,7 +209,7 @@ public abstract class CommandPalettePanel extends Panel {
 			}
 		}
 		for (String[] url: availableUrls) {
-			if (WicketUtils.isSubscriptionActive()
+			if (OneDev.getInstance(SubscriptionService.class).isSubscriptionActive()
 					|| !eeUrlPatterns.matches(matcher, Joiner.on("/").join(url))) {
 				boolean applicable = false;
 				if (SecurityUtils.isAdministrator()) {
@@ -309,14 +307,12 @@ public abstract class CommandPalettePanel extends Panel {
 						super.onComponentTag(tag);
 						if (url != null) {
 							if (url.startsWith("/")) {
-								tag.put("onclick", String.format("javascript:window.location='%s';", url));
+								tag.put("onclick", String.format("window.location='%s';", JavaScriptEscape.escapeJavaScript(url)));
 							} else {
 								String projectPath = ((ProjectPage)getPage()).getProject().getPath();
-								tag.put("onclick", String.format("javascript:window.location='/%s/%s';", projectPath, url));
+								tag.put("onclick", String.format("window.location='%s';", JavaScriptEscape.escapeJavaScript(String.format("/%s/%s", projectPath, url))));
 							}
 						}
-						else
-							tag.put("onclick", "javascript:void(0);");
 						if (searchBase != null)
 							tag.put("data-completion", searchBase);
 					}

@@ -2,15 +2,16 @@ package io.onedev.server.buildspec.step;
 
 import static java.util.stream.Collectors.toList;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Pattern;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.k8shelper.CommandFacade;
@@ -27,10 +28,12 @@ import io.onedev.server.buildspec.step.commandinterpreter.Interpreter;
 import io.onedev.server.model.Build;
 import io.onedev.server.model.support.administration.DockerAware;
 import io.onedev.server.model.support.administration.jobexecutor.JobExecutor;
+import io.onedev.server.model.support.administration.jobexecutor.SandboxAware;
 
 @Editable(order=100, name="Execute Commands")
 public class CommandStep extends Step {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static final String USE_TTY_HELP = "Many commands print outputs with ANSI colors in "
@@ -61,7 +64,8 @@ public class CommandStep extends Step {
 		this.runInContainer = runInContainer;
 	}
 	
-	@Editable(order=100, name="container:image", description="Specify container image to execute commands inside")
+	@Editable(order=100, name="container:image", description="""
+		Specify container image to execute commands inside. The image must have shell installed""")
 	@DependsOn(property="runInContainer")
 	@Interpolative(variableSuggester="suggestDynamicVariables")
 	@NotEmpty
@@ -100,8 +104,7 @@ public class CommandStep extends Step {
 			"those defined in job executor. For built-in registry, use <code>@server_url@</code> for registry url, " +
 			"<code>@job_token@</code> for user name, and access token secret for password secret")
 	@DependsOn(property="runInContainer")
-	@Valid
-	public List<RegistryLogin> getRegistryLogins() {
+	public List<@Valid RegistryLogin> getRegistryLogins() {
 		return registryLogins;
 	}
 
@@ -111,8 +114,7 @@ public class CommandStep extends Step {
 	
 	@Editable(order=9900, name="Environment Variables", group="More Settings", description="Optionally specify environment "
 			+ "variables for this step")
-	@Valid
-	public List<EnvVar> getEnvVars() {
+	public List<@Valid EnvVar> getEnvVars() {
 		return envVars;
 	}
 
@@ -151,6 +153,8 @@ public class CommandStep extends Step {
 
 	@Override
 	public boolean isApplicable(Build build, JobExecutor executor) {
+		if (executor instanceof SandboxAware)
+			return true;
 		if (isRunInContainer()) 
 			return executor instanceof DockerAware;
 		else 

@@ -2,12 +2,14 @@ package io.onedev.server.plugin.mail.gmail;
 
 import io.onedev.server.annotation.Editable;
 
-import javax.validation.constraints.Min;
+import jakarta.validation.constraints.Min;
+import java.io.Serial;
 import java.io.Serializable;
 
 @Editable
 public class InboxPollSetting implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private int pollInterval = 60;

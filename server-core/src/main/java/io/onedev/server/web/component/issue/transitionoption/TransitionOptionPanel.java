@@ -17,6 +17,7 @@ import io.onedev.server.web.ajaxlistener.ConfirmLeaveListener;
 import io.onedev.server.web.component.comment.CommentInput;
 import io.onedev.server.web.editable.BeanContext;
 import io.onedev.server.web.editable.BeanEditor;
+import io.onedev.server.web.util.ProjectAware;
 import org.apache.wicket.AttributeModifier;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.attributes.AjaxRequestAttributes;
@@ -39,7 +40,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-public abstract class TransitionOptionPanel extends Panel implements InputContext {
+public abstract class TransitionOptionPanel extends Panel implements InputContext, ProjectAware {
 
 	private String comment;
 	
@@ -59,7 +60,7 @@ public abstract class TransitionOptionPanel extends Panel implements InputContex
 			@Override
 			protected void onError() {
 				super.onError();
-				RequestCycle.get().find(AjaxRequestTarget.class).add(this);
+				RequestCycle.get().find(AjaxRequestTarget.class).orElse(null).add(this);
 			}
 			
 		};
@@ -102,8 +103,8 @@ public abstract class TransitionOptionPanel extends Panel implements InputContex
 		form.add(new AjaxButton("ok") {
 
 			@Override
-			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-				super.onSubmit(target, form);
+			protected void onSubmit(AjaxRequestTarget target) {
+				super.onSubmit(target);
 
 				Collection<String> editableFields = FieldUtils.getEditableFields(
 						getIssue().getProject(), getTransition().getPromptFields()); 
@@ -143,6 +144,11 @@ public abstract class TransitionOptionPanel extends Panel implements InputContex
 		});
 		
 		setOutputMarkupId(true);
+	}
+
+	@Override
+	public Project getProject() {
+		return getIssue().getProject();
 	}
 
 	@Override

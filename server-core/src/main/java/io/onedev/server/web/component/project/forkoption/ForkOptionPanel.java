@@ -11,7 +11,7 @@ import static java.util.stream.Collectors.toList;
 
 import java.util.Collection;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.apache.shiro.authz.UnauthorizedException;
 import org.apache.wicket.Session;
@@ -126,8 +126,9 @@ public abstract class ForkOptionPanel extends Panel {
 		form.add(new AjaxButton("save") {
 
 			@Override
-			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-				super.onSubmit(target, form);
+			protected void onSubmit(AjaxRequestTarget target) {
+				Form<?> form = getForm();
+				super.onSubmit(target);
 				
 				try {
 					if (editProject.getKey() != null && projectService.findByKey(editProject.getKey()) != null) {
@@ -151,7 +152,7 @@ public abstract class ForkOptionPanel extends Panel {
 						newProject.setIssueManagement(editProject.isIssueManagement());						
 						newProject.setWikiManagement(editProject.isWikiManagement());
 						newProject.setTimeTracking(editProject.isTimeTracking());
-						newProject.setCodeAnalysisSetting(getProject().getCodeAnalysisSetting());
+						newProject.setCodeIndexingSetting(getProject().getCodeIndexingSetting());
 						newProject.setGitPackConfig(getProject().getGitPackConfig());
 						newProject.getBuildSetting().setBuildPreservations(getProject().getBuildSetting().getBuildPreservations());
 						newProject.getBuildSetting().setCachePreserveDays(getProject().getBuildSetting().getCachePreserveDays());
@@ -193,8 +194,9 @@ public abstract class ForkOptionPanel extends Panel {
 			}
 
 			@Override
-			protected void onError(AjaxRequestTarget target, Form<?> form) {
-				super.onError(target, form);
+			protected void onError(AjaxRequestTarget target) {
+				Form<?> form = getForm();
+				super.onError(target);
 				target.add(form);
 			}
 			

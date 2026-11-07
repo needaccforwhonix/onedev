@@ -1,12 +1,14 @@
 package io.onedev.server.search.entity.workspace;
 
+import java.io.Serial;
+
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Join;
-import javax.persistence.criteria.JoinType;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.OneDev;
@@ -18,6 +20,7 @@ import io.onedev.server.util.criteria.Criteria;
 
 public class RanOnCriteria extends Criteria<Workspace> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final String value;

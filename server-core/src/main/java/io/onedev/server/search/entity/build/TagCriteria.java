@@ -1,11 +1,13 @@
 package io.onedev.server.search.entity.build;
 
+import java.io.Serial;
+
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Path;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
 
 import org.eclipse.jgit.lib.Constants;
 
@@ -16,6 +18,7 @@ import io.onedev.server.util.criteria.Criteria;
 
 public class TagCriteria extends Criteria<Build> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final String value;

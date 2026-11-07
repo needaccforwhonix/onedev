@@ -1,12 +1,14 @@
 package io.onedev.server.model.support.administration.workspaceprovisioner;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.concurrent.Future;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import org.jspecify.annotations.Nullable;
 
+import io.onedev.agent.workspace.ProvisionMode;
 import io.onedev.commons.loader.ExtensionPoint;
 import io.onedev.commons.utils.TaskLogger;
 import io.onedev.server.OneDev;
@@ -30,6 +32,7 @@ import io.onedev.server.workspace.WorkspaceService;
 @ExtensionPoint
 public abstract class WorkspaceProvisioner implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
 	private boolean enabled = true;
@@ -90,6 +93,8 @@ public abstract class WorkspaceProvisioner implements Serializable {
 	}
 
 	public abstract boolean isApplicable(Project project);
+
+	public abstract ProvisionMode getProvisionMode();
 
 	public abstract WorkspaceRuntime provision(WorkspaceContext context, TaskLogger logger);
 

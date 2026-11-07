@@ -186,7 +186,7 @@ public class UnitTestCasesPage extends UnitTestReportPage {
 				protected List<String> getHints(TerminalExpect terminalExpect) {
 					return Lists.newArrayList(
 							_T("Path containing spaces or starting with dash needs to be quoted"),
-							_T("Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude")
+							_T("Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude")
 					);
 				}
 
@@ -221,8 +221,8 @@ public class UnitTestCasesPage extends UnitTestReportPage {
 				}
 
 				@Override
-				protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-					super.onSubmit(target, form);
+				protected void onSubmit(AjaxRequestTarget target) {
+					super.onSubmit(target);
 					pushState(target);
 					testSuitePatterns = parseTestSuitePatterns();
 					if (testSuitePatterns == null)
@@ -269,7 +269,7 @@ public class UnitTestCasesPage extends UnitTestReportPage {
 				protected List<String> getHints(TerminalExpect terminalExpect) {
 					return Lists.newArrayList(
 							_T("Path containing spaces or starting with dash needs to be quoted"),
-							_T("Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude")
+							_T("Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude")
 					);
 				}
 
@@ -304,8 +304,8 @@ public class UnitTestCasesPage extends UnitTestReportPage {
 				}
 
 				@Override
-				protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-					super.onSubmit(target, form);
+				protected void onSubmit(AjaxRequestTarget target) {
+					super.onSubmit(target);
 					pushState(target);
 					namePatterns = parseNamePatterns();
 					if (namePatterns == null)

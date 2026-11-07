@@ -3,6 +3,7 @@ package io.onedev.server.web.page.project.builds.detail;
 import static io.onedev.server.ai.ToolUtils.wrapForChat;
 import static io.onedev.server.web.translation.Translation._T;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -11,8 +12,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
-import javax.inject.Inject;
-import javax.persistence.EntityNotFoundException;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityNotFoundException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.wicket.Component;
@@ -31,7 +32,6 @@ import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.link.BookmarkablePageLink;
 import org.apache.wicket.markup.html.link.Link;
 import org.apache.wicket.markup.html.panel.Fragment;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -92,7 +92,7 @@ import io.onedev.server.web.page.project.builds.ProjectBuildsPage;
 import io.onedev.server.web.page.project.builds.detail.artifacts.BuildArtifactsPage;
 import io.onedev.server.web.page.project.builds.detail.changes.BuildChangesPage;
 import io.onedev.server.web.page.project.builds.detail.issues.FixedIssuesPage;
-import io.onedev.server.web.page.project.builds.detail.log.BuildLogPage;
+import io.onedev.server.web.page.project.builds.detail.log.BuildStepsPage;
 import io.onedev.server.web.page.project.builds.detail.pack.BuildPacksPage;
 import io.onedev.server.web.page.project.builds.detail.pipeline.BuildPipelinePage;
 import io.onedev.server.web.page.project.overview.ProjectOverviewPage;
@@ -201,7 +201,7 @@ public abstract class BuildDetailPage extends ProjectPage
 			return new ViewStateAwarePageLink<Void>(componentId, ProjectOverviewPage.class, ProjectOverviewPage.paramsOf(project.getId()));
 	}
 
-	private ChangeObserver newBuildObserver(Long buildId) {
+	protected ChangeObserver newBuildObserver(Long buildId) {
 		return new ChangeObserver() {
 			
 			@Override
@@ -218,11 +218,116 @@ public abstract class BuildDetailPage extends ProjectPage
 		};
 	}
 	
+	protected Component newRebuildLink(String componentId) {
+		return new AjaxLink<Void>(componentId) {
+
+			@Override
+			protected void updateAjaxAttributes(AjaxRequestAttributes attributes) {
+				super.updateAjaxAttributes(attributes);
+				attributes.getAjaxCallListeners().add(new ConfirmClickListener(_T("Do you really want to rebuild?")));
+			}
+
+			private void resubmit(Serializable paramBean) {
+				var user = SecurityUtils.getUser();
+				jobService.resubmit(user, getBuild(), _T("Resubmitted manually"));
+				setResponsePage(BuildDefaultPage.class, BuildDefaultPage.paramsOf(getBuild()));
+			}
+
+			@Override
+			public void onClick(AjaxRequestTarget target) {
+				resubmit(getBuild().getParamBean());
+				target.focusComponent(null);
+			}
+
+			@Override
+			protected void onConfigure() {
+				super.onConfigure();
+				setVisible(getBuild().isFinished() && getBuild().getJob() != null
+						&& SecurityUtils.canRunJob(getProject(), getBuild().getJobName()));
+			}
+
+		}.setOutputMarkupId(true);
+	}
+
+	protected Component newCreateIssueLink(String componentId) {
+		return new AjaxLink<Void>(componentId) {
+
+			@Override
+			public void onClick(AjaxRequestTarget target) {
+				var prompt = settingService.getAiSetting().getBuildFailureIssuePrompt();
+				getAssistant().show(target, prompt + " Display in " + getSession().getLocale().getDisplayLanguage());
+			}
+
+			@Override
+			protected void onConfigure() {
+				super.onConfigure();
+				setVisible(getBuild().isFailed()
+						&& SecurityUtils.canWriteCode(getProject())
+						&& !getAssistant().getEntitledAis().isEmpty());
+			}
+
+		}.setOutputMarkupId(true);
+	}
+
+	protected Component newCancelLink(String componentId) {
+		return new AjaxLink<Void>(componentId) {
+
+			@Override
+			protected void updateAjaxAttributes(AjaxRequestAttributes attributes) {
+				super.updateAjaxAttributes(attributes);
+				attributes.getAjaxCallListeners().add(new ConfirmClickListener(_T("Do you really want to cancel this build?")));
+			}
+
+			@Override
+			public void onClick(AjaxRequestTarget target) {
+				jobService.cancel(getBuild());
+				getSession().success(_T("Cancel request submitted"));
+			}
+
+			@Override
+			protected void onConfigure() {
+				super.onConfigure();
+				setVisible(!getBuild().isFinished() && SecurityUtils.canRunJob(getBuild().getProject(), getBuild().getJobName()));
+			}
+
+		}.setOutputMarkupId(true);
+	}
+
+	protected Component newTerminalLink(String componentId) {
+		return new AjaxLink<Void>(componentId) {
+
+			@Override
+			public void onClick(AjaxRequestTarget target) {
+				if (isSubscriptionActive()) {
+					target.appendJavaScript(String.format("onedev.server.buildDetail.openTerminal('%s');",
+							terminalService.getTerminalUrl(getBuild())));
+				} else {
+					new MessageModal(target) {
+
+						@Override
+						protected Component newMessageContent(String componentId) {
+							return new Label(componentId, _T("Interactive web shell access to running jobs is an enterprise feature. <a href='${website}/pricing' target='_blank'>Try free</a> for 30 days")).setEscapeModelStrings(false);
+						}
+					};
+				}
+			}
+
+			@Override
+			protected void onConfigure() {
+				super.onConfigure();
+
+				JobContext jobContext = jobService.getJobContext(getBuild().getId());
+				setVisible(jobContext!= null && !getBuild().isFinished() && SecurityUtils.canOpenTerminal(getBuild()));
+			}
+
+		}.setOutputMarkupId(true);
+	}
+
 	@Override
 	protected void onInitialize() {
 		super.onInitialize();
 		
-		add(new Label("caption", new AbstractReadOnlyModel<String>() {
+		add(new Label("caption", new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -242,7 +347,7 @@ public abstract class BuildDetailPage extends ProjectPage
 		
 		add(new Label("number", "#" + getBuild().getNumber()));
 		
-		add(new BuildStatusIcon("statusIcon", new AbstractReadOnlyModel<Status>() {
+		add(new BuildStatusIcon("statusIcon", new IModel<Status>() {
 
 			@Override
 			public Status getObject() {
@@ -257,7 +362,7 @@ public abstract class BuildDetailPage extends ProjectPage
 			}
 			
 		});
-		add(new Label("statusLabel", new AbstractReadOnlyModel<String>() {
+		add(new Label("statusLabel", new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -270,84 +375,11 @@ public abstract class BuildDetailPage extends ProjectPage
 			@Override
 			protected void onInitialize() {
 				super.onInitialize();
-				add(new AjaxLink<Void>("rebuild") {
+				add(newRebuildLink("rebuild"));
 
-					@Override
-					protected void updateAjaxAttributes(AjaxRequestAttributes attributes) {
-						super.updateAjaxAttributes(attributes);
-						attributes.getAjaxCallListeners().add(new ConfirmClickListener(_T("Do you really want to rebuild?")));
-					}
+				add(newCancelLink("cancel"));
 
-					private void resubmit(Serializable paramBean) {
-						var user = SecurityUtils.getUser();
-						jobService.resubmit(user, getBuild(), _T("Resubmitted manually"));
-						setResponsePage(BuildDefaultPage.class, BuildDefaultPage.paramsOf(getBuild()));
-					}
-
-					@Override
-					public void onClick(AjaxRequestTarget target) {
-						resubmit(getBuild().getParamBean());
-						target.focusComponent(null);
-					}
-
-					@Override
-					protected void onConfigure() {
-						super.onConfigure();
-						setVisible(getBuild().isFinished() && getBuild().getJob() != null
-								&& SecurityUtils.canRunJob(getProject(), getBuild().getJobName()));
-					}
-
-				}.setOutputMarkupId(true));
-
-				add(new AjaxLink<Void>("cancel") {
-
-					@Override
-					protected void updateAjaxAttributes(AjaxRequestAttributes attributes) {
-						super.updateAjaxAttributes(attributes);
-						attributes.getAjaxCallListeners().add(new ConfirmClickListener(_T("Do you really want to cancel this build?")));
-					}
-
-					@Override
-					public void onClick(AjaxRequestTarget target) {
-						jobService.cancel(getBuild());
-						getSession().success(_T("Cancel request submitted"));
-					}
-
-					@Override
-					protected void onConfigure() {
-						super.onConfigure();
-						setVisible(!getBuild().isFinished() && SecurityUtils.canRunJob(getBuild().getProject(), getBuild().getJobName()));
-					}
-
-				}.setOutputMarkupId(true));
-
-				add(new AjaxLink<Void>("terminal") {
-
-					@Override
-					public void onClick(AjaxRequestTarget target) {
-						if (isSubscriptionActive()) {
-							target.appendJavaScript(String.format("onedev.server.buildDetail.openTerminal('%s');",
-									terminalService.getTerminalUrl(getBuild())));
-						} else {
-							new MessageModal(target) {
-
-								@Override
-								protected Component newMessageContent(String componentId) {
-									return new Label(componentId, _T("Interactive web shell access to running jobs is an enterprise feature. <a href='https://onedev.io/pricing' target='_blank'>Try free</a> for 30 days")).setEscapeModelStrings(false);
-								}
-							};
-						}
-					}
-
-					@Override
-					protected void onConfigure() {
-						super.onConfigure();
-
-						JobContext jobContext = jobService.getJobContext(getBuild().getId());
-						setVisible(jobContext!= null && !getBuild().isFinished() && SecurityUtils.canOpenTerminal(getBuild()));
-					}
-
-				}.setOutputMarkupId(true));
+				add(newTerminalLink("terminal"));
 
 				add(new DropdownLink("promotions") {
 
@@ -382,7 +414,7 @@ public abstract class BuildDetailPage extends ProjectPage
 					@Override
 					protected void onConfigure() {
 						super.onConfigure();
-						setVisible(!promotionsModel.getObject().isEmpty());
+						setVisible(getBuild().isFinished() && !promotionsModel.getObject().isEmpty());
 					}
 
 				});
@@ -448,23 +480,7 @@ public abstract class BuildDetailPage extends ProjectPage
 
 				});
 
-				add(new AjaxLink<Void>("createIssue") {
-
-					@Override
-					public void onClick(AjaxRequestTarget target) {
-						var prompt = settingService.getAiSetting().getBuildFailureIssuePrompt();
-						getAssistant().show(target, prompt + " Display in " + getSession().getLocale().getDisplayLanguage());
-					}
-		
-					@Override
-					protected void onConfigure() {
-						super.onConfigure();
-						setVisible(getBuild().isFailed() 
-								&& SecurityUtils.canWriteCode(getProject()) 
-								&& !getAssistant().getEntitledAis().isEmpty());
-					}
-		
-				});
+				add(newCreateIssueLink("createIssue"));
 						
 				add(newBuildObserver(getBuild().getId()));
 			}
@@ -493,7 +509,7 @@ public abstract class BuildDetailPage extends ProjectPage
 			
 		};
 		
-		jobNotFoundContainer.add(new Label("message", new AbstractReadOnlyModel<String>() {
+		jobNotFoundContainer.add(new Label("message", new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -516,7 +532,7 @@ public abstract class BuildDetailPage extends ProjectPage
 		
 		add(jobNotFoundContainer);
 		
-		add(new MarkdownViewer("description", new AbstractReadOnlyModel<>() {
+		add(new MarkdownViewer("description", new IModel<>() {
 
 			@Override
 			public String getObject() {
@@ -544,14 +560,14 @@ public abstract class BuildDetailPage extends ProjectPage
 				}
 
 				if (SecurityUtils.canAccessLog(getBuild())) {
-					tabs.add(new BuildTab(Model.of(_T("Log")), BuildLogPage.class, BuildLogPage.paramsOf(getBuild())) {
+					tabs.add(new BuildTab(Model.of(_T("Steps")), BuildStepsPage.class, BuildStepsPage.paramsOf(getBuild())) {
+						@Serial
+						private static final long serialVersionUID = 1L;
 
 						@Override
 						protected Component renderOptions(String componentId) {
-							BuildLogPage page = (BuildLogPage) getPage();
-							return page.renderOptions(componentId);
+							return ((BuildStepsPage) getPage()).renderOptions(componentId);
 						}
-
 					});
 				}
 
@@ -698,6 +714,7 @@ public abstract class BuildDetailPage extends ProjectPage
 	@Override
 	protected void onDetach() {
 		buildModel.detach();
+		promotionsModel.detach();
 		super.onDetach();
 	}
 
@@ -738,7 +755,7 @@ public abstract class BuildDetailPage extends ProjectPage
 
 	@Override
 	protected String getPageTitle() {
-		var pageTitle = getBuild().getReference().toString(getProject());
+		var pageTitle = "build " + getBuild().getReference().toString(getProject());
 		if (getBuild().getVersion() != null)
 			pageTitle += " (" + getBuild().getVersion() + ")";
 		return pageTitle;

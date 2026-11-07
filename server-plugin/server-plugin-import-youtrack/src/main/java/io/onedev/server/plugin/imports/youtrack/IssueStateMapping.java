@@ -1,10 +1,11 @@
 package io.onedev.server.plugin.imports.youtrack;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.OneDev;
 import io.onedev.server.service.SettingService;
@@ -16,6 +17,7 @@ import io.onedev.server.annotation.Editable;
 @Editable
 public class IssueStateMapping implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String youTrackIssueState;
@@ -32,7 +34,7 @@ public class IssueStateMapping implements Serializable {
 		this.youTrackIssueState = youTrackIssueState;
 	}
 
-	@Editable(order=200, name="OneDev Issue State")
+	@Editable(order=200, name="${productName} Issue State")
 	@ChoiceProvider("getOneDevIssueStateChoices")
 	@NotEmpty
 	public String getOneDevIssueState() {

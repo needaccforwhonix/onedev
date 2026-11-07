@@ -2,13 +2,14 @@ package io.onedev.server.buildspec;
 
 import static java.util.stream.Collectors.toList;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.Pattern;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
 
 import io.onedev.commons.codeassist.InputCompletion;
 import io.onedev.commons.codeassist.InputStatus;
@@ -26,6 +27,7 @@ import io.onedev.server.web.util.SuggestionUtils;
 @Editable
 public class Service implements NamedElement {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String name;
@@ -89,8 +91,7 @@ public class Service implements NamedElement {
 
 	@Editable(order=300, name="Environment Variables", description="Optionally specify environment variables of "
 			+ "the service")
-	@Valid
-	public List<EnvVar> getEnvVars() {
+	public List<@Valid EnvVar> getEnvVars() {
 		return envVars;
 	}
 

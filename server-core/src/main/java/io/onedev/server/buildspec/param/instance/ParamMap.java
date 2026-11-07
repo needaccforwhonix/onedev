@@ -1,10 +1,11 @@
 package io.onedev.server.buildspec.param.instance;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 
 import org.apache.wicket.Component;
 
@@ -27,6 +28,7 @@ import io.onedev.server.web.util.WicketUtils;
 @Editable
 public class ParamMap implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private List<ParamInstance> params = new ArrayList<>();
@@ -35,8 +37,7 @@ public class ParamMap implements Serializable {
 	@ParamSpecProvider("getParamSpecs")
 	@VariableOption(withBuildVersion=false, withDynamicVariables=false)
 	@OmitName
-	@Valid
-	public List<ParamInstance> getParams() {
+	public List<@Valid ParamInstance> getParams() {
 		return params;
 	}
 

@@ -1,8 +1,9 @@
 package io.onedev.server.buildspecmodel.inputspec.datetimeinput.defaultvalueprovider;
 
+import java.io.Serial;
 import java.util.Date;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.OmitName;
@@ -11,6 +12,7 @@ import io.onedev.server.annotation.WithTime;
 @Editable(order=100, name="Use specified default value")
 public class SpecifiedDefaultValue implements DefaultValueProvider {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private Date value;

@@ -1,11 +1,12 @@
 package io.onedev.server.buildspec.param.spec.choiceparam.defaultmultivalueprovider;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.Validator;
+import jakarta.validation.Validator;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import com.google.common.collect.Lists;
 
@@ -18,6 +19,7 @@ import io.onedev.server.annotation.OmitName;
 @Editable(order=100, name="Use specified default value")
 public class SpecifiedDefaultMultiValue implements DefaultMultiValueProvider {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private List<String> value;

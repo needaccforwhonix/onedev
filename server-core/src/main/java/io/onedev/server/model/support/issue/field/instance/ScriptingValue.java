@@ -1,16 +1,17 @@
 package io.onedev.server.model.support.issue.field.instance;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
-import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.server.model.Build;
 import io.onedev.server.util.GroovyUtils;
 import io.onedev.server.annotation.Editable;
@@ -19,6 +20,7 @@ import io.onedev.server.annotation.ScriptChoice;
 @Editable
 public class ScriptingValue implements ValueProvider {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static final String DISPLAY_NAME = "Evaluate script to get value";

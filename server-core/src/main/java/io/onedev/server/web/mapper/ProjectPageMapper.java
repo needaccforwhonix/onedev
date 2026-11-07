@@ -7,6 +7,8 @@ import org.apache.wicket.request.mapper.info.PageComponentInfo;
 import org.apache.wicket.request.mapper.parameter.IPageParametersEncoder;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 
+import io.onedev.server.model.Project;
+
 public class ProjectPageMapper extends BasePageMapper {
 
 	private final Class<? extends IRequestablePage> pageClass;
@@ -18,6 +20,8 @@ public class ProjectPageMapper extends BasePageMapper {
 
 	@Override
 	protected boolean setPlaceholders(PageParameters parameters, Url url) {
+		if (Project.DEFAULT_NAME.equals(parameters.get(ProjectMapperUtils.PARAM_PROJECT).toOptionalString()))
+			return false;
 		return ProjectMapperUtils.setPlaceholders(parameters, url, mountSegments, new PlaceholderProvider() {
 
 			@Override
@@ -60,6 +64,10 @@ public class ProjectPageMapper extends BasePageMapper {
 		Url normalizedUrl = ProjectMapperUtils.normalize(request.getUrl());
 
 		if (normalizedUrl != null && urlStartsWithMountedSegments(normalizedUrl)) {
+			// The project root should not act as a fallback for unknown project routes.
+			if (mountSegments.length == 1 && normalizedUrl.getSegments().size() > 1)
+				return null;
+
 			// try to extract page and component information from URL
 			PageComponentInfo info = getPageComponentInfo(normalizedUrl);
 			PageParameters pageParameters = extractPageParameters(request, normalizedUrl);

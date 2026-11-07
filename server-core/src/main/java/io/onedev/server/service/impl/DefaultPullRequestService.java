@@ -1,7 +1,6 @@
 package io.onedev.server.service.impl;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Lists.newArrayList;
 import static io.onedev.server.model.PullRequest.PROP_CLOSE_DATE;
 import static io.onedev.server.model.PullRequest.PROP_CLOSE_TIME_GROUPS;
 import static io.onedev.server.model.PullRequest.PROP_DURATION;
@@ -18,6 +17,7 @@ import static io.onedev.server.model.support.pullrequest.MergeStrategy.SQUASH_SO
 import static java.util.Arrays.asList;
 
 import java.io.ObjectStreamException;
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -32,15 +32,15 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Order;
-import javax.persistence.criteria.Path;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Order;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -48,10 +48,10 @@ import org.apache.shiro.subject.Subject;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.hibernate.Session;
-import org.hibernate.criterion.Criterion;
-import org.hibernate.criterion.Restrictions;
+import io.onedev.server.persistence.dao.Criterion;
+import io.onedev.server.persistence.dao.Restrictions;
 import org.hibernate.query.Query;
-import org.hibernate.query.criteria.internal.path.SingularAttributePath;
+import org.hibernate.query.sqm.tree.domain.SqmPath;
 import org.joda.time.DateTime;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -73,6 +73,7 @@ import io.onedev.server.OneDev;
 import io.onedev.server.cluster.ClusterRunnable;
 import io.onedev.server.cluster.ClusterService;
 import io.onedev.server.cluster.ClusterTask;
+import io.onedev.server.data.DataService;
 import io.onedev.server.event.Listen;
 import io.onedev.server.event.ListenerRegistry;
 import io.onedev.server.event.entity.EntityRemoved;
@@ -99,6 +100,7 @@ import io.onedev.server.model.CodeCommentReply;
 import io.onedev.server.model.CodeCommentStatusChange;
 import io.onedev.server.model.Group;
 import io.onedev.server.model.Project;
+import io.onedev.server.model.ProjectNumberCounter;
 import io.onedev.server.model.PullRequest;
 import io.onedev.server.model.PullRequest.Status;
 import io.onedev.server.model.PullRequestAssignment;
@@ -122,6 +124,7 @@ import io.onedev.server.model.support.pullrequest.changedata.PullRequestReopenDa
 import io.onedev.server.model.support.pullrequest.changedata.PullRequestSourceBranchDeleteData;
 import io.onedev.server.model.support.pullrequest.changedata.PullRequestSourceBranchRestoreData;
 import io.onedev.server.model.support.pullrequest.changedata.PullRequestTargetBranchChangeData;
+import io.onedev.server.model.support.pullrequest.changedata.PullRequestWorkInProgressChangeData;
 import io.onedev.server.persistence.SequenceGenerator;
 import io.onedev.server.persistence.TransactionService;
 import io.onedev.server.persistence.annotation.Sessional;
@@ -157,6 +160,7 @@ import io.onedev.server.xodus.PullRequestInfoService;
 public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 		implements PullRequestService, Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private static final Logger logger = LoggerFactory.getLogger(DefaultPullRequestService.class);
@@ -209,11 +213,14 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 	@Inject
 	private ObjectMapper objectMapper;
 
+	@Inject
+	private DataService dataService;
+
 	private SequenceGenerator numberGenerator;
 
 	private synchronized SequenceGenerator getNumberGenerator() {
 		if (numberGenerator == null)
-			numberGenerator = new SequenceGenerator(PullRequest.class, clusterService, dao);
+			numberGenerator = new SequenceGenerator(PullRequest.class, ProjectNumberCounter.PROP_NEXT_PULL_REQUEST_NUMBER, clusterService, dao, dataService);
 		return numberGenerator;
 	}
 
@@ -244,20 +251,20 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 
 		gitService.deleteRefs(request.getTargetProject(), refs);
 
-    	Query<?> query = getSession().createQuery(String.format(
+		var query = getSession().createMutationQuery(String.format(
     			"update CodeComment set %s=null where %s=:request",
     			CodeComment.PROP_COMPARE_CONTEXT + "." + CompareContext.PROP_PULL_REQUEST,
     			CodeComment.PROP_COMPARE_CONTEXT + "." + CompareContext.PROP_PULL_REQUEST));
     	query.setParameter("request", request);
     	query.executeUpdate();
 
-    	query = getSession().createQuery(String.format("update CodeCommentReply set %s=null where %s=:request",
+		query = getSession().createMutationQuery(String.format("update CodeCommentReply set %s=null where %s=:request",
     			CodeCommentReply.PROP_COMPARE_CONTEXT + "." + CompareContext.PROP_PULL_REQUEST,
     			CodeCommentReply.PROP_COMPARE_CONTEXT + "." + CompareContext.PROP_PULL_REQUEST));
     	query.setParameter("request", request);
     	query.executeUpdate();
 
-    	query = getSession().createQuery(String.format("update CodeCommentStatusChange set %s=null where %s=:request",
+		query = getSession().createMutationQuery(String.format("update CodeCommentStatusChange set %s=null where %s=:request",
     			CodeCommentStatusChange.PROP_COMPARE_CONTEXT + "." + CompareContext.PROP_PULL_REQUEST,
     			CodeCommentStatusChange.PROP_COMPARE_CONTEXT + "." + CompareContext.PROP_PULL_REQUEST));
     	query.setParameter("request", request);
@@ -681,8 +688,8 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 	public void on(EntityRemoved event) {
 		if (event.getEntity() instanceof Project) {
 			Project project = (Project) event.getEntity();
-	    	if (project.getForkRoot().equals(project))
-	    		getNumberGenerator().removeNextSequence(project);
+			if (project.getForkRoot().equals(project))
+				transactionService.runAfterCommit(() -> getNumberGenerator().removeNextSequence(project));
 		}
 	}
 
@@ -764,7 +771,7 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 			checkAutoMerge(event.getRequest());
 		} if (event instanceof PullRequestChanged) {
 			PullRequestChangeData data = ((PullRequestChanged) event).getChange().getData();
-			if (data instanceof PullRequestApproveData) {
+			if (data instanceof PullRequestApproveData || data instanceof PullRequestWorkInProgressChangeData) {
 				checkAutoMerge(event.getRequest());
 			} else if (data instanceof PullRequestMergeStrategyChangeData
 					|| data instanceof PullRequestTargetBranchChangeData) {
@@ -791,7 +798,7 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 	@Sessional
 	public void on(BuildEvent event) {
 		Build build = event.getBuild();
-		if (build.getRequest() != null && build.getRequest().isOpen()) {
+		if (!event.isMinor() && build.getRequest() != null && build.getRequest().isOpen()) {
 			if (build.getCommitHash().equals(build.getRequest().getBuildCommitHash()))
 				listenerRegistry.post(new PullRequestBuildEvent(build));
 		}
@@ -804,12 +811,14 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 
 		transactionService.runAfterCommit(new ClusterRunnable() {
 
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override
 			public void run() {
 				projectService.submitToActiveServer(projectId, new ClusterTask<Void>() {
 
+					@Serial
 					private static final long serialVersionUID = 1L;
 
 					@Override
@@ -817,12 +826,14 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 						try {
 							LockUtils.call(getSerialLockName(requestId), true, new ClusterTask<Void>() {
 
+								@Serial
 								private static final long serialVersionUID = 1L;
 
 								@Override
 								public Void call() {
 									transactionService.run(new ClusterRunnable() {
 
+										@Serial
 										private static final long serialVersionUID = 1L;
 
 										@Override
@@ -855,6 +866,8 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 		if (request.isOpen()) {
 			BranchProtection branchProtection = request.getTargetProject()
 					.getBranchProtection(request.getTargetBranch(), request.getSubmitter());
+			if (sourceUpdated && isTargetBranchMergeOrRebase(request))
+				sourceUpdated = false;
 			Collection<String> changedFiles;
 			if (sourceUpdated) {
 				changedFiles = request.getLatestUpdate().getChangedFiles();
@@ -878,7 +891,7 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 			}
 
 			if (sourceUpdated) {
-				// For AI user, we will request reviews every time source is updated even if the 
+				// For AI user, we will request reviews whenever source changes require review even if the
 				// review is not enforced by branch protection rules
 				for (PullRequestReview review: request.getReviews()) {
 					if (review.getUser().getType() == User.Type.AI 
@@ -889,6 +902,48 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 				}
 			}
 		}
+	}
+
+	private boolean isTargetBranchMergeOrRebase(PullRequest request) {
+		if (request.getUpdates().size() < 2)
+			return false;
+		var update = request.getLatestUpdate();
+		var head = update.getHeadCommit();
+		var previousHead = ObjectId.fromString(update.getBaseCommitHash());
+		var targetHead = ObjectId.fromString(update.getTargetHeadCommitHash());
+		var project = request.getTargetProject();
+		if (head.getParentCount() == 1) {
+			// Use the incorporated target revision, which may predate the current target head.
+			var rebaseTarget = gitService.getMergeBase(project, head, project, targetHead);
+			if (rebaseTarget == null)
+				return false;
+			var previousBase = gitService.getMergeBase(project, previousHead, project, rebaseTarget);
+			// A rebase must incorporate new target history. Ordinary edits and squash merges do not.
+			if (previousBase == null || previousBase.equals(rebaseTarget))
+				return false;
+
+			var rebased = gitService.rebase(project, previousHead, rebaseTarget, head.getCommitterIdent());
+			return rebased != null && gitService.getCommit(project, rebased).getTree().equals(head.getTree());
+		}
+		if (head.getParentCount() != 2)
+			return false;
+
+		ObjectId mergedTarget;
+		// The UI merge and a normal git merge use opposite parent orders.
+		if (head.getParent(0).equals(previousHead))
+			mergedTarget = head.getParent(1);
+		else if (head.getParent(1).equals(previousHead))
+			mergedTarget = head.getParent(0);
+		else
+			return false;
+
+		if (!gitService.isMergedInto(project, null, mergedTarget, targetHead))
+			return false;
+
+		// Recreate the merge to reject extra edits and manually resolved conflicts.
+		var merged = gitService.merge(project, head.getParent(0), head.getParent(1), false,
+				head.getCommitterIdent(), head.getAuthorIdent(), "Check target branch merge", false);
+		return merged != null && gitService.getCommit(project, merged).getTree().equals(head.getTree());
 	}
 
 	private void checkReviews(ReviewRequirement reviewRequirement, PullRequest request,
@@ -1036,11 +1091,11 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 
 		var found = false;
 		for (var order: orders) {
-			if (order.getExpression() instanceof SingularAttributePath) {
-				var expr = (SingularAttributePath) order.getExpression();
-				if (expr.getAttribute().getName().equals(LastActivity.PROP_DATE) 
-						&& expr.getPathSource() instanceof SingularAttributePath 
-						&& ((SingularAttributePath) expr.getPathSource()).getAttribute().getName().equals(PullRequest.PROP_LAST_ACTIVITY)) {
+			if (order.getExpression() instanceof SqmPath) {
+				var expr = (SqmPath) order.getExpression();
+				if (expr.getReferencedPathSource().getPathName().equals(LastActivity.PROP_DATE)
+						&& expr.getLhs() instanceof SqmPath
+						&& ((SqmPath) expr.getLhs()).getReferencedPathSource().getPathName().equals(PullRequest.PROP_LAST_ACTIVITY)) {
 					found = true;
 					break;
 				}
@@ -1132,9 +1187,9 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 			CriteriaBuilder builder = getSession().getCriteriaBuilder();
 			CriteriaQuery<ProjectPullRequestStatusStat> criteriaQuery = builder.createQuery(ProjectPullRequestStatusStat.class);
 			Root<PullRequest> root = criteriaQuery.from(PullRequest.class);
-			criteriaQuery.multiselect(
+			criteriaQuery.select(builder.construct(ProjectPullRequestStatusStat.class,
 					root.get(PullRequest.PROP_TARGET_PROJECT).get(Project.PROP_ID),
-					root.get(PROP_STATUS), builder.count(root));
+					root.get(PROP_STATUS), builder.count(root)));
 			criteriaQuery.groupBy(root.get(PullRequest.PROP_TARGET_PROJECT), root.get(PROP_STATUS));
 
 			criteriaQuery.where(root.get(PullRequest.PROP_TARGET_PROJECT).in(projects));
@@ -1163,13 +1218,13 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 		var groupPath = statsGroup.getPath(root.get(PROP_CLOSE_TIME_GROUPS));
 		criteriaQuery.groupBy(groupPath);
 
-		criteriaQuery.multiselect(newArrayList(
+		criteriaQuery.select(builder.array(
 				groupPath,
 				builder.avg(root.get(PROP_DURATION))));
 
 		Map<Integer, Integer> stats = new HashMap<>();
 		for (var result: getSession().createQuery(criteriaQuery).getResultList()) {
-			var duration = ((Double)result[1])/60000;
+			var duration = ((Double)result[1])/1000;
 			stats.put((int)result[0], (int)duration);
 		}
 		return stats;
@@ -1196,7 +1251,7 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 		var groupPath = statsGroup.getPath(root.get(PROP_SUBMIT_TIME_GROUPS));
 		criteriaQuery.groupBy(groupPath);
 
-		criteriaQuery.multiselect(newArrayList(groupPath, builder.count(root)));
+		criteriaQuery.select(builder.array(groupPath, builder.count(root)));
 
 		Map<Integer, Integer> openStats = new HashMap<>();
 		for (var result: getSession().createQuery(criteriaQuery).getResultList())
@@ -1212,7 +1267,7 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 		groupPath = statsGroup.getPath(root.get(PROP_CLOSE_TIME_GROUPS));
 		criteriaQuery.groupBy(groupPath);
 
-		criteriaQuery.multiselect(newArrayList(groupPath, builder.count(root)));
+		criteriaQuery.select(builder.array(groupPath, builder.count(root)));
 
 		Map<Integer, Integer> mergeStats = new HashMap<>();
 		for (var result: getSession().createQuery(criteriaQuery).getResultList())
@@ -1325,9 +1380,9 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 	@Override
 	public List<PullRequest> queryAfter(Long projectId, Long afterRequestId, int count) {
 		EntityCriteria<PullRequest> criteria = newCriteria();
-		criteria.add(org.hibernate.criterion.Restrictions.eq(PullRequest.PROP_TARGET_PROJECT + ".id", projectId));
-		criteria.add(org.hibernate.criterion.Restrictions.gt("id", afterRequestId));
-		criteria.addOrder(org.hibernate.criterion.Order.asc("id"));
+		criteria.add(io.onedev.server.persistence.dao.Restrictions.eq(PullRequest.PROP_TARGET_PROJECT + ".id", projectId));
+		criteria.add(io.onedev.server.persistence.dao.Restrictions.gt("id", afterRequestId));
+		criteria.addOrder(io.onedev.server.persistence.dao.Order.asc("id"));
 		return query(criteria, 0, count);
 	}
 
@@ -1338,28 +1393,17 @@ public class DefaultPullRequestService extends BaseEntityService<PullRequest>
 
 		var sourceBranchSemantic = pullRequest.getSourceBranchSemantic();
 		String titleSuggestInstruction;
-		if (sourceBranchSemantic.isWorkInProgress()) {
-			if (sourceBranchSemantic.getWorkType() != null) {
-				titleSuggestInstruction = """
-					When suggesting pull request title, you should not add work in progress prefix
-					or conventional commit type prefix to the title even if commit messages 
-					indicate that.
-					""";
-			} else {
-				titleSuggestInstruction = """
-					When suggesting pull request title, you should not add work in progress prefix
-					to the title even if commit messages indicate that. 
-					""";
-			}
+		if (sourceBranchSemantic.getWorkType() != null) {
+			titleSuggestInstruction = """
+				When suggesting pull request title, you should not add work in progress prefix
+				or conventional commit type prefix to the title even if commit messages
+				indicate that.
+				""";
 		} else {
-			if (sourceBranchSemantic.getWorkType() != null) {
-				titleSuggestInstruction = """
-					When suggesting pull request title, you should not add conventional commit type prefix
-					to the title even if commit messages indicate that.
-					""";
-			} else {
-				titleSuggestInstruction = "";
-			}
+			titleSuggestInstruction = """
+				When suggesting pull request title, you should not add work in progress prefix
+				to the title even if commit messages indicate that.
+				""";
 		}
 
 		var commitMessages = pullRequest.getLatestUpdate().getCommits().stream()

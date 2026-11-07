@@ -9,16 +9,16 @@ import static io.onedev.server.util.IOUtils.copyWithMaxSize;
 import static java.lang.Long.parseLong;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.regex.Pattern.compile;
-import static javax.servlet.http.HttpServletResponse.SC_ACCEPTED;
-import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
-import static javax.servlet.http.HttpServletResponse.SC_CREATED;
-import static javax.servlet.http.HttpServletResponse.SC_FORBIDDEN;
-import static javax.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED;
-import static javax.servlet.http.HttpServletResponse.SC_NOT_ACCEPTABLE;
-import static javax.servlet.http.HttpServletResponse.SC_NO_CONTENT;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
-import static javax.servlet.http.HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE;
-import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
+import static jakarta.servlet.http.HttpServletResponse.SC_ACCEPTED;
+import static jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
+import static jakarta.servlet.http.HttpServletResponse.SC_CREATED;
+import static jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN;
+import static jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED;
+import static jakarta.servlet.http.HttpServletResponse.SC_NOT_ACCEPTABLE;
+import static jakarta.servlet.http.HttpServletResponse.SC_NO_CONTENT;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
+import static jakarta.servlet.http.HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE;
+import static jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 import static org.apache.commons.lang3.StringUtils.substringBefore;
 
 import java.io.ByteArrayOutputStream;
@@ -31,12 +31,13 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.regex.Matcher;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.shiro.authz.UnauthorizedException;
 import org.eclipse.jetty.http.HttpStatus;
 
@@ -57,7 +58,6 @@ import io.onedev.server.service.PackBlobService;
 import io.onedev.server.service.PackService;
 import io.onedev.server.service.ProjectService;
 import io.onedev.server.service.SettingService;
-import io.onedev.server.util.CryptoUtils;
 import io.onedev.server.util.Digest;
 import io.onedev.server.util.HttpUtils;
 import io.onedev.server.util.Pair;
@@ -123,7 +123,7 @@ public class ContainerServlet extends HttpServlet {
 					var jsonObj = new HashMap<String, String>();
 					String accessTokenValue = SecurityUtils.createTemporalAccessTokenIfUserPrincipal(3600);
 					if (accessTokenValue == null)
-						accessTokenValue = CryptoUtils.generateSecret();
+						accessTokenValue = RandomStringUtils.secure().nextAlphanumeric(40);
 					var jobToken = HttpUtils.getAuthBasicUser(request);
 					if (jobToken == null)
 						jobToken = UUID.randomUUID().toString();

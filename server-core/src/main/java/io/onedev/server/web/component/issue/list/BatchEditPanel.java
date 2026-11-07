@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import javax.validation.ValidationException;
+import jakarta.validation.ValidationException;
 
 import org.apache.wicket.AttributeModifier;
 import org.apache.wicket.ajax.AjaxRequestTarget;
@@ -314,8 +314,13 @@ abstract class BatchEditPanel extends Panel implements InputContext {
 						Map<String, Object> fieldValues = FieldUtils.getFieldValues(getProject(), customFieldsBean, selectedFields);
 						try {
 							var user = SecurityUtils.getUser();
+							var issues = new ArrayList<Issue>();
+							getIssueIterator().forEachRemaining(issue -> {
+								SecurityUtils.checkWorkOnProject(issue.getProject());
+								issues.add(issue);
+							});
 							OneDev.getInstance(IssueChangeService.class).batchUpdate(
-									user, getIssueIterator(), state, confidential, iterations, 
+									user, issues.iterator(), state, confidential, iterations,
 									fieldValues, comment, sendNotifications);
 						} catch (ValidationException e) {
 							form.error(e.getMessage());
@@ -329,8 +334,9 @@ abstract class BatchEditPanel extends Panel implements InputContext {
 			}
 
 			@Override
-			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-				super.onSubmit(target, form);
+			protected void onSubmit(AjaxRequestTarget target) {
+				Form<?> form = getForm();
+				super.onSubmit(target);
 				
 				if (!selectedFields.isEmpty()) {
 					runTaskBehavior.requestRun(target);
@@ -341,8 +347,9 @@ abstract class BatchEditPanel extends Panel implements InputContext {
 			}
 
 			@Override
-			protected void onError(AjaxRequestTarget target, Form<?> form) {
-				super.onError(target, form);
+			protected void onError(AjaxRequestTarget target) {
+				Form<?> form = getForm();
+				super.onError(target);
 				target.add(form);
 			}
 			

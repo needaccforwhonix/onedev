@@ -18,8 +18,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 
-import javax.inject.Inject;
-import javax.servlet.http.Cookie;
+import jakarta.inject.Inject;
+import jakarta.servlet.http.Cookie;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.wicket.Component;
@@ -49,7 +49,6 @@ import org.apache.wicket.markup.html.list.ListItem;
 import org.apache.wicket.markup.html.list.ListView;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.markup.html.panel.Panel;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
@@ -356,7 +355,7 @@ public abstract class RevisionDiffPanel extends Panel {
 
 			@Override
 			public void setObject(String object) {
-				AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class);
+				AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 				String prevBlameFile = blameModel.getObject();
 				blameModel.setObject(object);
 				if (prevBlameFile != null && object != null && !prevBlameFile.equals(object)) {
@@ -421,6 +420,12 @@ public abstract class RevisionDiffPanel extends Panel {
 			protected void onConfigure() {
 				super.onConfigure();
 
+				if (WicketUtils.isBot()
+						|| (getProject().findRequireLoginForAutoIndexing() && SecurityUtils.getAuthUser() == null)) {
+					setVisible(false);
+					return;
+				}
+
 				ObjectId oldCommit = getOldCommitId();
 				ObjectId newCommit = getNewCommitId();
 				boolean oldCommitIndexed = oldCommit.equals(ObjectId.zeroId()) 
@@ -451,7 +456,7 @@ public abstract class RevisionDiffPanel extends Panel {
 					@Override
 					protected void onInitialize() {
 						super.onInitialize();
-						add(new Label("count", new AbstractReadOnlyModel<String>() {
+						add(new Label("count", new IModel<String>() {
 
 							@Override
 							public String getObject() {
@@ -675,7 +680,7 @@ public abstract class RevisionDiffPanel extends Panel {
 			protected List<String> getHints(TerminalExpect terminalExpect) {
 				return Lists.newArrayList(
 						_T("Path containing spaces or starting with dash needs to be quoted"),
-						_T("Use '**', '*' or '?' for <a href='https://docs.onedev.io/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude")
+						_T("Use '**', '*' or '?' for <a href='${docsite}/appendix/path-wildcard' target='_blank'>path wildcard match</a>. Prefix with '-' to exclude")
 						);
 			}
 			
@@ -707,8 +712,8 @@ public abstract class RevisionDiffPanel extends Panel {
 			}
 			
 			@Override
-			protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-				super.onSubmit(target, form);
+			protected void onSubmit(AjaxRequestTarget target) {
+				super.onSubmit(target);
 				doFilter(target);
 			}
 			
@@ -749,7 +754,7 @@ public abstract class RevisionDiffPanel extends Panel {
 				target.add(this);
 			}
 
-		}.add(AttributeAppender.append("class", new AbstractReadOnlyModel<String>() {
+		}.add(AttributeAppender.append("class", new IModel<String>() {
 			@Override
 			public String getObject() {
 				navigationContainer.configure();
@@ -771,7 +776,7 @@ public abstract class RevisionDiffPanel extends Panel {
 		body.add(commentContainer = newCommentContainer());
 		body.add(navigationContainer = newNavigationContainer());
 
-		body.add(new Label("tooManyFiles", new AbstractReadOnlyModel<String>() {
+		body.add(new Label("tooManyFiles", new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -788,7 +793,7 @@ public abstract class RevisionDiffPanel extends Panel {
 			
 		});		
 		
-		body.add(diffsView = new ListView<BlobChange>("diffs", new AbstractReadOnlyModel<>() {
+		body.add(diffsView = new ListView<BlobChange>("diffs", new IModel<>() {
 
 			@Override
 			public List<BlobChange> getObject() {
@@ -952,16 +957,17 @@ public abstract class RevisionDiffPanel extends Panel {
 								form.add(new AjaxButton("save") {
 
 									@Override
-									protected void onError(AjaxRequestTarget target, Form<?> form) {
-										super.onError(target, form);
+									protected void onError(AjaxRequestTarget target) {
+										super.onError(target);
 										target.add(feedback);
 									}
 
 									@Override
-									protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-										super.onSubmit(target, form);
+									protected void onSubmit(AjaxRequestTarget target) {
+										super.onSubmit(target);
 
 										String content = contentInput.getModelObject();
+										SecurityUtils.checkWorkOnProject(getProject());
 										if (content.length() > CodeComment.MAX_CONTENT_LEN) {
 											error(_T("Comment too long"));
 											target.add(feedback);
@@ -1226,7 +1232,7 @@ public abstract class RevisionDiffPanel extends Panel {
 			}
 		});
 		
-		add(AttributeAppender.append("class", new AbstractReadOnlyModel<String>() {
+		add(AttributeAppender.append("class", new IModel<String>() {
 
 			@Override
 			public String getObject() {
@@ -1466,7 +1472,7 @@ public abstract class RevisionDiffPanel extends Panel {
 				protected Component newContentComponent(String id, IModel<String> model) {
 					var path = model.getObject();
 					var fragment = new Fragment(id, "navTreeNodeFrag", RevisionDiffPanel.this);
-					fragment.add(AttributeAppender.append("class", new AbstractReadOnlyModel<String>() {
+					fragment.add(AttributeAppender.append("class", new IModel<String>() {
 						@Override
 						public String getObject() {
 							return path.equals(selectedPath) ? "active" : "";
@@ -1633,7 +1639,7 @@ public abstract class RevisionDiffPanel extends Panel {
 			protected void onInitialize() {
 				super.onInitialize();
 
-				add(AttributeAppender.replace("data-tippy-content", new AbstractReadOnlyModel<String>() {
+				add(AttributeAppender.replace("data-tippy-content", new IModel<String>() {
 
 					@Override
 					public String getObject() {
@@ -2179,16 +2185,17 @@ public abstract class RevisionDiffPanel extends Panel {
 						form.add(new AjaxButton("save") {
 
 							 @Override
-							 protected void onError(AjaxRequestTarget target, Form<?> form) {
-								 super.onError(target, form);
+							 protected void onError(AjaxRequestTarget target) {
+								 super.onError(target);
 								 target.add(feedback);
 							 }
 
 							 @Override
-							 protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-								 super.onSubmit(target, form);
+							 protected void onSubmit(AjaxRequestTarget target) {
+								 super.onSubmit(target);
 
 								 String content = contentInput.getModelObject();
+								 SecurityUtils.checkWorkOnProject(getProject());
 								 if (content.length() > CodeComment.MAX_CONTENT_LEN) {
 									 error(_T("Comment too long"));
 									 target.add(feedback);

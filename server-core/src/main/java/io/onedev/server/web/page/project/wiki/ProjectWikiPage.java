@@ -2,7 +2,10 @@ package io.onedev.server.web.page.project.wiki;
 
 import static io.onedev.server.web.translation.Translation._T;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.Serializable;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -13,8 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.lang3.SerializationUtils;
+import jakarta.inject.Inject;
 
 import org.apache.shiro.authz.UnauthorizedException;
 import org.apache.wicket.AttributeModifier;
@@ -44,6 +46,7 @@ import org.apache.wicket.model.IModel;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.validation.ValidationError;
+import org.eclipse.jgit.ignore.IgnoreNode;
 import org.eclipse.jgit.lib.FileMode;
 import org.jspecify.annotations.Nullable;
 import org.eclipse.jgit.lib.ObjectId;
@@ -52,7 +55,6 @@ import org.jsoup.nodes.Element;
 import org.unbescape.javascript.JavaScriptEscape;
 
 import io.onedev.commons.utils.PathUtils;
-import io.onedev.server.OneDev;
 import io.onedev.server.validation.validator.PathValidator;
 import io.onedev.server.exception.NotFoundException;
 import io.onedev.server.git.BlobContent;
@@ -71,9 +73,7 @@ import io.onedev.server.model.Project;
 import io.onedev.server.model.support.code.ConventionalCommitChecker;
 import io.onedev.server.search.commit.PathCriteria;
 import io.onedev.server.security.SecurityUtils;
-import io.onedev.server.service.ProjectService;
 import io.onedev.server.service.SettingService;
-import io.onedev.server.util.CryptoUtils;
 import io.onedev.server.util.FileExtension;
 import io.onedev.server.util.FilenameUtils;
 import io.onedev.server.util.RevisionAndPath;
@@ -102,6 +102,15 @@ import io.onedev.server.web.util.WikiLinkResolver;
 import io.onedev.server.web.util.WikiUtils;
 
 public class ProjectWikiPage extends ProjectPage {
+	@Inject
+	private GitService gitService;
+
+	@Inject
+	private SettingService settingService;
+
+	@Inject
+	private MarkdownService markdownService;
+
 	private String revision;
 	private String page;
 	private @Nullable String folder;
@@ -146,18 +155,14 @@ public class ProjectWikiPage extends ProjectPage {
 		WikiUtils.pagePath(folder, returnPage);
 	}
 
-	private GitService git() {
-		return OneDev.getInstance(GitService.class);
-	}
-
 	private Project getWikiProject() {
-		return wikiProjectId != null ? OneDev.getInstance(ProjectService.class).load(wikiProjectId) : getProject();
+		return wikiProjectId != null ? projectService.load(wikiProjectId) : getProject();
 	}
 
 	private void resolveWikiProject() {
 		if (commitId == null || folder == null)
 			return;
-		var ident = git().getBlobIdent(getProject(), commitId, folder);
+		var ident = gitService.getBlobIdent(getProject(), commitId, folder);
 		if (ident == null || !ident.isGitLink())
 			return;
 		submodule = true;
@@ -167,15 +172,15 @@ public class ProjectWikiPage extends ProjectPage {
 			wikiWarning = _T("Wiki submodule URL is not configured.");
 			return;
 		}
-		String serverUrl = OneDev.getInstance(SettingService.class).getSystemSetting().getServerUrl();
+		String serverUrl = settingService.getSystemSetting().getServerUrl();
 		String projectPath = WikiUtils.submoduleProjectPath(serverUrl, getProject().getPath(), target.getUrl());
 		if (projectPath == null) {
 			wikiWarning = _T("Cannot display wiki pages hosted on other servers.");
 			return;
 		}
-		var project = OneDev.getInstance(ProjectService.class).findByPath(projectPath);
+		var project = projectService.findByPath(projectPath);
 		if (project == null && projectPath.endsWith(".git"))
-			project = OneDev.getInstance(ProjectService.class).findByPath(projectPath.substring(0, projectPath.length() - 4));
+			project = projectService.findByPath(projectPath.substring(0, projectPath.length() - 4));
 		if (project == null) {
 			wikiWarning = _T("Wiki project not found.");
 		} else if (!SecurityUtils.canReadCode(project)) {
@@ -278,9 +283,7 @@ public class ProjectWikiPage extends ProjectPage {
 							"onedev.server.wiki.init('" + navigation.getMarkupId() + "', "
 							+ navigateBehavior.getCallbackFunction(
 									CallbackParameter.explicit("page"),
-									CallbackParameter.explicit("hash")) + ", '"
-							+ Base64.encodeBase64String(CryptoUtils.encrypt(
-									SerializationUtils.serialize(page))) + "');"));
+									CallbackParameter.explicit("hash")) + ");"));
 			}
 		};
 		view.setVisible(!editing && !creating && !missingHome);
@@ -292,7 +295,7 @@ public class ProjectWikiPage extends ProjectPage {
 		navigation.setOutputMarkupId(true);
 		view.add(navigation);
 		String sidebar = read("_Sidebar");
-		navigation.add(viewer("sidebar", sidebar).setVisible(sidebar != null).setOutputMarkupPlaceholderTag(true));
+		navigation.add(sidebarViewer(sidebar));
 		navigation.add(new Label("currentOutline", new LoadableDetachableModel<String>() {
 			@Override
 			protected String load() {
@@ -301,11 +304,7 @@ public class ProjectWikiPage extends ProjectPage {
 		}).setEscapeModelStrings(false).setVisible(sidebar == null).setOutputMarkupPlaceholderTag(true));
 		navigation.add(newSidebarEdit());
 		navigation.add(newUseDefault(sidebar));
-		List<String> pages = new ArrayList<>();
-		if (commitId != null)
-			collectPages(folder, pages);
-		Collections.sort(pages);
-		navigation.add(new ListView<String>("pages", pages) {
+		navigation.add(new ListView<String>("pages", getPages()) {
 			@Override
 			protected void populateItem(ListItem<String> item) {
 				String name = item.getModelObject();
@@ -673,8 +672,7 @@ public class ProjectWikiPage extends ProjectPage {
 		navigation.get("currentOutline").setVisible(sidebar == null);
 		navigation.addOrReplace(newSidebarEdit());
 		navigation.addOrReplace(newUseDefault(sidebar));
-		navigation.addOrReplace(viewer("sidebar", sidebar)
-				.setVisible(sidebar != null).setOutputMarkupPlaceholderTag(true));
+		navigation.addOrReplace(sidebarViewer(sidebar));
 		target.add(wiki.get("title"), wiki.get("subtitle"), actions, view.get("body"),
 				navigation.get("sidebar"), navigation.get("currentOutline"), navigation.get("sidebarEdit"), navigation.get("useDefault"));
 		target.appendJavaScript("onedev.server.wiki.onPageChanged('"
@@ -688,7 +686,7 @@ public class ProjectWikiPage extends ProjectPage {
 	}
 
 	private String outline(String markdown, String pageUrl) {
-		String html = markdown != null ? OneDev.getInstance(MarkdownService.class).render(markdown) : "";
+		String html = markdown != null ? markdownService.render(markdown) : "";
 		var result = new Element("div");
 		if (!html.isEmpty()) {
 			for (var heading : Jsoup.parseBodyFragment(html).select("h1, h2, h3, h4, h5, h6")) {
@@ -741,11 +739,11 @@ public class ProjectWikiPage extends ProjectPage {
 			String type = FileExtension.getExtension(path);
 			if (protection.getDisallowedFileTypes().stream().anyMatch(it -> it.equalsIgnoreCase(type)))
 				throw new BlobEditException(MessageFormat.format(_T("Not allowed file type: {0}"), type));
-			blobs.put(path, new BlobContent(item.get(), FileMode.REGULAR_FILE.getBits()));
+			blobs.put(path, new BlobContent(FileUpload.readBytes(item), FileMode.REGULAR_FILE.getBits()));
 		}
 		ObjectId previousCommitId = commitId != null ? commitId : ObjectId.zeroId();
 		try {
-			return git().commit(getProject(), new BlobEdits(Set.of(), blobs), GitUtils.branch2ref(branchName),
+			return gitService.commit(getProject(), new BlobEdits(Set.of(), blobs), GitUtils.branch2ref(branchName),
 					previousCommitId, previousCommitId, user.asPerson(), message, protection.isCommitSignatureRequired());
 		} catch (ObsoleteCommitException e) {
 			throw new BlobEditException(_T("The branch changed. Reload before uploading files."));
@@ -767,7 +765,7 @@ public class ProjectWikiPage extends ProjectPage {
 				deleteForm.add(newCommitMessageInput(message, Model.of(name), true, true));
 				deleteForm.add(new AjaxButton("confirm") {
 					@Override
-					protected void onSubmit(AjaxRequestTarget target, Form<?> submittedForm) {
+					protected void onSubmit(AjaxRequestTarget target) {
 						save(deleteForm::error, name, null, message.getObject(), true, true, destination);
 						if (deleteForm.hasError())
 							target.add(deleteForm);
@@ -776,7 +774,7 @@ public class ProjectWikiPage extends ProjectPage {
 					}
 
 					@Override
-					protected void onError(AjaxRequestTarget target, Form<?> submittedForm) {
+					protected void onError(AjaxRequestTarget target) {
 						target.add(deleteForm);
 					}
 				}.add(new Label("label", destination != null ? _T("Use default") : _T("Delete page"))));
@@ -793,7 +791,7 @@ public class ProjectWikiPage extends ProjectPage {
 			@Override
 			protected void onClosed() {
 				actions.setVisible(true);
-				AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class);
+				AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 				if (target != null)
 					target.add(actions);
 			}
@@ -850,15 +848,37 @@ public class ProjectWikiPage extends ProjectPage {
 		return blob.getText().getContent();
 	}
 
-	private void collectPages(@Nullable String directory, List<String> pages) {
-		var ident = directory != null ? git().getBlobIdent(getWikiProject(), commitId, directory)
+	private List<String> getPages() {
+		List<String> pages = new ArrayList<>();
+		if (commitId != null) {
+			var ignore = new IgnoreNode();
+			String ignorePath = (folder != null ? folder + "/" : "") + ".wikiignore";
+			var blob = getWikiProject().getBlob(new BlobIdent(commitId.name(), ignorePath, FileMode.REGULAR_FILE.getBits()), false);
+			if (blob != null && blob.getIdent().isFile() && blob.getLfsPointer() == null) {
+				try (var input = new ByteArrayInputStream(blob.getBytes())) {
+					ignore.parse(input);
+				} catch (IOException e) {
+					throw new UncheckedIOException(e);
+				}
+			}
+			collectPages(folder, pages, ignore);
+		}
+		Collections.sort(pages);
+		return pages;
+	}
+
+	private void collectPages(@Nullable String directory, List<String> pages, IgnoreNode ignore) {
+		var ident = directory != null ? gitService.getBlobIdent(getWikiProject(), commitId, directory)
 				: new BlobIdent(commitId.name(), null, FileMode.TREE.getBits());
 		if (ident != null && ident.isTree()) {
-			for (var child : git().getChildren(getWikiProject(), commitId, directory, BlobIdentFilter.ALL, false)) {
+			for (var child : gitService.getChildren(getWikiProject(), commitId, directory, BlobIdentFilter.ALL, false)) {
+				String relativePath = child.path.substring(folder != null ? folder.length() + 1 : 0);
+				if (ignore.isIgnored(relativePath, child.isTree()) == IgnoreNode.MatchResult.IGNORED)
+					continue;
 				if (child.isTree()) {
-					collectPages(child.path, pages);
+					collectPages(child.path, pages, ignore);
 				} else if (child.isFile() && child.path.endsWith(".md")) {
-					String name = child.path.substring(folder != null ? folder.length() + 1 : 0, child.path.length() - 3);
+					String name = relativePath.substring(0, relativePath.length() - 3);
 					if (!name.equals("_Sidebar"))
 						pages.add(name);
 				}
@@ -877,8 +897,7 @@ public class ProjectWikiPage extends ProjectPage {
 	private String render(String markdown, String currentPath) {
 		if (markdown == null)
 			return "";
-		var service = OneDev.getInstance(MarkdownService.class);
-		String html = service.process(service.render(markdown), getWikiProject(), null, null, false);
+		String html = markdownService.process(markdownService.render(markdown), getWikiProject(), null, null, false);
 		return new WikiLinkResolver(getProject(), revision, folder, currentPath, returnPage,
 				getWikiProject(), submodule && commitId != null ? commitId.name() : revision, submodule).resolve(html);
 	}
@@ -932,18 +951,15 @@ public class ProjectWikiPage extends ProjectPage {
 			Map<String, BlobContent> blobs = delete ? Map.of() : Map.of(path,
 					new BlobContent(text != null ? text.getBytes(StandardCharsets.UTF_8) : new byte[0], FileMode.REGULAR_FILE.getBits()));
 			ObjectId previousCommitId = commitId != null ? commitId : ObjectId.zeroId();
-			ObjectId newCommitId = git().commit(getProject(), new BlobEdits(oldPaths, blobs), GitUtils.branch2ref(branchName), previousCommitId, previousCommitId,
+			ObjectId newCommitId = gitService.commit(getProject(), new BlobEdits(oldPaths, blobs), GitUtils.branch2ref(branchName), previousCommitId, previousCommitId,
 					SecurityUtils.getAuthUser().asPerson(), message, protection.isCommitSignatureRequired());
 			String selectedPage = destination != null ? destination : delete || name.equals("_Sidebar") ? "Home" : name;
 			if (delete) {
 				commitId = newCommitId;
 				revision = branchName;
-				AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class);
+				AjaxRequestTarget target = RequestCycle.get().find(AjaxRequestTarget.class).orElse(null);
 				selectPage(target, selectedPage);
-				List<String> pages = new ArrayList<>();
-				collectPages(folder, pages);
-				Collections.sort(pages);
-				((ListView<String>) navigation.get("pages")).setList(pages);
+				((ListView<String>) navigation.get("pages")).setList(getPages());
 				target.add(get("wiki"));
 				String url = urlFor(ProjectWikiPage.class, paramsOf(getProject(), revision, page)).toString();
 				pushState(target, JavaScriptEscape.escapeJavaScript(url), page);
@@ -974,11 +990,22 @@ public class ProjectWikiPage extends ProjectPage {
 		return params;
 	}
 
+	private Component sidebarViewer(String markdown) {
+		return viewer("sidebar", markdown, "_Sidebar")
+				.setVisible(markdown != null).setOutputMarkupPlaceholderTag(true);
+	}
+
 	private Component viewer(String id, String markdown) {
+		return viewer(id, markdown, null);
+	}
+
+	private Component viewer(String id, String markdown, String sourcePage) {
 		return new MarkdownViewer(id, Model.of(markdown), null) {
 			@Override
 			protected String renderMarkdown(String markdown) {
-				return ProjectWikiPage.this.render(markdown);
+				return sourcePage != null
+						? ProjectWikiPage.this.render(markdown, WikiUtils.pagePath(folder, sourcePage))
+						: ProjectWikiPage.this.render(markdown);
 			}
 		};
 	}

@@ -1,21 +1,22 @@
 package io.onedev.server.model;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.persistence.CascadeType;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Index;
-import javax.persistence.Lob;
-import javax.persistence.OneToMany;
-import javax.persistence.Table;
-import javax.persistence.Transient;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
+import jakarta.persistence.Lob;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 
 import org.apache.shiro.authz.Permission;
 import org.hibernate.annotations.Cache;
@@ -25,6 +26,7 @@ import org.jetbrains.annotations.Nullable;
 import com.google.common.collect.Lists;
 
 import io.onedev.server.OneDev;
+import io.onedev.server.SubscriptionService;
 import io.onedev.server.annotation.ChoiceProvider;
 import io.onedev.server.annotation.DependsOn;
 import io.onedev.server.annotation.Editable;
@@ -36,11 +38,13 @@ import io.onedev.server.model.support.role.CodePrivilege;
 import io.onedev.server.model.support.role.IssueFieldSet;
 import io.onedev.server.model.support.role.JobPrivilege;
 import io.onedev.server.model.support.role.PackPrivilege;
+import io.onedev.server.annotation.Patterns;
 import io.onedev.server.security.permission.AccessBuildLog;
 import io.onedev.server.security.permission.AccessBuildPipeline;
 import io.onedev.server.security.permission.AccessBuildReports;
 import io.onedev.server.security.permission.AccessConfidentialIssues;
 import io.onedev.server.security.permission.AccessProject;
+import io.onedev.server.security.permission.AccessSites;
 import io.onedev.server.security.permission.AccessTimeTracking;
 import io.onedev.server.security.permission.BasePermission;
 import io.onedev.server.security.permission.CreateChildren;
@@ -54,6 +58,7 @@ import io.onedev.server.security.permission.ManageCodeComments;
 import io.onedev.server.security.permission.ManageIssues;
 import io.onedev.server.security.permission.ManageJob;
 import io.onedev.server.security.permission.ManageProject;
+import io.onedev.server.security.permission.MaintainProject;
 import io.onedev.server.security.permission.ManagePullRequests;
 import io.onedev.server.security.permission.ManageWorkspaces;
 import io.onedev.server.security.permission.ReadCode;
@@ -68,7 +73,6 @@ import io.onedev.server.service.SettingService;
 import io.onedev.server.util.EditContext;
 import io.onedev.server.util.facade.RoleFacade;
 import io.onedev.server.util.facade.UserFacade;
-import io.onedev.server.web.util.WicketUtils;
 
 /**
  * @author robin
@@ -80,6 +84,7 @@ import io.onedev.server.web.util.WicketUtils;
 @Editable
 public class Role extends AbstractEntity implements BasePermission {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	public static final String PROP_NAME = "name";
@@ -129,9 +134,13 @@ public class Role extends AbstractEntity implements BasePermission {
 	@Column(length=65535, nullable=false)
 	private ArrayList<JobPrivilege> jobPrivileges = new ArrayList<>();
 
+	private String accessibleSites;
+
 	private boolean manageWorkspaces;
 
 	private boolean createWorkspaces;
+
+	private boolean maintenance;
 	
 	@OneToMany(mappedBy="role", cascade=CascadeType.REMOVE)
 	@Cache(usage=CacheConcurrencyStrategy.READ_WRITE)
@@ -375,6 +384,19 @@ public class Role extends AbstractEntity implements BasePermission {
 		this.jobPrivileges = (ArrayList<JobPrivilege>) jobPrivileges;
 	}
 
+	@Editable(order=750, name="Accessible Sites", placeholder="No accessible named sites", description="Optionally specify "
+			+ "space-separated accessible site names. Use '*' or '?' for wildcard match. Prefix with '-' to exclude. "
+			+ "The public site is always accessible")
+	@DependsOn(property="manageProject", value="false")
+	@Patterns
+	public String getAccessibleSites() {
+		return accessibleSites;
+	}
+
+	public void setAccessibleSites(String accessibleSites) {
+		this.accessibleSites = accessibleSites;
+	}
+
 	@Editable(order=800, name="Workspace Management", description="""
 			Workspace administrative permission inside a project, including batch operations 
 			over multiple workspaces including batch operations over multiple workspaces. 
@@ -400,6 +422,18 @@ public class Role extends AbstractEntity implements BasePermission {
 
 	public void setCreateWorkspaces(boolean createWorkspaces) {
 		this.createWorkspaces = createWorkspaces;
+	}
+
+	@Editable(order=1000, name="Work in Maintenance Mode", description="""
+			Allow to work on a project while in maintenance mode. Permission for each action is still required""")
+	@DependsOn(property="manageProject", value="false")
+	@ShowCondition("isSubscriptionActive")
+	public boolean isMaintenance() {
+		return maintenance;
+	}
+
+	public void setMaintenance(boolean maintenance) {
+		this.maintenance = maintenance;
 	}
 
 	public Collection<BaseAuthorization> getBaseAuthorizations() {
@@ -430,6 +464,8 @@ public class Role extends AbstractEntity implements BasePermission {
 	private Collection<BasePermission> getPermissions() {
 		Collection<BasePermission> permissions = Lists.newArrayList(new AccessProject());
 		
+		if (maintenance)
+			permissions.add(new MaintainProject());
 		if (manageProject) 
 			permissions.add(new ManageProject());
 		if (createChildren)
@@ -465,6 +501,8 @@ public class Role extends AbstractEntity implements BasePermission {
 			permissions.add(new ManageWorkspaces());
 		if (createWorkspaces)
 			permissions.add(new CreateWorkspaces());
+		if (accessibleSites != null)
+			permissions.add(new AccessSites(accessibleSites));
 		if (uploadCache)
 			permissions.add(new UploadCache());
 		for (var jobPrivilege: jobPrivileges) {
@@ -486,7 +524,7 @@ public class Role extends AbstractEntity implements BasePermission {
 	
 	@SuppressWarnings("unused")
 	private static boolean isSubscriptionActive() {
-		return WicketUtils.isSubscriptionActive();
+		return OneDev.getInstance(SubscriptionService.class).isSubscriptionActive();
 	}
 
 	@Override

@@ -3,9 +3,13 @@ package io.onedev.server.jetty;
 import java.io.File;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.function.Supplier;
 
+import org.eclipse.jetty.server.Request;
+import org.eclipse.jetty.server.Response;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
+import org.eclipse.jetty.util.Callback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,6 +26,10 @@ public class MaintenanceProbeServer implements AutoCloseable {
 	}
 
 	public static MaintenanceProbeServer start(File installDir) {
+		return start(installDir, () -> "not ready: maintenance in progress");
+	}
+
+	public static MaintenanceProbeServer start(File installDir, Supplier<String> notReadyReason) {
 		var server = new Server();
 		ServerConfig serverConfig = null;
 		try {
@@ -32,7 +40,19 @@ public class MaintenanceProbeServer implements AutoCloseable {
 			connector.setHost(serverConfig.getHttpHost());
 			connector.setPort(serverConfig.getHttpPort());
 			server.addConnector(connector);
-			server.setHandler(new ProbeHandler(() -> false));
+			server.setHandler(new ProbeHandler(() -> false, notReadyReason) {
+				@Override
+				public boolean handle(Request request, Response response, Callback callback) {
+					// Agents may connect before the main server takes over this port.
+					if (request.getHttpURI().getPath().equals("/~server")) {
+						response.setStatus(HttpURLConnection.HTTP_UNAVAILABLE);
+						response.getHeaders().put("Cache-Control", "no-store");
+						response.write(true, null, callback);
+						return true;
+					}
+					return super.handle(request, response, callback);
+				}
+			});
 			server.start();
 			return new MaintenanceProbeServer(server);
 		} catch (Exception e) {

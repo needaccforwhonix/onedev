@@ -1,11 +1,12 @@
 package io.onedev.server.plugin.imports.github;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.server.OneDev;
 import io.onedev.server.service.SettingService;
@@ -18,6 +19,7 @@ import io.onedev.server.annotation.Editable;
 @Editable
 public class IssueImportOption implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String closedIssueState;
@@ -27,7 +29,7 @@ public class IssueImportOption implements Serializable {
 	private List<IssueLabelMapping> issueLabelMappings = new ArrayList<>();
 	
 	@Editable(order=300, description="Specify which issue state to use for closed GitHub issues.<br>"
-			+ "<b>NOTE: </b> You may customize OneDev issue states in case there is no appropriate option here")
+			+ "<b>NOTE: </b> You may customize ${productName} issue states in case there is no appropriate option here")
 	@ChoiceProvider("getCloseStateChoices")
 	@NotEmpty
 	public String getClosedIssueState() {
@@ -51,7 +53,7 @@ public class IssueImportOption implements Serializable {
 	}
 	
 	@Editable(order=350, description="Specify a multi-value user field to hold assignees information."
-			+ "<b>NOTE: </b> You may customize OneDev issue fields in case there is no appropriate option here")
+			+ "<b>NOTE: </b> You may customize ${productName} issue fields in case there is no appropriate option here")
 	@ChoiceProvider("getAssigneesIssueFieldChoices")
 	@NotEmpty
 	public String getAssigneesIssueField() {
@@ -72,9 +74,9 @@ public class IssueImportOption implements Serializable {
 		return choices;
 	}
 
-	@Editable(order=400, description="Specify how to map GitHub issue labels to OneDev custom "
+	@Editable(order=400, description="Specify how to map GitHub issue labels to ${productName} custom "
 			+ "fields.<br>"
-			+ "<b>NOTE: </b> You may customize OneDev issue fields in case there is no appropriate option here")
+			+ "<b>NOTE: </b> You may customize ${productName} issue fields in case there is no appropriate option here")
 	public List<IssueLabelMapping> getIssueLabelMappings() {
 		return issueLabelMappings;
 	}

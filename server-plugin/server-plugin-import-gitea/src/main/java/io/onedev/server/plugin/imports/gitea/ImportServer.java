@@ -1,5 +1,6 @@
 package io.onedev.server.plugin.imports.gitea;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -8,6 +9,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -19,13 +21,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.validation.ConstraintValidatorContext;
-import javax.validation.constraints.NotEmpty;
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.Invocation;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.Response;
+import jakarta.validation.ConstraintValidatorContext;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.ws.rs.client.Client;
+import jakarta.ws.rs.client.ClientBuilder;
+import jakarta.ws.rs.client.Invocation;
+import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.Response;
 
 import org.apache.commons.lang3.Strings;
 import org.apache.http.client.utils.URIBuilder;
@@ -40,7 +42,6 @@ import org.unbescape.html.HtmlEscape;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.commons.bootstrap.SecretMasker;
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.commons.utils.StringUtils;
@@ -87,6 +88,7 @@ import io.onedev.server.web.component.taskbutton.TaskResult.HtmlMessgae;
 @ClassValidating
 public class ImportServer implements Serializable, Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private static final Logger logger = LoggerFactory.getLogger(ImportServer.class);

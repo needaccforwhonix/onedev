@@ -1,9 +1,10 @@
 package io.onedev.server.buildspec.param.spec;
 
+import java.io.Serial;
 import java.util.List;
 import java.util.Map;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 
 import io.onedev.server.annotation.Editable;
 import io.onedev.server.buildspecmodel.inputspec.dateinput.DateInput;
@@ -12,6 +13,7 @@ import io.onedev.server.buildspecmodel.inputspec.dateinput.defaultvalueprovider.
 @Editable(order=505, name=ParamSpec.DATE)
 public class DateParam extends ParamSpec {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private DefaultValueProvider defaultValueProvider;

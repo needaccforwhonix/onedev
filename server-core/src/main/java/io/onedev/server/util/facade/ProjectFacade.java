@@ -1,11 +1,14 @@
 package io.onedev.server.util.facade;
 
+import java.io.Serial;
+
 import org.jspecify.annotations.Nullable;
 
 import io.onedev.server.model.support.code.GitPackConfig;
 
 public class ProjectFacade extends EntityFacade {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private final String name;
@@ -19,6 +22,8 @@ public class ProjectFacade extends EntityFacade {
 	private final boolean codeManagement;
 	
 	private final boolean issueManagement;
+
+	private final boolean maintenance;
 	
 	private final GitPackConfig gitPackConfig;
 	
@@ -30,7 +35,7 @@ public class ProjectFacade extends EntityFacade {
 	
 	public ProjectFacade(Long id, String name, @Nullable String key, String path,
 						 @Nullable String serviceDeskEmailAddress, boolean codeManagement,
-						 boolean issueManagement, GitPackConfig gitPackConfig,
+						 boolean issueManagement, boolean maintenance, GitPackConfig gitPackConfig,
 						 Long lastEventDateId, @Nullable Long parentId, 
 						 @Nullable Long forkedFromId) {
 		super(id);
@@ -40,6 +45,7 @@ public class ProjectFacade extends EntityFacade {
 		this.serviceDeskEmailAddress = serviceDeskEmailAddress;
 		this.codeManagement = codeManagement;
 		this.issueManagement = issueManagement;
+		this.maintenance = maintenance;
 		this.gitPackConfig = gitPackConfig;
 		this.lastEventDateId = lastEventDateId;
 		this.parentId = parentId;	
@@ -65,6 +71,10 @@ public class ProjectFacade extends EntityFacade {
 
 	public boolean isIssueManagement() {
 		return issueManagement;
+	}
+
+	public boolean isMaintenance() {
+		return maintenance;
 	}
 
 	@Nullable

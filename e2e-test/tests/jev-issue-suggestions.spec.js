@@ -1,0 +1,97 @@
+import { expect } from './fixtures.js';
+import { test } from './jev-fixtures.js';
+
+function field(page, name) {
+  return page.locator('.new-issue .form-group').filter({
+    has: page.locator('label.name > span', { hasText: new RegExp(`^${name}$`) }),
+  });
+}
+
+async function openIssue(page, api) {
+  const project = await api.createProject();
+  await page.goto(`${project.name}/~issues/new`);
+  await expect(field(page, 'Type').locator('select')).toHaveValue('');
+  await expect(field(page, 'Priority').locator('select')).toHaveValue('');
+  return project;
+}
+
+test('Jev suggestions populate required fields and are saved with the new issue', async ({ page, api, jev }) => {
+  const project = await openIssue(page, api);
+  const title = 'Login crashes when submitting an expired session';
+  const description = 'The login page returns a server error instead of asking me to sign in again.';
+  await page.locator('.new-issue .description textarea').fill(description);
+  await page.getByPlaceholder('Input title here').fill(title);
+  const request = await jev.nextRequest();
+  expect(JSON.parse(request.body.state)).toEqual({ title, description });
+  expect(Object.keys(request.body.questions)).toHaveLength(2);
+  await expect(field(page, 'Type')).toContainText('Suggesting...');
+  jev.reply(request, { Type: ['Bug', 0.75], Priority: ['Major', 0.75] });
+  await expect(field(page, 'Type').locator('.select2-selection__rendered')).toHaveText('Bug');
+  await expect(field(page, 'Priority').locator('.select2-selection__rendered')).toHaveText('Major');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.waitForURL(new RegExp(`/${project.name}/~issues/\\d+`));
+  await page.reload();
+  await expect(page.locator('.issue-editable-title')).toContainText(title);
+  await expect(page.locator('.field-values')).toContainText(['Bug', 'Major']);
+});
+
+test('uncertain and unknown suggestions leave fields empty and manual choices still work', async ({ page, api, jev }) => {
+  await openIssue(page, api);
+  await page.getByPlaceholder('Input title here').fill('Something needs attention');
+  jev.reply(await jev.nextRequest(), { Type: ['Bug', 0.7499], Priority: ['unknown', 0.99] });
+  await expect(field(page, 'Type').locator('.select2-selection__placeholder')).not.toContainText('Suggesting...');
+  await expect(field(page, 'Type').locator('select')).toHaveValue('');
+  await expect(field(page, 'Priority').locator('select')).toHaveValue('');
+  await field(page, 'Type').locator('.select2-selection').click();
+  await page.getByRole('option', { name: 'Enhancement', exact: true }).click();
+  const request = await jev.nextRequest(1);
+  expect(Object.keys(request.body.questions)).toHaveLength(1);
+  expect(Object.values(request.body.questions)[0].instructions).toContain("'Priority'");
+  jev.reply(request);
+  await expect(field(page, 'Priority').locator('select')).toHaveValue('Major');
+  await expect(field(page, 'Type').locator('select')).toHaveValue('Enhancement');
+});
+
+test('a response for an older title is ignored and the updated title is suggested', async ({ page, api, jev }) => {
+  await openIssue(page, api);
+  await page.getByPlaceholder('Input title here').fill('An old bug report');
+  const oldRequest = await jev.nextRequest();
+  await page.getByPlaceholder('Input title here').fill('Add a new dashboard');
+  jev.reply(oldRequest);
+  const newRequest = await jev.nextRequest(1);
+  expect(JSON.parse(oldRequest.body.state)).toEqual({ title: 'An old bug report', description: '' });
+  expect(JSON.parse(newRequest.body.state)).toEqual({ title: 'Add a new dashboard', description: '' });
+  await expect(field(page, 'Type').locator('select')).toHaveValue('');
+  jev.reply(newRequest, { Type: ['Enhancement', 0.99], Priority: ['Normal', 0.99] });
+  await expect(field(page, 'Type').locator('select')).toHaveValue('Enhancement');
+  await expect(field(page, 'Priority').locator('select')).toHaveValue('Normal');
+});
+
+test('a Jev API failure leaves fields empty and a later edit can retry successfully', async ({ page, api, jev }) => {
+  const project = await openIssue(page, api);
+  const description = 'Signing in produces a server error.';
+  await page.locator('.new-issue .description textarea').fill(description);
+  await page.getByPlaceholder('Input title here').fill('Cannot sign in');
+  const failedRequest = await jev.nextRequest();
+  expect(JSON.parse(failedRequest.body.state)).toEqual({ title: 'Cannot sign in', description });
+  jev.reply(failedRequest, undefined, 503);
+  for (const name of ['Type', 'Priority']) {
+    await expect(field(page, name)).not.toContainText('Suggesting...');
+    await expect(field(page, name).locator('select')).toHaveValue('');
+  }
+
+  const title = 'Cannot sign in after resetting my password';
+  await page.getByPlaceholder('Input title here').fill(title);
+  const retry = await jev.nextRequest(1);
+  expect(JSON.parse(retry.body.state)).toEqual({ title, description });
+  expect(Object.keys(retry.body.questions)).toHaveLength(2);
+  jev.reply(retry);
+  await expect(field(page, 'Type').locator('select')).toHaveValue('Bug');
+  await expect(field(page, 'Priority').locator('select')).toHaveValue('Major');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.waitForURL(new RegExp(`/${project.name}/~issues/\\d+`));
+  await page.reload();
+  await expect(page.locator('.issue-editable-title')).toContainText(title);
+  await expect(page.locator('.field-values')).toContainText(['Bug', 'Major']);
+  expect(jev.requests).toHaveLength(2);
+});

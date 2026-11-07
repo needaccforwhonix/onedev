@@ -13,11 +13,13 @@ import io.onedev.server.web.component.select2.Response;
 import io.onedev.server.web.component.select2.ResponseFiller;
 import io.onedev.server.web.component.user.choice.AbstractUserChoiceProvider;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 
 public abstract class AssigneeProvider extends AbstractUserChoiceProvider {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	@Override
@@ -25,15 +27,16 @@ public abstract class AssigneeProvider extends AbstractUserChoiceProvider {
 		PullRequest request = getPullRequest();
 		UserService userService = OneDev.getInstance(UserService.class);
 
-		List<User> users = new ArrayList<>(SecurityUtils.getAuthorizedUsers(request.getProject(), new WriteCode()));
+		UserCache cache = userService.cloneCache();
+		List<User> users = new ArrayList<>(SecurityUtils.getAuthorizedUsers(request.getProject(), cache, new WriteCode()));
 		
 		users.removeAll(request.getAssignees());
 		
-		UserCache cache = userService.cloneCache();
 		users.sort(cache.comparingDisplayName(request.getParticipants()));
 
 		new ResponseFiller<>(response).fill(new Similarities<>(users) {
 
+			@Serial
 			private static final long serialVersionUID = 1L;
 
 			@Override

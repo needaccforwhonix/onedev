@@ -1,16 +1,18 @@
 package io.onedev.server.web.editable;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import org.jspecify.annotations.Nullable;
 
@@ -28,6 +30,7 @@ import io.onedev.server.util.ReflectionUtils;
 
 public class PropertyDescriptor implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final Class<?> beanClass;
@@ -123,7 +126,7 @@ public class PropertyDescriptor implements Serializable {
 	public boolean isPropertyRequired() {
 		Size size;
 		return getPropertyGetter().getReturnType().isPrimitive()
-				|| findAnnotation(NotNull.class) != null 
+				|| (!List.class.isAssignableFrom(getPropertyClass()) && findAnnotation(NotNull.class) != null)
 				|| findAnnotation(NotEmpty.class) != null
 				|| (size = findAnnotation(Size.class)) != null && size.min()>=1;
 	}

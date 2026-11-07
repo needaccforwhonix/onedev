@@ -3,9 +3,10 @@ package io.onedev.server.buildspec.step;
 import static io.onedev.server.buildspec.step.StepGroup.PUBLISH;
 
 import java.io.File;
+import java.io.Serial;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.commons.utils.FileUtils;
@@ -19,6 +20,8 @@ import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Interpolative;
 import io.onedev.server.annotation.Patterns;
 import io.onedev.server.annotation.ProjectChoice;
+import io.onedev.server.annotation.ReservedOptions;
+import io.onedev.server.annotation.UrlSegment;
 import io.onedev.server.buildspec.BuildSpec;
 import io.onedev.server.job.JobContext;
 import io.onedev.server.job.JobService;
@@ -30,14 +33,18 @@ import io.onedev.server.service.SettingService;
 import io.onedev.server.util.patternset.PatternSet;
 
 @Editable(order=1060, name="Site", group = PUBLISH, description="This step publishes specified files to be served as project web site. "
-		+ "Project web site can be accessed publicly via <code>http://&lt;onedev base url&gt;/path/to/project/~site</code>")
+		+ "Sites are published at <code>/path/to/project/~sites/&lt;site name&gt;/</code>. "
+		+ "Leave the site name empty to publish a public site at <code>/path/to/project/~sites/public/</code>")
 public class PublishSiteStep extends ServerSideStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String projectPath;
 	
 	private String sourcePath;
+
+	private String siteName;
 	
 	private String siteFiles;
 	
@@ -52,8 +59,22 @@ public class PublishSiteStep extends ServerSideStep {
 		this.projectPath = projectPath;
 	}
 	
+	@Editable(order=20, placeholder="Public site", description="Optionally specify a site name. Named sites require "
+			+ "access permission configured in roles. Leave empty to publish a publicly accessible site. "
+			+ "The name 'public' is reserved (case insensitive)")
+	@UrlSegment
+	@Interpolative(variableSuggester = "suggestVariables")
+	@ReservedOptions(value="(?i)public", message="Site name 'public' is reserved")
+	public String getSiteName() {
+		return siteName;
+	}
+
+	public void setSiteName(String siteName) {
+		this.siteName = siteName;
+	}
+
 	@Editable(order=50, name="From Directory", placeholder="Job workdir", description="Optionally specify path "
-			+ "relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> to publish "
+			+ "relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a> to publish "
 			+ "artifacts from. Leave empty to use job working directory itself")
 	@Interpolative(variableSuggester="suggestVariables")
 	@Path(Path.Type.RELATIVE)
@@ -72,12 +93,12 @@ public class PublishSiteStep extends ServerSideStep {
 	@Interpolative(variableSuggester="suggestVariables")
 	@Patterns(path=true)
 	@NotEmpty
-	public String getArtifacts() {
+	public String getSiteFiles() {
 		return siteFiles;
 	}
 
-	public void setArtifacts(String artifacts) {
-		this.siteFiles = artifacts;
+	public void setSiteFiles(String siteFiles) {
+		this.siteFiles = siteFiles;
 	}
 	
 	@SuppressWarnings("unused")
@@ -87,7 +108,7 @@ public class PublishSiteStep extends ServerSideStep {
 
 	@Override
 	protected PatternSet getFiles() {
-		return PatternSet.parse(getArtifacts());
+		return PatternSet.parse(getSiteFiles());
 	}
 
 	@Override
@@ -107,16 +128,19 @@ public class PublishSiteStep extends ServerSideStep {
 					project = build.getProject();
 				}
 				var projectId = project.getId();
-				LockUtils.write(project.getSiteLockName(), () -> {
-					File projectSiteDir = OneDev.getInstance(ProjectService.class).getSiteDir(projectId);
-					FileUtils.cleanDir(projectSiteDir);
-					FileUtils.copyDirectory(inputDir, projectSiteDir);
-					OneDev.getInstance(ProjectService.class).directoryModified(projectId, projectSiteDir);
+				LockUtils.write(project.getSitesLockName(), () -> {
+					File projectSitesDir = OneDev.getInstance(ProjectService.class).getSitesDir(projectId);
+					var siteDir = new File(projectSitesDir,
+							siteName != null ? siteName : Project.PUBLIC_SITE);
+					FileUtils.cleanDir(siteDir);
+					FileUtils.copyDirectory(inputDir, siteDir);
+					OneDev.getInstance(ProjectService.class).directoryModified(projectId, projectSitesDir);
 					return null;
 				});
 				String serverUrl = OneDev.getInstance(SettingService.class).getSystemSetting().getServerUrl();
 				logger.log("Site published as "
-						+ StringUtils.stripEnd(serverUrl, "/") + "/" + project.getPath() + "/~site");
+						+ StringUtils.stripEnd(serverUrl, "/") + "/" + project.getPath() + "/~sites/"
+						+ (siteName != null ? siteName : Project.PUBLIC_SITE) + "/");
 			} else {
 				logger.error("Site publish is prohibited by current job executor");
 				return new ServerStepResult(false);

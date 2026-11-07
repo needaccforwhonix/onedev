@@ -7,8 +7,16 @@ async function checkScrolledModal(page, testInfo, dark) {
   await page.evaluate(dark => $('html').toggleClass('dark-mode', dark), dark);
   await page.locator('.issue-fields').getByRole('link', { name: 'Type', exact: true }).click();
   const modal = page.locator('.modal.show');
-  const selection = modal.locator('.property-defaultValueProvider .select2-selection--single');
-  await expect(selection).toHaveText('New Feature');
+  const defaultValue = modal.locator('.property-defaultValueProvider');
+  // Create an unsaved default explicitly; built-in fields no longer have one.
+  await defaultValue.locator('.type-selector > select').selectOption({ label: 'Use specified default value' });
+  await expect(defaultValue.locator('.add-element')).toBeVisible();
+  if (await defaultValue.locator('.select2-selection--single').count() === 0)
+    await defaultValue.locator('.add-element').click();
+  const selection = defaultValue.locator('.select2-selection--single').first();
+  await selection.click();
+  await modal.getByRole('option', { name: 'Enhancement', exact: true }).click();
+  await expect(selection).toHaveText('Enhancement');
   await selection.scrollIntoViewIfNeeded();
   await selection.evaluate(element => {
     element.closest('.modal').scrollTop += element.getBoundingClientRect().top - window.innerHeight * 0.4;

@@ -2,13 +2,14 @@ package io.onedev.server.buildspec.step;
 
 import static io.onedev.server.buildspec.param.ParamUtils.resolveParams;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.k8shelper.Action;
@@ -35,6 +36,7 @@ import io.onedev.server.web.editable.BeanEditor;
 @Editable(order=10000, name="Use Step Template", description="Run specified step template")
 public class UseTemplateStep extends CompositeStep {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public static final String PROP_TEMPLATE_NAME = "templateName";
@@ -65,8 +67,7 @@ public class UseTemplateStep extends CompositeStep {
 	@ParamSpecProvider("getParamSpecs")
 	@VariableOption(withBuildVersion=false, withDynamicVariables=false)
 	@OmitName
-	@Valid
-	public List<ParamInstances> getParamMatrix() {
+	public List<@Valid ParamInstances> getParamMatrix() {
 		return paramMatrix;
 	}
 
@@ -76,8 +77,7 @@ public class UseTemplateStep extends CompositeStep {
 
 	@Editable(order=300, name="Exclude Param Combos")
 	@ShowCondition("isExcludeParamMapsVisible")
-	@Valid
-	public List<ParamMap> getExcludeParamMaps() {
+	public List<@Valid ParamMap> getExcludeParamMaps() {
 		return excludeParamMaps;
 	}
 
@@ -109,6 +109,12 @@ public class UseTemplateStep extends CompositeStep {
 		return new ArrayList<>();
 	}
 	
+	@Override
+	public List<Step> getSteps(BuildSpec buildSpec) {
+		var template = buildSpec.getStepTemplateMap().get(templateName);
+		return template != null ? template.getSteps() : List.of();
+	}
+
 	@Override
 	protected List<Action> getActions(Build build, JobExecutor jobExecutor, String jobToken, 
 								ParamCombination paramCombination) {

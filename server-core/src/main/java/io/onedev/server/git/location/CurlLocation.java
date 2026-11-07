@@ -1,8 +1,9 @@
 package io.onedev.server.git.location;
 
+import java.io.Serial;
 import java.io.Serializable;
 
-import javax.validation.ConstraintValidatorContext;
+import jakarta.validation.ConstraintValidatorContext;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
@@ -24,6 +25,7 @@ import io.onedev.server.annotation.Editable;
 @ClassValidating
 public abstract class CurlLocation implements Serializable, Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private static final Logger logger = LoggerFactory.getLogger(CurlLocation.class);

@@ -48,12 +48,13 @@ export default defineConfig({
   webServer: process.env.E2E_SKIP_WEBSERVER
     ? undefined
     : {
-        command: './dev.sh run',
+        command: './dev.sh prod',
         cwd: serverDir,
         url: baseURL,
         reuseExistingServer: true,
         timeout: 10 * 60 * 1000,
-        stdout: 'pipe',
+        // Expected failure tests log server-side stack traces. Opt in when debugging.
+        stdout: process.env.E2E_SERVER_STDOUT === '1' ? 'pipe' : 'ignore',
         stderr: 'pipe',
         // Unattended first-run setup; see https://docs.onedev.io/installation-guide/run-as-docker-container
         env: {

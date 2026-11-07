@@ -1,11 +1,12 @@
 package io.onedev.server.buildspec.job;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.server.annotation.ChoiceProvider;
@@ -13,6 +14,7 @@ import io.onedev.server.annotation.Editable;
 import io.onedev.server.annotation.Interpolative;
 import io.onedev.server.annotation.OmitName;
 import io.onedev.server.annotation.ParamSpecProvider;
+import io.onedev.server.annotation.Path;
 import io.onedev.server.annotation.Patterns;
 import io.onedev.server.annotation.ShowCondition;
 import io.onedev.server.annotation.VariableOption;
@@ -27,6 +29,7 @@ import io.onedev.server.web.editable.BeanEditor;
 @Editable
 public class JobDependency implements Serializable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String jobName;
@@ -66,8 +69,7 @@ public class JobDependency implements Serializable {
 	@ParamSpecProvider("getParamSpecs")
 	@VariableOption(withBuildVersion=false, withDynamicVariables=false)
 	@OmitName
-	@Valid
-	public List<ParamInstances> getParamMatrix() {
+	public List<@Valid ParamInstances> getParamMatrix() {
 		return paramMatrix;
 	}
 
@@ -111,7 +113,7 @@ public class JobDependency implements Serializable {
 	
 	@Editable(order=300, name="Artifacts to Retrieve", placeholder="Do not retrieve", description=""
 			+ "Optionally specify artifacts to retrieve from the dependency into "
-			+ "<a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a>. "
+			+ "<a href='${docsite}/concepts#job-workdir'>job working directory</a>. "
 			+ "Only published artifacts (via artifact publish step) can be retrieved. Leave empty to not "
 			+ "retrieve any artifacts")
 	@Interpolative(variableSuggester="suggestVariables")
@@ -125,9 +127,10 @@ public class JobDependency implements Serializable {
 	}
 
 	@Editable(order=400, placeholder="Job workdir", description=""
-			+ "Optionally specify a path relative to <a href='https://docs.onedev.io/concepts#job-workdir'>job working directory</a> "
+			+ "Optionally specify a path relative to <a href='${docsite}/concepts#job-workdir'>job working directory</a> "
 			+ "to put retrieved artifacts. Leave empty to use job working directory itself")
 	@Interpolative(variableSuggester="suggestVariables")
+	@Path(Path.Type.RELATIVE)
 	public String getDestinationPath() {
 		return destinationPath;
 	}

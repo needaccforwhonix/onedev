@@ -1,7 +1,7 @@
 package io.onedev.server.service.impl;
 
 import static io.onedev.server.model.Setting.PROP_KEY;
-import static org.hibernate.criterion.Restrictions.eq;
+import static io.onedev.server.persistence.dao.Restrictions.eq;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -18,13 +18,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPKeyRingGenerator;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.validation.Validator;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import jakarta.validation.Validator;
 
 import org.apache.commons.codec.binary.Base64;
-import org.apache.shiro.crypto.AesCipherService;
-import org.apache.shiro.crypto.CipherService;
+import org.apache.shiro.crypto.cipher.AesCipherService;
+import org.apache.shiro.crypto.cipher.CipherService;
 import org.jspecify.annotations.Nullable;
 
 import io.onedev.commons.loader.ManagedSerializedForm;
@@ -123,6 +123,17 @@ public class DefaultSettingService extends BaseEntityService<Setting> implements
 		var settingValue = cache.get(key);	
 		return settingValue != null? settingValue.orElse(null): null;
 	}
+
+	@Override
+	public String getOAuthSigningKey() {
+		return (String) getSettingValue(Key.OAUTH_SIGNING_KEY);
+	}
+
+	@Transactional
+	@Override
+	public void saveOAuthSigningKey(String signingKey) {
+		saveSetting(Key.OAUTH_SIGNING_KEY, signingKey);
+	}
 	
 	@Override
 	public SystemSetting getSystemSetting() {
@@ -136,7 +147,7 @@ public class DefaultSettingService extends BaseEntityService<Setting> implements
 	
 	@Override
 	public String getSystemUUID() {
-		return new String(cipherService.decrypt(Base64.decodeBase64(((String)getSettingValue(Key.SYSTEM_UUID)).getBytes()), UUID_ENCRYPTION_KEY).getBytes());
+		return new String(cipherService.decrypt(Base64.decodeBase64(((String)getSettingValue(Key.SYSTEM_UUID)).getBytes()), UUID_ENCRYPTION_KEY).getClonedBytes());
 	}
 
 	@Override

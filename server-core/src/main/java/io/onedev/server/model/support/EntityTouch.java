@@ -1,12 +1,15 @@
 package io.onedev.server.model.support;
 
+import java.io.Serial;
+
 import io.onedev.server.model.AbstractEntity;
 
-import javax.persistence.MappedSuperclass;
+import jakarta.persistence.MappedSuperclass;
 
 @MappedSuperclass
 public abstract class EntityTouch extends AbstractEntity {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	public abstract Class<? extends AbstractEntity> getEntityClass();

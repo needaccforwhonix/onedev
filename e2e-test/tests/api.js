@@ -27,7 +27,7 @@ export class FixturesApi {
 
   async createProject(name = `e2e-${randomUUID()}`) {
     const id = await this.json('post', '~api/projects', { data: {
-      name, codeManagement: true, wikiManagement: true, codeAnalysisSetting: {}, gitPackConfig: {},
+      name, codeManagement: true, wikiManagement: true, codeIndexingSetting: {}, gitPackConfig: {},
     } });
     this.projects.push(id);
     return { id, name };
@@ -56,11 +56,21 @@ export class FixturesApi {
 
   async createIssue(project, { title = `Issue ${randomUUID()}`, description, confidential = false, fields = {}, creator } = {}) {
     const id = await this.json('post', '~api/issues', {
-      data: { projectId: project.id, title, description, confidential, fields },
+      // Built-in required fields have no defaults on a fresh server.
+      data: { projectId: project.id, title, description, confidential,
+        fields: { Type: 'Enhancement', Priority: 'Normal', ...fields } },
       ...(creator ? { headers: credentials(creator) } : {}),
     });
     const issue = await this.json('get', `~api/issues/${id}`);
     return { id, title, url: `${project.name}/~issues/${issue.number}` };
+  }
+
+  async createIssueComment(issue, content) {
+    const user = await this.json('get', '~api/users/me');
+    const id = await this.json('post', '~api/issue-comments', {
+      data: { issueId: issue.id, userId: user.id, content },
+    });
+    return { id, content, url: `${issue.url}#IssueComment-${id}` };
   }
 
   async authorizeIssueUser(issue, user, authorizer = admin) {

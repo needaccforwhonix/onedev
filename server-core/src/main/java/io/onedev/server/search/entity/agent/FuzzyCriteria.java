@@ -2,11 +2,13 @@ package io.onedev.server.search.entity.agent;
 
 import static io.onedev.server.search.entity.agent.AgentQueryLexer.Is;
 
+import java.io.Serial;
+
 import org.jspecify.annotations.Nullable;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.From;
-import javax.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Predicate;
 
 import io.onedev.commons.utils.StringUtils;
 import io.onedev.server.model.Agent;
@@ -16,6 +18,7 @@ import io.onedev.server.util.criteria.OrCriteria;
 
 public class FuzzyCriteria extends Criteria<Agent> {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private final String value;

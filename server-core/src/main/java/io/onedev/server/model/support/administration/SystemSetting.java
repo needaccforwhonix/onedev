@@ -5,12 +5,12 @@ import java.net.MalformedURLException;
 import java.net.URL;
 
 import org.jspecify.annotations.Nullable;
-import javax.validation.ConstraintValidatorContext;
-import javax.validation.Valid;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Pattern;
+import jakarta.validation.ConstraintValidatorContext;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import io.onedev.commons.utils.PathUtils;
 import io.onedev.server.OneDev;
 import io.onedev.server.ServerConfig;
+import io.onedev.server.SubscriptionService;
 import io.onedev.server.annotation.ClassValidating;
 import io.onedev.server.annotation.DependsOn;
 import io.onedev.server.annotation.Editable;
@@ -30,7 +31,6 @@ import io.onedev.server.git.location.SystemCurl;
 import io.onedev.server.git.location.SystemGit;
 import io.onedev.server.util.EditContext;
 import io.onedev.server.validation.Validatable;
-import io.onedev.server.web.util.WicketUtils;
 
 @Editable
 @ClassValidating
@@ -123,7 +123,7 @@ public class SystemSetting implements Serializable, Validatable {
 		return null;
 	}
 
-	@Editable(order=200, name="Git Command Line", description="OneDev requires git command line to manage repositories. The minimum "
+	@Editable(order=200, name="Git Command Line", description="${productName} requires git command line to manage repositories. The minimum "
 			+ "required version is 2.11.1. Also make sure that git-lfs is installed if you want to retrieve "
 			+ "LFS files in build job")
 	@Valid
@@ -136,7 +136,7 @@ public class SystemSetting implements Serializable, Validatable {
 		this.gitLocation = gitLocation;
 	}
 
-	@Editable(order=250, name="curl Command Line", description="OneDev configures git hooks to communicate with itself via curl")
+	@Editable(order=250, name="curl Command Line", description="${productName} configures git hooks to communicate with itself via curl")
 	@Valid
 	@NotNull(message="may not be empty")
 	public CurlLocation getCurlLocation() {
@@ -185,7 +185,7 @@ public class SystemSetting implements Serializable, Validatable {
 	
 	@SuppressWarnings("unused")
 	private static boolean isDisableDashboardEnabled() {
-		return WicketUtils.isSubscriptionActive();
+		return OneDev.getInstance(SubscriptionService.class).isSubscriptionActive();
 	}
 
 	@Editable(order=500, description="Whether or not to use user avatar from a public service")

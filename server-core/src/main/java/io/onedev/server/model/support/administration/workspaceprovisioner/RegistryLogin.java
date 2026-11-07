@@ -1,9 +1,10 @@
 package io.onedev.server.model.support.administration.workspaceprovisioner;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 import com.google.common.collect.Lists;
 
@@ -22,6 +23,7 @@ import io.onedev.server.workspace.WorkspaceVariable;
 @Editable
 public class RegistryLogin implements Serializable {
 	
+	@Serial
 	private static final long serialVersionUID = 1L;
 
 	private String registryUrl;

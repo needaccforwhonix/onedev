@@ -2,27 +2,28 @@ package io.onedev.server.buildspec;
 
 import static io.onedev.server.web.translation.Translation._T;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Stack;
 import java.util.stream.Collectors;
 
 import org.jspecify.annotations.Nullable;
-import javax.validation.ConstraintValidatorContext;
-import javax.validation.ConstraintViolation;
-import javax.validation.ValidationException;
-import javax.validation.Validator;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.ConstraintValidatorContext;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ValidationException;
+import jakarta.validation.Validator;
+import jakarta.validation.constraints.NotEmpty;
 
 import org.apache.shiro.subject.Subject;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import edu.emory.mathcs.backport.java.util.Collections;
 import io.onedev.commons.codeassist.InputSuggestion;
 import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.OneDev;
@@ -48,6 +49,7 @@ import io.onedev.server.web.util.WicketUtils;
 @ClassValidating
 public class Import implements Serializable, Validatable {
 
+	@Serial
 	private static final long serialVersionUID = 1L;
 	
 	private static final Logger logger = LoggerFactory.getLogger(Import.class);
@@ -131,7 +133,7 @@ public class Import implements Serializable, Validatable {
 			return new ArrayList<>();
 	}
 
-	@Editable(order=500, description="Specify a <a href='https://docs.onedev.io/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as access token to import build spec " +
+	@Editable(order=500, description="Specify a <a href='${docsite}/tutorials/cicd/job-secrets' target='_blank'>job secret</a> to be used as access token to import build spec " +
 			"from above project if its code is not publicly accessible")
 	@ChoiceProvider("getAccessTokenSecretChoices")
 	@Nullable
